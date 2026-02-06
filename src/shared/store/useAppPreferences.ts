@@ -14,7 +14,7 @@ interface AppPreferencesState {
 export const useAppPreferences = create<AppPreferencesState>()(
   persist(
     (set) => ({
-      theme: 'light',
+      theme: 'system',
       mode: 'mock',
       language: 'zh-CN',
       setTheme: (theme) => set({ theme }),

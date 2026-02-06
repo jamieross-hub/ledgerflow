@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
+import { ThemeSwitcher } from '../../features/theme-switcher/ThemeSwitcher';
 
 const navItems = [
   { to: '/', label: '仪表盘', end: true },
@@ -15,18 +16,21 @@ export function AppLayout() {
         <Link to="/" className="brand">
           LedgerFlow
         </Link>
-        <nav className="nav">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+        <div className="topbar-actions">
+          <nav className="nav">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+          <ThemeSwitcher />
+        </div>
       </header>
       <main className="content">
         <Outlet />
