@@ -1,7 +1,15 @@
+const APP_VERSION = '0.1';
+
 export function AboutPage() {
   return (
     <section className="panel">
       <h2>关于 / 帮助</h2>
+      <p>
+        <strong>当前版本：</strong> v{APP_VERSION}
+      </p>
+      <p>
+        LedgerFlow 是一个现代化记账前端模板，聚焦“可维护架构 + 可部署工程化 + 可扩展 AI 辅助记账”。
+      </p>
       <p>
         本项目是纯前端记账软件演示。浏览器环境不适合直接安全访问 PostgreSQL / MySQL / Redis，核心原因如下：
       </p>

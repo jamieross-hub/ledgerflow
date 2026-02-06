@@ -20,6 +20,12 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
 body {
   margin: 0;
   font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -30,21 +36,41 @@ body {
   color: var(--text);
 }
 
-.layout {
+.app-shell {
   min-height: 100vh;
+  background: transparent;
+  color: var(--text);
 }
 
-.topbar {
+.layout-shell {
+  --sidebar-width: 260px;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+}
+
+.sidebar {
   position: sticky;
   top: 0;
-  z-index: 10;
+  height: 100vh;
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+}
+
+.sidebar.collapsed {
+  padding: 12px 8px;
+}
+
+.sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 20px;
-  background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+  gap: 8px;
 }
 
 .brand {
@@ -54,41 +80,89 @@ body {
   letter-spacing: 0.2px;
 }
 
-.topbar-actions {
-  display: flex;
-  gap: 10px;
+.icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
-.nav {
-  display: flex;
+.sidebar-nav {
+  display: grid;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
-.nav-link {
+.sidebar-link {
   text-decoration: none;
   color: var(--text);
   border: 1px solid transparent;
   border-radius: 10px;
-  padding: 7px 11px;
+  padding: 9px 10px;
   transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.nav-link:hover {
+.sidebar-link:hover {
   border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
   background: color-mix(in srgb, var(--primary) 10%, var(--bg-panel));
   transform: translateY(-1px);
 }
 
-.nav-link.active {
+.sidebar-link.active {
   border-color: var(--primary);
   color: var(--primary);
   background: color-mix(in srgb, var(--primary) 12%, var(--bg-panel));
 }
 
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+}
+
+.workspace {
+  min-width: 0;
+}
+
+.workspace-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-panel) 86%, transparent);
+  backdrop-filter: blur(8px);
+  padding: 12px 20px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.workspace-topbar h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.workspace-topbar span {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
 .content {
-  max-width: 1120px;
+  max-width: 1240px;
   margin: 0 auto;
   padding: 22px;
 }
@@ -216,4 +290,69 @@ td {
 
 small.mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.assistant-layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(260px, 360px) 1fr;
+}
+
+.assistant-model-field {
+  min-width: 220px;
+  margin-bottom: 0;
+}
+
+.assistant-chat-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.assistant-chat-window {
+  max-height: 460px;
+  overflow: auto;
+  display: grid;
+  gap: 10px;
+  padding-right: 4px;
+}
+
+.chat-bubble {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
+}
+
+.chat-bubble header {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-bottom: 6px;
+}
+
+.chat-bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.chat-bubble.user {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+}
+
+.chat-image {
+  max-width: 220px;
+  border-radius: 8px;
+  margin-top: 8px;
+  border: 1px solid var(--border);
+}
+
+.assistant-form {
+  border-top: 1px dashed var(--border);
+  padding-top: 12px;
+}
+
+@media (max-width: 1024px) {
+  .assistant-layout {
+    grid-template-columns: 1fr;
+  }
 }

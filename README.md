@@ -1,8 +1,19 @@
 # LedgerFlow 前端（记账软件）
 
-一个现代化、可维护、模块化、可测试、可部署的纯前端记账系统示例，内置 PWA 能力，并支持数据库连接配置管理（PostgreSQL / MySQL / Redis）与可切换的连接测试模式（Mock / 代理）。
+一个现代化、可维护、模块化、可测试、可部署的纯前端记账系统示例，内置 PWA 能力，并支持数据库连接配置管理（PostgreSQL / MySQL / Redis）、左侧抽屉工作台（可折叠/可拖拽宽度）与 OpenAI 兼容记账助手。
 
-## 1. 技术栈
+当前版本：`v0.1`
+
+## 1. 项目介绍（GitHub）
+
+LedgerFlow 面向“前端先行”的财务产品原型与中小团队协作场景，提供：
+
+- 清晰分层架构，便于多人并行开发
+- 可直接部署到 Railway / Docker / 静态托管
+- UI 内即可配置 OpenAI 兼容网关（无需依赖 Docker 注入）
+- 连接配置与安全提示完整，便于后续衔接后端
+
+## 2. 技术栈
 
 - React + TypeScript + Vite
 - 路由：React Router
@@ -15,7 +26,7 @@
 - 工程化：ESLint + Prettier + lint-staged + Husky
 - 部署：Docker + docker-compose + GitHub Actions
 
-## 2. 架构设计（Feature-Sliced）
+## 3. 架构设计（Feature-Sliced）
 
 目录分层如下：
 
@@ -37,13 +48,14 @@ src/
 3. 可替换的连接测试适配：通过 mode（mock/proxy）与 api client 解耦，便于后续接入真实后端。
 4. 文件保持精简：避免把多个功能塞进同一文件。
 
-## 3. 功能模块
+## 4. 功能模块
 
 ### 仪表盘
 
 - 本月收入 / 支出 / 结余
 - 分类饼图占位
 - 趋势图占位
+- 左侧抽屉导航统一入口（仪表盘/账目/分类账户/记账助手/设置/帮助）
 
 ### 账目列表
 
@@ -70,12 +82,19 @@ src/
   - Mock 模式：纯前端模拟成功/失败/超时
   - 代理模式：前端调用 `/api/conn/*`（仅接口对接，不含后端实现）
 
+### 记账助手
+
+- 支持文字输入 + 图片输入（小票/账单截图）
+- 支持 OpenAI 兼容渠道商配置（Base URL / API Key）
+- 支持拉取模型列表（`GET /models`）
+- 支持对话调用（`POST /chat/completions`）
+
 ### 关于/帮助
 
 - 解释“前端直连数据库不安全”的原因
 - 给出代理模式接口规范
 
-## 4. 环境变量
+## 5. 环境变量
 
 参考 [.env.example](.env.example)：
 
@@ -83,9 +102,13 @@ src/
 VITE_API_BASE_URL=/api
 VITE_REQUEST_TIMEOUT_MS=8000
 VITE_LOG_LEVEL=info
+
+VITE_AI_BASE_URL=https://api.openai.com/v1
+VITE_AI_API_KEY=
+VITE_AI_DEFAULT_MODEL=gpt-4o-mini
 ```
 
-## 5. 本地开发
+## 6. 本地开发
 
 > 当前执行环境缺少 Node/npm，未能在本环境直接跑通命令；代码与脚本已完整生成。
 
@@ -119,7 +142,7 @@ npm run lint
 npm run build
 ```
 
-## 6. Docker
+## 7. Docker
 
 ### 构建并运行
 
@@ -134,7 +157,7 @@ docker compose up --build
 - [Dockerfile](Dockerfile) 使用多阶段构建，先 `npm run build`，再由 Nginx 托管静态站点。
 - [nginx.conf](nginx.conf) 使用 `try_files` 保证 SPA 刷新路由可用。
 
-## 7. CI/CD
+## 8. CI/CD
 
 已提供 GitHub Actions 工作流： [.github/workflows/ci.yml](.github/workflows/ci.yml)
 
@@ -148,7 +171,7 @@ docker compose up --build
 
 后续可扩展为自动部署到静态托管平台（如 GitHub Pages / Netlify / Vercel / OSS + CDN）。
 
-## 8. 连接配置与安全策略
+## 9. 连接配置与安全策略
 
 连接配置支持：
 
@@ -168,7 +191,7 @@ docker compose up --build
 - `GET /api/conn/list`
 - `DELETE /api/conn/:id`
 
-## 9. 测试覆盖
+## 10. 测试覆盖
 
 已包含至少以下测试：
 
@@ -176,7 +199,7 @@ docker compose up --build
 2. 测试连接按钮流程（[src/features/connection-config/ui/ConnectionTestButton.test.tsx](src/features/connection-config/ui/ConnectionTestButton.test.tsx)）
 3. 关键页面渲染（[src/pages/dashboard/DashboardPage.test.tsx](src/pages/dashboard/DashboardPage.test.tsx)）
 
-## 10. 关键设计决策
+## 11. 关键设计决策
 
 1. 选择 Feature-Sliced 而非把逻辑散落在 pages：降低耦合，利于多人协作。
 2. 连接测试分为 mock/proxy：
@@ -185,7 +208,7 @@ docker compose up --build
 3. 连接配置本地持久化：使用 localStorage 快速落地，无后端也可完成完整交互链路。
 4. PWA 默认离线缓存静态资源：提升首屏体验与安装能力。
 
-## 11. 后续扩展建议
+## 12. 后续扩展建议
 
 1. 接入真实后端时，把连接配置加密后存储（KMS/Secret Manager），前端只传最小必要字段。
 2. 为代理接口增加鉴权、限流、审计日志、连接测试白名单。
@@ -193,7 +216,7 @@ docker compose up --build
 4. 增加 i18n 方案（如 i18next）与多主题设计 token 体系。
 5. 把本地 store 逐步迁移为“离线优先 + 同步策略”（例如 IndexedDB + sync queue）。
 
-## 12. 脚本清单
+## 13. 脚本清单
 
 见 [package.json](package.json)：
 

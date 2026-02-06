@@ -6,6 +6,7 @@ import { TransactionEditPage } from '../../pages/transaction-edit/TransactionEdi
 import { CategoriesAccountsPage } from '../../pages/categories-accounts/CategoriesAccountsPage';
 import { SettingsPage } from '../../pages/settings/SettingsPage';
 import { AboutPage } from '../../pages/about/AboutPage';
+import { AssistantPage } from '../../pages/assistant/AssistantPage';
 
 export const router = createBrowserRouter([
   {
@@ -18,7 +19,8 @@ export const router = createBrowserRouter([
       { path: 'transactions/:id', element: <TransactionEditPage /> },
       { path: 'categories-accounts', element: <CategoriesAccountsPage /> },
       { path: 'settings', element: <SettingsPage /> },
-      { path: 'about', element: <AboutPage /> }
+      { path: 'about', element: <AboutPage /> },
+      { path: 'assistant', element: <AssistantPage /> }
     ]
   }
 ]);
