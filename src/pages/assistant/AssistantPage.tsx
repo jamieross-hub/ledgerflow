@@ -15,9 +15,9 @@ interface ChatItem {
 }
 
 export function AssistantPage() {
-  const [baseUrl, setBaseUrl] = useState(ENV.aiBaseUrl);
-  const [apiKey, setApiKey] = useState(ENV.aiApiKey);
-  const [model, setModel] = useState(ENV.aiDefaultModel);
+  const [baseUrl, setBaseUrl] = useState<string>(ENV.aiBaseUrl);
+  const [apiKey, setApiKey] = useState<string>(ENV.aiApiKey);
+  const [model, setModel] = useState<string>(ENV.aiDefaultModel);
   const [models, setModels] = useState<string[]>([]);
   const [textInput, setTextInput] = useState('');
   const [imageDataUrl, setImageDataUrl] = useState<string>('');
@@ -58,7 +58,7 @@ export function AssistantPage() {
       const list = await fetchAiModels(baseUrl, apiKey);
       setModels(list);
       if (list.length > 0) {
-        setModel((prev) => (prev ? prev : list[0]));
+        setModel((prev: string) => (prev ? prev : list[0]));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '模型列表加载失败');
@@ -98,12 +98,12 @@ export function AssistantPage() {
         }))
       });
 
-      setMessages((prev) => [...prev, { role: 'assistant', text: reply }]);
+      setMessages((prev: ChatItem[]) => [...prev, { role: 'assistant', text: reply }]);
       setTextInput('');
       setImageDataUrl('');
     } catch (err) {
       setError(err instanceof Error ? err.message : '对话请求失败');
-      setMessages((prev) => prev.slice(0, -1));
+      setMessages((prev: ChatItem[]) => prev.slice(0, -1));
     } finally {
       setSubmitting(false);
     }
