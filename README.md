@@ -1,1 +1,207 @@
-# ledgerflow
+# LedgerFlow 前端（记账软件）
+
+一个现代化、可维护、模块化、可测试、可部署的纯前端记账系统示例，内置 PWA 能力，并支持数据库连接配置管理（PostgreSQL / MySQL / Redis）与可切换的连接测试模式（Mock / 代理）。
+
+## 1. 技术栈
+
+- React + TypeScript + Vite
+- 路由：React Router
+- 状态管理：
+  - Server State：TanStack Query
+  - 本地状态：Zustand
+- 表单：React Hook Form + Zod
+- PWA：vite-plugin-pwa
+- 测试：Vitest + Testing Library
+- 工程化：ESLint + Prettier + lint-staged + Husky
+- 部署：Docker + docker-compose + GitHub Actions
+
+## 2. 架构设计（Feature-Sliced）
+
+目录分层如下：
+
+```text
+src/
+  app/                  # 应用入口、路由、全局样式
+  pages/                # 页面级路由组件
+  widgets/              # 跨页面复用布局组件
+  features/             # 业务功能（连接配置、模式选择等）
+  entities/             # 领域模型（transaction/category/account/connection）
+  shared/               # 基础设施（api/config/lib/store/hooks/ui/types）
+  test/                 # 测试初始化
+```
+
+设计原则：
+
+1. 页面与业务逻辑分离：页面只做组合，核心逻辑沉淀在 `features` / `shared`。
+2. 领域模型集中管理：类型定义统一放在 `entities`，避免跨模块重复定义。
+3. 可替换的连接测试适配：通过 mode（mock/proxy）与 api client 解耦，便于后续接入真实后端。
+4. 文件保持精简：避免把多个功能塞进同一文件。
+
+## 3. 功能模块
+
+### 仪表盘
+
+- 本月收入 / 支出 / 结余
+- 分类饼图占位
+- 趋势图占位
+
+### 账目列表
+
+- 搜索、类型筛选
+- 本地分页
+- CSV 导出
+
+### 新增/编辑账目
+
+- 字段：分类、账户、金额、日期、备注、标签
+
+### 分类/账户管理
+
+- 分类 CRUD（当前含新增/删除）
+- 账户 CRUD（当前含新增/删除）
+
+### 设置
+
+- 主题切换
+- 语言切换（zh-CN / en-US）
+- PWA 安装提示
+- 连接配置管理（PG/MySQL/Redis）
+- 测试模式切换：
+  - Mock 模式：纯前端模拟成功/失败/超时
+  - 代理模式：前端调用 `/api/conn/*`（仅接口对接，不含后端实现）
+
+### 关于/帮助
+
+- 解释“前端直连数据库不安全”的原因
+- 给出代理模式接口规范
+
+## 4. 环境变量
+
+参考 [.env.example](.env.example)：
+
+```bash
+VITE_API_BASE_URL=/api
+VITE_REQUEST_TIMEOUT_MS=8000
+VITE_LOG_LEVEL=info
+```
+
+## 5. 本地开发
+
+> 当前执行环境缺少 Node/npm，未能在本环境直接跑通命令；代码与脚本已完整生成。
+
+### 安装依赖
+
+```bash
+npm install
+```
+
+### 启动开发
+
+```bash
+npm run dev
+```
+
+### 运行测试
+
+```bash
+npm run test
+```
+
+### 代码检查
+
+```bash
+npm run lint
+```
+
+### 构建产物
+
+```bash
+npm run build
+```
+
+## 6. Docker
+
+### 构建并运行
+
+```bash
+docker compose up --build
+```
+
+默认访问：`http://localhost:8080`
+
+说明：
+
+- [Dockerfile](Dockerfile) 使用多阶段构建，先 `npm run build`，再由 Nginx 托管静态站点。
+- [nginx.conf](nginx.conf) 使用 `try_files` 保证 SPA 刷新路由可用。
+
+## 7. CI/CD
+
+已提供 GitHub Actions 工作流： [.github/workflows/ci.yml](.github/workflows/ci.yml)
+
+包含：
+
+1. 安装依赖
+2. Lint
+3. Test
+4. Build
+5. 上传 dist 产物
+
+后续可扩展为自动部署到静态托管平台（如 GitHub Pages / Netlify / Vercel / OSS + CDN）。
+
+## 8. 连接配置与安全策略
+
+连接配置支持：
+
+- 添加、编辑、删除、启用/禁用
+- 表单校验：必填、端口范围、连接池参数、连接串协议与格式
+- 测试连接按钮：加载态、超时、成功/失败提示、日志展开
+
+安全策略：
+
+- 明确提示前端无法安全保存 DB 凭证
+- 生产场景建议必须走代理模式
+
+代理接口规范（前端已对接）：
+
+- `POST /api/conn/test`
+- `POST /api/conn/save`
+- `GET /api/conn/list`
+- `DELETE /api/conn/:id`
+
+## 9. 测试覆盖
+
+已包含至少以下测试：
+
+1. 连接配置表单校验（[src/features/connection-config/ui/connectionFormSchema.test.ts](src/features/connection-config/ui/connectionFormSchema.test.ts)）
+2. 测试连接按钮流程（[src/features/connection-config/ui/ConnectionTestButton.test.tsx](src/features/connection-config/ui/ConnectionTestButton.test.tsx)）
+3. 关键页面渲染（[src/pages/dashboard/DashboardPage.test.tsx](src/pages/dashboard/DashboardPage.test.tsx)）
+
+## 10. 关键设计决策
+
+1. 选择 Feature-Sliced 而非把逻辑散落在 pages：降低耦合，利于多人协作。
+2. 连接测试分为 mock/proxy：
+   - mock 适合纯前端阶段开发与演示；
+   - proxy 保持未来接入后端时的接口兼容。
+3. 连接配置本地持久化：使用 localStorage 快速落地，无后端也可完成完整交互链路。
+4. PWA 默认离线缓存静态资源：提升首屏体验与安装能力。
+
+## 11. 后续扩展建议
+
+1. 接入真实后端时，把连接配置加密后存储（KMS/Secret Manager），前端只传最小必要字段。
+2. 为代理接口增加鉴权、限流、审计日志、连接测试白名单。
+3. 为仪表盘引入图表库并对接真实分析 API。
+4. 增加 i18n 方案（如 i18next）与多主题设计 token 体系。
+5. 把本地 store 逐步迁移为“离线优先 + 同步策略”（例如 IndexedDB + sync queue）。
+
+## 12. 脚本清单
+
+见 [package.json](package.json)：
+
+- `npm run dev`
+- `npm run build`
+- `npm run preview`
+- `npm run lint`
+- `npm run format`
+- `npm run format:check`
+- `npm run test`
+- `npm run test:watch`
