@@ -6,16 +6,16 @@ import { ThemeSwitcher } from '../../features/theme-switcher/ThemeSwitcher';
 const APP_VERSION = '0.1';
 
 const navItems = [
-  { to: '/', label: '仪表盘', end: true },
-  { to: '/transactions', label: '账目列表' },
-  { to: '/categories-accounts', label: '分类/账户' },
-  { to: '/assistant', label: '记账助手' }
+  { to: '/', label: '仪表盘', icon: '📊', end: true },
+  { to: '/transactions', label: '账目列表', icon: '📋' },
+  { to: '/categories-accounts', label: '分类/账户', icon: '🏷️' },
+  { to: '/assistant', label: '记账助手', icon: '🤖' }
 ];
 
 const logoMenuItems = [
-  { to: '/settings', label: '设置' },
-  { to: '/about', label: '关于' },
-  { to: '/database-settings', label: '数据库设置' }
+  { to: '/settings', label: '设置', icon: '⚙️' },
+  { to: '/about', label: '关于', icon: 'ℹ️' },
+  { to: '/database-settings', label: '数据库设置', icon: '🗄️' }
 ];
 
 const SIDEBAR_COLLAPSED_WIDTH = 76;
@@ -98,7 +98,8 @@ export function AppLayout() {
               className={({ isActive }) => (isActive ? 'sidebar-link active' : 'sidebar-link')}
               title={item.label}
             >
-              {collapsed ? item.label.slice(0, 2) : item.label}
+              <span className="sidebar-link-icon">{item.icon}</span>
+              {collapsed ? null : <span className="sidebar-link-label">{item.label}</span>}
             </NavLink>
           ))}
         </nav>
@@ -127,7 +128,7 @@ export function AppLayout() {
               <div className="logo-menu" role="menu">
                 {logoMenuItems.map((item) => (
                   <Link key={item.to} to={item.to} className="logo-menu-item" onClick={() => setMenuOpen(false)}>
-                    {item.label}
+                    <span className="logo-menu-icon">{item.icon}</span> {item.label}
                   </Link>
                 ))}
               </div>

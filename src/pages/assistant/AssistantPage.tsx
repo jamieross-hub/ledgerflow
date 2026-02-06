@@ -1,13 +1,13 @@
-import { ClipboardEvent, DragEvent, FormEvent, useMemo, useState } from 'react';
+import { ClipboardEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchAiModels, sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 
 /**
- * 记账助手页面：
- * - AI 参数统一来自“设置”页
- * - 支持键盘粘贴图片、拖拽图片、缩略图预览
- * - AI 输出 JSON 账单后，可一键保存到本地账本
+ * 记账助手页面 — 全屏聊天模式
+ * - 顶部紧凑模型选择器
+ * - 全屏聊天区域（自动滚动到底部）
+ * - 底部固定输入栏（支持粘贴/拖拽图片）
  */
 interface ChatItem {
   role: 'user' | 'assistant';
@@ -106,17 +106,40 @@ export function AssistantPage() {
   const [error, setError] = useState<string>('');
   const [retryMessages, setRetryMessages] = useState<ChatItem[] | null>(null);
   const [parsedBill, setParsedBill] = useState<AiBillResult | null>(null);
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [messages, setMessages] = useState<ChatItem[]>([
     {
       role: 'assistant',
-      text: '你好，我是记账助手。支持粘贴截图（Ctrl/Cmd+V）与拖拽图片。我会返回 JSON 账单并支持一键保存。'
+      text: '你好，我是 LedgerFlow 记账助手 🤖\n\n我可以帮你识别账单、截图，并自动生成结构化的记账数据。\n\n• 直接输入文字描述你的消费\n• 粘贴或拖拽账单截图\n• 我会返回 JSON 账单，支持一键保存'
     }
   ]);
+
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const modelDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const canSubmit = useMemo(
     () => Boolean(model.trim()) && (Boolean(textInput.trim()) || Boolean(imageDataUrl)),
     [model, textInput, imageDataUrl]
   );
+
+  // 自动滚动到底部
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // 点击外部关闭模型下拉
+  useEffect(() => {
+    const onClickOutside = (event: MouseEvent) => {
+      if (!modelDropdownRef.current) {
+        return;
+      }
+      if (!modelDropdownRef.current.contains(event.target as Node)) {
+        setModelDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
 
   const handleSetImage = async (file?: File) => {
     if (!file) {
@@ -275,90 +298,159 @@ export function AssistantPage() {
     setParsedBill(null);
   };
 
+  const handleSelectModel = (m: string) => {
+    setModel(m);
+    setModelDropdownOpen(false);
+  };
+
   return (
-    <div className="assistant-layout assistant-priority-layout">
-      <section className="panel assistant-config">
-        <h2>记账助手</h2>
-        <p>支持拉取模型并直接切换，Agent 默认返回 JSON 账单结构。</p>
-
-        <div className="row assistant-model-row">
-          <small className="mono">供应商：{baseUrl || '未设置'}</small>
-          <button type="button" onClick={() => void handleLoadModels()} disabled={loadingModels}>
-            {loadingModels ? '加载中...' : '拉取模型'}
-          </button>
-          <select value={model} onChange={(e) => setModel(e.target.value)}>
-            <option value="">选择模型</option>
-            {models.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
+    <div className="chat-fullscreen" onDragOver={(e) => e.preventDefault()} onDrop={(e) => void handleDropImage(e)}>
+      {/* ===== 顶部栏：模型选择 ===== */}
+      <header className="chat-topbar">
+        <div className="chat-topbar-left">
+          <span className="chat-topbar-title">🤖 记账助手</span>
+          <span className="chat-topbar-sep">›</span>
+          <div className="chat-model-selector" ref={modelDropdownRef}>
+            <button
+              type="button"
+              className="chat-model-btn"
+              onClick={() => setModelDropdownOpen((v) => !v)}
+            >
+              {model || '选择模型'}
+              <span className="chat-model-arrow">{modelDropdownOpen ? '▲' : '▼'}</span>
+            </button>
+            {modelDropdownOpen ? (
+              <div className="chat-model-dropdown">
+                <div className="chat-model-dropdown-header">
+                  <button
+                    type="button"
+                    className="chat-model-fetch-btn"
+                    onClick={() => void handleLoadModels()}
+                    disabled={loadingModels}
+                  >
+                    {loadingModels ? '加载中...' : '🔄 拉取模型列表'}
+                  </button>
+                </div>
+                {models.length > 0 ? (
+                  <div className="chat-model-list">
+                    {models.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        className={m === model ? 'chat-model-option active' : 'chat-model-option'}
+                        onClick={() => handleSelectModel(m)}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="chat-model-empty">点击上方按钮拉取可用模型</div>
+                )}
+              </div>
+            ) : null}
+          </div>
         </div>
-      </section>
+        <div className="chat-topbar-right">
+          <small className="chat-topbar-provider">{baseUrl || '未配置供应商'}</small>
+        </div>
+      </header>
 
-      <section className="panel assistant-chat-panel">
-        <div className="assistant-chat-window">
+      {/* ===== 聊天消息区 ===== */}
+      <div className="chat-messages-area">
+        <div className="chat-messages-inner">
           {messages.map((item, index) => (
-            <article key={`${item.role}-${index}`} className={item.role === 'user' ? 'chat-bubble user' : 'chat-bubble assistant'}>
-              <header>{item.role === 'user' ? '你' : '助手'}</header>
-              <p>{item.text || '（仅图片）'}</p>
-              {item.imageDataUrl ? <img src={item.imageDataUrl} alt="user upload" className="chat-image" /> : null}
+            <article
+              key={`${item.role}-${index}`}
+              className={item.role === 'user' ? 'chat-msg chat-msg-user' : 'chat-msg chat-msg-assistant'}
+            >
+              <div className="chat-msg-avatar">
+                {item.role === 'user' ? '👤' : '🤖'}
+              </div>
+              <div className="chat-msg-body">
+                <header className="chat-msg-header">{item.role === 'user' ? '你' : '记账助手'}</header>
+                <div className="chat-msg-content">
+                  <p>{item.text || '（仅图片）'}</p>
+                  {item.imageDataUrl ? <img src={item.imageDataUrl} alt="user upload" className="chat-msg-image" /> : null}
+                </div>
+              </div>
             </article>
           ))}
-        </div>
 
-        <form onSubmit={handleSubmit} className="assistant-form">
-          <div className="assistant-paste-zone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => void handleDropImage(e)}>
-            拖拽图片到这里，或在输入框按 Ctrl/Cmd + V 粘贴图片
-          </div>
+          {submitting ? (
+            <article className="chat-msg chat-msg-assistant">
+              <div className="chat-msg-avatar">🤖</div>
+              <div className="chat-msg-body">
+                <header className="chat-msg-header">记账助手</header>
+                <div className="chat-msg-content">
+                  <p className="chat-typing">思考中<span className="dot1">.</span><span className="dot2">.</span><span className="dot3">.</span></p>
+                </div>
+              </div>
+            </article>
+          ) : null}
 
-          {imageDataUrl ? (
-            <div className="assistant-image-preview">
-              <img src={imageDataUrl} alt="待发送图片" className="assistant-thumb" />
-              <button type="button" onClick={() => setImageDataUrl('')}>
-                移除图片
+          {/* JSON 账单预览 */}
+          {parsedBill ? (
+            <div className="chat-bill-preview">
+              <h3>✅ AI 识别账单</h3>
+              <pre>{JSON.stringify(parsedBill, null, 2)}</pre>
+              <button type="button" className="primary" onClick={handleSaveBill}>
+                💾 一键保存到账本
               </button>
             </div>
           ) : null}
 
-          <div className="field">
-            <textarea
-              rows={5}
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              onPaste={(e: ClipboardEvent<HTMLTextAreaElement>) => {
-                void handlePasteImage(e);
-              }}
-              className="assistant-composer"
-              placeholder="描述你的账单识别需求，例如：请识别收据并按 JSON 返回交易数据。"
-            />
-          </div>
+          <div ref={chatEndRef} />
+        </div>
+      </div>
 
-          <div className="row assistant-actions">
-            <button type="submit" className="primary" disabled={!canSubmit || submitting}>
-              {submitting ? '发送中...' : '发送给记账助手'}
-            </button>
+      {/* ===== 底部输入栏 ===== */}
+      <footer className="chat-input-bar">
+        {error ? (
+          <div className="chat-error-strip">
+            <span>{error}</span>
             {retryMessages ? (
               <button type="button" onClick={() => void handleRetry()} disabled={submitting}>
                 重试
               </button>
             ) : null}
           </div>
+        ) : null}
 
-          {error ? <p className="error">{error}</p> : null}
-        </form>
-      </section>
+        {imageDataUrl ? (
+          <div className="chat-image-strip">
+            <img src={imageDataUrl} alt="待发送图片" className="chat-thumb" />
+            <button type="button" onClick={() => setImageDataUrl('')}>✕ 移除</button>
+          </div>
+        ) : null}
 
-      {parsedBill ? (
-        <section className="panel assistant-json-preview">
-          <h3>AI 识别账单 JSON</h3>
-          <pre>{JSON.stringify(parsedBill, null, 2)}</pre>
-          <button type="button" className="primary" onClick={handleSaveBill}>
-            一键保存当前账单
+        <form onSubmit={handleSubmit} className="chat-input-form">
+          <textarea
+            rows={1}
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            onPaste={(e: ClipboardEvent<HTMLTextAreaElement>) => {
+              void handlePasteImage(e);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (canSubmit && !submitting) {
+                  const form = e.currentTarget.closest('form');
+                  if (form) {
+                    form.requestSubmit();
+                  }
+                }
+              }
+            }}
+            className="chat-input-textarea"
+            placeholder="输入消息，按 Enter 发送，Shift+Enter 换行 · 支持粘贴/拖拽图片"
+          />
+          <button type="submit" className="chat-send-btn primary" disabled={!canSubmit || submitting}>
+            {submitting ? '⏳' : '➤'}
           </button>
-        </section>
-      ) : null}
+        </form>
+      </footer>
     </div>
   );
 }
