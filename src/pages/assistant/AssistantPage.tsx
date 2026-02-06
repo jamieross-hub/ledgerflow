@@ -1,13 +1,11 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { fetchAiModels, sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
-import { ENV } from '../../shared/config/env';
+import { useAiSettings } from '../../shared/store/useAiSettings';
 
 /**
  * 记账助手页面：
- * - UI 内可直接配置 OpenAI 兼容网关（Base URL / API Key / Model）
- * - 不依赖 Docker 注入 AI 配置
+ * - AI 参数统一来自“设置”页，当前页面只负责对话与上传
  */
-
 interface ChatItem {
   role: 'user' | 'assistant';
   text: string;
@@ -15,9 +13,9 @@ interface ChatItem {
 }
 
 export function AssistantPage() {
-  const [baseUrl, setBaseUrl] = useState<string>(ENV.aiBaseUrl);
-  const [apiKey, setApiKey] = useState<string>(ENV.aiApiKey);
-  const [model, setModel] = useState<string>(ENV.aiDefaultModel);
+  const baseUrl = useAiSettings((s) => s.baseUrl);
+  const apiKey = useAiSettings((s) => s.apiKey);
+  const model = useAiSettings((s) => s.model);
   const [models, setModels] = useState<string[]>([]);
   const [textInput, setTextInput] = useState('');
   const [imageDataUrl, setImageDataUrl] = useState<string>('');
@@ -31,7 +29,10 @@ export function AssistantPage() {
     }
   ]);
 
-  const canSubmit = useMemo(() => Boolean(model.trim()) && (Boolean(textInput.trim()) || Boolean(imageDataUrl)), [model, textInput, imageDataUrl]);
+  const canSubmit = useMemo(
+    () => Boolean(model.trim()) && (Boolean(textInput.trim()) || Boolean(imageDataUrl)),
+    [model, textInput, imageDataUrl]
+  );
 
   // 把上传图片转成 Data URL，用于直接发给兼容视觉模型
   const handleFileChange = async (file?: File) => {
@@ -57,9 +58,6 @@ export function AssistantPage() {
     try {
       const list = await fetchAiModels(baseUrl, apiKey);
       setModels(list);
-      if (list.length > 0) {
-        setModel((prev: string) => (prev ? prev : list[0]));
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '模型列表加载失败');
     } finally {
@@ -113,36 +111,22 @@ export function AssistantPage() {
     <div className="assistant-layout">
       <section className="panel assistant-config">
         <h2>记账助手</h2>
-        <p>OpenAI 兼容接口（例如 OpenAI / Azure OpenAI 兼容层 / 其他网关）</p>
-
-        <div className="field">
-          <label>Base URL</label>
-          <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://api.openai.com/v1" />
-        </div>
-
-        <div className="field">
-          <label>API Key</label>
-          <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." type="password" />
-        </div>
+        <p>OpenAI 兼容接口参数已统一迁移至“设置”页维护。</p>
 
         <div className="row">
-          <div className="field assistant-model-field">
-            <label>模型</label>
-            <select value={model} onChange={(e) => setModel(e.target.value)}>
-              <option value="">请选择模型</option>
-              {models.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
+          <small className="mono">当前供应商：{baseUrl || '未设置'}</small>
+          <small className="mono">当前模型：{model || '未设置'}</small>
           <button type="button" onClick={() => void handleLoadModels()} disabled={loadingModels}>
             {loadingModels ? '加载中...' : '拉取模型列表'}
           </button>
         </div>
 
-        <small className="mono">默认模型：{ENV.aiDefaultModel}（可在界面实时修改）</small>
+        {models.length > 0 ? (
+          <div className="field">
+            <label>可用模型（只读展示）</label>
+            <textarea readOnly rows={4} value={models.join('\n')} />
+          </div>
+        ) : null}
       </section>
 
       <section className="panel assistant-chat-panel">

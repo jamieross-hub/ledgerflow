@@ -14,7 +14,7 @@ export function DashboardPage() {
     <div>
       <section className="panel">
         <h2>仪表盘</h2>
-        <p>本月收支概览（示例数据）。</p>
+        <p>本月收支概览。</p>
         <div className="grid grid-3">
           <div className="panel">
             <h3>本月收入</h3>
@@ -30,6 +30,13 @@ export function DashboardPage() {
           </div>
         </div>
       </section>
+
+      {transactions.length === 0 ? (
+        <section className="panel">
+          <h3>暂无账目数据</h3>
+          <p>你还没有录入任何交易，点击下方“新增账目”开始记账。</p>
+        </section>
+      ) : null}
 
       <section className="panel">
         <h3>分类饼图（占位）</h3>

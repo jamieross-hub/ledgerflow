@@ -7,6 +7,7 @@ import { CategoriesAccountsPage } from '../../pages/categories-accounts/Categori
 import { SettingsPage } from '../../pages/settings/SettingsPage';
 import { AboutPage } from '../../pages/about/AboutPage';
 import { AssistantPage } from '../../pages/assistant/AssistantPage';
+import { DatabaseSettingsPage } from '../../pages/database-settings/DatabaseSettingsPage';
 
 export const router = createBrowserRouter([
   {
@@ -20,7 +21,8 @@ export const router = createBrowserRouter([
       { path: 'categories-accounts', element: <CategoriesAccountsPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'about', element: <AboutPage /> },
-      { path: 'assistant', element: <AssistantPage /> }
+      { path: 'assistant', element: <AssistantPage /> },
+      { path: 'database-settings', element: <DatabaseSettingsPage /> }
     ]
   }
 ]);

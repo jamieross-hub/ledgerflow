@@ -9,9 +9,13 @@ const navItems = [
   { to: '/', label: '仪表盘', end: true },
   { to: '/transactions', label: '账目列表' },
   { to: '/categories-accounts', label: '分类/账户' },
-  { to: '/assistant', label: '记账助手' },
+  { to: '/assistant', label: '记账助手' }
+];
+
+const logoMenuItems = [
   { to: '/settings', label: '设置' },
-  { to: '/about', label: '关于/帮助' }
+  { to: '/about', label: '关于' },
+  { to: '/database-settings', label: '数据库设置' }
 ];
 
 const SIDEBAR_COLLAPSED_WIDTH = 76;
@@ -22,8 +26,10 @@ export function AppLayout() {
   // 抽屉状态：折叠/展开
   const [collapsed, setCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(260);
+  const [menuOpen, setMenuOpen] = useState(false);
   // 拖拽过程用 ref 避免频繁触发重渲染
   const draggingRef = useRef(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
@@ -47,6 +53,21 @@ export function AppLayout() {
       window.removeEventListener('mouseup', onMouseUp);
     };
   }, [collapsed]);
+
+  useEffect(() => {
+    const onClickOutside = (event: MouseEvent) => {
+      if (!menuRef.current) {
+        return;
+      }
+
+      if (!menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
 
   return (
     <div
@@ -91,8 +112,32 @@ export function AppLayout() {
 
       <div className="workspace">
         <header className="workspace-topbar">
-          <h1>LedgerFlow</h1>
-          <span>v{APP_VERSION} · 现代化前端记账工作台</span>
+          <div className="topbar-left" ref={menuRef}>
+            <button
+              type="button"
+              className="logo-circle"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-label="打开项目菜单"
+            >
+              LF
+            </button>
+            {menuOpen ? (
+              <div className="logo-menu" role="menu">
+                {logoMenuItems.map((item) => (
+                  <Link key={item.to} to={item.to} className="logo-menu-item" onClick={() => setMenuOpen(false)}>
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+
+            <div>
+              <h1>LedgerFlow</h1>
+              <span>v{APP_VERSION} · 现代化前端记账工作台</span>
+            </div>
+          </div>
         </header>
 
         <main className="content">

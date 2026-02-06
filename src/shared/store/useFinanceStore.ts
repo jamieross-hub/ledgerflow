@@ -29,28 +29,7 @@ const defaultAccounts: Account[] = [
   { id: 'acc-card', name: '银行卡' }
 ];
 
-const defaultTransactions: TransactionItem[] = [
-  {
-    id: 'tx-1',
-    type: 'income',
-    categoryId: 'cat-salary',
-    accountId: 'acc-card',
-    amount: 22000,
-    date: new Date().toISOString(),
-    note: '月薪',
-    tags: ['固定收入']
-  },
-  {
-    id: 'tx-2',
-    type: 'expense',
-    categoryId: 'cat-food',
-    accountId: 'acc-card',
-    amount: 76,
-    date: new Date().toISOString(),
-    note: '午餐',
-    tags: ['日常']
-  }
-];
+const defaultTransactions: TransactionItem[] = [];
 
 export const useFinanceStore = create<FinanceState>()(
   persist(
