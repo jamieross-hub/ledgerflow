@@ -34,6 +34,7 @@ interface ChatRequestInput {
   apiKey?: string;
   model: string;
   messages: ChatMessageInput[];
+  systemPrompt?: string;
 }
 
 function normalizeBaseUrl(baseUrl?: string) {
@@ -56,7 +57,8 @@ export async function fetchAiModels(baseUrl?: string, apiKey?: string): Promise<
   });
 
   if (!response.ok) {
-    throw new Error(`模型列表获取失败：HTTP ${response.status}`);
+    const detail = await response.text();
+    throw new Error(`模型列表获取失败：HTTP ${response.status} ${detail}`.trim());
   }
 
   const payload = (await response.json()) as ModelsResponse;
@@ -79,12 +81,17 @@ function normalizeMessageContent(content: string | Array<{ type: 'text'; text: s
 }
 
 export async function sendAiChat(input: ChatRequestInput): Promise<string> {
+  const outboundMessages: ChatMessageInput[] = [
+    ...(input.systemPrompt ? [{ role: 'system' as const, text: input.systemPrompt }] : []),
+    ...input.messages
+  ];
+
   const response = await fetch(`${normalizeBaseUrl(input.baseUrl)}/chat/completions`, {
     method: 'POST',
     headers: buildHeaders(input.apiKey),
     body: JSON.stringify({
       model: input.model,
-      messages: input.messages.map((message) => {
+      messages: outboundMessages.map((message) => {
         if (message.role === 'user' && message.imageDataUrl) {
           return {
             role: message.role,
@@ -104,7 +111,8 @@ export async function sendAiChat(input: ChatRequestInput): Promise<string> {
   });
 
   if (!response.ok) {
-    throw new Error(`对话请求失败：HTTP ${response.status}`);
+    const detail = await response.text();
+    throw new Error(`对话请求失败：HTTP ${response.status} ${detail}`.trim());
   }
 
   const payload = (await response.json()) as ChatCompletionResponse;
