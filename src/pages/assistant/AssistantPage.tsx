@@ -1,4 +1,4 @@
-import { FormEvent, KeyboardEvent, useMemo, useState } from 'react';
+import { ClipboardEvent, DragEvent, FormEvent, useMemo, useState } from 'react';
 import { fetchAiModels, sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
@@ -59,29 +59,27 @@ function normalizeAiBill(raw: unknown): AiBillResult | null {
     return null;
   }
 
-  const txs = (raw as { transactions: unknown[] }).transactions
-    .map((item) => {
-      if (!item || typeof item !== 'object') {
-        return null;
-      }
-      const candidate = item as Partial<AiBillItem>;
-      const type = candidate.type === 'income' ? 'income' : candidate.type === 'expense' ? 'expense' : null;
-      const amount = Number(candidate.amount);
-      if (!type || !Number.isFinite(amount) || amount <= 0) {
-        return null;
-      }
-
-      return {
-        type,
-        amount,
-        date: candidate.date || new Date().toISOString(),
-        note: candidate.note || 'AI 识别账单',
-        category: candidate.category || '',
-        account: candidate.account || '',
-        tags: Array.isArray(candidate.tags) ? candidate.tags.map((t) => String(t)) : []
-      } satisfies AiBillItem;
-    })
-    .filter((item): item is AiBillItem => Boolean(item));
+  const txs: AiBillItem[] = [];
+  for (const entry of (raw as { transactions: unknown[] }).transactions) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+    const candidate = entry as Partial<AiBillItem>;
+    const type = candidate.type === 'income' ? 'income' : candidate.type === 'expense' ? 'expense' : null;
+    const amount = Number(candidate.amount);
+    if (!type || !Number.isFinite(amount) || amount <= 0) {
+      continue;
+    }
+    txs.push({
+      type,
+      amount,
+      date: candidate.date || new Date().toISOString(),
+      note: candidate.note || 'AI 识别账单',
+      category: candidate.category || '',
+      account: candidate.account || '',
+      tags: Array.isArray(candidate.tags) ? candidate.tags.map((t) => String(t)) : []
+    });
+  }
 
   if (txs.length === 0) {
     return null;
@@ -128,15 +126,16 @@ export function AssistantPage() {
     setImageDataUrl(dataUrl);
   };
 
-  const handlePasteImage = async (event: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handlePasteImage = async (event: ClipboardEvent<HTMLTextAreaElement>) => {
     const items = event.clipboardData?.items;
     if (!items) {
       return;
     }
 
-    for (const item of Array.from(items)) {
-      if (item.type.startsWith('image/')) {
-        const file = item.getAsFile();
+    for (let i = 0; i < items.length; i++) {
+      const entry = items[i];
+      if (entry.type.startsWith('image/')) {
+        const file = entry.getAsFile();
         if (file) {
           event.preventDefault();
           await handleSetImage(file);
@@ -146,7 +145,7 @@ export function AssistantPage() {
     }
   };
 
-  const handleDropImage = async (event: React.DragEvent<HTMLDivElement>) => {
+  const handleDropImage = async (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const file = event.dataTransfer.files?.[0];
     if (file && file.type.startsWith('image/')) {
@@ -328,7 +327,7 @@ export function AssistantPage() {
               rows={5}
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
-              onPaste={(e) => {
+              onPaste={(e: ClipboardEvent<HTMLTextAreaElement>) => {
                 void handlePasteImage(e);
               }}
               className="assistant-composer"
