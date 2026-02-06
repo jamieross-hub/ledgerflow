@@ -5,11 +5,44 @@ import { ThemeSwitcher } from '../../features/theme-switcher/ThemeSwitcher';
 /** 当前发布版本号（展示用途，与 package.json 可独立管理） */
 const APP_VERSION = '0.1';
 
-const navItems = [
-  { to: '/', label: '仪表盘', icon: '📊', end: true },
-  { to: '/transactions', label: '账目列表', icon: '📋' },
-  { to: '/categories-accounts', label: '分类/账户', icon: '🏷️' },
-  { to: '/assistant', label: '记账助手', icon: '🤖' }
+type NavItem = {
+  label: string;
+  icon: string;
+  to?: string;
+  end?: boolean;
+  disabled?: boolean;
+};
+
+const navSections: Array<{ title: string; items: NavItem[] }> = [
+  {
+    title: 'AI 助手',
+    items: [{ to: '/assistant', label: '记账助手', icon: '🤖' }]
+  },
+  {
+    title: '交易数据',
+    items: [
+      { to: '/transactions', label: '交易详情', icon: '📋' },
+      { to: '/', label: '统计分析', icon: '📊', end: true }
+    ]
+  },
+  {
+    title: '基础数据',
+    items: [
+      { to: '/categories-accounts', label: '账户', icon: '💳' },
+      { to: '/categories-accounts', label: '交易分类', icon: '🧩' },
+      { label: '交易标签', icon: '🏷️', disabled: true },
+      { label: '交易模板', icon: '🗂️', disabled: true },
+      { label: '定时交易', icon: '⏰', disabled: true }
+    ]
+  },
+  {
+    title: '杂项',
+    items: [
+      { label: '汇率数据', icon: '💱', disabled: true },
+      { label: '在移动设备使用', icon: '📱', disabled: true },
+      { to: '/about', label: '关于', icon: 'ℹ️' }
+    ]
+  }
 ];
 
 const logoMenuItems = [
@@ -90,17 +123,33 @@ export function AppLayout() {
         </div>
 
         <nav className="sidebar-nav">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) => (isActive ? 'sidebar-link active' : 'sidebar-link')}
-              title={item.label}
-            >
-              <span className="sidebar-link-icon">{item.icon}</span>
-              {collapsed ? null : <span className="sidebar-link-label">{item.label}</span>}
-            </NavLink>
+          {navSections.map((section) => (
+            <div key={section.title} className="sidebar-section">
+              {collapsed ? null : <p className="sidebar-section-title">{section.title}</p>}
+              {section.items.map((item) => {
+                if (!item.to || item.disabled) {
+                  return (
+                    <div key={`${section.title}-${item.label}`} className="sidebar-link disabled" title={item.label}>
+                      <span className="sidebar-link-icon">{item.icon}</span>
+                      {collapsed ? null : <span className="sidebar-link-label">{item.label}</span>}
+                    </div>
+                  );
+                }
+
+                return (
+                  <NavLink
+                    key={`${section.title}-${item.label}`}
+                    to={item.to}
+                    end={item.end}
+                    className={({ isActive }) => (isActive ? 'sidebar-link active' : 'sidebar-link')}
+                    title={item.label}
+                  >
+                    <span className="sidebar-link-icon">{item.icon}</span>
+                    {collapsed ? null : <span className="sidebar-link-label">{item.label}</span>}
+                  </NavLink>
+                );
+              })}
+            </div>
           ))}
         </nav>
 

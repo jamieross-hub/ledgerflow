@@ -1,4 +1,5 @@
 import { ClipboardEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { fetchAiModels, sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
@@ -117,9 +118,11 @@ export function AssistantPage() {
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const modelDropdownRef = useRef<HTMLDivElement | null>(null);
 
+  const hasApiKey = Boolean(apiKey?.trim());
+
   const canSubmit = useMemo(
-    () => Boolean(model.trim()) && (Boolean(textInput.trim()) || Boolean(imageDataUrl)),
-    [model, textInput, imageDataUrl]
+    () => hasApiKey && Boolean(model.trim()) && (Boolean(textInput.trim()) || Boolean(imageDataUrl)),
+    [hasApiKey, model, textInput, imageDataUrl]
   );
 
   // 自动滚动到底部
@@ -177,6 +180,11 @@ export function AssistantPage() {
   };
 
   const handleLoadModels = async () => {
+    if (!hasApiKey) {
+      setError('请先在设置页填写 OpenAI API Key，再拉取模型。');
+      return;
+    }
+
     setError('');
     setLoadingModels(true);
     try {
@@ -222,6 +230,11 @@ export function AssistantPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!hasApiKey) {
+      setError('请先在设置页填写 OpenAI API Key，再开始聊天。');
+      return;
+    }
+
     if (!canSubmit) {
       return;
     }
@@ -250,6 +263,11 @@ export function AssistantPage() {
   };
 
   const handleRetry = async () => {
+    if (!hasApiKey) {
+      setError('请先在设置页填写 OpenAI API Key，再进行重试。');
+      return;
+    }
+
     if (!retryMessages) {
       return;
     }
@@ -359,6 +377,16 @@ export function AssistantPage() {
       {/* ===== 聊天消息区 ===== */}
       <div className="chat-messages-area">
         <div className="chat-messages-inner">
+          {!hasApiKey ? (
+            <section className="chat-key-required">
+              <h3>🔐 需要先配置 OpenAI API Key</h3>
+              <p>为保证账单助手可正常对话，请先前往设置页填写 API Key，然后返回继续聊天。</p>
+              <Link to="/settings" className="chat-key-required-link">
+                前往设置页填写 Key
+              </Link>
+            </section>
+          ) : null}
+
           {messages.map((item, index) => (
             <article
               key={`${item.role}-${index}`}
@@ -426,6 +454,23 @@ export function AssistantPage() {
 
         <form onSubmit={handleSubmit} className="chat-input-form">
           <textarea
+             rows={1}
+             value={textInput}
+             onChange={(e) => setTextInput(e.target.value)}
+@@
+             className="chat-input-textarea"
+-            placeholder="输入消息，按 Enter 发送，Shift+Enter 换行 · 支持粘贴/拖拽图片"
++            placeholder={
++              hasApiKey
++                ? '输入消息，按 Enter 发送，Shift+Enter 换行 · 支持粘贴/拖拽图片'
++                : '请先前往设置页填写 OpenAI API Key，再开始聊天'
++            }
++            disabled={!hasApiKey}
+           />
+           <button type="submit" className="chat-send-btn primary" disabled={!canSubmit || submitting}>
+             {submitting ? '⏳' : '➤'}
+           </button>
+         </form>
             rows={1}
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
