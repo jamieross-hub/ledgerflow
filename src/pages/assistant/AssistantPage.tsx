@@ -454,23 +454,6 @@ export function AssistantPage() {
 
         <form onSubmit={handleSubmit} className="chat-input-form">
           <textarea
-             rows={1}
-             value={textInput}
-             onChange={(e) => setTextInput(e.target.value)}
-@@
-             className="chat-input-textarea"
--            placeholder="输入消息，按 Enter 发送，Shift+Enter 换行 · 支持粘贴/拖拽图片"
-+            placeholder={
-+              hasApiKey
-+                ? '输入消息，按 Enter 发送，Shift+Enter 换行 · 支持粘贴/拖拽图片'
-+                : '请先前往设置页填写 OpenAI API Key，再开始聊天'
-+            }
-+            disabled={!hasApiKey}
-           />
-           <button type="submit" className="chat-send-btn primary" disabled={!canSubmit || submitting}>
-             {submitting ? '⏳' : '➤'}
-           </button>
-         </form>
             rows={1}
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
@@ -489,7 +472,12 @@ export function AssistantPage() {
               }
             }}
             className="chat-input-textarea"
-            placeholder="输入消息，按 Enter 发送，Shift+Enter 换行 · 支持粘贴/拖拽图片"
+            placeholder={
+              hasApiKey
+                ? '输入消息，按 Enter 发送，Shift+Enter 换行 · 支持粘贴/拖拽图片'
+                : '请先前往设置页填写 OpenAI API Key，再开始聊天'
+            }
+            disabled={!hasApiKey}
           />
           <button type="submit" className="chat-send-btn primary" disabled={!canSubmit || submitting}>
             {submitting ? '⏳' : '➤'}
