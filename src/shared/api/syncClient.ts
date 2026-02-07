@@ -36,13 +36,27 @@ export interface SyncChangeResponse {
   detail?: string;
 }
 
-async function requestJson<T>(url: string, payload: unknown): Promise<T> {
+class HttpRequestError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'HttpRequestError';
+    this.status = status;
+  }
+}
+
+function normalizePath(path: string) {
+  return path.startsWith('/') ? path : `/${path}`;
+}
+
+async function requestJson<T>(url: string, payload: unknown, method: 'POST' | 'PUT' = 'POST'): Promise<T> {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), ENV.requestTimeoutMs);
 
   try {
     const response = await fetch(url, {
-      method: 'POST',
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       signal: controller.signal
@@ -56,7 +70,7 @@ async function requestJson<T>(url: string, payload: unknown): Promise<T> {
 
     if (!response.ok) {
       const message = body.error || body.message || `HTTP ${response.status}`;
-      throw new Error(body.detail ? `${message}：${body.detail}` : message);
+      throw new HttpRequestError(response.status, body.detail ? `${message}：${body.detail}` : message);
     }
 
     return body as T;
@@ -70,10 +84,44 @@ async function requestJson<T>(url: string, payload: unknown): Promise<T> {
   }
 }
 
+async function requestWithFallback<T>(
+  paths: string[],
+  payload: unknown,
+  methods: Array<'POST' | 'PUT'> = ['POST']
+): Promise<T> {
+  let lastError: unknown;
+
+  for (const path of paths) {
+    const url = `${ENV.apiBaseUrl}${normalizePath(path)}`;
+
+    for (const method of methods) {
+      try {
+        return await requestJson<T>(url, payload, method);
+      } catch (error) {
+        lastError = error;
+        if (error instanceof HttpRequestError && (error.status === 404 || error.status === 405)) {
+          continue;
+        }
+        throw error;
+      }
+    }
+  }
+
+  if (lastError instanceof HttpRequestError && (lastError.status === 404 || lastError.status === 405)) {
+    throw new Error('同步接口不可用（HTTP 404/405）。请检查后端是否已启用 /api 代理及同步路由。');
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('同步请求失败');
+}
+
 export async function postSyncLocalData(payload: SyncLocalDataRequest): Promise<SyncLocalDataResponse> {
-  return requestJson<SyncLocalDataResponse>(`${ENV.apiBaseUrl}/sync-local-data`, payload);
+  return requestWithFallback<SyncLocalDataResponse>(
+    [ENV.syncLocalDataPath, '/conn/sync-local-data', '/sync/local-data'],
+    payload,
+    ['POST', 'PUT']
+  );
 }
 
 export async function postSyncChange(payload: SyncChangeRequest): Promise<SyncChangeResponse> {
-  return requestJson<SyncChangeResponse>(`${ENV.apiBaseUrl}/sync-change`, payload);
+  return requestWithFallback<SyncChangeResponse>([ENV.syncChangePath, '/conn/sync-change', '/sync/change'], payload, ['POST', 'PUT']);
 }

@@ -125,6 +125,10 @@ VITE_API_BASE_URL=/api
 VITE_REQUEST_TIMEOUT_MS=8000
 VITE_LOG_LEVEL=info
 
+# 同步接口路径（会拼接到 VITE_API_BASE_URL 后）
+VITE_SYNC_LOCAL_DATA_PATH=/sync-local-data
+VITE_SYNC_CHANGE_PATH=/sync-change
+
 VITE_AI_BASE_URL=https://api.openai.com/v1
 VITE_AI_API_KEY=
 VITE_AI_DEFAULT_MODEL=gpt-4o-mini
@@ -218,6 +222,13 @@ docker compose up --build
 - `DELETE /api/conn/:id`
 - `POST /api/sync-local-data`：将本地交易/账户/分类批量同步到 PostgreSQL
 - `POST /api/sync-change`：数据库已配置后，前端每次新增/编辑/删除触发增量写入
+
+前端兼容策略（用于降低 HTTP 405/404 概率）：
+
+- 手动同步会按候选路径重试：`/sync-local-data` → `/conn/sync-local-data` → `/sync/local-data`
+- 增量同步会按候选路径重试：`/sync-change` → `/conn/sync-change` → `/sync/change`
+- 每个候选路径会尝试 `POST`，若返回 405 再回退尝试 `PUT`
+- 若全部返回 404/405，会提示“同步接口不可用（HTTP 404/405）”，需检查后端路由或通过环境变量覆盖路径
 
 同步接口建议契约：
 
