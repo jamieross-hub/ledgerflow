@@ -32,16 +32,13 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
     items: [
       { to: '/categories-accounts', label: '账户', icon: '💳' },
       { to: '/categories-accounts', label: '交易分类', icon: '🧩' },
-      { label: '交易标签', icon: '🏷️', disabled: true },
-      { label: '交易模板', icon: '🗂️', disabled: true },
-      { label: '定时交易', icon: '⏰', disabled: true }
+      { to: '/tags', label: '交易标签', icon: '🏷️' }
     ]
   },
   {
     title: '杂项',
     items: [
-      { label: '汇率数据', icon: '💱', disabled: true },
-      { label: '在移动设备使用', icon: '📱', disabled: true },
+      { to: '/exchange', label: '汇率数据', icon: '💱' },
       { to: '/about', label: '关于', icon: 'ℹ️' }
     ]
   }

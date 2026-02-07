@@ -91,8 +91,30 @@ src/
 
 ### 关于/帮助
 
-- 解释“前端直连数据库不安全”的原因
+- 解释"前端直连数据库不安全"的原因
 - 给出代理模式接口规范
+
+### 汇率数据
+
+- 汇率概览表：基准货币切换、货币搜索、收藏置顶、分页
+- 货币换算器：双向选择、金额输入、一键交换
+- 公共 API 集成（默认 [frankfurter.app](https://frankfurter.app)，免费无需 key）
+- localStorage 缓存（6h TTL）+ 离线回退
+- 手动刷新 + 缓存状态指示
+- 可通过环境变量覆盖 API 地址与超时
+
+### 账户预设模板
+
+- 7 种账户类型：现金 / 借记卡 / 储蓄卡 / 信用卡 / 虚拟账户 / 负债 / 应收
+- 14 个内置预设（支付宝、微信、各大银行等）
+- 预设快捷添加 Picker（一键创建）
+- 手动添加支持类型选择
+- 账户列表展示类型标签
+- 兼容旧数据（type 字段可选）
+
+### 交易标签（占位）
+
+- 标签管理页面已预留路由，功能开发中
 
 ## 5. 环境变量
 
@@ -106,6 +128,10 @@ VITE_LOG_LEVEL=info
 VITE_AI_BASE_URL=https://api.openai.com/v1
 VITE_AI_API_KEY=
 VITE_AI_DEFAULT_MODEL=gpt-4o-mini
+
+# 汇率 API（默认 frankfurter.app，免费无需 key）
+VITE_EXCHANGE_API_BASE=https://api.frankfurter.app
+VITE_EXCHANGE_API_TIMEOUT_MS=10000
 ```
 
 ## 6. 本地开发
@@ -198,6 +224,12 @@ docker compose up --build
 1. 连接配置表单校验（[src/features/connection-config/ui/connectionFormSchema.test.ts](src/features/connection-config/ui/connectionFormSchema.test.ts)）
 2. 测试连接按钮流程（[src/features/connection-config/ui/ConnectionTestButton.test.tsx](src/features/connection-config/ui/ConnectionTestButton.test.tsx)）
 3. 关键页面渲染（[src/pages/dashboard/DashboardPage.test.tsx](src/pages/dashboard/DashboardPage.test.tsx)）
+4. EmptyState 组件（[src/shared/ui/EmptyState.test.tsx](src/shared/ui/EmptyState.test.tsx)）
+5. 交易筛选 URL 序列化（[src/features/transactions/hooks/useTransactionFilters.test.ts](src/features/transactions/hooks/useTransactionFilters.test.ts)）
+6. 交易详情 Drawer（[src/features/transactions/components/TransactionDetailDrawer.test.tsx](src/features/transactions/components/TransactionDetailDrawer.test.tsx)）
+7. 汇率缓存逻辑（[src/features/exchange/model/cache.test.ts](src/features/exchange/model/cache.test.ts)）
+8. 货币换算器（[src/features/exchange/ui/ExchangeConverter.test.tsx](src/features/exchange/ui/ExchangeConverter.test.tsx)）
+9. 账户预设 Picker（[src/features/accounts/ui/AccountPresetPicker.test.tsx](src/features/accounts/ui/AccountPresetPicker.test.tsx)）
 
 ## 11. 关键设计决策
 

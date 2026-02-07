@@ -8,6 +8,8 @@ import { SettingsPage } from '../../pages/settings/SettingsPage';
 import { AboutPage } from '../../pages/about/AboutPage';
 import { AssistantPage } from '../../pages/assistant/AssistantPage';
 import { DatabaseSettingsPage } from '../../pages/database-settings/DatabaseSettingsPage';
+import { ExchangePage } from '../../features/exchange/ui/ExchangePage';
+import { TagsPage } from '../../pages/tags/TagsPage';
 
 export const router = createBrowserRouter([
   {
@@ -22,7 +24,9 @@ export const router = createBrowserRouter([
       { path: 'settings', element: <SettingsPage /> },
       { path: 'about', element: <AboutPage /> },
       { path: 'assistant', element: <AssistantPage /> },
-      { path: 'database-settings', element: <DatabaseSettingsPage /> }
+      { path: 'database-settings', element: <DatabaseSettingsPage /> },
+      { path: 'exchange', element: <ExchangePage /> },
+      { path: 'tags', element: <TagsPage /> }
     ]
   }
 ]);

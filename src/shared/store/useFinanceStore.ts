@@ -14,7 +14,7 @@ interface FinanceState {
   removeTransaction: (id: string) => void;
   addCategory: (name: string) => void;
   removeCategory: (id: string) => void;
-  addAccount: (name: string) => void;
+  addAccount: (name: string, type?: Account['type']) => void;
   removeAccount: (id: string) => void;
 }
 
@@ -52,8 +52,8 @@ export const useFinanceStore = create<FinanceState>()(
         set((s) => ({ categories: [...s.categories, { id: generateId(), name: name.trim() }] })),
       removeCategory: (id) =>
         set((s) => ({ categories: s.categories.filter((item) => item.id !== id) })),
-      addAccount: (name) =>
-        set((s) => ({ accounts: [...s.accounts, { id: generateId(), name: name.trim() }] })),
+      addAccount: (name, type) =>
+        set((s) => ({ accounts: [...s.accounts, { id: generateId(), name: name.trim(), type }] })),
       removeAccount: (id) =>
         set((s) => ({ accounts: s.accounts.filter((item) => item.id !== id) }))
     }),
