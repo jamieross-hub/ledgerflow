@@ -1,11 +1,29 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePwaInstallPrompt } from '../../shared/hooks/usePwaInstallPrompt';
 import { useAiSettings } from '../../shared/store/useAiSettings';
-import { useAppPreferences } from '../../shared/store/useAppPreferences';
+import { Toast } from '../../shared/ui/Toast';
+
+/** 常用模型预设列表 */
+const MODEL_PRESETS = [
+  'gpt-4o-mini',
+  'gpt-4o',
+  'gpt-4-turbo',
+  'gpt-3.5-turbo',
+  'gemini-2.5-flash-lite',
+  'gemini-2.0-flash',
+  'gemini-1.5-pro',
+  'claude-sonnet-4-20250514',
+  'claude-3-5-sonnet-20241022',
+  'deepseek-chat',
+  'deepseek-reasoner',
+  'qwen-turbo',
+  'qwen-plus',
+  'glm-4-flash'
+];
 
 export function SettingsPage() {
-  const language = useAppPreferences((s) => s.language);
-  const setLanguage = useAppPreferences((s) => s.setLanguage);
+  const navigate = useNavigate();
   const { canInstall, triggerInstall } = usePwaInstallPrompt();
 
   const baseUrl = useAiSettings((s) => s.baseUrl);
@@ -16,18 +34,73 @@ export function SettingsPage() {
   const setModel = useAiSettings((s) => s.setModel);
 
   const [masked, setMasked] = useState(true);
+  const [customModel, setCustomModel] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
+
+  // 用于防抖自动保存提示
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showSaveToast = useCallback(() => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+    saveTimerRef.current = setTimeout(() => {
+      setToastVisible(true);
+    }, 300);
+  }, []);
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, []);
+
+  const isPreset = MODEL_PRESETS.includes(model);
+
+  const handleBaseUrlChange = (value: string) => {
+    setBaseUrl(value);
+    showSaveToast();
+  };
+
+  const handleApiKeyChange = (value: string) => {
+    setApiKey(value);
+    showSaveToast();
+  };
+
+  const handleModelSelect = (value: string) => {
+    if (value === '__custom__') {
+      setCustomModel('');
+      return;
+    }
+    setModel(value);
+    setCustomModel('');
+    showSaveToast();
+  };
+
+  const handleCustomModelConfirm = () => {
+    const trimmed = customModel.trim();
+    if (trimmed) {
+      setModel(trimmed);
+      showSaveToast();
+    }
+  };
 
   return (
     <div>
       <section className="panel">
-        <h2>通用设置</h2>
-        <div className="field">
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ margin: 0 }}>通用设置</h2>
+          <button type="button" onClick={() => navigate(-1)}>
+            ← 返回
+          </button>
+        </div>
+        <div className="field" style={{ marginTop: 16 }}>
           <label>界面语言</label>
           <div className="row">
-            <select value={language} onChange={(e) => setLanguage(e.target.value as 'zh-CN' | 'en-US')}>
-              <option value="zh-CN">简体中文</option>
-              <option value="en-US">English</option>
-            </select>
+            <span>简体中文</span>
             <button disabled={!canInstall} onClick={() => void triggerInstall()}>
               {canInstall ? '安装 PWA' : '当前不可安装'}
             </button>
@@ -36,15 +109,15 @@ export function SettingsPage() {
       </section>
 
       <section className="panel">
-        <h2>OpenAI 兼容设置</h2>
-        <p>统一在这里维护供应商地址、API Key 与默认模型。助手页将自动读取。</p>
+        <h2>AI 模型设置</h2>
+        <p>统一在这里维护供应商地址、API Key 与默认模型。助手页将自动读取。修改即自动保存。</p>
 
         <div className="field">
           <label>供应商 Base URL</label>
           <input
             value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder="https://ai.shuaihong.fun/v1"
+            onChange={(e) => handleBaseUrlChange(e.target.value)}
+            placeholder="https://api.openai.com/v1"
           />
         </div>
 
@@ -52,7 +125,7 @@ export function SettingsPage() {
           <label>API Key</label>
           <input
             value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
+            onChange={(e) => handleApiKeyChange(e.target.value)}
             placeholder="sk-..."
             type={masked ? 'password' : 'text'}
           />
@@ -63,9 +136,55 @@ export function SettingsPage() {
 
         <div className="field">
           <label>默认模型</label>
-          <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="gpt-4o-mini" />
+          <select
+            value={isPreset ? model : '__custom__'}
+            onChange={(e) => handleModelSelect(e.target.value)}
+          >
+            <optgroup label="常用模型">
+              {MODEL_PRESETS.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="其他">
+              <option value="__custom__">自定义模型...</option>
+            </optgroup>
+          </select>
+        </div>
+
+        {(!isPreset || customModel !== undefined) && !isPreset ? (
+          <div className="field">
+            <label>自定义模型名称</label>
+            <div className="row" style={{ gap: 8 }}>
+              <input
+                value={customModel || (!isPreset ? model : '')}
+                onChange={(e) => setCustomModel(e.target.value)}
+                placeholder="输入自定义模型名称，如 my-model-v1"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleCustomModelConfirm();
+                  }
+                }}
+              />
+              <button type="button" onClick={handleCustomModelConfirm}>
+                确认
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        <div style={{ marginTop: 12, padding: '8px 12px', background: 'var(--color-surface-alt, #f5f5f5)', borderRadius: 6, fontSize: 'var(--font-sm)', color: 'var(--color-text-secondary)' }}>
+          <strong>当前模型：</strong>{model || '未设置'}
         </div>
       </section>
+
+      <Toast
+        visible={toastVisible}
+        variant="success"
+        message="设置已自动保存"
+        onClose={() => setToastVisible(false)}
+      />
     </div>
   );
 }

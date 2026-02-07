@@ -32,7 +32,23 @@ interface AiBillResult {
   transactions: AiBillItem[];
 }
 
-const JSON_AGENT_PROMPT = `你是 LedgerFlow 的记账识别 Agent。\n请只返回 JSON，不要返回 markdown。\nJSON schema: {"transactions":[{"type":"expense|income","amount":number,"date":"YYYY-MM-DD or ISO string","note":"string","category":"string","account":"string","tags":["string"]}]}。\n如果信息缺失，按最合理推断并在 note 说明。`;
+const JSON_AGENT_PROMPT = `你是 LedgerFlow 个人记账助手，专门帮助用户记录日常生活开支与收入。
+
+你的职责：
+1. 识别用户描述的消费或收入信息（如餐饮、交通、工资、购物等日常场景）
+2. 将信息结构化为 JSON 格式返回
+3. 仅处理个人日常记账相关内容
+
+请严格按以下 JSON schema 返回，不要返回 markdown 代码块：
+{"transactions":[{"type":"expense|income","amount":number,"date":"YYYY-MM-DD","note":"string","category":"string","account":"string","tags":["string"]}]}
+
+规则：
+- type 只能是 expense（支出）或 income（收入）
+- amount 为正数
+- date 格式为 YYYY-MM-DD，未提供则用今天日期
+- category 从常见生活分类中推断（餐饮、交通、购物、娱乐、居住、医疗、教育、工资、兼职等）
+- 如果信息不完整，按最合理的日常场景推断并在 note 中说明
+- 你是一个生活记账工具，只处理个人日常收支记录`;
 
 function readImageAsDataUrl(file: File): Promise<string> {
   return new Promise<string>((resolve, reject) => {
@@ -124,6 +140,7 @@ export function AssistantPage() {
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const modelDropdownRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const hasApiKey = Boolean(apiKey?.trim());
 
@@ -459,6 +476,29 @@ export function AssistantPage() {
         ) : null}
 
         <form onSubmit={handleSubmit} className="chat-input-form">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="chat-file-input-hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                void handleSetImage(file);
+              }
+              e.target.value = '';
+            }}
+          />
+          <button
+            type="button"
+            className="chat-upload-btn"
+            title="上传图片"
+            aria-label="上传图片"
+            disabled={!hasApiKey}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            📎
+          </button>
           <textarea
             rows={1}
             value={textInput}
@@ -480,7 +520,7 @@ export function AssistantPage() {
             className="chat-input-textarea"
             placeholder={
               hasApiKey
-                ? '输入消息，按 Enter 发送，Shift+Enter 换行 · 支持粘贴/拖拽图片'
+                ? '输入消息，按 Enter 发送 · 支持粘贴/拖拽/点击📎上传图片'
                 : '请先前往设置页填写 OpenAI API Key，再开始聊天'
             }
             disabled={!hasApiKey}

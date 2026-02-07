@@ -234,9 +234,6 @@ export function AppLayout() {
               <div className="env-popover" role="dialog" aria-label="环境信息">
                 <h4>环境信息</h4>
                 <p>
-                  <strong>模式：</strong>代理模式
-                </p>
-                <p>
                   <strong>模型：</strong>
                   {model || '未设置'}
                 </p>
