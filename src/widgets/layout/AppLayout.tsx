@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { ThemeSwitcher } from '../../features/theme-switcher/ThemeSwitcher';
 import { useAiSettings } from '../../shared/store/useAiSettings';
-import { useAppPreferences } from '../../shared/store/useAppPreferences';
 
 /** 当前发布版本号（展示用途，与 package.json 可独立管理） */
 const APP_VERSION = '0.1';
