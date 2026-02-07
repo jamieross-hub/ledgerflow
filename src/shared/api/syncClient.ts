@@ -50,6 +50,12 @@ function normalizePath(path: string) {
   return path.startsWith('/') ? path : `/${path}`;
 }
 
+function normalizeBase(base: string) {
+  if (!base) return '';
+  if (base === '/') return '';
+  return base.endsWith('/') ? base.slice(0, -1) : base;
+}
+
 async function requestJson<T>(url: string, payload: unknown, method: 'POST' | 'PUT' = 'POST'): Promise<T> {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), ENV.requestTimeoutMs);
@@ -90,25 +96,31 @@ async function requestWithFallback<T>(
   methods: Array<'POST' | 'PUT'> = ['POST']
 ): Promise<T> {
   let lastError: unknown;
+  const attempts: string[] = [];
+  const baseCandidates = Array.from(new Set([normalizeBase(ENV.apiBaseUrl), '']));
 
-  for (const path of paths) {
-    const url = `${ENV.apiBaseUrl}${normalizePath(path)}`;
+  for (const base of baseCandidates) {
+    for (const path of paths) {
+      const url = `${base}${normalizePath(path)}`;
 
-    for (const method of methods) {
-      try {
-        return await requestJson<T>(url, payload, method);
-      } catch (error) {
-        lastError = error;
-        if (error instanceof HttpRequestError && (error.status === 404 || error.status === 405)) {
-          continue;
+      for (const method of methods) {
+        try {
+          attempts.push(`${method} ${url}`);
+          return await requestJson<T>(url, payload, method);
+        } catch (error) {
+          lastError = error;
+          if (error instanceof HttpRequestError && (error.status === 404 || error.status === 405)) {
+            continue;
+          }
+          throw error;
         }
-        throw error;
       }
     }
   }
 
   if (lastError instanceof HttpRequestError && (lastError.status === 404 || lastError.status === 405)) {
-    throw new Error('同步接口不可用（HTTP 404/405）。请检查后端是否已启用 /api 代理及同步路由。');
+    const tested = attempts.join(' | ');
+    throw new Error(`同步接口不可用（HTTP 404/405）。已尝试：${tested}`);
   }
 
   throw lastError instanceof Error ? lastError : new Error('同步请求失败');
