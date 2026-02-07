@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
-import { useFinanceStore } from '../../shared/store/useFinanceStore';
+import { DebugLogPanel } from '../../features/debug-log/ui/DebugLogPanel';
 import { formatCurrency } from '../../shared/lib/format';
+import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { EmptyState } from '../../shared/ui/EmptyState';
 
 function getGreeting(): string {
@@ -123,6 +124,8 @@ export function DashboardPage() {
           <p>保留趋势区块，便于后续接入真实分析服务。</p>
         </section>
       </div>
+
+      <DebugLogPanel />
     </div>
   );
 }

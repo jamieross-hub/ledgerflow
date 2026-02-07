@@ -1847,6 +1847,160 @@ small.mono {
 }
 
 /* ============================================================
+   Database Connection Form + Debug Log
+   ============================================================ */
+.connection-form {
+  margin-top: var(--space-3);
+}
+
+.connection-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.connection-main,
+.connection-actions {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.connection-actions {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  position: sticky;
+  top: var(--space-3);
+}
+
+.connection-section-header h3 {
+  margin: 0;
+  font-size: var(--font-md);
+}
+
+.connection-section-header p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+}
+
+.connection-inline-row {
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.connection-inline-row input {
+  flex: 1;
+}
+
+.connection-advanced {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-subtle);
+}
+
+.connection-advanced summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  user-select: none;
+}
+
+.connection-advanced[open] summary {
+  margin-bottom: var(--space-2);
+}
+
+.connection-test-wrap {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.connection-test-success,
+.connection-test-error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  border: 1px solid transparent;
+}
+
+.connection-test-success {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
+}
+
+.connection-test-error {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger-border);
+}
+
+.connection-test-log {
+  margin: 0;
+  max-height: 180px;
+  overflow: auto;
+  font-size: var(--font-xs);
+}
+
+.debug-log-panel {
+  margin-top: var(--space-4);
+}
+
+.debug-log-empty {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.debug-log-scroll {
+  margin-top: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+
+.debug-log-item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-subtle);
+}
+
+.debug-log-item p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-sm);
+}
+
+.debug-log-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.debug-success {
+  border-color: color-mix(in srgb, var(--color-success) 40%, var(--color-border));
+}
+
+.debug-error {
+  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
+}
+
+.debug-info {
+  border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
+}
+
+.debug-pending {
+  border-style: dashed;
+}
+
+/* ============================================================
    Account Preset Picker
    ============================================================ */
 .account-preset-picker {
@@ -1887,6 +2041,16 @@ small.mono {
   background: var(--color-bg-subtle);
   color: var(--color-text-secondary);
   margin-left: var(--space-1);
+}
+
+@media (max-width: 1024px) {
+  .connection-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .connection-actions {
+    position: static;
+  }
 }
 
 @media (max-width: 640px) {
