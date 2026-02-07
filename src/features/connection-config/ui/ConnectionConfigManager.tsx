@@ -7,14 +7,9 @@ import {
   toggleConnection
 } from '../model/connectionStorage';
 import { ConnectionConfigCard } from './ConnectionConfigCard';
-import { AppMode } from '../../../shared/types/app';
 import { ConnectionFormValues } from '../model/connectionFormSchema';
 
-interface ConnectionConfigManagerProps {
-  mode: AppMode;
-}
-
-export function ConnectionConfigManager({ mode }: ConnectionConfigManagerProps) {
+export function ConnectionConfigManager() {
   const [version, setVersion] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(true);
@@ -46,7 +41,7 @@ export function ConnectionConfigManager({ mode }: ConnectionConfigManagerProps) 
         </button>
       </div>
 
-      {adding && <ConnectionConfigForm mode={mode} onSubmit={handleSave} onCancel={() => setAdding(false)} />}
+      {adding && <ConnectionConfigForm onSubmit={handleSave} onCancel={() => setAdding(false)} />}
 
       <div>
         {rows.length === 0 && <p>暂无连接配置，请新增一条。</p>}
@@ -54,7 +49,6 @@ export function ConnectionConfigManager({ mode }: ConnectionConfigManagerProps) 
           <ConnectionConfigCard
             key={item.id}
             item={item}
-            mode={mode}
             editing={editingId === item.id}
             onEdit={() => setEditingId(item.id)}
             onCancelEdit={() => setEditingId(null)}

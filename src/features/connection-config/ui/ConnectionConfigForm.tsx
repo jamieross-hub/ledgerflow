@@ -1,7 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { AppMode } from '../../../shared/types/app';
 import { useDebugLogStore } from '../../../shared/store/useDebugLogStore';
 import { getConnectionDefaults, getPortByType } from '../model/connectionDefaults';
 import { ConnectionFormValues, connectionFormSchema } from '../model/connectionFormSchema';
@@ -9,7 +8,6 @@ import { parseConnectionString } from '../model/connectionString';
 import { ConnectionTestButton } from './ConnectionTestButton';
 
 interface ConnectionConfigFormProps {
-  mode: AppMode;
   initialValues?: ConnectionFormValues;
   onSubmit: (values: ConnectionFormValues) => void;
   onCancel?: () => void;
@@ -19,7 +17,7 @@ function getDefaultsByType(type: ConnectionFormValues['type']) {
   return getConnectionDefaults(type);
 }
 
-export function ConnectionConfigForm({ mode, initialValues, onSubmit, onCancel }: ConnectionConfigFormProps) {
+export function ConnectionConfigForm({ initialValues, onSubmit, onCancel }: ConnectionConfigFormProps) {
   const addLog = useDebugLogStore((s) => s.addLog);
   const [testing, setTesting] = useState(false);
 
@@ -204,7 +202,6 @@ export function ConnectionConfigForm({ mode, initialValues, onSubmit, onCancel }
 
           <ConnectionTestButton
             values={form.watch()}
-            mode={mode}
             disabled={form.formState.isSubmitting}
             onTestingChange={setTesting}
             onResult={(result) => {

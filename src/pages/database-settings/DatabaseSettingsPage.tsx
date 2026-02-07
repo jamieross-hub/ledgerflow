@@ -1,12 +1,9 @@
 import { useMemo, useState } from 'react';
 import { ConnectionConfigManager } from '../../features/connection-config/ui/ConnectionConfigManager';
-import { ModeSelector } from '../../features/settings-mode/ModeSelector';
 import { useSyncStore } from '../../shared/store/useSyncStore';
-import { useAppPreferences } from '../../shared/store/useAppPreferences';
 import { Toast, ToastVariant } from '../../shared/ui/Toast';
 
 export function DatabaseSettingsPage() {
-  const mode = useAppPreferences((s) => s.mode);
   const { status, message, detail, progress, syncToDatabase } = useSyncStore();
   const [toastVisible, setToastVisible] = useState(false);
 
@@ -28,15 +25,13 @@ export function DatabaseSettingsPage() {
     <div>
       <section className="panel">
         <h2>数据库设置</h2>
-        <p>在此配置 PostgreSQL / MySQL / Redis 连接，并可切换 Mock / 代理模式进行测试。</p>
+        <p>在此配置 PostgreSQL / MySQL / Redis 连接，连接测试统一通过后端代理执行。</p>
         <ul style={{ marginTop: 10, color: 'var(--color-text-secondary)', lineHeight: 1.7 }}>
           <li>新增表单默认展开，可直接填写主机、端口、用户名、密码等字段。</li>
           <li>密码与连接串不会以明文持久化到浏览器存储。</li>
           <li>建议仅在可信设备保存连接配置，并定期轮换数据库密码。</li>
         </ul>
       </section>
-
-      <ModeSelector />
 
       <section className="panel sync-panel">
         <h3 style={{ marginTop: 0 }}>数据同步（PostgreSQL）</h3>
@@ -67,7 +62,7 @@ export function DatabaseSettingsPage() {
         ) : null}
       </section>
 
-      <ConnectionConfigManager mode={mode} />
+      <ConnectionConfigManager />
 
       <Toast
         visible={toastVisible}

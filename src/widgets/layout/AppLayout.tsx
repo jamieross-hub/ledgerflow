@@ -67,7 +67,6 @@ export function AppLayout() {
   const baseUrl = useAiSettings((s) => s.baseUrl);
   const model = useAiSettings((s) => s.model);
   const apiKey = useAiSettings((s) => s.apiKey);
-  const mode = useAppPreferences((s) => s.mode);
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
@@ -236,8 +235,7 @@ export function AppLayout() {
               <div className="env-popover" role="dialog" aria-label="环境信息">
                 <h4>环境信息</h4>
                 <p>
-                  <strong>模式：</strong>
-                  {mode === 'mock' ? '纯前端 Mock' : '代理模式'}
+                  <strong>模式：</strong>代理模式
                 </p>
                 <p>
                   <strong>模型：</strong>

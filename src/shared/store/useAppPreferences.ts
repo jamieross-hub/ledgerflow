@@ -15,7 +15,7 @@ export const useAppPreferences = create<AppPreferencesState>()(
   persist(
     (set) => ({
       theme: 'system',
-      mode: 'mock',
+      mode: 'proxy',
       language: 'zh-CN',
       setTheme: (theme) => set({ theme }),
       setMode: (mode) => set({ mode }),

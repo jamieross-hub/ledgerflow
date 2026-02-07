@@ -1,13 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { ConnectionTestResult } from '../../../entities/connection/types';
-import { AppMode } from '../../../shared/types/app';
 import { ConnectionFormValues } from '../model/connectionFormSchema';
 import { testConnection } from '../model/connectionTest';
 
 interface ConnectionTestButtonProps {
   values: ConnectionFormValues;
-  mode: AppMode;
   disabled?: boolean;
   onTestingChange?: (testing: boolean) => void;
   onResult?: (result: { ok: boolean; message: string; detail: string; elapsedMs: number }) => void;
@@ -15,14 +13,13 @@ interface ConnectionTestButtonProps {
 
 export function ConnectionTestButton({
   values,
-  mode,
   disabled = false,
   onTestingChange,
   onResult
 }: ConnectionTestButtonProps) {
   const [expanded, setExpanded] = useState(false);
   const mutation = useMutation<ConnectionTestResult, Error>({
-    mutationFn: () => testConnection(values, mode),
+    mutationFn: () => testConnection(values),
     onSuccess: (data) => {
       onResult?.({ ok: data.ok, message: data.message, detail: data.detail, elapsedMs: data.elapsedMs });
     },

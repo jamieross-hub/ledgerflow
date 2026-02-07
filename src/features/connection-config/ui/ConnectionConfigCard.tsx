@@ -1,11 +1,9 @@
 import { ConnectionConfig } from '../../../entities/connection/types';
-import { AppMode } from '../../../shared/types/app';
 import { ConnectionConfigForm } from './ConnectionConfigForm';
 import { ConnectionFormValues } from '../model/connectionFormSchema';
 
 interface ConnectionConfigCardProps {
   item: ConnectionConfig;
-  mode: AppMode;
   editing: boolean;
   onEdit: () => void;
   onDelete: () => void;
@@ -15,12 +13,11 @@ interface ConnectionConfigCardProps {
 }
 
 export function ConnectionConfigCard(props: ConnectionConfigCardProps) {
-  const { item, editing, onEdit, onDelete, onToggle, onSave, onCancelEdit, mode } = props;
+  const { item, editing, onEdit, onDelete, onToggle, onSave, onCancelEdit } = props;
 
   if (editing) {
     return (
       <ConnectionConfigForm
-        mode={mode}
         initialValues={item}
         onSubmit={(values) => onSave({ ...values, id: item.id })}
         onCancel={onCancelEdit}
