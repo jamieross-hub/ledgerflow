@@ -12,7 +12,7 @@ export function LoadingSkeleton({ lines = 3, card = false, className }: LoadingS
   }
 
   return (
-    <div className={cn(className)} aria-hidden="true">
+    <div className={cn('skeleton-stack', className)} aria-hidden="true">
       {Array.from({ length: lines }).map((_, index) => (
         <div key={index} className="skeleton skeleton-line" />
       ))}

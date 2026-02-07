@@ -9,7 +9,7 @@ interface FinanceState {
   transactions: TransactionItem[];
   categories: Category[];
   accounts: Account[];
-  addTransaction: (payload: Omit<TransactionItem, 'id'>) => void;
+  addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
   updateTransaction: (id: string, payload: Omit<TransactionItem, 'id'>) => void;
   removeTransaction: (id: string) => void;
   addCategory: (name: string) => void;
@@ -37,8 +37,11 @@ export const useFinanceStore = create<FinanceState>()(
       transactions: defaultTransactions,
       categories: defaultCategories,
       accounts: defaultAccounts,
-      addTransaction: (payload) =>
-        set((s) => ({ transactions: [...s.transactions, { ...payload, id: generateId() }] })),
+      addTransaction: (payload) => {
+        const id = generateId();
+        set((s) => ({ transactions: [...s.transactions, { ...payload, id }] }));
+        return id;
+      },
       updateTransaction: (id, payload) =>
         set((s) => ({
           transactions: s.transactions.map((item) => (item.id === id ? { ...payload, id } : item))

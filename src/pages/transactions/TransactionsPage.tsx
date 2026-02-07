@@ -1,12 +1,31 @@
-import { ChangeEvent, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
-import { formatCurrency, formatDate } from '../../shared/lib/format';
 import { exportTransactionsCsv } from '../../shared/lib/csv';
 import { parseBillCsvToTransactions } from '../../shared/lib/billImport';
+import { Toast, ToastVariant } from '../../shared/ui/Toast';
+import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
+import { TransactionDetailDrawer } from '../../features/transactions/components/TransactionDetailDrawer';
+import { TransactionFilters } from '../../features/transactions/components/TransactionFilters';
+import { TransactionRowView, TransactionTable } from '../../features/transactions/components/TransactionTable';
+import { resolveDateRange, useTransactionFilters } from '../../features/transactions/hooks/useTransactionFilters';
 
 const PAGE_SIZE = 8;
 type BillSource = 'wechat' | 'alipay';
+
+function detectSource(note: string, tags: string[]): 'manual' | 'wechat' | 'alipay' | 'ai' {
+  const combined = `${note} ${tags.join(' ')}`;
+  if (/微信|wechat/i.test(combined)) {
+    return 'wechat';
+  }
+  if (/支付宝|alipay/i.test(combined)) {
+    return 'alipay';
+  }
+  if (/AI|识别/i.test(combined)) {
+    return 'ai';
+  }
+  return 'manual';
+}
 
 export function TransactionsPage() {
   const transactions = useFinanceStore((s) => s.transactions);
@@ -15,32 +34,133 @@ export function TransactionsPage() {
   const addTransaction = useFinanceStore((s) => s.addTransaction);
   const removeTransaction = useFinanceStore((s) => s.removeTransaction);
 
-  const [keyword, setKeyword] = useState('');
-  const [type, setType] = useState<'all' | 'income' | 'expense'>('all');
-  const [page, setPage] = useState(1);
+  const {
+    filters,
+    isFiltered,
+    setKeyword,
+    setType,
+    setSource,
+    setDatePreset,
+    setDateFrom,
+    setDateTo,
+    setPage,
+    clearFilters
+  } = useTransactionFilters();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
   const [importSource, setImportSource] = useState<BillSource | null>(null);
-  const [importMessage, setImportMessage] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [highlightId, setHighlightId] = useState<string>('');
+  const [toast, setToast] = useState<{ visible: boolean; message: string; variant: ToastVariant }>({
+    visible: false,
+    message: '',
+    variant: 'success'
+  });
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const filtered = useMemo(() => {
+  const dateRange = useMemo(() => resolveDateRange(filters), [filters]);
+
+  useEffect(() => {
+    if (filters.datePreset === 'custom' && dateRange.from && dateRange.to && dateRange.from > dateRange.to) {
+      setErrorMessage('自定义日期范围无效：开始日期不能晚于结束日期。');
+      return;
+    }
+    setErrorMessage('');
+  }, [filters.datePreset, dateRange.from, dateRange.to]);
+
+  useEffect(() => {
+    setLoading(true);
+    const timer = window.setTimeout(() => setLoading(false), 180);
+    return () => window.clearTimeout(timer);
+  }, [filters.keyword, filters.type, filters.source, filters.datePreset, filters.dateFrom, filters.dateTo, filters.page]);
+
+  useEffect(() => {
+    const highlight = searchParams.get('highlight') ?? '';
+    if (!highlight) {
+      return;
+    }
+
+    setHighlightId(highlight);
+    const rowTimer = window.setTimeout(() => {
+      const row = document.getElementById(`transaction-row-${highlight}`);
+      row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 180);
+
+    const clearTimer = window.setTimeout(() => {
+      setHighlightId('');
+      const next = new URLSearchParams(searchParams);
+      next.delete('highlight');
+      setSearchParams(next, { replace: true });
+    }, 1200);
+
+    return () => {
+      window.clearTimeout(rowTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [searchParams, setSearchParams]);
+
+  const filteredRows = useMemo(() => {
     return transactions.filter((item) => {
-      const byType = type === 'all' ? true : item.type === type;
+      const byType = filters.type === 'all' ? true : item.type === filters.type;
+      const source = detectSource(item.note, item.tags);
+      const bySource = filters.source === 'all' ? true : source === filters.source;
       const byKeyword =
-        keyword.trim().length === 0 ||
-        item.note.toLowerCase().includes(keyword.toLowerCase()) ||
-        item.tags.join(',').toLowerCase().includes(keyword.toLowerCase());
-      return byType && byKeyword;
+        filters.keyword.trim().length === 0 ||
+        item.note.toLowerCase().includes(filters.keyword.toLowerCase()) ||
+        item.tags.join(',').toLowerCase().includes(filters.keyword.toLowerCase());
+
+      let byDate = true;
+      if (dateRange.from && dateRange.to) {
+        const day = item.date.slice(0, 10);
+        byDate = day >= dateRange.from && day <= dateRange.to;
+      }
+
+      return byType && bySource && byKeyword && byDate;
     });
-  }, [keyword, type, transactions]);
+  }, [transactions, filters.type, filters.source, filters.keyword, dateRange.from, dateRange.to]);
 
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const list = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const page = Math.min(filters.page, pages);
 
-  const triggerImport = (source: BillSource) => {
+  useEffect(() => {
+    if (filters.page > pages) {
+      setPage(pages);
+    }
+  }, [filters.page, pages, setPage]);
+
+  const pageRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const viewRows: TransactionRowView[] = useMemo(() => {
+    return pageRows.map((item) => ({
+      item,
+      categoryName: categories.find((c) => c.id === item.categoryId)?.name ?? '-',
+      accountName: accounts.find((a) => a.id === item.accountId)?.name ?? '-'
+    }));
+  }, [accounts, categories, pageRows]);
+
+  const selected = useMemo(
+    () => transactions.find((item) => item.id === selectedId) ?? null,
+    [transactions, selectedId]
+  );
+
+  const selectedCategoryName = selected
+    ? categories.find((item) => item.id === selected.categoryId)?.name ?? '-'
+    : '-';
+  const selectedAccountName = selected
+    ? accounts.find((item) => item.id === selected.accountId)?.name ?? '-'
+    : '-';
+
+  const openImport = (source: BillSource) => {
     setImportSource(source);
-    setImportMessage('');
     fileInputRef.current?.click();
+  };
+
+  const showToast = (message: string, variant: ToastVariant) => {
+    setToast({ visible: true, message, variant });
   };
 
   const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -55,7 +175,7 @@ export function TransactionsPage() {
       const defaultAccountId = accounts[0]?.id;
 
       if (!defaultCategoryId || !defaultAccountId) {
-        setImportMessage('⚠️ 导入失败：请先在"分类/账户"页面至少创建 1 个分类和 1 个账户。');
+        showToast('导入失败：请先创建分类和账户。', 'warning');
         return;
       }
 
@@ -67,126 +187,124 @@ export function TransactionsPage() {
       });
 
       if (parsed.length === 0) {
-        setImportMessage('⚠️ 未识别到可导入账单，请确认 CSV 为微信/支付宝账单导出文件。');
+        showToast('未识别到可导入账单。', 'warning');
         return;
       }
 
-      parsed.forEach((item) => addTransaction(item));
-      setImportMessage(
-        `✅ 导入成功：${importSource === 'wechat' ? '微信' : '支付宝'}账单 ${parsed.length} 条。`
-      );
-      setPage(1);
+      const insertedIds = parsed.map((item) => addTransaction(item));
+      const newestId = insertedIds[insertedIds.length - 1];
+      const expectedIndex = Math.max(0, filteredRows.length + parsed.length - 1);
+      const expectedPage = Math.floor(expectedIndex / PAGE_SIZE) + 1;
+      setPage(expectedPage);
+      showToast(`导入成功：新增 ${parsed.length} 条记录。`, 'success');
+
+      const next = new URLSearchParams(searchParams);
+      next.set('highlight', newestId);
+      setSearchParams(next, { replace: true });
     } catch {
-      setImportMessage('❌ 导入失败：文件解析异常，请检查 CSV 编码与格式。');
+      showToast('导入失败：文件解析异常。', 'error');
     } finally {
       event.target.value = '';
       setImportSource(null);
     }
   };
 
+  const handleDeleteConfirm = () => {
+    if (!pendingDeleteId) {
+      return;
+    }
+    removeTransaction(pendingDeleteId);
+    if (selectedId === pendingDeleteId) {
+      setSelectedId(null);
+    }
+    showToast('交易已删除。', 'success');
+    setPendingDeleteId(null);
+  };
+
+  const copyText = async (text: string, successMessage: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(successMessage, 'success');
+    } catch {
+      showToast('复制失败，请检查浏览器权限。', 'error');
+    }
+  };
+
   return (
     <div>
-      {/* 筛选与操作栏 */}
-      <section className="panel">
-        <h2>交易记录</h2>
-        <div className="row">
-          <input
-            placeholder="搜索备注或标签"
-            value={keyword}
-            onChange={(e) => {
-              setKeyword(e.target.value);
-              setPage(1);
-            }}
-            style={{ flex: 1, maxWidth: 240 }}
-          />
-          <select
-            value={type}
-            onChange={(e) => {
-              setType(e.target.value as 'all' | 'income' | 'expense');
-              setPage(1);
-            }}
-          >
-            <option value="all">全部</option>
-            <option value="income">收入</option>
-            <option value="expense">支出</option>
-          </select>
-          <button onClick={() => exportTransactionsCsv(filtered)}>导出 CSV</button>
-          <button type="button" onClick={() => triggerImport('wechat')}>导入微信账单</button>
-          <button type="button" onClick={() => triggerImport('alipay')}>导入支付宝账单</button>
-          <Link to="/transactions/new">
-            <button className="primary">新增账目</button>
-          </Link>
-        </div>
+      <TransactionFilters
+        filters={filters}
+        onKeywordChange={setKeyword}
+        onTypeChange={setType}
+        onSourceChange={setSource}
+        onDatePresetChange={setDatePreset}
+        onDateFromChange={setDateFrom}
+        onDateToChange={setDateTo}
+        onClear={clearFilters}
+        onExport={() => exportTransactionsCsv(filteredRows)}
+        onImportWechat={() => openImport('wechat')}
+        onImportAlipay={() => openImport('alipay')}
+      />
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,text/csv"
-          style={{ display: 'none' }}
-          onChange={handleImportFile}
-        />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv,text/csv"
+        style={{ display: 'none' }}
+        onChange={(event) => void handleImportFile(event)}
+      />
 
-        {importMessage ? (
-          <p style={{ marginTop: 12, fontSize: 'var(--font-sm)' }}>{importMessage}</p>
-        ) : null}
-      </section>
+      <TransactionTable
+        rows={viewRows}
+        total={transactions.length}
+        filteredTotal={filteredRows.length}
+        page={page}
+        pages={pages}
+        loading={loading}
+        errorMessage={errorMessage}
+        hasFilters={isFiltered}
+        highlightId={highlightId}
+        onRetry={() => setErrorMessage('')}
+        onClearFilters={clearFilters}
+        onPrevPage={() => setPage(Math.max(1, page - 1))}
+        onNextPage={() => setPage(Math.min(pages, page + 1))}
+        onOpenDetail={setSelectedId}
+        onDelete={setPendingDeleteId}
+      />
 
-      {/* 数据表格 */}
-      <section className="panel">
-        {list.length === 0 ? (
-          <div className="empty-state" style={{ padding: '32px 16px' }}>
-            <div className="empty-state-icon">📋</div>
-            <h3>暂无交易记录</h3>
-            <p>添加第一笔交易，或使用筛选条件查看已有记录。</p>
-          </div>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>日期</th>
-                <th>类型</th>
-                <th>分类</th>
-                <th>账户</th>
-                <th>金额</th>
-                <th>备注</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((item) => (
-                <tr key={item.id}>
-                  <td>{formatDate(item.date)}</td>
-                  <td>
-                    <span className={item.type === 'income' ? 'badge badge-success' : 'badge badge-danger'}>
-                      {item.type === 'income' ? '收入' : '支出'}
-                    </span>
-                  </td>
-                  <td>{categories.find((c) => c.id === item.categoryId)?.name ?? '-'}</td>
-                  <td>{accounts.find((a) => a.id === item.accountId)?.name ?? '-'}</td>
-                  <td style={{ fontWeight: 600, color: item.type === 'income' ? 'var(--color-income)' : 'var(--color-expense)' }}>
-                    {formatCurrency(item.amount)}
-                  </td>
-                  <td>{item.note}</td>
-                  <td className="row">
-                    <Link to={`/transactions/${item.id}`}>
-                      <button>编辑</button>
-                    </Link>
-                    <button className="danger" onClick={() => removeTransaction(item.id)}>删除</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+      <TransactionDetailDrawer
+        open={Boolean(selected)}
+        transaction={selected}
+        categoryName={selectedCategoryName}
+        accountName={selectedAccountName}
+        onClose={() => setSelectedId(null)}
+        onCopyNote={() => void copyText(selected?.note ?? '', '备注已复制')}
+        onCopyJson={() => void copyText(JSON.stringify(selected, null, 2), 'JSON 已复制')}
+        onDelete={() => {
+          if (!selected) {
+            return;
+          }
+          setPendingDeleteId(selected.id);
+        }}
+      />
 
-        <div className="row" style={{ marginTop: 12, justifyContent: 'center' }}>
-          <button disabled={page === 1} onClick={() => setPage((p) => p - 1)}>上一页</button>
-          <small style={{ color: 'var(--color-text-secondary)' }}>
-            第 {page} / {pages} 页 · 共 {filtered.length} 条
-          </small>
-          <button disabled={page === pages} onClick={() => setPage((p) => p + 1)}>下一页</button>
-        </div>
-      </section>
+      <ConfirmDialog
+        open={Boolean(pendingDeleteId)}
+        title="确认删除交易"
+        description="删除后将无法恢复。是否继续？"
+        confirmText="确认删除"
+        cancelText="取消"
+        danger
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setPendingDeleteId(null)}
+      />
+
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        variant={toast.variant}
+        onClose={() => setToast((prev) => ({ ...prev, visible: false }))}
+      />
     </div>
   );
 }

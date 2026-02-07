@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { ThemeSwitcher } from '../../features/theme-switcher/ThemeSwitcher';
+import { useAiSettings } from '../../shared/store/useAiSettings';
+import { useAppPreferences } from '../../shared/store/useAppPreferences';
 
 /** 当前发布版本号（展示用途，与 package.json 可独立管理） */
 const APP_VERSION = '0.1';
@@ -56,13 +58,19 @@ const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 420;
 
 export function AppLayout() {
-  // 抽屉状态：折叠/展开
   const [collapsed, setCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [menuOpen, setMenuOpen] = useState(false);
-  // 拖拽过程用 ref 避免频繁触发重渲染
+  const [envOpen, setEnvOpen] = useState(false);
+
   const draggingRef = useRef(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const envRef = useRef<HTMLDivElement | null>(null);
+
+  const baseUrl = useAiSettings((s) => s.baseUrl);
+  const model = useAiSettings((s) => s.model);
+  const apiKey = useAiSettings((s) => s.apiKey);
+  const mode = useAppPreferences((s) => s.mode);
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
@@ -89,18 +97,27 @@ export function AppLayout() {
 
   useEffect(() => {
     const onClickOutside = (event: MouseEvent) => {
-      if (!menuRef.current) {
-        return;
-      }
-
-      if (!menuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (menuRef.current && !menuRef.current.contains(target)) {
         setMenuOpen(false);
+      }
+      if (envRef.current && !envRef.current.contains(target)) {
+        setEnvOpen(false);
       }
     };
 
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
+
+  const copyBaseUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(baseUrl || '');
+      setEnvOpen(false);
+    } catch {
+      setEnvOpen(false);
+    }
+  };
 
   return (
     <div
@@ -187,6 +204,43 @@ export function AppLayout() {
               <h1>LedgerFlow</h1>
               <span>v{APP_VERSION} · 现代化前端记账工作台</span>
             </div>
+          </div>
+
+          <div className="topbar-right" ref={envRef}>
+            <button
+              type="button"
+              className="env-chip"
+              aria-haspopup="dialog"
+              aria-expanded={envOpen}
+              onClick={() => setEnvOpen((v) => !v)}
+            >
+              {apiKey ? 'AI 已配置' : 'AI 未配置'}
+            </button>
+            {envOpen ? (
+              <div className="env-popover" role="dialog" aria-label="环境信息">
+                <h4>环境信息</h4>
+                <p>
+                  <strong>模式：</strong>
+                  {mode === 'mock' ? '纯前端 Mock' : '代理模式'}
+                </p>
+                <p>
+                  <strong>模型：</strong>
+                  {model || '未设置'}
+                </p>
+                <p>
+                  <strong>Base URL：</strong>
+                  <span className="mono-inline">{baseUrl || '未设置'}</span>
+                </p>
+                <div className="row" style={{ marginTop: 8 }}>
+                  <button type="button" onClick={() => void copyBaseUrl()}>
+                    复制 Base URL
+                  </button>
+                  <Link to="/settings" onClick={() => setEnvOpen(false)}>
+                    <button type="button">前往设置</button>
+                  </Link>
+                </div>
+              </div>
+            ) : null}
           </div>
         </header>
 

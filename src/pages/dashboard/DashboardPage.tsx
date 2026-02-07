@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { formatCurrency } from '../../shared/lib/format';
+import { EmptyState } from '../../shared/ui/EmptyState';
 
-/** 根据当前小时返回问候语 */
 function getGreeting(): string {
   const hour = new Date().getHours();
   if (hour < 6) return '夜深了，注意休息';
@@ -42,19 +42,15 @@ export function DashboardPage() {
 
   return (
     <div>
-      {/* 欢迎横幅 */}
       <section className="welcome-banner">
         <div className="welcome-content">
           <h2 className="welcome-greeting">{getGreeting()}，欢迎使用 LedgerFlow</h2>
-          <p className="welcome-subtitle">
-            你的智能记账工作台已就绪 — 轻松管理每一笔收支，让财务一目了然
-          </p>
+          <p className="welcome-subtitle">你的智能记账工作台已就绪，轻松管理每一笔收支。</p>
           <p className="welcome-tip">💡 {TIPS[tipIndex]}</p>
         </div>
         <div className="welcome-emoji">💰</div>
       </section>
 
-      {/* 本月收支概览 */}
       <section className="panel">
         <h2>本月收支概览</h2>
         <div className="grid grid-3">
@@ -82,24 +78,29 @@ export function DashboardPage() {
         </div>
       </section>
 
-      {/* 空态引导 */}
       {transactions.length === 0 ? (
-        <section className="panel empty-state">
-          <div className="empty-state-icon">📝</div>
-          <h3>还没有任何账目记录</h3>
-          <p>开始你的第一笔记账吧！可以手动添加，也可以让 AI 助手帮你识别账单。</p>
-          <div className="row" style={{ justifyContent: 'center', marginTop: 12 }}>
-            <Link to="/transactions/new">
-              <button className="primary">✏️ 记一笔</button>
-            </Link>
-            <Link to="/assistant">
-              <button>🤖 找 AI 助手</button>
-            </Link>
-          </div>
+        <section className="panel">
+          <EmptyState
+            icon="📝"
+            title="还没有任何账目记录"
+            description="开始你的第一笔记账吧，也可以让 AI 助手帮你识别账单。"
+            secondaryAction={{
+              label: '找 AI 助手',
+              onClick: () => {
+                window.location.href = '/assistant';
+              }
+            }}
+            primaryAction={{
+              label: '记一笔',
+              variant: 'primary',
+              onClick: () => {
+                window.location.href = '/transactions/new';
+              }
+            }}
+          />
         </section>
       ) : null}
 
-      {/* 快捷操作 */}
       <h2 style={{ margin: '24px 0 12px', fontSize: 'var(--font-lg)', fontWeight: 600 }}>快捷操作</h2>
       <div className="grid grid-4">
         {QUICK_ACTIONS.map((action) => (
@@ -111,16 +112,15 @@ export function DashboardPage() {
         ))}
       </div>
 
-      {/* 占位区块 */}
       <div className="grid grid-2" style={{ marginTop: 16 }}>
         <section className="panel">
           <h3>分类饼图（占位）</h3>
-          <p>当前版本用文字占位，后续可接入 ECharts / Recharts 实现可视化分析。</p>
+          <p>当前版本用文字占位，后续可接入图表实现可视化分析。</p>
         </section>
 
         <section className="panel">
           <h3>趋势图（占位）</h3>
-          <p>保留趋势区块，便于未来接入真实分析服务，追踪你的消费习惯。</p>
+          <p>保留趋势区块，便于后续接入真实分析服务。</p>
         </section>
       </div>
     </div>
