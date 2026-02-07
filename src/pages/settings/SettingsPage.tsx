@@ -20,22 +20,23 @@ export function SettingsPage() {
   return (
     <div>
       <section className="panel">
-        <h2>设置</h2>
-        <div className="row">
-          <label>语言</label>
-          <select value={language} onChange={(e) => setLanguage(e.target.value as 'zh-CN' | 'en-US')}>
-            <option value="zh-CN">简体中文</option>
-            <option value="en-US">English</option>
-          </select>
-
-          <button disabled={!canInstall} onClick={() => void triggerInstall()}>
-            {canInstall ? '安装 PWA' : '当前不可安装'}
-          </button>
+        <h2>通用设置</h2>
+        <div className="field">
+          <label>界面语言</label>
+          <div className="row">
+            <select value={language} onChange={(e) => setLanguage(e.target.value as 'zh-CN' | 'en-US')}>
+              <option value="zh-CN">简体中文</option>
+              <option value="en-US">English</option>
+            </select>
+            <button disabled={!canInstall} onClick={() => void triggerInstall()}>
+              {canInstall ? '安装 PWA' : '当前不可安装'}
+            </button>
+          </div>
         </div>
       </section>
 
       <section className="panel">
-        <h3>OpenAI 兼容设置</h3>
+        <h2>OpenAI 兼容设置</h2>
         <p>统一在这里维护供应商地址、API Key 与默认模型。助手页将自动读取。</p>
 
         <div className="field">
@@ -55,11 +56,9 @@ export function SettingsPage() {
             placeholder="sk-..."
             type={masked ? 'password' : 'text'}
           />
-          <div className="row">
-            <button type="button" onClick={() => setMasked((v) => !v)}>
-              {masked ? '显示 API Key' : '隐藏 API Key'}
-            </button>
-          </div>
+          <button type="button" onClick={() => setMasked((v) => !v)} style={{ justifySelf: 'start' }}>
+            {masked ? '👁 显示' : '🙈 隐藏'}
+          </button>
         </div>
 
         <div className="field">

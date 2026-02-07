@@ -1,7 +1,9 @@
 import { ClipboardEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchAiModels, sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
+import { BillPreviewCard } from '../../features/assistant/ui/BillPreviewCard';
 import { useAiSettings } from '../../shared/store/useAiSettings';
+import { Toast, ToastVariant } from '../../shared/ui/Toast';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 
 /**
@@ -108,6 +110,11 @@ export function AssistantPage() {
   const [retryMessages, setRetryMessages] = useState<ChatItem[] | null>(null);
   const [parsedBill, setParsedBill] = useState<AiBillResult | null>(null);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [toast, setToast] = useState<{ message: string; variant: ToastVariant; visible: boolean }>({
+    message: '',
+    variant: 'success',
+    visible: false
+  });
   const [messages, setMessages] = useState<ChatItem[]>([
     {
       role: 'assistant',
@@ -314,6 +321,7 @@ export function AssistantPage() {
     });
 
     setParsedBill(null);
+    setToast({ message: `已保存 ${parsedBill.transactions.length} 条账单`, variant: 'success', visible: true });
   };
 
   const handleSelectModel = (m: string) => {
@@ -419,13 +427,11 @@ export function AssistantPage() {
 
           {/* JSON 账单预览 */}
           {parsedBill ? (
-            <div className="chat-bill-preview">
-              <h3>✅ AI 识别账单</h3>
-              <pre>{JSON.stringify(parsedBill, null, 2)}</pre>
-              <button type="button" className="primary" onClick={handleSaveBill}>
-                💾 一键保存到账本
-              </button>
-            </div>
+            <BillPreviewCard
+              payload={parsedBill}
+              onSave={handleSaveBill}
+              onSaved={() => setToast({ message: '账单已保存到账本', variant: 'success', visible: true })}
+            />
           ) : null}
 
           <div ref={chatEndRef} />
@@ -484,6 +490,12 @@ export function AssistantPage() {
           </button>
         </form>
       </footer>
+      <Toast
+        message={toast.message}
+        variant={toast.variant}
+        visible={toast.visible}
+        onClose={() => setToast((prev) => ({ ...prev, visible: false }))}
+      />
     </div>
   );
 }

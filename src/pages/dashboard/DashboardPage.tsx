@@ -5,13 +5,13 @@ import { formatCurrency } from '../../shared/lib/format';
 /** 根据当前小时返回问候语 */
 function getGreeting(): string {
   const hour = new Date().getHours();
-  if (hour < 6) return '🌙 夜深了，注意休息';
-  if (hour < 9) return '🌅 早上好';
-  if (hour < 12) return '☀️ 上午好';
-  if (hour < 14) return '🍱 中午好';
-  if (hour < 18) return '🌤️ 下午好';
-  if (hour < 22) return '🌆 晚上好';
-  return '🌙 夜深了，注意休息';
+  if (hour < 6) return '夜深了，注意休息';
+  if (hour < 9) return '早上好';
+  if (hour < 12) return '上午好';
+  if (hour < 14) return '中午好';
+  if (hour < 18) return '下午好';
+  if (hour < 22) return '晚上好';
+  return '夜深了，注意休息';
 }
 
 const QUICK_ACTIONS = [
@@ -22,12 +22,12 @@ const QUICK_ACTIONS = [
 ];
 
 const TIPS = [
-  '💡 小贴士：你可以在记账助手中粘贴账单截图，AI 会自动识别并生成记账数据',
-  '💡 小贴士：支持拖拽图片到记账助手，快速识别消费信息',
-  '💡 小贴士：在设置页面可以配置 AI 供应商和 API Key',
-  '💡 小贴士：所有数据存储在浏览器本地，你的隐私完全受保护 🔒',
-  '💡 小贴士：支持导出 CSV 文件，方便在 Excel 中进一步分析',
-  '💡 小贴士：试试暗黑模式，在右上角主题切换器中选择 🌙'
+  '你可以在记账助手中粘贴账单截图，AI 会自动识别并生成记账数据',
+  '支持拖拽图片到记账助手，快速识别消费信息',
+  '在设置页面可以配置 AI 供应商和 API Key',
+  '所有数据存储在浏览器本地，你的隐私完全受保护',
+  '支持导出 CSV 文件，方便在 Excel 中进一步分析',
+  '试试暗黑模式，在侧边栏底部的主题切换器中选择'
 ];
 
 export function DashboardPage() {
@@ -42,21 +42,21 @@ export function DashboardPage() {
 
   return (
     <div>
-      {/* ===== 欢迎横幅 ===== */}
+      {/* 欢迎横幅 */}
       <section className="welcome-banner">
         <div className="welcome-content">
-          <h2 className="welcome-greeting">{getGreeting()}，欢迎使用 LedgerFlow ✨</h2>
+          <h2 className="welcome-greeting">{getGreeting()}，欢迎使用 LedgerFlow</h2>
           <p className="welcome-subtitle">
-            🎯 你的智能记账工作台已就绪 — 轻松管理每一笔收支，让财务一目了然
+            你的智能记账工作台已就绪 — 轻松管理每一笔收支，让财务一目了然
           </p>
-          <p className="welcome-tip">{TIPS[tipIndex]}</p>
+          <p className="welcome-tip">💡 {TIPS[tipIndex]}</p>
         </div>
         <div className="welcome-emoji">💰</div>
       </section>
 
-      {/* ===== 本月收支概览 ===== */}
+      {/* 本月收支概览 */}
       <section className="panel">
-        <h2>📊 本月收支概览</h2>
+        <h2>本月收支概览</h2>
         <div className="grid grid-3">
           <div className="stat-card stat-income">
             <span className="stat-icon">📈</span>
@@ -82,13 +82,13 @@ export function DashboardPage() {
         </div>
       </section>
 
-      {/* ===== 空态引导 ===== */}
+      {/* 空态引导 */}
       {transactions.length === 0 ? (
         <section className="panel empty-state">
           <div className="empty-state-icon">📝</div>
           <h3>还没有任何账目记录</h3>
-          <p>开始你的第一笔记账吧！可以手动添加，也可以让 AI 助手帮你识别账单 🚀</p>
-          <div className="row" style={{ justifyContent: 'center', marginTop: 8 }}>
+          <p>开始你的第一笔记账吧！可以手动添加，也可以让 AI 助手帮你识别账单。</p>
+          <div className="row" style={{ justifyContent: 'center', marginTop: 12 }}>
             <Link to="/transactions/new">
               <button className="primary">✏️ 记一笔</button>
             </Link>
@@ -99,8 +99,8 @@ export function DashboardPage() {
         </section>
       ) : null}
 
-      {/* ===== 快捷操作 ===== */}
-      <h2 style={{ margin: '20px 0 12px' }}>⚡ 快捷操作</h2>
+      {/* 快捷操作 */}
+      <h2 style={{ margin: '24px 0 12px', fontSize: 'var(--font-lg)', fontWeight: 600 }}>快捷操作</h2>
       <div className="grid grid-4">
         {QUICK_ACTIONS.map((action) => (
           <Link key={action.to} to={action.to} className="quick-action-card">
@@ -111,20 +111,16 @@ export function DashboardPage() {
         ))}
       </div>
 
-      {/* ===== 占位区块 ===== */}
+      {/* 占位区块 */}
       <div className="grid grid-2" style={{ marginTop: 16 }}>
         <section className="panel">
-          <h3>🥧 分类饼图（占位）</h3>
-          <p style={{ color: 'color-mix(in srgb, var(--text) 60%, transparent)', fontSize: 13 }}>
-            当前版本用文字占位，后续可接入 ECharts / Recharts 实现可视化分析 📊
-          </p>
+          <h3>分类饼图（占位）</h3>
+          <p>当前版本用文字占位，后续可接入 ECharts / Recharts 实现可视化分析。</p>
         </section>
 
         <section className="panel">
-          <h3>📈 趋势图（占位）</h3>
-          <p style={{ color: 'color-mix(in srgb, var(--text) 60%, transparent)', fontSize: 13 }}>
-            保留趋势区块，便于未来接入真实分析服务，追踪你的消费习惯 🔍
-          </p>
+          <h3>趋势图（占位）</h3>
+          <p>保留趋势区块，便于未来接入真实分析服务，追踪你的消费习惯。</p>
         </section>
       </div>
     </div>

@@ -55,7 +55,7 @@ export function TransactionsPage() {
       const defaultAccountId = accounts[0]?.id;
 
       if (!defaultCategoryId || !defaultAccountId) {
-        setImportMessage('⚠️ 导入失败：请先在“分类/账户”页面至少创建 1 个分类和 1 个账户。');
+        setImportMessage('⚠️ 导入失败：请先在"分类/账户"页面至少创建 1 个分类和 1 个账户。');
         return;
       }
 
@@ -86,7 +86,9 @@ export function TransactionsPage() {
 
   return (
     <div>
+      {/* 筛选与操作栏 */}
       <section className="panel">
+        <h2>交易记录</h2>
         <div className="row">
           <input
             placeholder="搜索备注或标签"
@@ -95,6 +97,7 @@ export function TransactionsPage() {
               setKeyword(e.target.value);
               setPage(1);
             }}
+            style={{ flex: 1, maxWidth: 240 }}
           />
           <select
             value={type}
@@ -108,12 +111,8 @@ export function TransactionsPage() {
             <option value="expense">支出</option>
           </select>
           <button onClick={() => exportTransactionsCsv(filtered)}>导出 CSV</button>
-          <button type="button" onClick={() => triggerImport('wechat')}>
-            导入微信账单
-          </button>
-          <button type="button" onClick={() => triggerImport('alipay')}>
-            导入支付宝账单
-          </button>
+          <button type="button" onClick={() => triggerImport('wechat')}>导入微信账单</button>
+          <button type="button" onClick={() => triggerImport('alipay')}>导入支付宝账单</button>
           <Link to="/transactions/new">
             <button className="primary">新增账目</button>
           </Link>
@@ -128,55 +127,64 @@ export function TransactionsPage() {
         />
 
         {importMessage ? (
-          <p style={{ marginTop: 10, fontSize: 13, color: 'color-mix(in srgb, var(--text) 75%, transparent)' }}>{importMessage}</p>
+          <p style={{ marginTop: 12, fontSize: 'var(--font-sm)' }}>{importMessage}</p>
         ) : null}
       </section>
 
+      {/* 数据表格 */}
       <section className="panel">
-        <table>
-          <thead>
-            <tr>
-              <th>日期</th>
-              <th>类型</th>
-              <th>分类</th>
-              <th>账户</th>
-              <th>金额</th>
-              <th>备注</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((item) => (
-              <tr key={item.id}>
-                <td>{formatDate(item.date)}</td>
-                <td>{item.type === 'income' ? '收入' : '支出'}</td>
-                <td>{categories.find((c) => c.id === item.categoryId)?.name ?? '-'}</td>
-                <td>{accounts.find((a) => a.id === item.accountId)?.name ?? '-'}</td>
-                <td>{formatCurrency(item.amount)}</td>
-                <td>{item.note}</td>
-                <td className="row">
-                  <Link to={`/transactions/${item.id}`}>
-                    <button>编辑</button>
-                  </Link>
-                  <button className="danger" onClick={() => removeTransaction(item.id)}>
-                    删除
-                  </button>
-                </td>
+        {list.length === 0 ? (
+          <div className="empty-state" style={{ padding: '32px 16px' }}>
+            <div className="empty-state-icon">📋</div>
+            <h3>暂无交易记录</h3>
+            <p>添加第一笔交易，或使用筛选条件查看已有记录。</p>
+          </div>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>类型</th>
+                <th>分类</th>
+                <th>账户</th>
+                <th>金额</th>
+                <th>备注</th>
+                <th>操作</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {list.map((item) => (
+                <tr key={item.id}>
+                  <td>{formatDate(item.date)}</td>
+                  <td>
+                    <span className={item.type === 'income' ? 'badge badge-success' : 'badge badge-danger'}>
+                      {item.type === 'income' ? '收入' : '支出'}
+                    </span>
+                  </td>
+                  <td>{categories.find((c) => c.id === item.categoryId)?.name ?? '-'}</td>
+                  <td>{accounts.find((a) => a.id === item.accountId)?.name ?? '-'}</td>
+                  <td style={{ fontWeight: 600, color: item.type === 'income' ? 'var(--color-income)' : 'var(--color-expense)' }}>
+                    {formatCurrency(item.amount)}
+                  </td>
+                  <td>{item.note}</td>
+                  <td className="row">
+                    <Link to={`/transactions/${item.id}`}>
+                      <button>编辑</button>
+                    </Link>
+                    <button className="danger" onClick={() => removeTransaction(item.id)}>删除</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
 
-        <div className="row" style={{ marginTop: 12 }}>
-          <button disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
-            上一页
-          </button>
-          <small>
-            第 {page} / {pages} 页
+        <div className="row" style={{ marginTop: 12, justifyContent: 'center' }}>
+          <button disabled={page === 1} onClick={() => setPage((p) => p - 1)}>上一页</button>
+          <small style={{ color: 'var(--color-text-secondary)' }}>
+            第 {page} / {pages} 页 · 共 {filtered.length} 条
           </small>
-          <button disabled={page === pages} onClick={() => setPage((p) => p + 1)}>
-            下一页
-          </button>
+          <button disabled={page === pages} onClick={() => setPage((p) => p + 1)}>下一页</button>
         </div>
       </section>
     </div>
