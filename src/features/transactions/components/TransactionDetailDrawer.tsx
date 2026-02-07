@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { TransactionItem } from '../../../entities/transaction/types';
-import { formatCurrency, formatDate } from '../../../shared/lib/format';
+import { formatCurrency, formatDateTime } from '../../../shared/lib/format';
 
 interface TransactionDetailDrawerProps {
   open: boolean;
@@ -24,28 +24,38 @@ export function TransactionDetailDrawer({
   onCopyJson,
   onDelete
 }: TransactionDetailDrawerProps) {
+  // 打开时禁止 body 滚动
   useEffect(() => {
-    if (!open) {
-      return;
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
     }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
+    return () => {
+      document.body.style.overflow = '';
     };
+  }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open, onClose]);
 
-  if (!open || !transaction) {
-    return null;
-  }
+  if (!open || !transaction) return null;
 
   return (
     <div className="drawer-overlay" role="presentation" onClick={onClose}>
-      <aside className="drawer-panel" role="dialog" aria-modal="true" aria-label="交易详情" onClick={(event) => event.stopPropagation()}>
+      <aside
+        className="drawer-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label="交易详情"
+        onClick={(event) => event.stopPropagation()}
+      >
         <header className="drawer-header">
           <h3>交易详情</h3>
           <button type="button" className="icon-btn" onClick={onClose} aria-label="关闭详情">
@@ -55,12 +65,14 @@ export function TransactionDetailDrawer({
 
         <div className="drawer-body">
           <div className="drawer-kv">
-            <span>日期</span>
-            <strong>{formatDate(transaction.date)}</strong>
+            <span>日期时间</span>
+            <strong>{formatDateTime(transaction.date)}</strong>
           </div>
           <div className="drawer-kv">
             <span>类型</span>
-            <strong>{transaction.type === 'income' ? '收入' : '支出'}</strong>
+            <strong className={transaction.type === 'income' ? 'text-income' : 'text-expense'}>
+              {transaction.type === 'income' ? '收入' : '支出'}
+            </strong>
           </div>
           <div className="drawer-kv">
             <span>分类</span>
@@ -72,7 +84,9 @@ export function TransactionDetailDrawer({
           </div>
           <div className="drawer-kv">
             <span>金额</span>
-            <strong>{formatCurrency(transaction.amount)}</strong>
+            <strong className={transaction.type === 'income' ? 'text-income' : 'text-expense'}>
+              {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+            </strong>
           </div>
 
           <section className="drawer-section">
@@ -82,7 +96,15 @@ export function TransactionDetailDrawer({
 
           <section className="drawer-section">
             <h4>标签</h4>
-            <p>{transaction.tags.length > 0 ? transaction.tags.join('、') : '（无）'}</p>
+            <p>
+              {transaction.tags.length > 0
+                ? transaction.tags.map((tag) => (
+                    <span key={tag} className="badge badge-primary" style={{ marginRight: 4 }}>
+                      {tag}
+                    </span>
+                  ))
+                : '（无）'}
+            </p>
           </section>
 
           <section className="drawer-section">
@@ -98,11 +120,11 @@ export function TransactionDetailDrawer({
           <button type="button" onClick={onCopyJson}>
             复制 JSON
           </button>
-          <Link to={`/transactions/${transaction.id}`}>
-            <button type="button">编辑</button>
+          <Link to={`/transactions/${transaction.id}`} style={{ textDecoration: 'none' }}>
+            <button type="button">✏️ 编辑</button>
           </Link>
           <button type="button" className="danger" onClick={onDelete}>
-            删除
+            🗑️ 删除
           </button>
         </footer>
       </aside>

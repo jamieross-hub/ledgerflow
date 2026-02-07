@@ -14,9 +14,7 @@ describe('ExchangeConverter', () => {
     render(<ExchangeConverter rates={mockRates} base="CNY" />);
 
     expect(screen.getByText('💱 货币换算')).toBeTruthy();
-    // 默认 from=CNY, to=USD, amount=1
-    // 1 CNY → 0.14 USD
-    expect(screen.getByText('0.1400')).toBeTruthy();
+    expect(screen.getByLabelText('换算结果').textContent).toContain('0.1400');
   });
 
   it('交换按钮应互换 from/to 货币', () => {
@@ -25,9 +23,18 @@ describe('ExchangeConverter', () => {
     const swapBtn = screen.getByTitle('交换货币');
     fireEvent.click(swapBtn);
 
-    // 交换后 from=USD, to=CNY
-    // 1 USD → (1/0.14)*1 = 7.142857 CNY
-    const result = screen.getByText(/7\.1428/);
-    expect(result).toBeTruthy();
+    const result = screen.getByLabelText('换算结果').textContent;
+    expect(result).toMatch(/7\.1428/);
+  });
+
+  it('计算器键盘可输入金额并实时换算', () => {
+    render(<ExchangeConverter rates={mockRates} base="CNY" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '清零' }));
+    fireEvent.click(screen.getByRole('button', { name: '2' }));
+    fireEvent.click(screen.getByRole('button', { name: '5' }));
+
+    expect(screen.getByText('25')).toBeTruthy();
+    expect(screen.getByLabelText('换算结果').textContent).toContain('3.5000');
   });
 });

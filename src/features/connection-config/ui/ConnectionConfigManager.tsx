@@ -17,7 +17,7 @@ interface ConnectionConfigManagerProps {
 export function ConnectionConfigManager({ mode }: ConnectionConfigManagerProps) {
   const [version, setVersion] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(true);
 
   const rows = useMemo(() => listConnections(), [version]);
 
@@ -34,10 +34,15 @@ export function ConnectionConfigManager({ mode }: ConnectionConfigManagerProps) 
 
   return (
     <section className="panel">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h3>连接配置管理（PG / MySQL / Redis）</h3>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+        <div>
+          <h3 style={{ margin: 0 }}>连接配置管理（PG / MySQL / Redis）</h3>
+          <p style={{ margin: '6px 0 0', color: 'var(--color-text-secondary)', fontSize: 'var(--font-sm)' }}>
+            支持直接填写地址、端口、用户名、密码、连接串及 TLS 参数。敏感字段将以加密形式存储到浏览器本地。
+          </p>
+        </div>
         <button className="primary" onClick={() => setAdding((x) => !x)}>
-          {adding ? '收起新增' : '新增连接'}
+          {adding ? '收起新增表单' : '展开新增表单'}
         </button>
       </div>
 

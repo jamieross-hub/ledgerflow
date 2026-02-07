@@ -30,8 +30,7 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
   {
     title: '基础数据',
     items: [
-      { to: '/categories-accounts', label: '账户', icon: '💳' },
-      { to: '/categories-accounts', label: '交易分类', icon: '🧩' },
+      { to: '/categories-accounts', label: '账户与分类', icon: '🗂️' },
       { to: '/tags', label: '交易标签', icon: '🏷️' }
     ]
   },
@@ -59,6 +58,7 @@ export function AppLayout() {
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [menuOpen, setMenuOpen] = useState(false);
   const [envOpen, setEnvOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const draggingRef = useRef(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -106,6 +106,17 @@ export function AppLayout() {
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (mobileNavOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileNavOpen]);
 
   const copyBaseUrl = async () => {
     try {
@@ -179,6 +190,14 @@ export function AppLayout() {
           <div className="topbar-left" ref={menuRef}>
             <button
               type="button"
+              className="icon-btn mobile-nav-toggle"
+              onClick={() => setMobileNavOpen(true)}
+              aria-label="打开功能抽屉"
+            >
+              ☰
+            </button>
+            <button
+              type="button"
               className="logo-circle"
               onClick={() => setMenuOpen((v) => !v)}
               aria-haspopup="menu"
@@ -245,6 +264,40 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      {mobileNavOpen ? (
+        <div className="mobile-nav-overlay" role="presentation" onClick={() => setMobileNavOpen(false)}>
+          <aside className="mobile-nav-drawer" role="dialog" aria-modal="true" aria-label="功能抽屉" onClick={(e) => e.stopPropagation()}>
+            <header className="mobile-nav-header">
+              <strong>功能抽屉</strong>
+              <button type="button" className="icon-btn" onClick={() => setMobileNavOpen(false)} aria-label="关闭功能抽屉">
+                ✕
+              </button>
+            </header>
+            <nav className="mobile-nav-list">
+              {navSections.map((section) => (
+                <div key={section.title} className="mobile-nav-section">
+                  <p className="sidebar-section-title">{section.title}</p>
+                  {section.items
+                    .filter((item) => item.to && !item.disabled)
+                    .map((item) => (
+                      <NavLink
+                        key={`${section.title}-${item.label}`}
+                        to={item.to!}
+                        end={item.end}
+                        className={({ isActive }) => (isActive ? 'sidebar-link active' : 'sidebar-link')}
+                        onClick={() => setMobileNavOpen(false)}
+                      >
+                        <span className="sidebar-link-icon">{item.icon}</span>
+                        <span className="sidebar-link-label">{item.label}</span>
+                      </NavLink>
+                    ))}
+                </div>
+              ))}
+            </nav>
+          </aside>
+        </div>
+      ) : null}
     </div>
   );
 }

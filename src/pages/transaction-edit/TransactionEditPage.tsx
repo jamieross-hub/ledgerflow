@@ -24,7 +24,16 @@ export function TransactionEditPage() {
   const [categoryId, setCategoryId] = useState(current?.categoryId ?? categories[0]?.id ?? '');
   const [accountId, setAccountId] = useState(current?.accountId ?? accounts[0]?.id ?? '');
   const [amount, setAmount] = useState(String(current?.amount ?? ''));
-  const [date, setDate] = useState((current?.date ?? new Date().toISOString()).slice(0, 10));
+  const [date, setDate] = useState(() => {
+    const raw = current?.date ?? new Date().toISOString();
+    const d = new Date(raw);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  });
   const [note, setNote] = useState(current?.note ?? '');
   const [tags, setTags] = useState(current?.tags.join(',') ?? '');
 
@@ -93,8 +102,8 @@ export function TransactionEditPage() {
         </div>
 
         <div className="field">
-          <label>日期</label>
-          <input value={date} onChange={(e) => setDate(e.target.value)} type="date" />
+          <label>日期时间</label>
+          <input value={date} onChange={(e) => setDate(e.target.value)} type="datetime-local" />
         </div>
 
         <div className="field">

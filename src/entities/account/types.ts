@@ -5,4 +5,8 @@ export interface Account {
   name: string;
   /** 账户类型（可选，兼容旧数据） */
   type?: AccountType;
+  /** 初始余额（默认 0） */
+  initialBalance?: number;
+  /** 当前余额（由交易自动计算或手动设定） */
+  balance?: number;
 }

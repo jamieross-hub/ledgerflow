@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
+import { formatCurrency } from '../../shared/lib/format';
 import { EmptyState } from '../../shared/ui/EmptyState';
 import { LoadingSkeleton } from '../../shared/ui/LoadingSkeleton';
+import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
 import { AccountPresetPicker } from '../../features/accounts/ui/AccountPresetPicker';
 import { ACCOUNT_PRESETS, getAccountTypeLabel } from '../../features/accounts/model/accountTypes';
 import type { AccountPreset, AccountType } from '../../features/accounts/model/accountTypes';
@@ -9,6 +11,7 @@ import type { AccountPreset, AccountType } from '../../features/accounts/model/a
 export function CategoriesAccountsPage() {
   const categories = useFinanceStore((s) => s.categories);
   const accounts = useFinanceStore((s) => s.accounts);
+  const transactions = useFinanceStore((s) => s.transactions);
   const addCategory = useFinanceStore((s) => s.addCategory);
   const removeCategory = useFinanceStore((s) => s.removeCategory);
   const addAccount = useFinanceStore((s) => s.addAccount);
@@ -17,7 +20,9 @@ export function CategoriesAccountsPage() {
   const [categoryName, setCategoryName] = useState('');
   const [accountName, setAccountName] = useState('');
   const [accountType, setAccountType] = useState<AccountType | ''>('');
+  const [accountInitialBalance, setAccountInitialBalance] = useState('0');
   const [loading, setLoading] = useState(true);
+  const [pendingDeleteAccountId, setPendingDeleteAccountId] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setLoading(false), 120);
@@ -34,14 +39,20 @@ export function CategoriesAccountsPage() {
   function submitAccount(e: FormEvent) {
     e.preventDefault();
     if (!accountName.trim()) return;
-    addAccount(accountName, accountType || undefined);
+    const initialBalance = Number(accountInitialBalance || '0');
+    addAccount(accountName, accountType || undefined, Number.isFinite(initialBalance) ? initialBalance : 0);
     setAccountName('');
     setAccountType('');
+    setAccountInitialBalance('0');
   }
 
   function handlePresetSelect(preset: AccountPreset) {
     addAccount(preset.name, preset.type);
   }
+
+  const pendingDeleteLinkedCount = pendingDeleteAccountId
+    ? transactions.filter((item) => item.accountId === pendingDeleteAccountId).length
+    : 0;
 
   return (
     <div className="grid grid-2">
@@ -111,6 +122,13 @@ export function CategoriesAccountsPage() {
               <option value="liability">📄 负债</option>
               <option value="receivable">📥 应收</option>
             </select>
+            <input
+              type="number"
+              placeholder="初始余额"
+              value={accountInitialBalance}
+              onChange={(e) => setAccountInitialBalance(e.target.value)}
+              style={{ width: 120 }}
+            />
             <button className="primary" type="submit">
               添加
             </button>
@@ -131,7 +149,10 @@ export function CategoriesAccountsPage() {
                     <span className="account-type-badge">{getAccountTypeLabel(item.type)}</span>
                   )}
                 </span>
-                <button className="danger" onClick={() => removeAccount(item.id)}>
+                <span className="mono-inline" style={{ color: 'var(--color-text-secondary)', minWidth: 108, textAlign: 'right' }}>
+                  {formatCurrency(item.balance ?? item.initialBalance ?? 0)}
+                </span>
+                <button className="danger" onClick={() => setPendingDeleteAccountId(item.id)}>
                   删除
                 </button>
               </li>
@@ -139,6 +160,25 @@ export function CategoriesAccountsPage() {
           </ul>
         )}
       </section>
+
+      <ConfirmDialog
+        open={Boolean(pendingDeleteAccountId)}
+        title="确认删除账户"
+        description={
+          pendingDeleteLinkedCount > 0
+            ? `该账户下存在 ${pendingDeleteLinkedCount} 条交易记录，删除后仅移除账户本身。是否继续？`
+            : '删除账户后将无法恢复，是否继续？'
+        }
+        confirmText="确认删除"
+        cancelText="取消"
+        danger
+        onConfirm={() => {
+          if (!pendingDeleteAccountId) return;
+          removeAccount(pendingDeleteAccountId);
+          setPendingDeleteAccountId(null);
+        }}
+        onCancel={() => setPendingDeleteAccountId(null)}
+      />
     </div>
   );
 }

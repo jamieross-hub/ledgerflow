@@ -14,7 +14,7 @@ interface FinanceState {
   removeTransaction: (id: string) => void;
   addCategory: (name: string) => void;
   removeCategory: (id: string) => void;
-  addAccount: (name: string, type?: Account['type']) => void;
+  addAccount: (name: string, type?: Account['type'], initialBalance?: number) => void;
   removeAccount: (id: string) => void;
 }
 
@@ -25,8 +25,8 @@ const defaultCategories: Category[] = [
 ];
 
 const defaultAccounts: Account[] = [
-  { id: 'acc-cash', name: '现金' },
-  { id: 'acc-card', name: '银行卡' }
+  { id: 'acc-cash', name: '现金', initialBalance: 0, balance: 0 },
+  { id: 'acc-card', name: '银行卡', initialBalance: 0, balance: 0 }
 ];
 
 const defaultTransactions: TransactionItem[] = [];
@@ -52,8 +52,19 @@ export const useFinanceStore = create<FinanceState>()(
         set((s) => ({ categories: [...s.categories, { id: generateId(), name: name.trim() }] })),
       removeCategory: (id) =>
         set((s) => ({ categories: s.categories.filter((item) => item.id !== id) })),
-      addAccount: (name, type) =>
-        set((s) => ({ accounts: [...s.accounts, { id: generateId(), name: name.trim(), type }] })),
+      addAccount: (name, type, initialBalance = 0) =>
+        set((s) => ({
+          accounts: [
+            ...s.accounts,
+            {
+              id: generateId(),
+              name: name.trim(),
+              type,
+              initialBalance,
+              balance: initialBalance
+            }
+          ]
+        })),
       removeAccount: (id) =>
         set((s) => ({ accounts: s.accounts.filter((item) => item.id !== id) }))
     }),
