@@ -33,7 +33,7 @@ export function ConnectionConfigManager({ mode }: ConnectionConfigManagerProps) 
   }
 
   return (
-    <section className="panel">
+    <section id="connection-config-manager" className="panel">
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
         <div>
           <h3 style={{ margin: 0 }}>连接配置管理（PG / MySQL / Redis）</h3>

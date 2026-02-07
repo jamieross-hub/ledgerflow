@@ -216,6 +216,57 @@ docker compose up --build
 - `POST /api/conn/save`
 - `GET /api/conn/list`
 - `DELETE /api/conn/:id`
+- `POST /api/sync-local-data`：将本地交易/账户/分类批量同步到 PostgreSQL
+- `POST /api/sync-change`：数据库已配置后，前端每次新增/编辑/删除触发增量写入
+
+同步接口建议契约：
+
+1) `POST /api/sync-local-data`
+
+```json
+{
+  "source": "manual",
+  "strategy": "upsert",
+  "data": {
+    "transactions": [],
+    "accounts": [],
+    "categories": []
+  }
+}
+```
+
+返回：
+
+```json
+{
+  "ok": true,
+  "message": "同步完成",
+  "synced": 42,
+  "detail": "upsert 完成"
+}
+```
+
+2) `POST /api/sync-change`
+
+```json
+{
+  "entity": "transactions",
+  "action": "insert",
+  "row": {},
+  "id": "optional-id",
+  "happenedAt": "2026-02-07T08:00:00.000Z"
+}
+```
+
+返回：
+
+```json
+{
+  "ok": true,
+  "message": "增量同步完成",
+  "detail": "optional"
+}
+```
 
 ## 10. 测试覆盖
 

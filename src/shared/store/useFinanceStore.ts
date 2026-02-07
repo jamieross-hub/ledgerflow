@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { Account } from '../../entities/account/types';
 import { Category } from '../../entities/category/types';
 import { TransactionItem } from '../../entities/transaction/types';
+import { syncChangeIfNeeded } from '../lib/dataSync';
 import { generateId } from '../lib/id';
 
 interface FinanceState {
@@ -39,34 +40,48 @@ export const useFinanceStore = create<FinanceState>()(
       accounts: defaultAccounts,
       addTransaction: (payload) => {
         const id = generateId();
-        set((s) => ({ transactions: [...s.transactions, { ...payload, id }] }));
+        const row = { ...payload, id };
+        set((s) => ({ transactions: [...s.transactions, row] }));
+        void syncChangeIfNeeded({ entity: 'transactions', action: 'insert', row });
         return id;
       },
-      updateTransaction: (id, payload) =>
+      updateTransaction: (id, payload) => {
+        const row = { ...payload, id };
         set((s) => ({
-          transactions: s.transactions.map((item) => (item.id === id ? { ...payload, id } : item))
-        })),
-      removeTransaction: (id) =>
-        set((s) => ({ transactions: s.transactions.filter((item) => item.id !== id) })),
-      addCategory: (name) =>
-        set((s) => ({ categories: [...s.categories, { id: generateId(), name: name.trim() }] })),
-      removeCategory: (id) =>
-        set((s) => ({ categories: s.categories.filter((item) => item.id !== id) })),
-      addAccount: (name, type, initialBalance = 0) =>
+          transactions: s.transactions.map((item) => (item.id === id ? row : item))
+        }));
+        void syncChangeIfNeeded({ entity: 'transactions', action: 'update', row, id });
+      },
+      removeTransaction: (id) => {
+        set((s) => ({ transactions: s.transactions.filter((item) => item.id !== id) }));
+        void syncChangeIfNeeded({ entity: 'transactions', action: 'delete', id });
+      },
+      addCategory: (name) => {
+        const row = { id: generateId(), name: name.trim() };
+        set((s) => ({ categories: [...s.categories, row] }));
+        void syncChangeIfNeeded({ entity: 'categories', action: 'insert', row });
+      },
+      removeCategory: (id) => {
+        set((s) => ({ categories: s.categories.filter((item) => item.id !== id) }));
+        void syncChangeIfNeeded({ entity: 'categories', action: 'delete', id });
+      },
+      addAccount: (name, type, initialBalance = 0) => {
+        const row = {
+          id: generateId(),
+          name: name.trim(),
+          type,
+          initialBalance,
+          balance: initialBalance
+        };
         set((s) => ({
-          accounts: [
-            ...s.accounts,
-            {
-              id: generateId(),
-              name: name.trim(),
-              type,
-              initialBalance,
-              balance: initialBalance
-            }
-          ]
-        })),
-      removeAccount: (id) =>
-        set((s) => ({ accounts: s.accounts.filter((item) => item.id !== id) }))
+          accounts: [...s.accounts, row]
+        }));
+        void syncChangeIfNeeded({ entity: 'accounts', action: 'insert', row });
+      },
+      removeAccount: (id) => {
+        set((s) => ({ accounts: s.accounts.filter((item) => item.id !== id) }));
+        void syncChangeIfNeeded({ entity: 'accounts', action: 'delete', id });
+      }
     }),
     { name: 'ledgerflow-finance' }
   )
