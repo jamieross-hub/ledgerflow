@@ -13,6 +13,17 @@ LedgerFlow 面向“前端先行”的财务产品原型与中小团队协作场
 - UI 内即可配置 OpenAI 兼容网关（无需依赖 Docker 注入）
 - 连接配置与安全提示完整，便于后续衔接后端
 
+### 应用场景
+
+- 个人日常记账：快速记录消费/收入，按分类、账户、标签进行复盘。
+- 多来源账单整理：支持手工录入、CSV 导入、AI 对话识别混合记账。
+- 小团队产品原型：用于前端先行验证交互、数据结构、同步策略。
+- 教学与练习：适合学习 React + TypeScript + Feature-Sliced 的真实业务落地。
+
+### 做这个软件的初衷
+
+这个项目的核心初衷是：在“复杂业务 + 可持续迭代”之间找到平衡。很多记账 Demo 只覆盖基础 CRUD，但在真实使用中，用户更关心“录得快、查得准、能回溯、可扩展”。LedgerFlow 希望通过统一的数据模型（交易/分类/账户/标签/来源）、可测试的模块设计、以及 AI 辅助录入能力，打造一个可以长期演进的前端账本基座。
+
 ## 2. 技术栈
 
 - React + TypeScript + Vite
@@ -88,6 +99,8 @@ src/
 - 支持 OpenAI 兼容渠道商配置（Base URL / API Key）
 - 支持拉取模型列表（`GET /models`）
 - 支持对话调用（`POST /chat/completions`）
+- AI 返回前会先获取中国互联网授时，降低“今天/昨天/本月”时间歧义
+- 自动补全分类与标签（模型识别 + 本地兜底），保存后可直接在交易与标签页检索
 
 ### 关于/帮助
 
@@ -98,6 +111,7 @@ src/
 
 - 汇率概览表：基准货币切换、货币搜索、收藏置顶、分页
 - 货币换算器：双向选择、金额输入、一键交换
+- 基础科学计算：支持 `+ - × ÷`、括号、`x²`、`√x`、`1/x`、`±`
 - 公共 API 集成（默认 [frankfurter.app](https://frankfurter.app)，免费无需 key）
 - localStorage 缓存（6h TTL）+ 离线回退
 - 手动刷新 + 缓存状态指示
@@ -112,11 +126,26 @@ src/
 - 账户列表展示类型标签
 - 兼容旧数据（type 字段可选）
 
-### 交易标签（占位）
+### 交易标签
 
-- 标签管理页面已预留路由，功能开发中
+- 按标签自动聚合交易
+- 标签面板可查看最近关联交易与金额
+- 支持跳转到交易页并定位到具体交易详情
 
-## 5. 环境变量
+## 5. 最近更新（2026-02）
+
+- 交易表格增强为 Excel 风格：列排序 + 快捷筛选 + 分页联动。
+- 支持批量选择与批量删除，并保留单条详情/编辑操作。
+- 交易来源模型化（手工 / 微信 / 支付宝 / AI），支持来源筛选与详情展示。
+- 汇率页改为“计算器优先 + 汇率表折叠”，并补充移动端适配。
+- 汇率计算器增加基础科学计算能力与错误提示。
+- 标签页从占位升级为可用页面：标签聚合、交易联动、快速定位。
+- 记账助手增强：
+  - 文本 + 图片联合识别账单
+  - 自动补全分类与标签并持久化
+  - 回答前请求中国互联网时间 API，避免模型时间误导
+
+## 6. 环境变量
 
 参考 [.env.example](.env.example)：
 
@@ -138,7 +167,7 @@ VITE_EXCHANGE_API_BASE=https://api.frankfurter.app
 VITE_EXCHANGE_API_TIMEOUT_MS=10000
 ```
 
-## 6. 本地开发
+## 7. 本地开发
 
 > 当前执行环境缺少 Node/npm，未能在本环境直接跑通命令；代码与脚本已完整生成。
 
@@ -172,7 +201,7 @@ npm run lint
 npm run build
 ```
 
-## 7. Docker
+## 8. Docker
 
 ### 构建并运行
 
@@ -187,7 +216,7 @@ docker compose up --build
 - [Dockerfile](Dockerfile) 使用多阶段构建，先 `npm run build`，再由 Nginx 托管静态站点。
 - [nginx.conf](nginx.conf) 使用 `try_files` 保证 SPA 刷新路由可用。
 
-## 8. CI/CD
+## 9. CI/CD
 
 已提供 GitHub Actions 工作流： [.github/workflows/ci.yml](.github/workflows/ci.yml)
 
@@ -201,7 +230,7 @@ docker compose up --build
 
 后续可扩展为自动部署到静态托管平台（如 GitHub Pages / Netlify / Vercel / OSS + CDN）。
 
-## 9. 连接配置与安全策略
+## 10. 连接配置与安全策略
 
 连接配置支持：
 
@@ -279,7 +308,7 @@ docker compose up --build
 }
 ```
 
-## 10. 测试覆盖
+## 11. 测试覆盖
 
 已包含至少以下测试：
 
@@ -293,7 +322,7 @@ docker compose up --build
 8. 货币换算器（[src/features/exchange/ui/ExchangeConverter.test.tsx](src/features/exchange/ui/ExchangeConverter.test.tsx)）
 9. 账户预设 Picker（[src/features/accounts/ui/AccountPresetPicker.test.tsx](src/features/accounts/ui/AccountPresetPicker.test.tsx)）
 
-## 11. 关键设计决策
+## 12. 关键设计决策
 
 1. 选择 Feature-Sliced 而非把逻辑散落在 pages：降低耦合，利于多人协作。
 2. 连接测试分为 mock/proxy：
@@ -302,7 +331,7 @@ docker compose up --build
 3. 连接配置本地持久化：使用 localStorage 快速落地，无后端也可完成完整交互链路。
 4. PWA 默认离线缓存静态资源：提升首屏体验与安装能力。
 
-## 12. 后续扩展建议
+## 13. 后续扩展建议
 
 1. 接入真实后端时，把连接配置加密后存储（KMS/Secret Manager），前端只传最小必要字段。
 2. 为代理接口增加鉴权、限流、审计日志、连接测试白名单。
@@ -310,7 +339,7 @@ docker compose up --build
 4. 增加 i18n 方案（如 i18next）与多主题设计 token 体系。
 5. 把本地 store 逐步迁移为“离线优先 + 同步策略”（例如 IndexedDB + sync queue）。
 
-## 13. 脚本清单
+## 14. 脚本清单
 
 见 [package.json](package.json)：
 
