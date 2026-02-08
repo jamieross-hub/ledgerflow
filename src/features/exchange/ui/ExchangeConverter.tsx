@@ -7,13 +7,71 @@ interface ExchangeConverterProps {
   base: string;
 }
 
-const KEYPAD = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', '⌫'] as const;
+const KEYPAD = [
+  'C',
+  'CE',
+  '(',
+  ')',
+  '⌫',
+  'x²',
+  '√x',
+  '1/x',
+  '±',
+  '÷',
+  '7',
+  '8',
+  '9',
+  '×',
+  '-',
+  '4',
+  '5',
+  '6',
+  '+',
+  '=',
+  '1',
+  '2',
+  '3',
+  '.',
+  '0'
+] as const;
 const QUICK_AMOUNTS = ['1', '10', '100', '1000'] as const;
+
+function normalizeExpression(input: string): string {
+  return input.replace(/×/g, '*').replace(/÷/g, '/');
+}
+
+function evaluateExpression(input: string): number | null {
+  const expression = normalizeExpression(input).trim();
+  if (!expression) {
+    return null;
+  }
+
+  if (!/^[0-9+\-*/().\s]+$/.test(expression)) {
+    return null;
+  }
+
+  try {
+    // eslint-disable-next-line no-new-func
+    const result = Function(`"use strict"; return (${expression});`)() as unknown;
+    if (typeof result !== 'number' || !Number.isFinite(result)) {
+      return null;
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+function prettyNumber(value: number): string {
+  const fixed = value.toFixed(10);
+  return fixed.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+}
 
 export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
   const [fromCode, setFromCode] = useState(base);
   const [toCode, setToCode] = useState('USD');
-  const [amount, setAmount] = useState('1');
+  const [expression, setExpression] = useState('1');
+  const [error, setError] = useState('');
 
   const allCurrencies = useMemo(() => {
     const codes = [base, ...rates.map((r) => r.code)];
@@ -31,7 +89,12 @@ export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
 
   const fromRate = getRate(fromCode);
   const toRate = getRate(toCode);
-  const numAmount = parseFloat(amount) || 0;
+
+  const numAmount = useMemo(() => {
+    const parsed = evaluateExpression(expression);
+    return parsed ?? 0;
+  }, [expression]);
+
   const converted = fromRate > 0 && toRate > 0 ? (numAmount / fromRate) * toRate : 0;
 
   const swap = () => {
@@ -39,21 +102,97 @@ export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
     setToCode(fromCode);
   };
 
-  const applyKey = (key: (typeof KEYPAD)[number]) => {
-    if (key === '⌫') {
-      setAmount((prev) => (prev.length <= 1 ? '0' : prev.slice(0, -1)));
+  const appendToken = (token: string) => {
+    setError('');
+    setExpression((prev) => {
+      if (prev === '0' && /^\d$/.test(token)) {
+        return token;
+      }
+      return `${prev}${token}`;
+    });
+  };
+
+  const applyUnary = (kind: 'square' | 'sqrt' | 'inv' | 'sign') => {
+    const current = evaluateExpression(expression);
+    if (current === null) {
+      setError('表达式无效，无法执行计算');
       return;
     }
 
-    setAmount((prev) => {
-      if (key === '.') {
-        return prev.includes('.') ? prev : `${prev}.`;
+    let next = current;
+    if (kind === 'square') {
+      next = current * current;
+    }
+    if (kind === 'sqrt') {
+      if (current < 0) {
+        setError('负数无法开方');
+        return;
       }
-      if (prev === '0') {
-        return key;
+      next = Math.sqrt(current);
+    }
+    if (kind === 'inv') {
+      if (current === 0) {
+        setError('0 无法作为除数');
+        return;
       }
-      return `${prev}${key}`;
-    });
+      next = 1 / current;
+    }
+    if (kind === 'sign') {
+      next = -current;
+    }
+
+    setError('');
+    setExpression(prettyNumber(next));
+  };
+
+  const applyEqual = () => {
+    const value = evaluateExpression(expression);
+    if (value === null) {
+      setError('表达式无效，无法计算');
+      return;
+    }
+    setError('');
+    setExpression(prettyNumber(value));
+  };
+
+  const applyKey = (key: (typeof KEYPAD)[number]) => {
+    if (key === 'C') {
+      setExpression('0');
+      setError('');
+      return;
+    }
+    if (key === 'CE') {
+      setExpression('0');
+      setError('');
+      return;
+    }
+    if (key === '⌫') {
+      setError('');
+      setExpression((prev) => (prev.length <= 1 ? '0' : prev.slice(0, -1)));
+      return;
+    }
+    if (key === '=') {
+      applyEqual();
+      return;
+    }
+    if (key === 'x²') {
+      applyUnary('square');
+      return;
+    }
+    if (key === '√x') {
+      applyUnary('sqrt');
+      return;
+    }
+    if (key === '1/x') {
+      applyUnary('inv');
+      return;
+    }
+    if (key === '±') {
+      applyUnary('sign');
+      return;
+    }
+
+    appendToken(key);
   };
 
   return (
@@ -91,15 +230,16 @@ export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
       <div className="exchange-calculator">
         <label>金额（{fromCode}）</label>
         <div className="exchange-calculator-screen mono-inline" aria-live="polite">
-          {amount}
+          {expression}
         </div>
+        {error ? <p className="exchange-calculator-error">{error}</p> : null}
         <div className="exchange-quick-row" role="group" aria-label="快捷金额">
           {QUICK_AMOUNTS.map((v) => (
-            <button key={v} type="button" className="exchange-quick-btn" onClick={() => setAmount(v)}>
+            <button key={v} type="button" className="exchange-quick-btn" onClick={() => setExpression(v)}>
               {v}
             </button>
           ))}
-          <button type="button" className="exchange-quick-btn" onClick={() => setAmount('0')}>
+          <button type="button" className="exchange-quick-btn" onClick={() => setExpression('0')}>
             清零
           </button>
         </div>
@@ -108,7 +248,7 @@ export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
             <button
               key={key}
               type="button"
-              className={key === '⌫' ? 'exchange-key danger' : 'exchange-key'}
+              className={`exchange-key ${key === '⌫' ? 'danger' : ''} ${key === '=' ? 'exchange-key-equal primary' : ''}`.trim()}
               onClick={() => applyKey(key)}
             >
               {key}
