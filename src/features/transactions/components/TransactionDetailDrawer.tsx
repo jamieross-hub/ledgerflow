@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { TransactionItem } from '../../../entities/transaction/types';
+import { TransactionItem, TransactionSource } from '../../../entities/transaction/types';
 import { formatCurrency, formatDateTime } from '../../../shared/lib/format';
 
 interface TransactionDetailDrawerProps {
@@ -8,6 +8,7 @@ interface TransactionDetailDrawerProps {
   transaction: TransactionItem | null;
   categoryName: string;
   accountName: string;
+  source: TransactionSource;
   onClose: () => void;
   onCopyNote: () => void;
   onCopyJson: () => void;
@@ -19,6 +20,7 @@ export function TransactionDetailDrawer({
   transaction,
   categoryName,
   accountName,
+  source,
   onClose,
   onCopyNote,
   onCopyJson,
@@ -86,6 +88,16 @@ export function TransactionDetailDrawer({
             <span>金额</span>
             <strong className={transaction.type === 'income' ? 'text-income' : 'text-expense'}>
               {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+            </strong>
+          </div>
+
+          <div className="drawer-kv">
+            <span>来源</span>
+            <strong>
+              {source === 'ai' ? <span className="badge badge-primary">AI 记账</span> : null}
+              {source === 'wechat' ? <span className="badge">微信导入</span> : null}
+              {source === 'alipay' ? <span className="badge">支付宝导入</span> : null}
+              {source === 'manual' ? <span className="badge">手工录入</span> : null}
             </strong>
           </div>
 

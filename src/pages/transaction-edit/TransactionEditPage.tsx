@@ -119,7 +119,8 @@ export function TransactionEditPage() {
       amount: amountResult.value,
       date: dateResult.value,
       note,
-      tags: parseTags(tags)
+      tags: parseTags(tags),
+      source: current?.source ?? 'manual'
     };
 
     if (id) {

@@ -363,7 +363,8 @@ export function AssistantPage() {
         note: item.note || 'AI 导入账单',
         tags: item.tags || ['AI识别'],
         categoryId: resolveCategoryId(item.category),
-        accountId: resolveAccountId(item.account)
+        accountId: resolveAccountId(item.account),
+        source: 'ai'
       });
     });
 

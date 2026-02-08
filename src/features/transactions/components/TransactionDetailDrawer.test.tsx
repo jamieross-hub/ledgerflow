@@ -23,6 +23,7 @@ describe('TransactionDetailDrawer', () => {
         transaction={sample}
         categoryName="餐饮"
         accountName="现金"
+        source="manual"
         onClose={() => undefined}
         onCopyNote={() => undefined}
         onCopyJson={onCopyJson}

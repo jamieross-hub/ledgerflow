@@ -48,6 +48,9 @@ interface TransactionTableProps {
   errorMessage?: string;
   hasFilters: boolean;
   highlightId?: string;
+  selectedIds: string[];
+  canSelectAllOnPage: boolean;
+  allPageSelected: boolean;
   sortKey: TransactionSortKey;
   sortDirection: TransactionSortDirection;
   quickFilters: TransactionQuickFilters;
@@ -57,6 +60,10 @@ interface TransactionTableProps {
   onNextPage: () => void;
   onOpenDetail: (id: string) => void;
   onDelete: (id: string) => void;
+  onDeleteSelected: () => void;
+  onClearSelection: () => void;
+  onToggleSelect: (id: string, selected: boolean) => void;
+  onToggleSelectPage: (selected: boolean) => void;
   onSortChange: (key: TransactionSortKey) => void;
   onQuickFilterChange: <K extends keyof TransactionQuickFilters>(key: K, value: TransactionQuickFilters[K]) => void;
 }
@@ -71,6 +78,9 @@ export function TransactionTable({
   errorMessage,
   hasFilters,
   highlightId,
+  selectedIds,
+  canSelectAllOnPage,
+  allPageSelected,
   sortKey,
   sortDirection,
   quickFilters,
@@ -80,13 +90,17 @@ export function TransactionTable({
   onNextPage,
   onOpenDetail,
   onDelete,
+  onDeleteSelected,
+  onClearSelection,
+  onToggleSelect,
+  onToggleSelectPage,
   onSortChange,
   onQuickFilterChange
 }: TransactionTableProps) {
   return (
     <section className="panel">
       {loading ? (
-        <TableSkeleton rows={6} columns={7} />
+        <TableSkeleton rows={6} columns={8} />
       ) : errorMessage ? (
         <EmptyState
           icon="⚠️"
@@ -115,9 +129,32 @@ export function TransactionTable({
         />
       ) : (
         <>
+          {selectedIds.length > 0 ? (
+            <div className="transaction-bulk-bar">
+              <strong>已选中 {selectedIds.length} 条</strong>
+              <div className="row">
+                <button type="button" onClick={onDeleteSelected} className="danger">
+                  批量删除
+                </button>
+                <button type="button" onClick={onClearSelection}>
+                  取消选择
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <table>
             <thead>
               <tr>
+                <th className="transaction-select-col">
+                  <input
+                    type="checkbox"
+                    checked={allPageSelected}
+                    onChange={(event) => onToggleSelectPage(event.target.checked)}
+                    disabled={!canSelectAllOnPage}
+                    aria-label="全选当前页"
+                  />
+                </th>
                 <th>
                   <button
                     type="button"
@@ -175,6 +212,7 @@ export function TransactionTable({
                 <th>操作</th>
               </tr>
               <tr className="transaction-filter-row">
+                <th className="transaction-select-col" />
                 <th>
                   <input
                     value={quickFilters.date}
@@ -228,12 +266,21 @@ export function TransactionTable({
             <tbody>
               {rows.map(({ item, categoryName, accountName }) => {
                 const note = item.note || '-';
+                const checked = selectedIds.includes(item.id);
                 return (
                   <tr
                     key={item.id}
                     id={`transaction-row-${item.id}`}
                     className={highlightId === item.id ? 'transaction-row-highlight' : undefined}
                   >
+                    <td className="transaction-select-col">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => onToggleSelect(item.id, event.target.checked)}
+                        aria-label={`选择交易 ${formatDate(item.date)} ${item.note || ''}`}
+                      />
+                    </td>
                     <td>{formatDate(item.date)}</td>
                     <td>
                       <span className={item.type === 'income' ? 'badge badge-success' : 'badge badge-danger'}>

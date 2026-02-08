@@ -161,7 +161,8 @@ export function parseBillCsvToTransactions(input: ParseBillInput): Omit<Transact
       note: noteRaw ? `${notePrefix}：${noteRaw}` : notePrefix,
       tags: [input.source === 'wechat' ? '微信导入' : '支付宝导入'],
       categoryId: input.defaultCategoryId,
-      accountId: input.defaultAccountId
+      accountId: input.defaultAccountId,
+      source: input.source
     });
   }
 

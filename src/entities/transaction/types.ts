@@ -1,3 +1,5 @@
+export type TransactionSource = 'manual' | 'wechat' | 'alipay' | 'ai';
+
 export interface TransactionItem {
   id: string;
   type: 'expense' | 'income';
@@ -7,4 +9,5 @@ export interface TransactionItem {
   date: string;
   note: string;
   tags: string[];
+  source?: TransactionSource;
 }

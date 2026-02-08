@@ -16,6 +16,7 @@ import {
   TransactionTable
 } from '../../features/transactions/components/TransactionTable';
 import { resolveDateRange, useTransactionFilters } from '../../features/transactions/hooks/useTransactionFilters';
+import { TransactionSource } from '../../entities/transaction/types';
 
 const PAGE_SIZE = 8;
 type BillSource = 'wechat' | 'alipay';
@@ -29,7 +30,10 @@ const DEFAULT_QUICK_FILTERS: TransactionQuickFilters = {
   note: ''
 };
 
-function detectSource(note: string, tags: string[]): 'manual' | 'wechat' | 'alipay' | 'ai' {
+function detectSource(source: TransactionSource | undefined, note: string, tags: string[]): TransactionSource {
+  if (source) {
+    return source;
+  }
   const combined = `${note} ${tags.join(' ')}`;
   if (/微信|wechat/i.test(combined)) {
     return 'wechat';
@@ -68,7 +72,8 @@ export function TransactionsPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [importSource, setImportSource] = useState<BillSource | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [highlightId, setHighlightId] = useState<string>('');
   const [importNotice, setImportNotice] = useState<{ visible: boolean; message: string; variant: ToastVariant }>({
     visible: false,
@@ -141,7 +146,7 @@ export function TransactionsPage() {
   const filteredRows = useMemo(() => {
     return transactions.filter((item) => {
       const byType = filters.type === 'all' ? true : item.type === filters.type;
-      const source = detectSource(item.note, item.tags);
+      const source = detectSource(item.source, item.note, item.tags);
       const bySource = filters.source === 'all' ? true : source === filters.source;
       const byKeyword =
         filters.keyword.trim().length === 0 ||
@@ -311,15 +316,19 @@ export function TransactionsPage() {
   };
 
   const handleDeleteConfirm = () => {
-    if (!pendingDeleteId) {
+    if (pendingDeleteIds.length === 0) {
       return;
     }
-    removeTransaction(pendingDeleteId);
-    if (selectedId === pendingDeleteId) {
+
+    pendingDeleteIds.forEach((id) => removeTransaction(id));
+
+    if (selectedId && pendingDeleteIds.includes(selectedId)) {
       setSelectedId(null);
     }
-    showToast('交易已删除。', 'success');
-    setPendingDeleteId(null);
+
+    setSelectedIds((prev) => prev.filter((id) => !pendingDeleteIds.includes(id)));
+    showToast(pendingDeleteIds.length > 1 ? `已删除 ${pendingDeleteIds.length} 条交易。` : '交易已删除。', 'success');
+    setPendingDeleteIds([]);
   };
 
   const copyText = async (text: string, successMessage: string) => {
@@ -329,6 +338,39 @@ export function TransactionsPage() {
     } catch {
       showToast('复制失败，请检查浏览器权限。', 'error');
     }
+  };
+
+  useEffect(() => {
+    setSelectedIds((prev) => prev.filter((id) => transactions.some((item) => item.id === id)));
+  }, [transactions]);
+
+  const pageRowIds = viewRows.map((row) => row.item.id);
+  const canSelectAllOnPage = pageRowIds.length > 0;
+  const allPageSelected = canSelectAllOnPage && pageRowIds.every((id) => selectedIds.includes(id));
+
+  const handleToggleSelect = (id: string, selected: boolean) => {
+    setSelectedIds((prev) => {
+      if (selected) {
+        return Array.from(new Set([...prev, id]));
+      }
+      return prev.filter((itemId) => itemId !== id);
+    });
+  };
+
+  const handleToggleSelectPage = (selected: boolean) => {
+    setSelectedIds((prev) => {
+      if (!selected) {
+        return prev.filter((itemId) => !pageRowIds.includes(itemId));
+      }
+      return Array.from(new Set([...prev, ...pageRowIds]));
+    });
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.length === 0) {
+      return;
+    }
+    setPendingDeleteIds(selectedIds);
   };
 
   const hasQuickFilters =
@@ -357,6 +399,8 @@ export function TransactionsPage() {
     clearFilters();
     setQuickFilters(DEFAULT_QUICK_FILTERS);
   };
+
+  const selectedSource = selected ? detectSource(selected.source, selected.note, selected.tags) : 'manual';
 
   return (
     <div>
@@ -412,7 +456,14 @@ export function TransactionsPage() {
         onPrevPage={() => setPage(Math.max(1, page - 1))}
         onNextPage={() => setPage(Math.min(pages, page + 1))}
         onOpenDetail={setSelectedId}
-        onDelete={setPendingDeleteId}
+        selectedIds={selectedIds}
+        canSelectAllOnPage={canSelectAllOnPage}
+        allPageSelected={allPageSelected}
+        onDelete={((id) => setPendingDeleteIds([id]))}
+        onDeleteSelected={handleDeleteSelected}
+        onClearSelection={() => setSelectedIds([])}
+        onToggleSelect={handleToggleSelect}
+        onToggleSelectPage={handleToggleSelectPage}
       />
 
       <TransactionDetailDrawer
@@ -420,6 +471,7 @@ export function TransactionsPage() {
         transaction={selected}
         categoryName={selectedCategoryName}
         accountName={selectedAccountName}
+        source={selectedSource}
         onClose={() => setSelectedId(null)}
         onCopyNote={() => void copyText(selected?.note ?? '', '备注已复制')}
         onCopyJson={() => void copyText(JSON.stringify(selected, null, 2), 'JSON 已复制')}
@@ -427,19 +479,23 @@ export function TransactionsPage() {
           if (!selected) {
             return;
           }
-          setPendingDeleteId(selected.id);
+          setPendingDeleteIds([selected.id]);
         }}
       />
 
       <ConfirmDialog
-        open={Boolean(pendingDeleteId)}
-        title="确认删除交易"
-        description="删除后将无法恢复。是否继续？"
-        confirmText="确认删除"
+        open={pendingDeleteIds.length > 0}
+        title={pendingDeleteIds.length > 1 ? '确认批量删除交易' : '确认删除交易'}
+        description={
+          pendingDeleteIds.length > 1
+            ? `即将删除 ${pendingDeleteIds.length} 条交易，删除后将无法恢复。是否继续？`
+            : '删除后将无法恢复。是否继续？'
+        }
+        confirmText={pendingDeleteIds.length > 1 ? '确认批量删除' : '确认删除'}
         cancelText="取消"
         danger
         onConfirm={handleDeleteConfirm}
-        onCancel={() => setPendingDeleteId(null)}
+        onCancel={() => setPendingDeleteIds([])}
       />
 
       <Toast
