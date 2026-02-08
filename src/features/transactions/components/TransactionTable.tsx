@@ -6,11 +6,30 @@ import { TableSkeleton } from '../../../shared/ui/TableSkeleton';
 
 const NOTE_MAX_LENGTH = 22;
 
+export type TransactionSortKey = 'date' | 'type' | 'category' | 'account' | 'amount' | 'note';
+export type TransactionSortDirection = 'asc' | 'desc';
+
+export interface TransactionQuickFilters {
+  date: string;
+  type: 'all' | 'income' | 'expense';
+  category: string;
+  account: string;
+  amount: string;
+  note: string;
+}
+
 function truncateNote(note: string): string {
   if (note.length <= NOTE_MAX_LENGTH) {
     return note;
   }
   return `${note.slice(0, NOTE_MAX_LENGTH)}…`;
+}
+
+function sortIndicator(active: boolean, direction: TransactionSortDirection): string {
+  if (!active) {
+    return '⇅';
+  }
+  return direction === 'asc' ? '↑' : '↓';
 }
 
 export interface TransactionRowView {
@@ -29,12 +48,17 @@ interface TransactionTableProps {
   errorMessage?: string;
   hasFilters: boolean;
   highlightId?: string;
+  sortKey: TransactionSortKey;
+  sortDirection: TransactionSortDirection;
+  quickFilters: TransactionQuickFilters;
   onRetry: () => void;
   onClearFilters: () => void;
   onPrevPage: () => void;
   onNextPage: () => void;
   onOpenDetail: (id: string) => void;
   onDelete: (id: string) => void;
+  onSortChange: (key: TransactionSortKey) => void;
+  onQuickFilterChange: <K extends keyof TransactionQuickFilters>(key: K, value: TransactionQuickFilters[K]) => void;
 }
 
 export function TransactionTable({
@@ -47,12 +71,17 @@ export function TransactionTable({
   errorMessage,
   hasFilters,
   highlightId,
+  sortKey,
+  sortDirection,
+  quickFilters,
   onRetry,
   onClearFilters,
   onPrevPage,
   onNextPage,
   onOpenDetail,
-  onDelete
+  onDelete,
+  onSortChange,
+  onQuickFilterChange
 }: TransactionTableProps) {
   return (
     <section className="panel">
@@ -89,13 +118,111 @@ export function TransactionTable({
           <table>
             <thead>
               <tr>
-                <th>日期</th>
-                <th>类型</th>
-                <th>分类</th>
-                <th>账户</th>
-                <th>金额</th>
-                <th>备注</th>
+                <th>
+                  <button
+                    type="button"
+                    className={`transaction-sort-btn ${sortKey === 'date' ? 'active' : ''}`}
+                    onClick={() => onSortChange('date')}
+                  >
+                    日期 <span>{sortIndicator(sortKey === 'date', sortDirection)}</span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    type="button"
+                    className={`transaction-sort-btn ${sortKey === 'type' ? 'active' : ''}`}
+                    onClick={() => onSortChange('type')}
+                  >
+                    类型 <span>{sortIndicator(sortKey === 'type', sortDirection)}</span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    type="button"
+                    className={`transaction-sort-btn ${sortKey === 'category' ? 'active' : ''}`}
+                    onClick={() => onSortChange('category')}
+                  >
+                    分类 <span>{sortIndicator(sortKey === 'category', sortDirection)}</span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    type="button"
+                    className={`transaction-sort-btn ${sortKey === 'account' ? 'active' : ''}`}
+                    onClick={() => onSortChange('account')}
+                  >
+                    账户 <span>{sortIndicator(sortKey === 'account', sortDirection)}</span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    type="button"
+                    className={`transaction-sort-btn ${sortKey === 'amount' ? 'active' : ''}`}
+                    onClick={() => onSortChange('amount')}
+                  >
+                    金额 <span>{sortIndicator(sortKey === 'amount', sortDirection)}</span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    type="button"
+                    className={`transaction-sort-btn ${sortKey === 'note' ? 'active' : ''}`}
+                    onClick={() => onSortChange('note')}
+                  >
+                    备注 <span>{sortIndicator(sortKey === 'note', sortDirection)}</span>
+                  </button>
+                </th>
                 <th>操作</th>
+              </tr>
+              <tr className="transaction-filter-row">
+                <th>
+                  <input
+                    value={quickFilters.date}
+                    onChange={(event) => onQuickFilterChange('date', event.target.value)}
+                    placeholder="筛选日期"
+                  />
+                </th>
+                <th>
+                  <select
+                    value={quickFilters.type}
+                    onChange={(event) =>
+                      onQuickFilterChange('type', event.target.value as TransactionQuickFilters['type'])
+                    }
+                  >
+                    <option value="all">全部</option>
+                    <option value="income">收入</option>
+                    <option value="expense">支出</option>
+                  </select>
+                </th>
+                <th>
+                  <input
+                    value={quickFilters.category}
+                    onChange={(event) => onQuickFilterChange('category', event.target.value)}
+                    placeholder="筛选分类"
+                  />
+                </th>
+                <th>
+                  <input
+                    value={quickFilters.account}
+                    onChange={(event) => onQuickFilterChange('account', event.target.value)}
+                    placeholder="筛选账户"
+                  />
+                </th>
+                <th>
+                  <input
+                    value={quickFilters.amount}
+                    onChange={(event) => onQuickFilterChange('amount', event.target.value)}
+                    placeholder="筛选金额"
+                  />
+                </th>
+                <th>
+                  <input
+                    value={quickFilters.note}
+                    onChange={(event) => onQuickFilterChange('note', event.target.value)}
+                    placeholder="筛选备注"
+                  />
+                </th>
+                <th />
               </tr>
             </thead>
             <tbody>

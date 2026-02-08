@@ -3,15 +3,31 @@ import { useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { exportTransactionsCsv } from '../../shared/lib/csv';
 import { parseBillCsvToTransactions } from '../../shared/lib/billImport';
+import { formatCurrency, formatDate } from '../../shared/lib/format';
 import { Toast, ToastVariant } from '../../shared/ui/Toast';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
 import { TransactionDetailDrawer } from '../../features/transactions/components/TransactionDetailDrawer';
 import { TransactionFilters } from '../../features/transactions/components/TransactionFilters';
-import { TransactionRowView, TransactionTable } from '../../features/transactions/components/TransactionTable';
+import {
+  TransactionQuickFilters,
+  TransactionRowView,
+  TransactionSortDirection,
+  TransactionSortKey,
+  TransactionTable
+} from '../../features/transactions/components/TransactionTable';
 import { resolveDateRange, useTransactionFilters } from '../../features/transactions/hooks/useTransactionFilters';
 
 const PAGE_SIZE = 8;
 type BillSource = 'wechat' | 'alipay';
+
+const DEFAULT_QUICK_FILTERS: TransactionQuickFilters = {
+  date: '',
+  type: 'all',
+  category: '',
+  account: '',
+  amount: '',
+  note: ''
+};
 
 function detectSource(note: string, tags: string[]): 'manual' | 'wechat' | 'alipay' | 'ai' {
   const combined = `${note} ${tags.join(' ')}`;
@@ -64,6 +80,10 @@ export function TransactionsPage() {
     message: '',
     variant: 'success'
   });
+
+  const [quickFilters, setQuickFilters] = useState<TransactionQuickFilters>(DEFAULT_QUICK_FILTERS);
+  const [sortKey, setSortKey] = useState<TransactionSortKey>('date');
+  const [sortDirection, setSortDirection] = useState<TransactionSortDirection>('desc');
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -138,7 +158,69 @@ export function TransactionsPage() {
     });
   }, [transactions, filters.type, filters.source, filters.keyword, dateRange.from, dateRange.to]);
 
-  const pages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const mappedRows: TransactionRowView[] = useMemo(() => {
+    return filteredRows.map((item) => ({
+      item,
+      categoryName: categories.find((c) => c.id === item.categoryId)?.name ?? '-',
+      accountName: accounts.find((a) => a.id === item.accountId)?.name ?? '-'
+    }));
+  }, [accounts, categories, filteredRows]);
+
+  const quickFilteredRows = useMemo(() => {
+    const dateFilter = quickFilters.date.trim().toLowerCase();
+    const categoryFilter = quickFilters.category.trim().toLowerCase();
+    const accountFilter = quickFilters.account.trim().toLowerCase();
+    const amountFilter = quickFilters.amount.trim().toLowerCase();
+    const noteFilter = quickFilters.note.trim().toLowerCase();
+
+    return mappedRows.filter((row) => {
+      const dateText = formatDate(row.item.date).toLowerCase();
+      const typePass = quickFilters.type === 'all' ? true : row.item.type === quickFilters.type;
+      const categoryPass = !categoryFilter || row.categoryName.toLowerCase().includes(categoryFilter);
+      const accountPass = !accountFilter || row.accountName.toLowerCase().includes(accountFilter);
+      const notePass = !noteFilter || (row.item.note || '').toLowerCase().includes(noteFilter);
+      const amountPass =
+        !amountFilter ||
+        String(row.item.amount).toLowerCase().includes(amountFilter) ||
+        formatCurrency(row.item.amount).toLowerCase().includes(amountFilter);
+
+      return (!dateFilter || dateText.includes(dateFilter)) && typePass && categoryPass && accountPass && notePass && amountPass;
+    });
+  }, [mappedRows, quickFilters]);
+
+  const sortedRows = useMemo(() => {
+    const rows = [...quickFilteredRows];
+
+    rows.sort((a, b) => {
+      let compare = 0;
+      switch (sortKey) {
+        case 'date':
+          compare = new Date(a.item.date).getTime() - new Date(b.item.date).getTime();
+          break;
+        case 'type':
+          compare = a.item.type.localeCompare(b.item.type);
+          break;
+        case 'category':
+          compare = a.categoryName.localeCompare(b.categoryName, 'zh-CN');
+          break;
+        case 'account':
+          compare = a.accountName.localeCompare(b.accountName, 'zh-CN');
+          break;
+        case 'amount':
+          compare = a.item.amount - b.item.amount;
+          break;
+        case 'note':
+          compare = (a.item.note || '').localeCompare(b.item.note || '', 'zh-CN');
+          break;
+      }
+
+      return sortDirection === 'asc' ? compare : -compare;
+    });
+
+    return rows;
+  }, [quickFilteredRows, sortDirection, sortKey]);
+
+  const pages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE));
   const page = Math.min(filters.page, pages);
 
   useEffect(() => {
@@ -147,15 +229,7 @@ export function TransactionsPage() {
     }
   }, [filters.page, pages, setPage]);
 
-  const pageRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  const viewRows: TransactionRowView[] = useMemo(() => {
-    return pageRows.map((item) => ({
-      item,
-      categoryName: categories.find((c) => c.id === item.categoryId)?.name ?? '-',
-      accountName: accounts.find((a) => a.id === item.accountId)?.name ?? '-'
-    }));
-  }, [accounts, categories, pageRows]);
+  const viewRows = sortedRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const selected = useMemo(
     () => transactions.find((item) => item.id === selectedId) ?? null,
@@ -257,6 +331,33 @@ export function TransactionsPage() {
     }
   };
 
+  const hasQuickFilters =
+    quickFilters.date.trim().length > 0 ||
+    quickFilters.type !== 'all' ||
+    quickFilters.category.trim().length > 0 ||
+    quickFilters.account.trim().length > 0 ||
+    quickFilters.amount.trim().length > 0 ||
+    quickFilters.note.trim().length > 0;
+
+  const handleQuickFilterChange = <K extends keyof TransactionQuickFilters>(key: K, value: TransactionQuickFilters[K]) => {
+    setQuickFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
+  };
+
+  const handleSortChange = (nextKey: TransactionSortKey) => {
+    if (nextKey === sortKey) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDirection('desc');
+  };
+
+  const clearAllFilters = () => {
+    clearFilters();
+    setQuickFilters(DEFAULT_QUICK_FILTERS);
+  };
+
   return (
     <div>
       <TransactionFilters
@@ -267,7 +368,7 @@ export function TransactionsPage() {
         onDatePresetChange={setDatePreset}
         onDateFromChange={setDateFrom}
         onDateToChange={setDateTo}
-        onClear={clearFilters}
+        onClear={clearAllFilters}
         onExport={() => exportTransactionsCsv(filteredRows)}
         onImportWechat={() => openImport('wechat')}
         onImportAlipay={() => openImport('alipay')}
@@ -294,15 +395,20 @@ export function TransactionsPage() {
       <TransactionTable
         rows={viewRows}
         total={transactions.length}
-        filteredTotal={filteredRows.length}
+        filteredTotal={sortedRows.length}
         page={page}
         pages={pages}
         loading={loading}
         errorMessage={errorMessage}
-        hasFilters={isFiltered}
+        hasFilters={isFiltered || hasQuickFilters}
         highlightId={highlightId}
         onRetry={() => setErrorMessage('')}
-        onClearFilters={clearFilters}
+        onClearFilters={clearAllFilters}
+        sortKey={sortKey}
+        sortDirection={sortDirection}
+        quickFilters={quickFilters}
+        onSortChange={handleSortChange}
+        onQuickFilterChange={handleQuickFilterChange}
         onPrevPage={() => setPage(Math.max(1, page - 1))}
         onNextPage={() => setPage(Math.min(pages, page + 1))}
         onOpenDetail={setSelectedId}

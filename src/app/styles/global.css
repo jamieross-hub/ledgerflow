@@ -590,6 +590,42 @@ tr:last-child td { border-bottom: none; }
 
 tr:hover td { background: var(--color-bg-subtle); }
 
+.transaction-sort-btn {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  min-height: 24px;
+  border-radius: 0;
+  justify-content: flex-start;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.transaction-sort-btn:hover:not(:disabled) {
+  background: transparent;
+  color: var(--color-text);
+}
+
+.transaction-sort-btn.active {
+  color: var(--color-primary);
+}
+
+.transaction-filter-row th {
+  border-bottom: 1px solid var(--color-border-light);
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.transaction-filter-row input,
+.transaction-filter-row select {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: var(--font-sm);
+}
+
 small.mono {
   font-family: var(--font-mono);
   font-size: var(--font-sm);
