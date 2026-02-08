@@ -517,6 +517,49 @@ button.danger:hover:not(:disabled) {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
+.import-result-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  margin: 0 0 var(--space-3) 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-xs);
+  font-size: var(--font-sm);
+}
+
+.import-result-banner strong {
+  flex-shrink: 0;
+}
+
+.import-result-banner span {
+  flex: 1;
+  min-width: 0;
+}
+
+.import-result-banner button {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: var(--font-xs);
+}
+
+.import-result-success {
+  border-color: color-mix(in srgb, var(--color-success) 30%, var(--color-border));
+  background: color-mix(in srgb, var(--color-success-bg) 70%, var(--color-bg-elevated));
+}
+
+.import-result-warning {
+  border-color: color-mix(in srgb, var(--color-warning) 30%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning-bg) 70%, var(--color-bg-elevated));
+}
+
+.import-result-error {
+  border-color: color-mix(in srgb, var(--color-danger) 30%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger-bg) 70%, var(--color-bg-elevated));
+}
+
 /* ============================================================
    Table
    ============================================================ */
@@ -622,9 +665,15 @@ small.mono {
   box-shadow: var(--shadow-xs);
   transition: box-shadow var(--transition-base);
   animation: panel-fade 0.3s ease both;
+  min-width: 0;
 }
 
 .stat-card:hover { box-shadow: var(--shadow-sm); }
+
+.stat-card > div {
+  min-width: 0;
+  flex: 1;
+}
 
 .stat-card h3 {
   margin: 0 0 2px 0;
@@ -633,9 +682,16 @@ small.mono {
   color: var(--color-text-tertiary);
 }
 
-.stat-icon { font-size: 28px; line-height: 1; }
+.stat-icon { font-size: 28px; line-height: 1; flex-shrink: 0; }
 
-.stat-value { font-size: var(--font-xl); font-weight: 700; }
+.stat-value {
+  display: block;
+  font-size: var(--font-xl);
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 
 .stat-income .stat-value { color: var(--color-income); }
 .stat-expense .stat-value { color: var(--color-expense); }
@@ -1138,6 +1194,19 @@ small.mono {
   border-radius: var(--radius-sm);
   border-color: var(--color-danger-border);
   color: var(--color-danger);
+}
+
+.chat-inline-error {
+  border: 1px solid var(--color-danger-border);
+  background: var(--color-danger-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.chat-inline-error button {
+  margin-top: var(--space-2);
+  font-size: var(--font-xs);
+  padding: 4px 10px;
 }
 
 .chat-image-strip {

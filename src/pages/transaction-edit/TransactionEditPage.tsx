@@ -2,11 +2,66 @@ import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 
+const MAX_AMOUNT = 999999999.99;
+
 function parseTags(raw: string) {
   return raw
     .split(',')
     .map((t) => t.trim())
     .filter(Boolean);
+}
+
+function formatLocalDateTime(raw: string): string {
+  const d = new Date(raw);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+}
+
+function validateAmount(raw: string): { ok: true; value: number } | { ok: false; message: string } {
+  const normalized = raw.trim();
+  if (!normalized) {
+    return { ok: false, message: '请输入金额。' };
+  }
+
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) {
+    return { ok: false, message: '金额格式不正确，仅支持最多 2 位小数。' };
+  }
+
+  const value = Number(normalized);
+  if (!Number.isFinite(value) || value <= 0) {
+    return { ok: false, message: '金额必须大于 0。' };
+  }
+
+  if (value > MAX_AMOUNT) {
+    return { ok: false, message: `金额过大，请输入不超过 ${MAX_AMOUNT} 的数值。` };
+  }
+
+  return { ok: true, value };
+}
+
+function validateDate(raw: string): { ok: true; value: string } | { ok: false; message: string } {
+  if (!raw) {
+    return { ok: false, message: '请输入日期时间。' };
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(raw)) {
+    return { ok: false, message: '日期时间格式不正确。' };
+  }
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) {
+    return { ok: false, message: '日期时间无效，请重新输入。' };
+  }
+
+  if (formatLocalDateTime(date.toISOString()) !== raw) {
+    return { ok: false, message: '日期时间无效，请检查年月日和时间。' };
+  }
+
+  return { ok: true, value: date.toISOString() };
 }
 
 export function TransactionEditPage() {
@@ -26,33 +81,46 @@ export function TransactionEditPage() {
   const [amount, setAmount] = useState(String(current?.amount ?? ''));
   const [date, setDate] = useState(() => {
     const raw = current?.date ?? new Date().toISOString();
-    const d = new Date(raw);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mi = String(d.getMinutes()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+    return formatLocalDateTime(raw);
   });
   const [note, setNote] = useState(current?.note ?? '');
   const [tags, setTags] = useState(current?.tags.join(',') ?? '');
+  const [amountError, setAmountError] = useState('');
+  const [dateError, setDateError] = useState('');
+  const [formError, setFormError] = useState('');
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    setAmountError('');
+    setDateError('');
+    setFormError('');
+
+    if (!categoryId || !accountId) {
+      setFormError('请先选择分类和账户。');
+      return;
+    }
+
+    const amountResult = validateAmount(amount);
+    if (!amountResult.ok) {
+      setAmountError(amountResult.message);
+      return;
+    }
+
+    const dateResult = validateDate(date);
+    if (!dateResult.ok) {
+      setDateError(dateResult.message);
+      return;
+    }
 
     const payload = {
       type,
       categoryId,
       accountId,
-      amount: Number(amount),
-      date: new Date(date).toISOString(),
+      amount: amountResult.value,
+      date: dateResult.value,
       note,
       tags: parseTags(tags)
     };
-
-    if (!payload.categoryId || !payload.accountId || !payload.amount) {
-      return;
-    }
 
     if (id) {
       updateTransaction(id, payload);
@@ -98,12 +166,35 @@ export function TransactionEditPage() {
 
         <div className="field">
           <label>金额</label>
-          <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" min="0" />
+          <input
+            value={amount}
+            onChange={(e) => {
+              setAmount(e.target.value);
+              if (amountError) {
+                setAmountError('');
+              }
+            }}
+            type="text"
+            inputMode="decimal"
+            placeholder="例如 88.50"
+            maxLength={16}
+          />
+          {amountError ? <small className="error">{amountError}</small> : null}
         </div>
 
         <div className="field">
           <label>日期时间</label>
-          <input value={date} onChange={(e) => setDate(e.target.value)} type="datetime-local" />
+          <input
+            value={date}
+            onChange={(e) => {
+              setDate(e.target.value);
+              if (dateError) {
+                setDateError('');
+              }
+            }}
+            type="datetime-local"
+          />
+          {dateError ? <small className="error">{dateError}</small> : null}
         </div>
 
         <div className="field">
@@ -115,6 +206,8 @@ export function TransactionEditPage() {
           <label>标签（逗号分隔）</label>
           <input value={tags} onChange={(e) => setTags(e.target.value)} />
         </div>
+
+        {formError ? <p className="error">{formError}</p> : null}
 
         <button className="primary" type="submit">
           保存

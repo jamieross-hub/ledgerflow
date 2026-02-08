@@ -107,6 +107,36 @@ function normalizeAiBill(raw: unknown): AiBillResult | null {
   return { transactions: txs };
 }
 
+function mapAssistantErrorMessage(raw: string): string {
+  const text = raw.toLowerCase();
+
+  if (text.includes('http 400') || text.includes('improperly formed request') || text.includes('bad_response_status_code')) {
+    return '请求格式有误：模型接口未能解析本次请求。请切换为标准模型后重试，或减少一次发送的内容。';
+  }
+
+  if (text.includes('http 401') || text.includes('unauthorized')) {
+    return '鉴权失败：请检查 API Key 是否正确、是否过期。';
+  }
+
+  if (text.includes('http 403') || text.includes('forbidden')) {
+    return '权限不足：当前 API Key 没有该模型的调用权限。';
+  }
+
+  if (text.includes('http 404')) {
+    return '接口地址或模型不存在：请检查 Base URL 与模型名称。';
+  }
+
+  if (text.includes('http 429') || text.includes('rate limit')) {
+    return '请求过于频繁：已触发限流，请稍后重试。';
+  }
+
+  if (text.includes('http 5')) {
+    return '服务暂时不可用：供应商服务异常，请稍后重试。';
+  }
+
+  return raw;
+}
+
 export function AssistantPage() {
   const baseUrl = useAiSettings((s) => s.baseUrl);
   const apiKey = useAiSettings((s) => s.apiKey);
@@ -279,7 +309,7 @@ export function AssistantPage() {
       await sendWithMessages(nextMessages);
     } catch (err) {
       const message = err instanceof Error ? err.message : '对话请求失败';
-      setError(message);
+      setError(mapAssistantErrorMessage(message));
       setRetryMessages(nextMessages);
     } finally {
       setSubmitting(false);
@@ -302,7 +332,7 @@ export function AssistantPage() {
       await sendWithMessages(retryMessages);
     } catch (err) {
       const message = err instanceof Error ? err.message : '重试失败';
-      setError(message);
+      setError(mapAssistantErrorMessage(message));
     } finally {
       setSubmitting(false);
     }
@@ -451,22 +481,29 @@ export function AssistantPage() {
             />
           ) : null}
 
+          {error ? (
+            <article className="chat-msg chat-msg-assistant">
+              <div className="chat-msg-avatar">⚠️</div>
+              <div className="chat-msg-body">
+                <header className="chat-msg-header">请求提示</header>
+                <div className="chat-msg-content chat-inline-error">
+                  <p>{error}</p>
+                  {retryMessages ? (
+                    <button type="button" onClick={() => void handleRetry()} disabled={submitting}>
+                      重试
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </article>
+          ) : null}
+
           <div ref={chatEndRef} />
         </div>
       </div>
 
       {/* ===== 底部输入栏 ===== */}
       <footer className="chat-input-bar">
-        {error ? (
-          <div className="chat-error-strip">
-            <span>{error}</span>
-            {retryMessages ? (
-              <button type="button" onClick={() => void handleRetry()} disabled={submitting}>
-                重试
-              </button>
-            ) : null}
-          </div>
-        ) : null}
 
         {imageDataUrl ? (
           <div className="chat-image-strip">

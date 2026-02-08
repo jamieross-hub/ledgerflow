@@ -54,6 +54,11 @@ export function TransactionsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [highlightId, setHighlightId] = useState<string>('');
+  const [importNotice, setImportNotice] = useState<{ visible: boolean; message: string; variant: ToastVariant }>({
+    visible: false,
+    message: '',
+    variant: 'success'
+  });
   const [toast, setToast] = useState<{ visible: boolean; message: string; variant: ToastVariant }>({
     visible: false,
     message: '',
@@ -77,6 +82,16 @@ export function TransactionsPage() {
     const timer = window.setTimeout(() => setLoading(false), 180);
     return () => window.clearTimeout(timer);
   }, [filters.keyword, filters.type, filters.source, filters.datePreset, filters.dateFrom, filters.dateTo, filters.page]);
+
+  useEffect(() => {
+    if (!importNotice.visible) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setImportNotice((prev) => ({ ...prev, visible: false }));
+    }, 5200);
+    return () => window.clearTimeout(timer);
+  }, [importNotice.visible]);
 
   useEffect(() => {
     const highlight = searchParams.get('highlight') ?? '';
@@ -163,6 +178,10 @@ export function TransactionsPage() {
     setToast({ visible: true, message, variant });
   };
 
+  const showImportNotice = (message: string, variant: ToastVariant) => {
+    setImportNotice({ visible: true, message, variant });
+  };
+
   const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !importSource) {
@@ -175,7 +194,9 @@ export function TransactionsPage() {
       const defaultAccountId = accounts[0]?.id;
 
       if (!defaultCategoryId || !defaultAccountId) {
-        showToast('导入失败：请先创建分类和账户。', 'warning');
+        const message = '导入失败：请先创建分类和账户。';
+        showToast(message, 'warning');
+        showImportNotice(message, 'warning');
         return;
       }
 
@@ -187,7 +208,9 @@ export function TransactionsPage() {
       });
 
       if (parsed.length === 0) {
-        showToast('未识别到可导入账单。', 'warning');
+        const message = '未识别到可导入账单。';
+        showToast(message, 'warning');
+        showImportNotice(message, 'warning');
         return;
       }
 
@@ -196,13 +219,17 @@ export function TransactionsPage() {
       const expectedIndex = Math.max(0, filteredRows.length + parsed.length - 1);
       const expectedPage = Math.floor(expectedIndex / PAGE_SIZE) + 1;
       setPage(expectedPage);
-      showToast(`导入成功：新增 ${parsed.length} 条记录。`, 'success');
+      const message = `导入成功：新增 ${parsed.length} 条记录。`;
+      showToast(message, 'success');
+      showImportNotice(`${message} 已自动定位到最新一条。`, 'success');
 
       const next = new URLSearchParams(searchParams);
       next.set('highlight', newestId);
       setSearchParams(next, { replace: true });
     } catch {
-      showToast('导入失败：文件解析异常。', 'error');
+      const message = '导入失败：文件解析异常。';
+      showToast(message, 'error');
+      showImportNotice(message, 'error');
     } finally {
       event.target.value = '';
       setImportSource(null);
@@ -245,6 +272,16 @@ export function TransactionsPage() {
         onImportWechat={() => openImport('wechat')}
         onImportAlipay={() => openImport('alipay')}
       />
+
+      {importNotice.visible ? (
+        <section className={`import-result-banner import-result-${importNotice.variant}`} role="status" aria-live="polite">
+          <strong>导入结果：</strong>
+          <span>{importNotice.message}</span>
+          <button type="button" onClick={() => setImportNotice((prev) => ({ ...prev, visible: false }))}>
+            知道了
+          </button>
+        </section>
+      ) : null}
 
       <input
         ref={fileInputRef}
