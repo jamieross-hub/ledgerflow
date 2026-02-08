@@ -1900,6 +1900,38 @@ small.mono {
   font-size: var(--font-sm);
 }
 
+.exchange-priority-converter .exchange-converter {
+  margin-top: 0;
+}
+
+.exchange-rates-collapse {
+  display: block;
+}
+
+.exchange-rates-collapse > summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.exchange-rates-collapse > summary::-webkit-details-marker {
+  display: none;
+}
+
+.exchange-rates-collapse > summary::before {
+  content: '▶';
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform var(--transition-fast);
+}
+
+.exchange-rates-collapse[open] > summary::before {
+  transform: rotate(90deg);
+}
+
 /* Converter */
 .exchange-converter {
   margin-top: var(--space-4);

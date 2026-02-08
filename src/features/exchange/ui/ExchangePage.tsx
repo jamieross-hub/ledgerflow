@@ -14,9 +14,9 @@ export function ExchangePage() {
 
   return (
     <div>
-      <section className="panel">
+      <section className="panel exchange-priority-converter">
         <div className="exchange-header">
-          <h2 style={{ margin: 0 }}>💱 汇率数据</h2>
+          <h2 style={{ margin: 0 }}>💱 汇率换算器</h2>
           <div className="exchange-base-picker">
             <label>基准货币：</label>
             <select value={base} onChange={(e) => setBase(e.target.value)}>
@@ -42,18 +42,23 @@ export function ExchangePage() {
           </div>
         </div>
 
-        <ExchangeRateTable
-          rates={rates}
-          base={base}
-          date={date}
-          fromCache={fromCache}
-          loading={loading}
-          error={error}
-          onRefresh={refresh}
-        />
+        <ExchangeConverter rates={rates} base={base} />
       </section>
 
-      <ExchangeConverter rates={rates} base={base} />
+      <section className="panel" style={{ marginTop: 12 }}>
+        <details className="exchange-rates-collapse">
+          <summary>汇率数据（点击展开）</summary>
+          <ExchangeRateTable
+            rates={rates}
+            base={base}
+            date={date}
+            fromCache={fromCache}
+            loading={loading}
+            error={error}
+            onRefresh={refresh}
+          />
+        </details>
+      </section>
     </div>
   );
 }
