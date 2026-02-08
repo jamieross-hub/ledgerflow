@@ -1672,6 +1672,18 @@ small.mono {
   gap: var(--space-3);
   border-bottom: 1px dashed var(--color-divider);
   padding-bottom: var(--space-2);
+  min-width: 0;
+}
+
+.drawer-kv > span,
+.drawer-kv > strong {
+  min-width: 0;
+}
+
+.drawer-kv > strong {
+  text-align: right;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .drawer-section h4 {
@@ -1787,6 +1799,32 @@ small.mono {
 
   .drawer-body {
     padding: var(--space-3);
+    overflow-x: hidden;
+  }
+
+  .drawer-kv {
+    align-items: flex-start;
+  }
+
+  .drawer-kv > span {
+    flex: 0 0 auto;
+    max-width: 40%;
+  }
+
+  .drawer-kv > strong {
+    flex: 1;
+  }
+
+  .drawer-section,
+  .drawer-section p,
+  .drawer-section pre {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .drawer-section pre {
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 
   .drawer-footer {
