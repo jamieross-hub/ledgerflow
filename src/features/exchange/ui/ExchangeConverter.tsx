@@ -9,32 +9,30 @@ interface ExchangeConverterProps {
 
 const KEYPAD = [
   'C',
-  'CE',
   '⌫',
-  '÷',
+  '(',
+  ')',
   '7',
   '8',
   '9',
-  '×',
+  '÷',
   '4',
   '5',
   '6',
-  '-',
+  '×',
   '1',
   '2',
   '3',
-  '+',
+  '-',
   '±',
   '0',
   '.',
-  '=',
-  '(',
-  ')',
+  '+',
   'x²',
   '√x',
-  '1/x'
+  '1/x',
+  '='
 ] as const;
-const QUICK_AMOUNTS = ['1', '10', '100', '1000'] as const;
 
 function normalizeExpression(input: string): string {
   return input.replace(/×/g, '*').replace(/÷/g, '/');
@@ -161,11 +159,6 @@ export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
       setError('');
       return;
     }
-    if (key === 'CE') {
-      setExpression('0');
-      setError('');
-      return;
-    }
     if (key === '⌫') {
       setError('');
       setExpression((prev) => (prev.length <= 1 ? '0' : prev.slice(0, -1)));
@@ -233,22 +226,12 @@ export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
           {expression}
         </div>
         {error ? <p className="exchange-calculator-error">{error}</p> : null}
-        <div className="exchange-quick-row" role="group" aria-label="快捷金额">
-          {QUICK_AMOUNTS.map((v) => (
-            <button key={v} type="button" className="exchange-quick-btn" onClick={() => setExpression(v)}>
-              {v}
-            </button>
-          ))}
-          <button type="button" className="exchange-quick-btn" onClick={() => setExpression('0')}>
-            清零
-          </button>
-        </div>
         <div className="exchange-keypad" role="group" aria-label="计算器键盘">
           {KEYPAD.map((key) => {
             const isNum = /^\d$/.test(key) || key === '.';
             const isOperator = ['÷', '×', '-', '+', '='].includes(key);
             const isFn = ['(', ')', 'x²', '√x', '1/x', '±'].includes(key);
-            const isDanger = key === 'C' || key === 'CE' || key === '⌫';
+            const isDanger = key === 'C' || key === '⌫';
 
             return (
               <button

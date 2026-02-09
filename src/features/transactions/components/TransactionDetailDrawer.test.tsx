@@ -28,6 +28,14 @@ describe('TransactionDetailDrawer', () => {
         onCopyNote={() => undefined}
         onCopyJson={onCopyJson}
         onDelete={() => undefined}
+        visibleSections={{
+          base: true,
+          source: true,
+          note: true,
+          tags: true,
+          json: true
+        }}
+        onToggleSection={() => undefined}
       />
     );
 

@@ -6,9 +6,13 @@ import { parseBillCsvToTransactions } from '../../shared/lib/billImport';
 import { formatCurrency, formatDate } from '../../shared/lib/format';
 import { Toast, ToastVariant } from '../../shared/ui/Toast';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
-import { TransactionDetailDrawer } from '../../features/transactions/components/TransactionDetailDrawer';
+import {
+  TransactionDetailDrawer,
+  TransactionDetailSectionKey
+} from '../../features/transactions/components/TransactionDetailDrawer';
 import { TransactionFilters } from '../../features/transactions/components/TransactionFilters';
 import {
+  TransactionColumnKey,
   TransactionQuickFilters,
   TransactionRowView,
   TransactionSortDirection,
@@ -28,6 +32,23 @@ const DEFAULT_QUICK_FILTERS: TransactionQuickFilters = {
   account: '',
   amount: '',
   note: ''
+};
+
+const DEFAULT_VISIBLE_COLUMNS: Record<TransactionColumnKey, boolean> = {
+  date: true,
+  type: true,
+  category: true,
+  account: true,
+  amount: true,
+  note: true
+};
+
+const DEFAULT_DETAIL_SECTIONS: Record<TransactionDetailSectionKey, boolean> = {
+  base: true,
+  source: true,
+  note: true,
+  tags: true,
+  json: false
 };
 
 function detectSource(source: TransactionSource | undefined, note: string, tags: string[]): TransactionSource {
@@ -89,6 +110,9 @@ export function TransactionsPage() {
   const [quickFilters, setQuickFilters] = useState<TransactionQuickFilters>(DEFAULT_QUICK_FILTERS);
   const [sortKey, setSortKey] = useState<TransactionSortKey>('date');
   const [sortDirection, setSortDirection] = useState<TransactionSortDirection>('desc');
+  const [visibleColumns, setVisibleColumns] = useState<Record<TransactionColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS);
+  const [visibleDetailSections, setVisibleDetailSections] =
+    useState<Record<TransactionDetailSectionKey, boolean>>(DEFAULT_DETAIL_SECTIONS);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -400,6 +424,32 @@ export function TransactionsPage() {
     setQuickFilters(DEFAULT_QUICK_FILTERS);
   };
 
+  const handleToggleColumn = (key: TransactionColumnKey) => {
+    setVisibleColumns((prev) => {
+      const next = !prev[key];
+      if (!next) {
+        const enabledCount = Object.values(prev).filter(Boolean).length;
+        if (enabledCount <= 1) {
+          return prev;
+        }
+      }
+      return { ...prev, [key]: next };
+    });
+  };
+
+  const handleToggleDetailSection = (key: TransactionDetailSectionKey) => {
+    setVisibleDetailSections((prev) => {
+      const next = !prev[key];
+      if (!next) {
+        const enabledCount = Object.values(prev).filter(Boolean).length;
+        if (enabledCount <= 1) {
+          return prev;
+        }
+      }
+      return { ...prev, [key]: next };
+    });
+  };
+
   const selectedSource = selected ? detectSource(selected.source, selected.note, selected.tags) : 'manual';
 
   return (
@@ -464,6 +514,8 @@ export function TransactionsPage() {
         onClearSelection={() => setSelectedIds([])}
         onToggleSelect={handleToggleSelect}
         onToggleSelectPage={handleToggleSelectPage}
+        visibleColumns={visibleColumns}
+        onToggleColumn={handleToggleColumn}
       />
 
       <TransactionDetailDrawer
@@ -481,6 +533,8 @@ export function TransactionsPage() {
           }
           setPendingDeleteIds([selected.id]);
         }}
+        visibleSections={visibleDetailSections}
+        onToggleSection={handleToggleDetailSection}
       />
 
       <ConfirmDialog

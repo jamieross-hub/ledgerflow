@@ -648,6 +648,108 @@ tr:hover td { background: var(--color-bg-subtle); }
   background: var(--color-bg-subtle);
 }
 
+.transaction-columns-panel {
+  margin-bottom: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+}
+
+.transaction-columns-panel > strong {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-sm);
+}
+
+.transaction-columns-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--space-2);
+}
+
+.transaction-columns-grid label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+}
+
+.transaction-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+}
+
+.transaction-action-col {
+  width: 132px;
+}
+
+.transaction-row-clickable {
+  cursor: pointer;
+}
+
+.transaction-row-actions {
+  white-space: nowrap;
+}
+
+.transaction-mobile-list {
+  display: none;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.transaction-mobile-item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  overflow: hidden;
+}
+
+.transaction-mobile-swipe {
+  display: flex;
+  width: calc(100% + 88px);
+  transform: translateX(0);
+  transition: transform var(--transition-fast);
+}
+
+.transaction-mobile-item.is-swiped .transaction-mobile-swipe {
+  transform: translateX(-88px);
+}
+
+.transaction-mobile-main {
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-1);
+}
+
+.transaction-mobile-main header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.transaction-mobile-main p,
+.transaction-mobile-main small {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.transaction-mobile-main small {
+  color: var(--color-text-secondary);
+}
+
+.transaction-mobile-delete {
+  width: 88px;
+  border-radius: 0;
+  border: none;
+  min-height: 100%;
+}
+
 small.mono {
   font-family: var(--font-mono);
   font-size: var(--font-sm);
@@ -1739,6 +1841,40 @@ small.mono {
   word-break: break-word;
 }
 
+.drawer-subtitle {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-xs);
+}
+
+.drawer-modules {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-subtle);
+  padding: var(--space-2) var(--space-3);
+}
+
+.drawer-modules summary {
+  cursor: pointer;
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+}
+
+.drawer-modules-grid {
+  margin-top: var(--space-2);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: var(--space-2);
+}
+
+.drawer-modules-grid label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-sm);
+}
+
 .drawer-section h4 {
   margin: 0 0 var(--space-1) 0;
 }
@@ -2072,19 +2208,9 @@ small.mono {
   justify-content: flex-end;
 }
 
-.exchange-quick-row {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--space-2);
-}
-
-.exchange-quick-btn {
-  padding: var(--space-1) var(--space-2);
-}
-
 .exchange-keypad {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-2);
 }
 
@@ -2118,7 +2244,7 @@ small.mono {
 }
 
 .exchange-key-equal {
-  grid-column: span 2;
+  grid-column: span 1;
 }
 
 .exchange-calculator-error {
@@ -2512,16 +2638,29 @@ small.mono {
     min-width: 0;
   }
 
-  .exchange-quick-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .exchange-keypad {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .exchange-key-equal {
     grid-column: span 1;
+  }
+
+  .transaction-columns-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .transaction-table-wrap {
+    display: none;
+  }
+
+  .transaction-mobile-list {
+    display: grid;
+  }
+
+  .transaction-row-actions,
+  .transaction-action-col {
+    width: 92px;
   }
 
   .tags-grid {

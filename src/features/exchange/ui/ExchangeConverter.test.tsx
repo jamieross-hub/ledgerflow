@@ -30,7 +30,7 @@ describe('ExchangeConverter', () => {
   it('计算器键盘可输入表达式并实时换算', () => {
     render(<ExchangeConverter rates={mockRates} base="CNY" />);
 
-    fireEvent.click(screen.getByRole('button', { name: '清零' }));
+    fireEvent.click(screen.getByRole('button', { name: 'C' }));
     fireEvent.click(screen.getByRole('button', { name: '1' }));
     fireEvent.click(screen.getByRole('button', { name: '0' }));
     fireEvent.click(screen.getByRole('button', { name: '+' }));
@@ -44,7 +44,7 @@ describe('ExchangeConverter', () => {
   it('应支持基础科学计算按键', () => {
     render(<ExchangeConverter rates={mockRates} base="CNY" />);
 
-    fireEvent.click(screen.getByRole('button', { name: '清零' }));
+    fireEvent.click(screen.getByRole('button', { name: 'C' }));
     fireEvent.click(screen.getByRole('button', { name: '9' }));
     fireEvent.click(screen.getByRole('button', { name: '√x' }));
     expect(screen.getByText('3')).toBeTruthy();
