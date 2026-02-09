@@ -56,6 +56,19 @@ function normalizeBase(base: string) {
   return base.endsWith('/') ? base.slice(0, -1) : base;
 }
 
+function joinBaseAndPath(base: string, path: string) {
+  const normalizedPath = normalizePath(path);
+  if (!base) return normalizedPath;
+
+  // 避免 /api + /api/** 变成 /api/api/**
+  if ((base === '/api' || base.endsWith('/api')) && (normalizedPath === '/api' || normalizedPath.startsWith('/api/'))) {
+    const trimmed = normalizedPath.slice(4) || '/';
+    return `${base}${trimmed}`;
+  }
+
+  return `${base}${normalizedPath}`;
+}
+
 async function requestJson<T>(url: string, payload: unknown, method: 'POST' | 'PUT' = 'POST'): Promise<T> {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), ENV.requestTimeoutMs);
@@ -97,15 +110,20 @@ async function requestWithFallback<T>(
 ): Promise<T> {
   let lastError: unknown;
   const attempts: string[] = [];
+  const attemptedSet = new Set<string>();
   const baseCandidates = Array.from(new Set([normalizeBase(ENV.apiBaseUrl), '']));
 
   for (const base of baseCandidates) {
     for (const path of paths) {
-      const url = `${base}${normalizePath(path)}`;
+      const url = joinBaseAndPath(base, path);
 
       for (const method of methods) {
+        const attemptKey = `${method} ${url}`;
+        if (attemptedSet.has(attemptKey)) continue;
+        attemptedSet.add(attemptKey);
+
         try {
-          attempts.push(`${method} ${url}`);
+          attempts.push(attemptKey);
           return await requestJson<T>(url, payload, method);
         } catch (error) {
           lastError = error;
