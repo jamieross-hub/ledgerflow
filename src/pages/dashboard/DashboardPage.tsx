@@ -30,6 +30,10 @@ function monthKey(date: Date): string {
   return `${y}-${m}`;
 }
 
+function monthLabel(date: Date): string {
+  return `${date.getMonth() + 1}月`;
+}
+
 function extractJson(text: string): string {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
@@ -187,12 +191,16 @@ export function DashboardPage() {
     };
   }, [aiInput, apiKey, baseUrl, model, monthlyBalance, transactions.length]);
 
+  const currentIndex = Math.max(recentMonths.length - 1, 0);
+
   const chartData = useMemo(() => {
     const history = recentMonths.map((item) => ({ label: item.shortLabel, value: item.balance, type: 'history' as const }));
-    const futureLabels = ['预测1', '预测2', '预测3'];
-    const future = (forecast?.points || []).slice(0, 3).map((value, index) => ({ label: futureLabels[index], value: toSafeNumber(value, monthlyBalance), type: 'forecast' as const }));
+    const future = (forecast?.points || []).slice(0, 3).map((value, index) => {
+      const d = new Date(currentYear, currentMonth + index + 1, 1);
+      return { label: monthLabel(d), value: toSafeNumber(value, monthlyBalance), type: 'forecast' as const };
+    });
     return [...history, ...future];
-  }, [forecast?.points, monthlyBalance, recentMonths]);
+  }, [currentMonth, currentYear, forecast?.points, monthlyBalance, recentMonths]);
 
   const chartRange = useMemo(() => {
     const values = chartData.map((item) => item.value);
@@ -207,19 +215,41 @@ export function DashboardPage() {
     return [chartRange.max, mid, chartRange.min];
   }, [chartRange.max, chartRange.min]);
 
-  const polylinePoints = useMemo(() => {
-    if (chartData.length < 2) return '';
+  const chartPoints = useMemo(() => {
+    if (chartData.length < 2) return [];
     const width = 600;
     const height = 240;
     const pad = 20;
-    return chartData
-      .map((item, index) => {
-        const x = pad + (index * (width - pad * 2)) / (chartData.length - 1);
-        const y = pad + ((chartRange.max - item.value) / chartRange.range) * (height - pad * 2);
-        return `${x},${y}`;
-      })
-      .join(' ');
+    return chartData.map((item, index) => {
+      const x = pad + (index * (width - pad * 2)) / (chartData.length - 1);
+      const y = pad + ((chartRange.max - item.value) / chartRange.range) * (height - pad * 2);
+      return { x, y, label: item.label, type: item.type, value: item.value };
+    });
   }, [chartData, chartRange.max, chartRange.range]);
+
+  const historySegment = useMemo(() => {
+    if (chartPoints.length < 2 || currentIndex < 1) return '';
+    return chartPoints
+      .slice(0, currentIndex)
+      .map((item) => `${item.x},${item.y}`)
+      .join(' ');
+  }, [chartPoints, currentIndex]);
+
+  const currentSegment = useMemo(() => {
+    if (chartPoints.length < 2 || currentIndex < 1) return '';
+    return chartPoints
+      .slice(currentIndex - 1, currentIndex + 1)
+      .map((item) => `${item.x},${item.y}`)
+      .join(' ');
+  }, [chartPoints, currentIndex]);
+
+  const forecastSegment = useMemo(() => {
+    if (chartPoints.length - currentIndex < 2) return '';
+    return chartPoints
+      .slice(currentIndex, chartPoints.length)
+      .map((item) => `${item.x},${item.y}`)
+      .join(' ');
+  }, [chartPoints, currentIndex]);
 
   const tipIndex = new Date().getDate() % TIPS.length;
 
@@ -313,22 +343,42 @@ export function DashboardPage() {
                 <svg viewBox="0 0 600 240" role="img" aria-label="历史与未来趋势折线图">
                   <line x1="24" y1="20" x2="24" y2="220" stroke="var(--color-border)" strokeWidth="1" />
                   <line x1="24" y1="220" x2="580" y2="220" stroke="var(--color-border)" strokeWidth="1" />
-                  <polyline points={polylinePoints} fill="none" stroke="var(--color-primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                  {historySegment ? (
+                    <polyline points={historySegment} className="history-line" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                  ) : null}
+                  {currentSegment ? (
+                    <polyline points={currentSegment} className="current-line" fill="none" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                  ) : null}
+                  {forecastSegment ? (
+                    <polyline points={forecastSegment} className="forecast-line" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                  ) : null}
                 </svg>
               </div>
               <div className="dashboard-forecast-axis-x" aria-label="时间轴">
-                {chartData.map((item, index) => (
-                  <span key={`x-${item.label}-${index}`} className={item.type === 'forecast' ? 'forecast' : 'history'}>
-                    {item.label}
-                  </span>
-                ))}
+                {chartData.map((item, index) => {
+                  const klass = index === currentIndex ? 'current' : item.type === 'forecast' ? 'forecast' : 'history';
+                  return (
+                    <span key={`x-${item.label}-${index}`} className={klass}>
+                      {item.label}
+                    </span>
+                  );
+                })}
+              </div>
+              <div className="dashboard-forecast-key" aria-label="趋势颜色说明">
+                <span className="history">历史</span>
+                <span className="current">当前</span>
+                <span className="forecast">未来</span>
               </div>
               <div className="dashboard-forecast-legend">
-                {chartData.map((item, index) => (
-                  <span key={`${item.label}-${index}`} className={item.type === 'forecast' ? 'forecast' : 'history'}>
-                    {item.label}：{formatCurrency(item.value)}
-                  </span>
-                ))}
+                {chartData.map((item, index) => {
+                  const klass = index === currentIndex ? 'current' : item.type === 'forecast' ? 'forecast' : 'history';
+                  const prefix = item.type === 'forecast' ? '预测' : '';
+                  return (
+                    <span key={`${item.label}-${index}`} className={klass}>
+                      {prefix}{item.label}：{formatCurrency(item.value)}
+                    </span>
+                  );
+                })}
               </div>
             </div>
 
