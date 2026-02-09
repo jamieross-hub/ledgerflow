@@ -15,6 +15,12 @@ function getGreeting(): string {
   return '夜深了，注意休息';
 }
 
+function monthKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
 const QUICK_ACTIONS = [
   { to: '/transactions/new', icon: '✏️', label: '记一笔', desc: '快速添加收入或支出' },
   { to: '/assistant', icon: '🤖', label: '记账助手', desc: 'AI 智能识别账单' },
@@ -33,11 +39,44 @@ const TIPS = [
 
 export function DashboardPage() {
   const transactions = useFinanceStore((s) => s.transactions);
+  const accounts = useFinanceStore((s) => s.accounts);
 
-  const currentMonth = new Date().getMonth();
-  const monthly = transactions.filter((t) => new Date(t.date).getMonth() === currentMonth);
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const monthly = transactions.filter((t) => {
+    const d = new Date(t.date);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
   const income = monthly.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
   const expense = monthly.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+  const monthlyBalance = income - expense;
+
+  const totalBalance = accounts.reduce((sum, a) => sum + Number(a.balance ?? a.initialBalance ?? 0), 0);
+  const liabilities = accounts
+    .filter((a) => a.type === 'credit' || a.type === 'liability')
+    .reduce((sum, a) => sum + Math.abs(Number(a.balance ?? a.initialBalance ?? 0)), 0);
+  const netAssets = totalBalance - liabilities;
+
+  const recentMonths = Array.from({ length: 6 }).map((_, i) => {
+    const d = new Date(currentYear, currentMonth - (5 - i), 1);
+    const key = monthKey(d);
+    const rows = transactions.filter((t) => monthKey(new Date(t.date)) === key);
+    const mIncome = rows.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const mExpense = rows.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    const shortLabel = `${d.getMonth() + 1}月`;
+    return { key, shortLabel, income: mIncome, expense: mExpense, balance: mIncome - mExpense };
+  });
+
+  const trend = recentMonths.map((m) => m.balance);
+  const avgTrend = trend.length > 0 ? trend.reduce((s, n) => s + n, 0) / trend.length : 0;
+  const slope = trend.length >= 2 ? trend[trend.length - 1] - trend[0] : 0;
+  const projectedNextMonth = Math.max(-99999999, monthlyBalance + avgTrend * 0.35 + slope * 0.25);
+
+  const futureInsight =
+    projectedNextMonth >= 0
+      ? `预计下月结余约 ${formatCurrency(projectedNextMonth)}，现金流偏稳。建议继续保持当前支出节奏。`
+      : `预计下月可能出现 ${formatCurrency(Math.abs(projectedNextMonth))} 的结余缺口，建议提前压缩可选消费。`;
 
   const tipIndex = new Date().getDate() % TIPS.length;
 
@@ -53,27 +92,27 @@ export function DashboardPage() {
       </section>
 
       <section className="panel">
-        <h2>本月收支概览</h2>
+        <h2>核心资产仪表盘</h2>
         <div className="grid grid-3">
-          <div className="stat-card stat-income">
-            <span className="stat-icon">📈</span>
+          <div className="stat-card stat-balance">
+            <span className="stat-icon">🧭</span>
             <div>
-              <h3>本月收入</h3>
-              <strong className="stat-value">{formatCurrency(income)}</strong>
+              <h3>净资产</h3>
+              <strong className="stat-value">{formatCurrency(netAssets)}</strong>
+            </div>
+          </div>
+          <div className="stat-card stat-income">
+            <span className="stat-icon">💎</span>
+            <div>
+              <h3>本月结余</h3>
+              <strong className="stat-value">{formatCurrency(monthlyBalance)}</strong>
             </div>
           </div>
           <div className="stat-card stat-expense">
-            <span className="stat-icon">📉</span>
+            <span className="stat-icon">📄</span>
             <div>
-              <h3>本月支出</h3>
-              <strong className="stat-value">{formatCurrency(expense)}</strong>
-            </div>
-          </div>
-          <div className="stat-card stat-balance">
-            <span className="stat-icon">💎</span>
-            <div>
-              <h3>结余</h3>
-              <strong className="stat-value">{formatCurrency(income - expense)}</strong>
+              <h3>负债</h3>
+              <strong className="stat-value">{formatCurrency(liabilities)}</strong>
             </div>
           </div>
         </div>
@@ -100,7 +139,30 @@ export function DashboardPage() {
             }}
           />
         </section>
-      ) : null}
+      ) : (
+        <div className="grid grid-2" style={{ marginTop: 16 }}>
+          <section className="panel">
+            <h3>本月趋势</h3>
+            <div className="dashboard-trend-list" aria-label="近 6 个月收支趋势">
+              {recentMonths.map((item) => (
+                <article key={item.key} className="dashboard-trend-item">
+                  <strong>{item.shortLabel}</strong>
+                  <span className="mono-inline">收入 {formatCurrency(item.income)}</span>
+                  <span className="mono-inline">支出 {formatCurrency(item.expense)}</span>
+                  <span className="mono-inline">结余 {formatCurrency(item.balance)}</span>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="panel">
+            <h3>未来趋势（AI自动分析）</h3>
+            <p className="dashboard-ai-badge">AI 趋势引擎（本地规则模拟）</p>
+            <p className="dashboard-future-text">{futureInsight}</p>
+            <p className="dashboard-future-tip">该分析基于近 6 个月收支波动、近期斜率与本月表现进行预测，可作为预算参考。</p>
+          </section>
+        </div>
+      )}
 
       <h2 style={{ margin: '24px 0 12px', fontSize: 'var(--font-lg)', fontWeight: 600 }}>快捷操作</h2>
       <div className="grid grid-4">
@@ -111,18 +173,6 @@ export function DashboardPage() {
             <span className="quick-action-desc">{action.desc}</span>
           </Link>
         ))}
-      </div>
-
-      <div className="grid grid-2" style={{ marginTop: 16 }}>
-        <section className="panel">
-          <h3>分类饼图（占位）</h3>
-          <p>当前版本用文字占位，后续可接入图表实现可视化分析。</p>
-        </section>
-
-        <section className="panel">
-          <h3>趋势图（占位）</h3>
-          <p>保留趋势区块，便于后续接入真实分析服务。</p>
-        </section>
       </div>
 
       <DebugLogPanel />

@@ -10,29 +10,29 @@ interface ExchangeConverterProps {
 const KEYPAD = [
   'C',
   'CE',
-  '(',
-  ')',
   '⌫',
-  'x²',
-  '√x',
-  '1/x',
-  '±',
   '÷',
   '7',
   '8',
   '9',
   '×',
-  '-',
   '4',
   '5',
   '6',
-  '+',
-  '=',
+  '-',
   '1',
   '2',
   '3',
+  '+',
+  '±',
+  '0',
   '.',
-  '0'
+  '=',
+  '(',
+  ')',
+  'x²',
+  '√x',
+  '1/x'
 ] as const;
 const QUICK_AMOUNTS = ['1', '10', '100', '1000'] as const;
 
@@ -244,16 +244,23 @@ export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
           </button>
         </div>
         <div className="exchange-keypad" role="group" aria-label="计算器键盘">
-          {KEYPAD.map((key) => (
-            <button
-              key={key}
-              type="button"
-              className={`exchange-key ${key === '⌫' ? 'danger' : ''} ${key === '=' ? 'exchange-key-equal primary' : ''}`.trim()}
-              onClick={() => applyKey(key)}
-            >
-              {key}
-            </button>
-          ))}
+          {KEYPAD.map((key) => {
+            const isNum = /^\d$/.test(key) || key === '.';
+            const isOperator = ['÷', '×', '-', '+', '='].includes(key);
+            const isFn = ['(', ')', 'x²', '√x', '1/x', '±'].includes(key);
+            const isDanger = key === 'C' || key === 'CE' || key === '⌫';
+
+            return (
+              <button
+                key={key}
+                type="button"
+                className={`exchange-key ${isNum ? 'exchange-key-num' : ''} ${isOperator ? 'exchange-key-op' : ''} ${isFn ? 'exchange-key-fn' : ''} ${isDanger ? 'exchange-key-danger' : ''} ${key === '=' ? 'exchange-key-equal primary' : ''}`.trim()}
+                onClick={() => applyKey(key)}
+              >
+                {key}
+              </button>
+            );
+          })}
         </div>
       </div>
 

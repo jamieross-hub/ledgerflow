@@ -32,6 +32,10 @@ export function SettingsPage() {
   const setBaseUrl = useAiSettings((s) => s.setBaseUrl);
   const setApiKey = useAiSettings((s) => s.setApiKey);
   const setModel = useAiSettings((s) => s.setModel);
+  const memoryDays = useAiSettings((s) => s.memoryDays);
+  const memoryBackend = useAiSettings((s) => s.memoryBackend);
+  const setMemoryDays = useAiSettings((s) => s.setMemoryDays);
+  const setMemoryBackend = useAiSettings((s) => s.setMemoryBackend);
 
   const [masked, setMasked] = useState(true);
   const [customModel, setCustomModel] = useState('');
@@ -174,8 +178,38 @@ export function SettingsPage() {
           </div>
         ) : null}
 
+        <div className="field">
+          <label>助手记忆时长（天）</label>
+          <select
+            value={memoryDays}
+            onChange={(e) => {
+              setMemoryDays(Number(e.target.value));
+              showSaveToast();
+            }}
+          >
+            <option value={1}>1 天</option>
+            <option value={2}>2 天</option>
+            <option value={3}>3 天</option>
+          </select>
+        </div>
+
+        <div className="field">
+          <label>记忆后端</label>
+          <select
+            value={memoryBackend}
+            onChange={(e) => {
+              setMemoryBackend(e.target.value === 'redis' ? 'redis' : 'local');
+              showSaveToast();
+            }}
+          >
+            <option value="local">本地（默认）</option>
+            <option value="redis">Redis（占位，待后端接入）</option>
+          </select>
+        </div>
+
         <div style={{ marginTop: 12, padding: '8px 12px', background: 'var(--color-surface-alt, #f5f5f5)', borderRadius: 6, fontSize: 'var(--font-sm)', color: 'var(--color-text-secondary)' }}>
-          <strong>当前模型：</strong>{model || '未设置'}
+          <strong>当前模型：</strong>{model || '未设置'}<br />
+          <strong>记忆配置：</strong>{memoryDays} 天 · {memoryBackend === 'redis' ? 'Redis（占位）' : '本地'}
         </div>
       </section>
 

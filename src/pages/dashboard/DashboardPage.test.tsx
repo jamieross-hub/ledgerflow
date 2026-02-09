@@ -12,8 +12,8 @@ describe('DashboardPage', () => {
     );
 
     expect(screen.getByText(/欢迎使用 LedgerFlow/)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '本月收支概览' })).toBeInTheDocument();
-    expect(screen.getByText('分类饼图（占位）')).toBeInTheDocument();
-    expect(screen.getByText('趋势图（占位）')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '核心资产仪表盘' })).toBeInTheDocument();
+    expect(screen.getByText('本月趋势')).toBeInTheDocument();
+    expect(screen.getByText('未来趋势（AI自动分析）')).toBeInTheDocument();
   });
 });

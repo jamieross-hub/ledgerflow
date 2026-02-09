@@ -25,8 +25,15 @@ interface ChatCompletionResponse {
   choices?: Array<{
     message?: {
       content?: string | Array<{ type: 'text'; text: string }>;
+      reasoning_content?: string;
+      reasoning?: string;
     };
   }>;
+}
+
+export interface SendAiChatResult {
+  content: string;
+  reasoning?: string;
 }
 
 interface ChatRequestInput {
@@ -80,7 +87,7 @@ function normalizeMessageContent(content: string | Array<{ type: 'text'; text: s
     .join('\n');
 }
 
-export async function sendAiChat(input: ChatRequestInput): Promise<string> {
+export async function sendAiChat(input: ChatRequestInput): Promise<SendAiChatResult> {
   const outboundMessages: ChatMessageInput[] = [
     ...(input.systemPrompt ? [{ role: 'system' as const, text: input.systemPrompt }] : []),
     ...input.messages
@@ -116,6 +123,12 @@ export async function sendAiChat(input: ChatRequestInput): Promise<string> {
   }
 
   const payload = (await response.json()) as ChatCompletionResponse;
-  const content = normalizeMessageContent(payload.choices?.[0]?.message?.content);
-  return content || '模型未返回可解析内容';
+  const first = payload.choices?.[0]?.message;
+  const content = normalizeMessageContent(first?.content);
+  const reasoning = String(first?.reasoning_content || first?.reasoning || '').trim();
+
+  return {
+    content: content || '模型未返回可解析内容',
+    reasoning: reasoning || undefined
+  };
 }

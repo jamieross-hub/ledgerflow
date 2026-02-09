@@ -6,9 +6,13 @@ interface AiSettingsState {
   baseUrl: string;
   apiKey: string;
   model: string;
+  memoryDays: number;
+  memoryBackend: 'local' | 'redis';
   setBaseUrl: (baseUrl: string) => void;
   setApiKey: (apiKey: string) => void;
   setModel: (model: string) => void;
+  setMemoryDays: (days: number) => void;
+  setMemoryBackend: (backend: 'local' | 'redis') => void;
 }
 
 /**
@@ -22,9 +26,13 @@ export const useAiSettings = create<AiSettingsState>()(
       baseUrl: ENV.aiBaseUrl,
       apiKey: ENV.aiApiKey,
       model: ENV.aiDefaultModel,
-      setBaseUrl: (baseUrl) => set({ baseUrl: baseUrl.trim() }),
-      setApiKey: (apiKey) => set({ apiKey: apiKey.trim() }),
-      setModel: (model) => set({ model: model.trim() })
+      memoryDays: 3,
+      memoryBackend: 'local',
+      setBaseUrl: (baseUrl: string) => set({ baseUrl: baseUrl.trim() }),
+      setApiKey: (apiKey: string) => set({ apiKey: apiKey.trim() }),
+      setModel: (model: string) => set({ model: model.trim() }),
+      setMemoryDays: (days: number) => set({ memoryDays: Math.min(3, Math.max(1, Math.round(days || 1))) }),
+      setMemoryBackend: (backend: 'local' | 'redis') => set({ memoryBackend: backend })
     }),
     { name: 'ledgerflow-ai-settings' }
   )
