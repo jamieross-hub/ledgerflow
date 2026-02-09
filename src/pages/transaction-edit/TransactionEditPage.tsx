@@ -152,7 +152,7 @@ export function TransactionEditPage() {
 
         <div className="field">
           <label>分类</label>
-          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} required>
             {categories.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}

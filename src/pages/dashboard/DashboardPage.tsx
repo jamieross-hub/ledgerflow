@@ -680,8 +680,8 @@ export function DashboardPage() {
               </section>
             </div>
 
-            <div className="dashboard-trend-list" aria-label="近 6 个月收支趋势">
-              {recentMonths.map((item) => (
+            <div className="dashboard-trend-list" aria-label="上月、本月、下月收支结余趋势">
+              {trendMonths.map((item) => (
                 <article key={item.key} className="dashboard-trend-item">
                   <strong>{item.shortLabel}</strong>
                   <span className="mono-inline">收入 {formatCurrency(item.income)}</span>

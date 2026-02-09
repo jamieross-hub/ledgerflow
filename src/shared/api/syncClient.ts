@@ -128,12 +128,32 @@ async function requestWithFallback<T>(
 
 export async function postSyncLocalData(payload: SyncLocalDataRequest): Promise<SyncLocalDataResponse> {
   return requestWithFallback<SyncLocalDataResponse>(
-    [ENV.syncLocalDataPath, '/conn/sync-local-data', '/sync/local-data'],
+    [
+      ENV.syncLocalDataPath,
+      '/sync-local-data',
+      '/api/sync-local-data',
+      '/conn/sync-local-data',
+      '/api/conn/sync-local-data',
+      '/sync/local-data',
+      '/api/sync/local-data'
+    ],
     payload,
     ['POST', 'PUT']
   );
 }
 
 export async function postSyncChange(payload: SyncChangeRequest): Promise<SyncChangeResponse> {
-  return requestWithFallback<SyncChangeResponse>([ENV.syncChangePath, '/conn/sync-change', '/sync/change'], payload, ['POST', 'PUT']);
+  return requestWithFallback<SyncChangeResponse>(
+    [
+      ENV.syncChangePath,
+      '/sync-change',
+      '/api/sync-change',
+      '/conn/sync-change',
+      '/api/conn/sync-change',
+      '/sync/change',
+      '/api/sync/change'
+    ],
+    payload,
+    ['POST', 'PUT']
+  );
 }
