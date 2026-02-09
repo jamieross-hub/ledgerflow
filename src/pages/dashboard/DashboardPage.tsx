@@ -1,8 +1,17 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { DebugLogPanel } from '../../features/debug-log/ui/DebugLogPanel';
 import { formatCurrency } from '../../shared/lib/format';
+import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { EmptyState } from '../../shared/ui/EmptyState';
+
+interface ForecastPayload {
+  summary: string;
+  points: number[];
+  suggestions: string[];
+}
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -19,6 +28,20 @@ function monthKey(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   return `${y}-${m}`;
+}
+
+function extractJson(text: string): string {
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start >= 0 && end > start) {
+    return text.slice(start, end + 1);
+  }
+  return text;
+}
+
+function toSafeNumber(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
 }
 
 const QUICK_ACTIONS = [
@@ -40,6 +63,15 @@ const TIPS = [
 export function DashboardPage() {
   const transactions = useFinanceStore((s) => s.transactions);
   const accounts = useFinanceStore((s) => s.accounts);
+  const categories = useFinanceStore((s) => s.categories);
+
+  const baseUrl = useAiSettings((s) => s.baseUrl);
+  const apiKey = useAiSettings((s) => s.apiKey);
+  const model = useAiSettings((s) => s.model);
+
+  const [forecast, setForecast] = useState<ForecastPayload | null>(null);
+  const [forecastStatus, setForecastStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [forecastError, setForecastError] = useState('');
 
   const now = new Date();
   const currentMonth = now.getMonth();
@@ -58,25 +90,127 @@ export function DashboardPage() {
     .reduce((sum, a) => sum + Math.abs(Number(a.balance ?? a.initialBalance ?? 0)), 0);
   const netAssets = totalBalance - liabilities;
 
-  const recentMonths = Array.from({ length: 6 }).map((_, i) => {
-    const d = new Date(currentYear, currentMonth - (5 - i), 1);
-    const key = monthKey(d);
-    const rows = transactions.filter((t) => monthKey(new Date(t.date)) === key);
-    const mIncome = rows.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-    const mExpense = rows.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-    const shortLabel = `${d.getMonth() + 1}月`;
-    return { key, shortLabel, income: mIncome, expense: mExpense, balance: mIncome - mExpense };
-  });
+  const recentMonths = useMemo(
+    () =>
+      Array.from({ length: 6 }).map((_, i) => {
+        const d = new Date(currentYear, currentMonth - (5 - i), 1);
+        const key = monthKey(d);
+        const rows = transactions.filter((t) => monthKey(new Date(t.date)) === key);
+        const mIncome = rows.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+        const mExpense = rows.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+        const shortLabel = `${d.getMonth() + 1}月`;
+        return { key, shortLabel, income: mIncome, expense: mExpense, balance: mIncome - mExpense };
+      }),
+    [currentMonth, currentYear, transactions]
+  );
 
-  const trend = recentMonths.map((m) => m.balance);
-  const avgTrend = trend.length > 0 ? trend.reduce((s, n) => s + n, 0) / trend.length : 0;
-  const slope = trend.length >= 2 ? trend[trend.length - 1] - trend[0] : 0;
-  const projectedNextMonth = Math.max(-99999999, monthlyBalance + avgTrend * 0.35 + slope * 0.25);
+  const aiInput = useMemo(() => {
+    const txRows = transactions
+      .slice()
+      .sort((a, b) => +new Date(b.date) - +new Date(a.date))
+      .slice(0, 200)
+      .map((item) => ({
+        date: item.date,
+        type: item.type,
+        amount: item.amount,
+        category: categories.find((c) => c.id === item.categoryId)?.name || item.categoryId,
+        account: accounts.find((a) => a.id === item.accountId)?.name || item.accountId,
+        tags: item.tags,
+        note: item.note
+      }));
 
-  const futureInsight =
-    projectedNextMonth >= 0
-      ? `预计下月结余约 ${formatCurrency(projectedNextMonth)}，现金流偏稳。建议继续保持当前支出节奏。`
-      : `预计下月可能出现 ${formatCurrency(Math.abs(projectedNextMonth))} 的结余缺口，建议提前压缩可选消费。`;
+    return {
+      monthBalance: monthlyBalance,
+      recentMonths: recentMonths.map((item) => ({ month: item.shortLabel, income: item.income, expense: item.expense, balance: item.balance })),
+      accounts: accounts.map((item) => ({ name: item.name, type: item.type, balance: Number(item.balance ?? item.initialBalance ?? 0) })),
+      transactions: txRows
+    };
+  }, [accounts, categories, monthlyBalance, recentMonths, transactions]);
+
+  useEffect(() => {
+    if (transactions.length === 0) {
+      setForecast(null);
+      setForecastStatus('idle');
+      setForecastError('');
+      return;
+    }
+
+    let canceled = false;
+
+    const run = async () => {
+      setForecastStatus('loading');
+      setForecastError('');
+      try {
+        const res = await sendAiChat({
+          baseUrl,
+          apiKey,
+          model,
+          systemPrompt:
+            '你是财务趋势分析助手。仅输出 JSON，不要输出 Markdown。JSON 结构：{"summary":"字符串","points":[n1,n2,n3],"suggestions":["建议1","建议2"]}。points 为未来 3 个月结余预测。',
+          messages: [
+            {
+              role: 'user',
+              text: `请分析以下账务数据并返回未来三个月结余趋势\n${JSON.stringify(aiInput)}`
+            }
+          ]
+        });
+
+        const parsed = JSON.parse(extractJson(res.content)) as Partial<ForecastPayload>;
+        const points = Array.isArray(parsed.points) ? parsed.points.slice(0, 3).map((n) => toSafeNumber(n, monthlyBalance)) : [monthlyBalance, monthlyBalance, monthlyBalance];
+        const next: ForecastPayload = {
+          summary: String(parsed.summary || '模型已完成分析，建议结合预算目标跟踪未来三个月现金流。').trim(),
+          points,
+          suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 3).map((item) => String(item).trim()).filter(Boolean) : []
+        };
+
+        if (!canceled) {
+          setForecast(next);
+          setForecastStatus('done');
+        }
+      } catch (error) {
+        if (!canceled) {
+          setForecastStatus('error');
+          setForecastError(error instanceof Error ? error.message : '未来趋势分析失败');
+          setForecast({
+            summary: 'AI 分析暂不可用，当前已展示基于本地数据的动态趋势，请稍后重试。',
+            points: [monthlyBalance, monthlyBalance * 0.96, monthlyBalance * 0.92],
+            suggestions: ['优先保证必要支出预算', '对波动较大的品类设置上限']
+          });
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      canceled = true;
+    };
+  }, [aiInput, apiKey, baseUrl, model, monthlyBalance, transactions.length]);
+
+  const chartData = useMemo(() => {
+    const history = recentMonths.map((item) => ({ label: item.shortLabel, value: item.balance, type: 'history' as const }));
+    const futureLabels = ['预测1', '预测2', '预测3'];
+    const future = (forecast?.points || []).slice(0, 3).map((value, index) => ({ label: futureLabels[index], value: toSafeNumber(value, monthlyBalance), type: 'forecast' as const }));
+    return [...history, ...future];
+  }, [forecast?.points, monthlyBalance, recentMonths]);
+
+  const polylinePoints = useMemo(() => {
+    if (chartData.length < 2) return '';
+    const width = 600;
+    const height = 240;
+    const pad = 20;
+    const values = chartData.map((item) => item.value);
+    const max = Math.max(...values, 1);
+    const min = Math.min(...values, 0);
+    const range = Math.max(max - min, 1);
+    return chartData
+      .map((item, index) => {
+        const x = pad + (index * (width - pad * 2)) / (chartData.length - 1);
+        const y = pad + ((max - item.value) / range) * (height - pad * 2);
+        return `${x},${y}`;
+      })
+      .join(' ');
+  }, [chartData]);
 
   const tipIndex = new Date().getDate() % TIPS.length;
 
@@ -156,10 +290,32 @@ export function DashboardPage() {
           </section>
 
           <section className="panel">
-            <h3>未来趋势（AI自动分析）</h3>
-            <p className="dashboard-ai-badge">AI 趋势引擎（本地规则模拟）</p>
-            <p className="dashboard-future-text">{futureInsight}</p>
-            <p className="dashboard-future-tip">该分析基于近 6 个月收支波动、近期斜率与本月表现进行预测，可作为预算参考。</p>
+            <h3>未来趋势</h3>
+            <p className="dashboard-ai-badge">模型：{model || '默认模型'} · {forecastStatus === 'loading' ? '分析中' : forecastStatus === 'done' ? '已完成' : forecastStatus === 'error' ? '降级展示' : '待分析'}</p>
+            {forecastError ? <p className="dashboard-future-tip">{forecastError}</p> : null}
+
+            <div className="dashboard-forecast-chart" aria-label="未来趋势动态图表">
+              <svg viewBox="0 0 600 240" role="img" aria-label="历史与未来趋势折线图">
+                <polyline points={polylinePoints} fill="none" stroke="var(--color-primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <div className="dashboard-forecast-legend">
+                {chartData.map((item, index) => (
+                  <span key={`${item.label}-${index}`} className={item.type === 'forecast' ? 'forecast' : 'history'}>
+                    {item.label}：{formatCurrency(item.value)}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <p className="dashboard-future-text">{forecast?.summary || '正在根据账目、账户与交易详情生成未来趋势分析...'}</p>
+            {forecast?.suggestions?.length ? (
+              <ul className="dashboard-future-suggestions">
+                {forecast.suggestions.map((item, index) => (
+                  <li key={`${item}-${index}`}>{item}</li>
+                ))}
+              </ul>
+            ) : null}
+            <p className="dashboard-future-tip">分析输入源：当前本地账目数据（若已同步数据库，数据会先落地到本地再用于模型分析）。</p>
           </section>
         </div>
       )}
