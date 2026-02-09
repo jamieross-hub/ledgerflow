@@ -342,6 +342,16 @@ export function AssistantPage() {
 
   const hasApiKey = Boolean(apiKey?.trim());
 
+  const handleClearContext = () => {
+    setMessages([defaultWelcomeMessage()]);
+    setParsedBill(null);
+    setRetryMessages(null);
+    setError('');
+    setTextInput('');
+    setImageDataUrl('');
+    setToast({ message: '已清除上下文记录', variant: 'success', visible: true });
+  };
+
   const canSubmit = useMemo(
     () => hasApiKey && Boolean(model.trim()) && (Boolean(textInput.trim()) || Boolean(imageDataUrl)),
     [hasApiKey, model, textInput, imageDataUrl]
@@ -636,6 +646,9 @@ export function AssistantPage() {
           </div>
         </div>
         <div className="chat-topbar-right">
+          <button type="button" className="chat-clear-btn" onClick={handleClearContext} disabled={messages.length <= 1}>
+            清除上下文
+          </button>
           <small className="chat-topbar-provider">{baseUrl || '未配置供应商'}</small>
         </div>
       </header>

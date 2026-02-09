@@ -48,6 +48,45 @@ function toSafeNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+const FORECAST_CACHE_KEY = 'dashboard_forecast_cache_v1';
+
+function normalizeForecastPayload(raw: unknown, fallback: number): ForecastPayload | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const parsed = raw as Partial<ForecastPayload>;
+  const points = Array.isArray(parsed.points)
+    ? parsed.points.slice(0, 3).map((n) => toSafeNumber(n, fallback))
+    : [fallback, fallback, fallback];
+  const summary = typeof parsed.summary === 'string' && parsed.summary.trim().length > 0
+    ? parsed.summary.trim()
+    : '模型已完成分析，建议结合预算目标跟踪未来三个月现金流。';
+  const suggestions = Array.isArray(parsed.suggestions)
+    ? parsed.suggestions.slice(0, 3).map((item) => String(item).trim()).filter(Boolean)
+    : [];
+  return { summary, points, suggestions };
+}
+
+function readForecastCache(fallback: number): { payload: ForecastPayload; updatedAt: string } | null {
+  try {
+    const raw = localStorage.getItem(FORECAST_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { payload?: unknown; updatedAt?: unknown };
+    const updatedAt = typeof parsed.updatedAt === 'string' ? parsed.updatedAt : '';
+    const payload = normalizeForecastPayload(parsed.payload, fallback);
+    if (!payload || !updatedAt) return null;
+    return { payload, updatedAt };
+  } catch {
+    return null;
+  }
+}
+
+function saveForecastCache(payload: ForecastPayload, updatedAt: string) {
+  try {
+    localStorage.setItem(FORECAST_CACHE_KEY, JSON.stringify({ payload, updatedAt }));
+  } catch {
+    // ignore cache errors
+  }
+}
+
 const QUICK_ACTIONS = [
   { to: '/transactions/new', icon: '✏️', label: '记一笔', desc: '快速添加收入或支出' },
   { to: '/assistant', icon: '🤖', label: '记账助手', desc: 'AI 智能识别账单' },
@@ -76,6 +115,8 @@ export function DashboardPage() {
   const [forecast, setForecast] = useState<ForecastPayload | null>(null);
   const [forecastStatus, setForecastStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [forecastError, setForecastError] = useState('');
+  const [forecastUpdatedAt, setForecastUpdatedAt] = useState<string>('');
+  const [forecastRequestToken, setForecastRequestToken] = useState(0);
 
   const now = new Date();
   const currentMonth = now.getMonth();
@@ -136,8 +177,21 @@ export function DashboardPage() {
       setForecast(null);
       setForecastStatus('idle');
       setForecastError('');
+      setForecastUpdatedAt('');
       return;
     }
+
+    const cached = readForecastCache(monthlyBalance);
+    if (cached) {
+      setForecast(cached.payload);
+      setForecastStatus('done');
+      setForecastError('');
+      setForecastUpdatedAt(cached.updatedAt);
+    }
+  }, [monthlyBalance, transactions.length]);
+
+  useEffect(() => {
+    if (transactions.length === 0) return;
 
     let canceled = false;
 
@@ -160,26 +214,30 @@ export function DashboardPage() {
         });
 
         const parsed = JSON.parse(extractJson(res.content)) as Partial<ForecastPayload>;
-        const points = Array.isArray(parsed.points) ? parsed.points.slice(0, 3).map((n) => toSafeNumber(n, monthlyBalance)) : [monthlyBalance, monthlyBalance, monthlyBalance];
-        const next: ForecastPayload = {
-          summary: String(parsed.summary || '模型已完成分析，建议结合预算目标跟踪未来三个月现金流。').trim(),
-          points,
-          suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 3).map((item) => String(item).trim()).filter(Boolean) : []
+        const next = normalizeForecastPayload(parsed, monthlyBalance) ?? {
+          summary: '模型已完成分析，建议结合预算目标跟踪未来三个月现金流。',
+          points: [monthlyBalance, monthlyBalance, monthlyBalance],
+          suggestions: []
         };
+        const updatedAt = new Date().toISOString();
 
         if (!canceled) {
           setForecast(next);
           setForecastStatus('done');
+          setForecastUpdatedAt(updatedAt);
+          saveForecastCache(next, updatedAt);
         }
       } catch (error) {
         if (!canceled) {
           setForecastStatus('error');
           setForecastError(error instanceof Error ? error.message : '未来趋势分析失败');
-          setForecast({
+          const fallback = {
             summary: 'AI 分析暂不可用，当前已展示基于本地数据的动态趋势，请稍后重试。',
             points: [monthlyBalance, monthlyBalance * 0.96, monthlyBalance * 0.92],
             suggestions: ['优先保证必要支出预算', '对波动较大的品类设置上限']
-          });
+          };
+          setForecast(fallback);
+          setForecastUpdatedAt('');
         }
       }
     };
@@ -189,7 +247,11 @@ export function DashboardPage() {
     return () => {
       canceled = true;
     };
-  }, [aiInput, apiKey, baseUrl, model, monthlyBalance, transactions.length]);
+  }, [aiInput, apiKey, baseUrl, forecastRequestToken, model, monthlyBalance, transactions.length]);
+
+  const handleRefreshForecast = () => {
+    setForecastRequestToken((prev) => prev + 1);
+  };
 
   const currentIndex = Math.max(recentMonths.length - 1, 0);
 
@@ -330,7 +392,12 @@ export function DashboardPage() {
 
           <section className="panel">
             <h3>未来趋势</h3>
-            <p className="dashboard-ai-badge">模型：{model || '默认模型'} · {forecastStatus === 'loading' ? '分析中' : forecastStatus === 'done' ? '已完成' : forecastStatus === 'error' ? '降级展示' : '待分析'}</p>
+            <div className="dashboard-forecast-header">
+              <p className="dashboard-ai-badge">模型：{model || '默认模型'} · {forecastStatus === 'loading' ? '分析中' : forecastStatus === 'done' ? '已完成' : forecastStatus === 'error' ? '降级展示' : '待分析'}{forecastUpdatedAt ? ` · 上次分析 ${new Date(forecastUpdatedAt).toLocaleString('zh-CN')}` : ''}</p>
+              <button type="button" className="dashboard-forecast-refresh" onClick={handleRefreshForecast} disabled={forecastStatus === 'loading' || transactions.length === 0}>
+                手动分析
+              </button>
+            </div>
             {forecastError ? <p className="dashboard-future-tip">{forecastError}</p> : null}
 
             <div className="dashboard-forecast-chart" aria-label="未来趋势动态图表">
