@@ -1,7 +1,19 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { TransactionItem, TransactionSource } from '../../../entities/transaction/types';
+import { TransactionItem, TransactionSource, TransactionStatus } from '../../../entities/transaction/types';
 import { formatCurrency, formatDateTime } from '../../../shared/lib/format';
+
+const STATUS_LABELS: Record<TransactionStatus, string> = {
+  pending: '待处理',
+  completed: '已完成',
+  refunded: '已退款',
+  closed: '已关闭',
+  failed: '失败'
+};
+
+function statusLabel(status: TransactionStatus): string {
+  return STATUS_LABELS[status] || status;
+}
 
 export type TransactionDetailSectionKey = 'base' | 'source' | 'note' | 'tags' | 'json';
 
@@ -106,7 +118,7 @@ export function TransactionDetailDrawer({
               <div className="drawer-kv">
                 <span>类型</span>
                 <strong className={transaction.type === 'income' ? 'text-income' : 'text-expense'}>
-                  {transaction.type === 'income' ? '收入' : '支出'}
+                  {transaction.type === 'income' ? '收入' : transaction.type === 'budget' ? '预算' : transaction.type === 'repayment' ? '还款' : '支出'}
                 </strong>
               </div>
               <div className="drawer-kv">
@@ -123,6 +135,28 @@ export function TransactionDetailDrawer({
                   {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
                 </strong>
               </div>
+              {transaction.status ? (
+                <div className="drawer-kv">
+                  <span>交易状态</span>
+                  <strong>
+                    <span className={`badge ${transaction.status === 'completed' ? 'badge-primary' : ''}`}>
+                      {statusLabel(transaction.status)}
+                    </span>
+                  </strong>
+                </div>
+              ) : null}
+              {transaction.orderNo ? (
+                <div className="drawer-kv">
+                  <span>订单号</span>
+                  <strong>{transaction.orderNo}</strong>
+                </div>
+              ) : null}
+              {transaction.merchantOrderNo ? (
+                <div className="drawer-kv">
+                  <span>商家订单号</span>
+                  <strong>{transaction.merchantOrderNo}</strong>
+                </div>
+              ) : null}
             </>
           ) : null}
 

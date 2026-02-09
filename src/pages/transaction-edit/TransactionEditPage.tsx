@@ -95,8 +95,13 @@ export function TransactionEditPage() {
     setDateError('');
     setFormError('');
 
-    if (!categoryId || !accountId) {
-      setFormError('请先选择分类和账户。');
+    if (!categoryId) {
+      setFormError('分类不能为空，请先选择或新建分类。');
+      return;
+    }
+
+    if (!accountId) {
+      setFormError('请先选择账户。');
       return;
     }
 

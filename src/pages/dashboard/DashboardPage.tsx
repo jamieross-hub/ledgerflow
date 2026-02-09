@@ -165,6 +165,23 @@ export function DashboardPage() {
     [currentMonth, currentYear, transactions]
   );
 
+  /** 本月趋势仅展示：上月、当月、下月 */
+  const trendMonths = useMemo(() => {
+    const offsets = [-1, 0, 1];
+    return offsets.map((offset) => {
+      const d = new Date(currentYear, currentMonth + offset, 1);
+      const key = monthKey(d);
+      const rows = transactions.filter((t) => monthKey(new Date(t.date)) === key);
+      const mIncome = rows.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+      const mExpense = rows
+        .filter((t) => t.type === 'expense' || t.type === 'budget' || t.type === 'repayment')
+        .reduce((sum, t) => sum + t.amount, 0);
+      const label = offset === -1 ? '上月' : offset === 0 ? '本月' : '下月';
+      const shortLabel = `${label}（${d.getMonth() + 1}月）`;
+      return { key, shortLabel, income: mIncome, expense: mExpense, balance: mIncome - mExpense, isCurrent: offset === 0 };
+    });
+  }, [currentMonth, currentYear, transactions]);
+
   const aiInput = useMemo(() => {
     const txRows = transactions
       .slice()
