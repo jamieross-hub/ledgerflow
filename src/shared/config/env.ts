@@ -1,13 +1,14 @@
-const rawApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
+const rawApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').trim();
 
 function normalizeApiBaseUrl(url: string) {
-  return url.endsWith('/') ? url.slice(0, -1) : url;
+  if (!url) return '/api';
+  const normalized = url.endsWith('/') ? url.slice(0, -1) : url;
+  return normalized || '/api';
 }
 
 export const ENV = {
   /**
-   * 直接请求远程后端域名（示例：https://api.example.com）
-   * 不再默认走本地 /api 代理。
+   * 兼容模式：优先直连远程后端域名；未配置时回退到本地 /api 代理。
    */
   apiBaseUrl: normalizeApiBaseUrl(rawApiBaseUrl),
   requestTimeoutMs: Number(import.meta.env.VITE_REQUEST_TIMEOUT_MS || 8000),

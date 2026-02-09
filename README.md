@@ -150,8 +150,9 @@ src/
 参考 [.env.example](.env.example)：
 
 ```bash
-# 直连远程后端域名（必填），示例：https://api.your-domain.com
-VITE_API_BASE_URL=
+# 优先直连远程后端域名；不填时默认走本地 /api 代理
+# 示例：https://api.your-domain.com
+VITE_API_BASE_URL=/api
 VITE_REQUEST_TIMEOUT_MS=8000
 VITE_LOG_LEVEL=info
 
@@ -239,10 +240,40 @@ docker compose up --build
 - 表单校验：必填、端口范围、连接池参数、连接串协议与格式
 - 测试连接按钮：加载态、超时、成功/失败提示、日志展开
 
+### PostgreSQL（IP 访问）可直接填写参数
+
+在 [`ConnectionConfigForm.tsx`](src/features/connection-config/ui/ConnectionConfigForm.tsx) 里可直接按下列值填写：
+
+- 类型：`PostgreSQL`
+- Host：`<你的 PG 服务器 IP>`（示例：`10.20.30.40`）
+- Port：`5432`
+- 数据库名：`ledgerflow`
+- 用户名：`ledgerflow_app`
+- 密码：`<数据库密码>`
+- TLS/SSL：
+  - 内网自建 PG：通常先关闭（`tls.enabled=false`）
+  - 云厂商 PG（RDS/Cloud SQL 等）：建议开启（`tls.enabled=true`）
+- 校验证书（`rejectUnauthorized`）：
+  - 有 CA 证书时：`true` 并填写 `CA 证书`
+  - 暂无 CA 证书测试阶段：`false`
+- 超时：`8000 ~ 15000 ms`
+
+连接串示例（可直接粘贴到“连接串”输入框）：
+
+```text
+postgres://ledgerflow_app:YourPassword@10.20.30.40:5432/ledgerflow
+```
+
+启用 SSL 的连接串示例：
+
+```text
+postgres://ledgerflow_app:YourPassword@10.20.30.40:5432/ledgerflow?sslmode=require
+```
+
 安全策略：
 
 - 明确提示前端无法安全保存 DB 凭证
-- 前端采用直连后端 HTTP API 模式（由后端再访问数据库）
+- 前端采用兼容模式：优先直连后端 HTTP API，未配置远端时回退本地 `/api` 代理
 
 代理接口规范（前端已对接）：
 

@@ -18,9 +18,6 @@ interface ProxyTestResponse {
  */
 function buildApiUrl(path: string) {
   const base = ENV.apiBaseUrl;
-  if (!base) {
-    throw new Error('未配置 VITE_API_BASE_URL，无法直连远程后端');
-  }
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return `${base}${normalizedPath}`;
 }
