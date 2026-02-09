@@ -148,15 +148,27 @@ export function TransactionDetailDrawer({
           {visibleSections.tags ? (
             <section className="drawer-section">
               <h4>标签</h4>
-              <p>
+              <div className="drawer-tags">
                 {transaction.tags.length > 0
                   ? transaction.tags.map((tag) => (
-                      <span key={tag} className="badge badge-primary" style={{ marginRight: 4 }}>
+                      <span key={tag} className="badge badge-primary">
                         {tag}
                       </span>
                     ))
                   : '（无）'}
-              </p>
+              </div>
+              {transaction.tags.length > 6 ? (
+                <details className="drawer-tags-fold">
+                  <summary>展开全部标签</summary>
+                  <div className="drawer-tags" style={{ marginTop: 6 }}>
+                    {transaction.tags.map((tag) => (
+                      <span key={`${tag}-all`} className="badge badge-primary">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </details>
+              ) : null}
             </section>
           ) : null}
 

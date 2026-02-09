@@ -286,6 +286,10 @@ export function AppLayout() {
                 </div>
               ))}
             </nav>
+            <div className="mobile-nav-footer">
+              <span>主题模式</span>
+              <ThemeSwitcher />
+            </div>
           </aside>
         </div>
       ) : null}

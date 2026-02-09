@@ -140,19 +140,22 @@ export function CategoriesAccountsPage() {
         {tagGroups.length === 0 ? (
           <EmptyState title="暂无标签" description="标签来自交易明细，新增交易标签后会自动聚合到这里。" icon="🏷️" />
         ) : (
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {tagGroups.map((tag) => (
-              <li key={tag.key} className="row" style={{ padding: '8px 0', borderBottom: '1px solid var(--color-border-light)' }}>
-                <span style={{ flex: 1 }}>
-                  #{tag.label}
-                  <small style={{ marginLeft: 8, color: 'var(--color-text-secondary)' }}>{tag.count} 条</small>
-                </span>
-                <button type="button" className="danger" onClick={() => removeTagFromAllTransactions(tag.label)}>
-                  全部移除
-                </button>
-              </li>
-            ))}
-          </ul>
+          <details open>
+            <summary className="tag-fold-summary">查看全部标签（{tagGroups.length}）</summary>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {tagGroups.map((tag) => (
+                <li key={tag.key} className="row" style={{ padding: '8px 0', borderBottom: '1px solid var(--color-border-light)' }}>
+                  <span style={{ flex: 1 }}>
+                    #{tag.label}
+                    <small style={{ marginLeft: 8, color: 'var(--color-text-secondary)' }}>{tag.count} 条</small>
+                  </span>
+                  <button type="button" className="danger" onClick={() => removeTagFromAllTransactions(tag.label)}>
+                    全部移除
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
       </section>
 

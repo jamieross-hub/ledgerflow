@@ -674,6 +674,11 @@ export function AssistantPage() {
               </div>
             ) : null}
           </div>
+          <div className="chat-topbar-actions">
+            <button type="button" className="chat-clear-btn" onClick={handleClearContext} disabled={messages.length <= 1}>
+              清除上下文
+            </button>
+          </div>
         </div>
         <div className="chat-topbar-right">
           <button type="button" className="chat-clear-btn" onClick={handleClearContext} disabled={messages.length <= 1}>
@@ -822,8 +827,8 @@ export function AssistantPage() {
             className="chat-input-textarea"
             placeholder={
               hasApiKey
-                ? '输入消息，按 Enter 发送 · 支持粘贴/拖拽/点击📎上传图片'
-                : '请先前往设置页填写 OpenAI API Key，再开始聊天'
+                ? '输入消息，Enter 发送 · 支持图片'
+                : '请先在设置页填写 API Key'
             }
             disabled={!hasApiKey}
           />
