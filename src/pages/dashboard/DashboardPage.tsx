@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
+import { sendAiChat, sendAiChatStream } from '../../features/assistant/api/openaiCompatibleClient';
 import { DebugLogPanel } from '../../features/debug-log/ui/DebugLogPanel';
 import { formatCurrency } from '../../shared/lib/format';
 import { useAiSettings } from '../../shared/store/useAiSettings';
@@ -11,6 +11,13 @@ interface ForecastPayload {
   summary: string;
   points: number[];
   suggestions: string[];
+}
+
+interface MonthlyInsightPayload {
+  summary: string;
+  categoryBreakdown: Array<{ name: string; amount: number; percent: number }>;
+  topTransactions: Array<{ date: string; category: string; amount: number; note: string }>;
+  highlights: string[];
 }
 
 function getGreeting(): string {
@@ -118,6 +125,11 @@ export function DashboardPage() {
   const [forecastUpdatedAt, setForecastUpdatedAt] = useState<string>('');
   const [forecastRequestToken, setForecastRequestToken] = useState(0);
 
+  const [monthlyInsight, setMonthlyInsight] = useState<MonthlyInsightPayload | null>(null);
+  const [monthlyInsightStatus, setMonthlyInsightStatus] = useState<'idle' | 'loading' | 'streaming' | 'done' | 'error'>('idle');
+  const [monthlyInsightError, setMonthlyInsightError] = useState('');
+  const [monthlyInsightText, setMonthlyInsightText] = useState('');
+
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
@@ -176,12 +188,68 @@ export function DashboardPage() {
     };
   }, [accounts, categories, monthlyBalance, recentMonths, transactions]);
 
+  const monthlyInsightInput = useMemo(() => {
+    const categoryMap = new Map<string, { name: string; income: number; expense: number; count: number }>();
+    monthly.forEach((item) => {
+      const name = categories.find((c) => c.id === item.categoryId)?.name || item.categoryId || '未分类';
+      const entry = categoryMap.get(name) || { name, income: 0, expense: 0, count: 0 };
+      if (item.type === 'income') {
+        entry.income += item.amount;
+      } else if (item.type === 'expense' || item.type === 'budget' || item.type === 'repayment') {
+        entry.expense += item.amount;
+      }
+      entry.count += 1;
+      categoryMap.set(name, entry);
+    });
+
+    const categoryRows = Array.from(categoryMap.values())
+      .map((entry) => ({
+        name: entry.name,
+        income: entry.income,
+        expense: entry.expense,
+        count: entry.count,
+        total: entry.income - entry.expense
+      }))
+      .sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
+
+    const topTransactions = monthly
+      .slice()
+      .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
+      .slice(0, 6)
+      .map((item) => ({
+        date: item.date,
+        category: categories.find((c) => c.id === item.categoryId)?.name || item.categoryId || '未分类',
+        amount: item.amount,
+        type: item.type,
+        note: item.note
+      }));
+
+    return {
+      month: `${currentYear}年${currentMonth + 1}月`,
+      income,
+      expense,
+      balance: monthlyBalance,
+      categories: categoryRows,
+      topTransactions,
+      recentMonths: recentMonths.slice(-3).map((item) => ({
+        month: item.shortLabel,
+        income: item.income,
+        expense: item.expense,
+        balance: item.balance
+      }))
+    };
+  }, [accounts, categories, currentMonth, currentYear, income, monthly, monthlyBalance, expense, recentMonths]);
+
   useEffect(() => {
     if (transactions.length === 0) {
       setForecast(null);
       setForecastStatus('idle');
       setForecastError('');
       setForecastUpdatedAt('');
+      setMonthlyInsight(null);
+      setMonthlyInsightStatus('idle');
+      setMonthlyInsightError('');
+      setMonthlyInsightText('');
       return;
     }
 
@@ -253,6 +321,100 @@ export function DashboardPage() {
     };
   }, [aiInput, apiKey, baseUrl, forecastRequestToken, model, monthlyBalance, transactions.length]);
 
+  useEffect(() => {
+    if (transactions.length === 0) return;
+
+    let canceled = false;
+
+    const run = async () => {
+      setMonthlyInsightStatus('loading');
+      setMonthlyInsightError('');
+      setMonthlyInsightText('');
+      try {
+        await sendAiChatStream(
+          {
+            baseUrl,
+            apiKey,
+            model,
+            systemPrompt:
+              '你是财务洞察分析助手。输出 JSON，不要输出 Markdown。JSON 结构：{"summary":"字符串","categoryBreakdown":[{"name":"分类","amount":123,"percent":0.12}],"topTransactions":[{"date":"YYYY-MM-DD","category":"分类","amount":123,"note":""}],"highlights":["要点1","要点2"]}。',
+            messages: [
+              {
+                role: 'user',
+                text: `请基于以下本月账务数据进行洞察，关注分类结构、异常支出与改善建议。\n${JSON.stringify(monthlyInsightInput)}`
+              }
+            ]
+          },
+          {
+            onDelta: (delta) => {
+              if (canceled) return;
+              setMonthlyInsightStatus('streaming');
+              setMonthlyInsightText((prev) => prev + delta);
+            },
+            onDone: (content) => {
+              if (canceled) return;
+              try {
+                const parsed = JSON.parse(extractJson(content)) as Partial<MonthlyInsightPayload>;
+                const categoryBreakdown = Array.isArray(parsed.categoryBreakdown)
+                  ? parsed.categoryBreakdown
+                      .map((item) => ({
+                        name: String(item?.name || '未分类'),
+                        amount: toSafeNumber(item?.amount, 0),
+                        percent: toSafeNumber(item?.percent, 0)
+                      }))
+                      .filter((item) => item.name)
+                  : [];
+                const topTransactions = Array.isArray(parsed.topTransactions)
+                  ? parsed.topTransactions
+                      .map((item) => ({
+                        date: String(item?.date || ''),
+                        category: String(item?.category || '未分类'),
+                        amount: toSafeNumber(item?.amount, 0),
+                        note: String(item?.note || '')
+                      }))
+                      .filter((item) => item.date)
+                  : [];
+                const highlights = Array.isArray(parsed.highlights)
+                  ? parsed.highlights.map((item) => String(item).trim()).filter(Boolean)
+                  : [];
+                const summary = typeof parsed.summary === 'string' && parsed.summary.trim().length > 0
+                  ? parsed.summary.trim()
+                  : '本月洞察已生成，可结合分类与大额交易进行预算调整。';
+                const next: MonthlyInsightPayload = {
+                  summary,
+                  categoryBreakdown,
+                  topTransactions,
+                  highlights
+                };
+                setMonthlyInsight(next);
+                setMonthlyInsightStatus('done');
+              } catch (error) {
+                setMonthlyInsightStatus('error');
+                setMonthlyInsightError(error instanceof Error ? error.message : '本月趋势分析失败');
+              }
+            },
+            onError: (error) => {
+              if (canceled) return;
+              setMonthlyInsightStatus('error');
+              setMonthlyInsightError(error.message || '本月趋势分析失败');
+            }
+          }
+        );
+      } catch (error) {
+        if (!canceled) {
+          setMonthlyInsightStatus('error');
+          setMonthlyInsightError(error instanceof Error ? error.message : '本月趋势分析失败');
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      canceled = true;
+    };
+  }, [apiKey, baseUrl, model, monthlyInsightInput, transactions.length]);
+
   const handleRefreshForecast = () => {
     setForecastRequestToken((prev) => prev + 1);
   };
@@ -316,6 +478,53 @@ export function DashboardPage() {
       .map((item) => `${item.x},${item.y}`)
       .join(' ');
   }, [chartPoints, currentIndex]);
+
+  const monthlyStatusText =
+    monthlyInsightStatus === 'loading'
+      ? '分析中'
+      : monthlyInsightStatus === 'streaming'
+        ? '流式输出中'
+        : monthlyInsightStatus === 'done'
+          ? '已完成'
+          : monthlyInsightStatus === 'error'
+            ? '异常'
+            : '待分析';
+
+  const currentMonthLabel = `${currentYear}年${currentMonth + 1}月`;
+
+  const monthlySummaryText =
+    monthlyInsightStatus === 'streaming'
+      ? monthlyInsightText || '模型正在生成本月分析...'
+      : monthlyInsight?.summary || '正在根据本月账单生成趋势分析...';
+
+  const displayCategoryBreakdown = useMemo(
+    () =>
+      (monthlyInsight?.categoryBreakdown?.length
+        ? monthlyInsight.categoryBreakdown.map((item) => ({
+            name: item.name,
+            amount: item.amount,
+            percent: item.percent
+          }))
+        : monthlyInsightInput.categories.map((item) => ({
+            name: item.name,
+            amount: item.total,
+            count: item.count
+          }))),
+    [monthlyInsight, monthlyInsightInput]
+  );
+
+  const displayTopTransactions = useMemo(
+    () =>
+      (monthlyInsight?.topTransactions?.length
+        ? monthlyInsight.topTransactions
+        : monthlyInsightInput.topTransactions.map((item) => ({
+            date: item.date,
+            category: item.category,
+            amount: item.amount,
+            note: item.note
+          }))),
+    [monthlyInsight, monthlyInsightInput]
+  );
 
   const tipIndex = new Date().getDate() % TIPS.length;
 
@@ -381,7 +590,79 @@ export function DashboardPage() {
       ) : (
         <div className="grid grid-2" style={{ marginTop: 16 }}>
           <section className="panel">
-            <h3>本月趋势</h3>
+            <header className="dashboard-panel-header">
+              <div>
+                <p className="dashboard-panel-kicker">本月趋势 · {currentMonthLabel}</p>
+                <h3>本月趋势</h3>
+              </div>
+              <div className="dashboard-panel-actions">
+                <span className={`dashboard-ai-status status-${monthlyInsightStatus}`}>AI {monthlyStatusText}</span>
+              </div>
+            </header>
+
+            <div className="dashboard-trend-summary">
+              <div>
+                <p className="dashboard-summary-title">本月收支概览</p>
+                <p className="dashboard-summary-main">结余 {formatCurrency(monthlyBalance)}</p>
+                <p className="dashboard-summary-sub">
+                  收入 {formatCurrency(income)} · 支出 {formatCurrency(expense)} · 交易 {monthly.length} 笔
+                </p>
+              </div>
+              <div className="dashboard-summary-chip">AI 分析聚焦于本月分类结构与异常波动</div>
+            </div>
+
+            <div className="dashboard-ai-output" aria-live="polite">
+              <p className="dashboard-ai-title">AI 洞察摘要</p>
+              <p className="dashboard-ai-text">{monthlySummaryText}</p>
+              {monthlyInsightError ? <p className="dashboard-ai-error">{monthlyInsightError}</p> : null}
+            </div>
+
+            <div className="dashboard-trend-sections">
+              <section>
+                <div className="dashboard-section-header">
+                  <h4>分类结构</h4>
+                  <span>按金额排序</span>
+                </div>
+                <div className="dashboard-breakdown-grid">
+                  {displayCategoryBreakdown.map((item, index) => {
+                    const percentText = 'percent' in item ? `${item.percent}%` : `${Math.round((item.amount / Math.max(expense, 1)) * 100)}%`;
+                    const extraText = 'count' in item ? ` · ${item.count} 笔` : '';
+                    return (
+                      <article key={`${item.name}-${index}`} className="dashboard-breakdown-item">
+                        <div>
+                          <p className="dashboard-breakdown-name">{item.name}</p>
+                          <p className="dashboard-breakdown-meta">
+                            {formatCurrency(item.amount)} · {percentText}{extraText}
+                          </p>
+                        </div>
+                        <div className="dashboard-breakdown-bar">
+                          <span style={{ width: percentText }} />
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section>
+                <div className="dashboard-section-header">
+                  <h4>重点账目</h4>
+                  <span>金额 TOP {displayTopTransactions.length}</span>
+                </div>
+                <div className="dashboard-top-list">
+                  {displayTopTransactions.map((item, index) => (
+                    <article key={`${item.date}-${index}`} className="dashboard-top-item">
+                      <div>
+                        <p className="dashboard-top-title">{item.category || '未分类'} · {item.date}</p>
+                        <p className="dashboard-top-note">{item.note || '无备注'}</p>
+                      </div>
+                      <strong>{formatCurrency(item.amount)}</strong>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </div>
+
             <div className="dashboard-trend-list" aria-label="近 6 个月收支趋势">
               {recentMonths.map((item) => (
                 <article key={item.key} className="dashboard-trend-item">

@@ -31,9 +31,106 @@ interface ChatCompletionResponse {
   }>;
 }
 
+interface ChatCompletionStreamChunk {
+  choices?: Array<{
+    delta?: {
+      content?: string;
+    };
+    message?: {
+      content?: string | Array<{ type: 'text'; text: string }>;
+    };
+  }>;
+}
+
 export interface SendAiChatResult {
   content: string;
   reasoning?: string;
+}
+
+export async function sendAiChatStream(
+  input: ChatRequestInput,
+  handlers: {
+    onDelta: (delta: string) => void;
+    onDone?: (content: string) => void;
+    onError?: (error: Error) => void;
+  }
+): Promise<void> {
+  const outboundMessages: ChatMessageInput[] = [
+    ...(input.systemPrompt ? [{ role: 'system' as const, text: input.systemPrompt }] : []),
+    ...input.messages
+  ];
+
+  const response = await fetch(`${normalizeBaseUrl(input.baseUrl)}/chat/completions`, {
+    method: 'POST',
+    headers: buildHeaders(input.apiKey),
+    body: JSON.stringify({
+      model: input.model,
+      stream: true,
+      messages: outboundMessages.map((message) => {
+        if (message.role === 'user' && message.imageDataUrl) {
+          return {
+            role: message.role,
+            content: [
+              { type: 'text', text: message.text || '请基于图片进行记账建议分析。' },
+              { type: 'image_url', image_url: { url: message.imageDataUrl } }
+            ]
+          };
+        }
+
+        return {
+          role: message.role,
+          content: message.text
+        };
+      })
+    })
+  });
+
+  if (!response.ok || !response.body) {
+    const detail = await response.text().catch(() => '');
+    const error = new Error(`流式对话请求失败：HTTP ${response.status} ${detail}`.trim());
+    handlers.onError?.(error);
+    throw error;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  let fullText = '';
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) continue;
+        const payload = trimmed.replace(/^data:\s*/, '');
+        if (payload === '[DONE]') {
+          handlers.onDone?.(fullText);
+          return;
+        }
+
+        try {
+          const chunk = JSON.parse(payload) as ChatCompletionStreamChunk;
+          const delta = chunk.choices?.[0]?.delta?.content || '';
+          if (delta) {
+            fullText += delta;
+            handlers.onDelta(delta);
+          }
+        } catch {
+          // ignore malformed chunk
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  handlers.onDone?.(fullText);
 }
 
 interface ChatRequestInput {
