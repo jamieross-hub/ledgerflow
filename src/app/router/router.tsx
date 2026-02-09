@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from '../../widgets/layout/AppLayout';
 import { DashboardPage } from '../../pages/dashboard/DashboardPage';
 import { TransactionsPage } from '../../pages/transactions/TransactionsPage';
@@ -9,7 +9,6 @@ import { AboutPage } from '../../pages/about/AboutPage';
 import { AssistantPage } from '../../pages/assistant/AssistantPage';
 import { DatabaseSettingsPage } from '../../pages/database-settings/DatabaseSettingsPage';
 import { ExchangePage } from '../../features/exchange/ui/ExchangePage';
-import { TagsPage } from '../../pages/tags/TagsPage';
 
 export const router = createBrowserRouter([
   {
@@ -26,7 +25,7 @@ export const router = createBrowserRouter([
       { path: 'assistant', element: <AssistantPage /> },
       { path: 'database-settings', element: <DatabaseSettingsPage /> },
       { path: 'exchange', element: <ExchangePage /> },
-      { path: 'tags', element: <TagsPage /> }
+      { path: 'tags', element: <Navigate to="/categories-accounts" replace /> }
     ]
   }
 ]);

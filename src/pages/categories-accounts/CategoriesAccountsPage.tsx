@@ -1,12 +1,11 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { formatCurrency } from '../../shared/lib/format';
 import { EmptyState } from '../../shared/ui/EmptyState';
 import { LoadingSkeleton } from '../../shared/ui/LoadingSkeleton';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
-import { AccountPresetPicker } from '../../features/accounts/ui/AccountPresetPicker';
-import { ACCOUNT_PRESETS, getAccountTypeLabel } from '../../features/accounts/model/accountTypes';
-import type { AccountPreset, AccountType } from '../../features/accounts/model/accountTypes';
+import { getAccountTypeLabel } from '../../features/accounts/model/accountTypes';
+import type { AccountType } from '../../features/accounts/model/accountTypes';
 
 export function CategoriesAccountsPage() {
   const categories = useFinanceStore((s) => s.categories);
@@ -15,6 +14,8 @@ export function CategoriesAccountsPage() {
   const addCategory = useFinanceStore((s) => s.addCategory);
   const removeCategory = useFinanceStore((s) => s.removeCategory);
   const addAccount = useFinanceStore((s) => s.addAccount);
+  const updateTransaction = useFinanceStore((s) => s.updateTransaction);
+  const updateAccountBalance = useFinanceStore((s) => s.updateAccountBalance);
   const removeAccount = useFinanceStore((s) => s.removeAccount);
 
   const [categoryName, setCategoryName] = useState('');
@@ -23,6 +24,7 @@ export function CategoriesAccountsPage() {
   const [accountInitialBalance, setAccountInitialBalance] = useState('0');
   const [loading, setLoading] = useState(true);
   const [pendingDeleteAccountId, setPendingDeleteAccountId] = useState<string | null>(null);
+  const [editingBalances, setEditingBalances] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const timer = window.setTimeout(() => setLoading(false), 120);
@@ -46,18 +48,66 @@ export function CategoriesAccountsPage() {
     setAccountInitialBalance('0');
   }
 
-  function handlePresetSelect(preset: AccountPreset) {
-    addAccount(preset.name, preset.type);
-  }
-
   const pendingDeleteLinkedCount = pendingDeleteAccountId
     ? transactions.filter((item) => item.accountId === pendingDeleteAccountId).length
     : 0;
 
+  const tagGroups = useMemo(() => {
+    const map = new Map<string, { key: string; label: string; count: number }>();
+    transactions.forEach((tx) => {
+      tx.tags.forEach((raw) => {
+        const label = String(raw || '').trim();
+        if (!label) {
+          return;
+        }
+        const key = label.toLowerCase();
+        const found = map.get(key);
+        if (found) {
+          found.count += 1;
+          return;
+        }
+        map.set(key, { key, label, count: 1 });
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => {
+      if (b.count !== a.count) {
+        return b.count - a.count;
+      }
+      return a.label.localeCompare(b.label, 'zh-CN');
+    });
+  }, [transactions]);
+
+  const applyAccountBalance = (accountId: string) => {
+    const current = accounts.find((item) => item.id === accountId);
+    if (!current) {
+      return;
+    }
+    const raw = editingBalances[accountId] ?? String(current.balance ?? current.initialBalance ?? 0);
+    const parsed = Number(raw || '0');
+    if (!Number.isFinite(parsed)) {
+      return;
+    }
+    updateAccountBalance(accountId, parsed);
+    setEditingBalances((prev) => ({ ...prev, [accountId]: String(parsed) }));
+  };
+
+  const removeTagFromAllTransactions = (tagLabel: string) => {
+    const normalized = tagLabel.trim().toLowerCase();
+    if (!normalized) {
+      return;
+    }
+    transactions.forEach((tx) => {
+      const nextTags = tx.tags.filter((t) => t.trim().toLowerCase() !== normalized);
+      if (nextTags.length !== tx.tags.length) {
+        updateTransaction(tx.id, { ...tx, tags: nextTags });
+      }
+    });
+  };
+
   return (
     <div className="grid grid-2">
       <section className="panel">
-        <h2>分类管理</h2>
+        <h2>分类与标签管理</h2>
         <form onSubmit={submitCategory} className="row" style={{ marginBottom: 16 }}>
           <input
             placeholder="新增分类名称"
@@ -85,20 +135,29 @@ export function CategoriesAccountsPage() {
             ))}
           </ul>
         )}
+
+        <h3 style={{ marginTop: 20 }}>交易标签</h3>
+        {tagGroups.length === 0 ? (
+          <EmptyState title="暂无标签" description="标签来自交易明细，新增交易标签后会自动聚合到这里。" icon="🏷️" />
+        ) : (
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {tagGroups.map((tag) => (
+              <li key={tag.key} className="row" style={{ padding: '8px 0', borderBottom: '1px solid var(--color-border-light)' }}>
+                <span style={{ flex: 1 }}>
+                  #{tag.label}
+                  <small style={{ marginLeft: 8, color: 'var(--color-text-secondary)' }}>{tag.count} 条</small>
+                </span>
+                <button type="button" className="danger" onClick={() => removeTagFromAllTransactions(tag.label)}>
+                  全部移除
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="panel">
         <h2>账户管理</h2>
-
-        {/* 预设快捷添加 */}
-        <details style={{ marginBottom: 12 }}>
-          <summary style={{ cursor: 'pointer', fontSize: 'var(--font-sm)', color: 'var(--color-text-secondary)' }}>
-            📋 快速添加预设账户
-          </summary>
-          <div style={{ marginTop: 8 }}>
-            <AccountPresetPicker presets={ACCOUNT_PRESETS} onSelect={handlePresetSelect} />
-          </div>
-        </details>
 
         <form onSubmit={submitAccount} style={{ marginBottom: 16 }}>
           <div className="row" style={{ gap: 8, marginBottom: 8 }}>
@@ -138,23 +197,42 @@ export function CategoriesAccountsPage() {
         {loading ? (
           <LoadingSkeleton lines={4} />
         ) : accounts.length === 0 ? (
-          <EmptyState title="暂无账户" description="请添加第一个资金账户，或使用上方预设快速创建。" icon="💳" />
+          <EmptyState title="暂无账户" description="请添加第一个资金账户。" icon="💳" />
         ) : (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {accounts.map((item) => (
-              <li key={item.id} className="row" style={{ padding: '8px 0', borderBottom: '1px solid var(--color-border-light)' }}>
-                <span style={{ flex: 1 }}>
-                  {item.name}
-                  {item.type && (
-                    <span className="account-type-badge">{getAccountTypeLabel(item.type)}</span>
-                  )}
-                </span>
-                <span className="mono-inline" style={{ color: 'var(--color-text-secondary)', minWidth: 108, textAlign: 'right' }}>
-                  {formatCurrency(item.balance ?? item.initialBalance ?? 0)}
-                </span>
-                <button className="danger" onClick={() => setPendingDeleteAccountId(item.id)}>
-                  删除
-                </button>
+              <li
+                key={item.id}
+                style={{
+                  padding: '10px 0',
+                  borderBottom: '1px solid var(--color-border-light)',
+                  display: 'grid',
+                  gap: 8
+                }}
+              >
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <span style={{ flex: 1 }}>
+                    {item.name}
+                    {item.type && <span className="account-type-badge">{getAccountTypeLabel(item.type)}</span>}
+                  </span>
+                  <span className="mono-inline" style={{ color: 'var(--color-text-secondary)' }}>
+                    当前 {formatCurrency(item.balance ?? item.initialBalance ?? 0)}
+                  </span>
+                </div>
+                <div className="row" style={{ gap: 8 }}>
+                  <input
+                    type="number"
+                    value={editingBalances[item.id] ?? String(item.balance ?? item.initialBalance ?? 0)}
+                    onChange={(e) => setEditingBalances((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                    style={{ width: 160 }}
+                  />
+                  <button type="button" onClick={() => applyAccountBalance(item.id)}>
+                    更新结余
+                  </button>
+                  <button className="danger" onClick={() => setPendingDeleteAccountId(item.id)}>
+                    删除
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

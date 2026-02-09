@@ -28,10 +28,7 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
   },
   {
     title: '基础数据',
-    items: [
-      { to: '/categories-accounts', label: '账户与分类', icon: '🗂️' },
-      { to: '/tags', label: '交易标签', icon: '🏷️' }
-    ]
+    items: [{ to: '/categories-accounts', label: '账户/分类/标签', icon: '🗂️' }]
   },
   {
     title: '杂项',
