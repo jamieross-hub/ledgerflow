@@ -16,15 +16,24 @@ interface ProxyTestResponse {
  * 1) UI 层不应该知道接口 URL 拼接细节；
  * 2) 后续接入鉴权头、重试策略时无需修改 feature 代码。
  */
+function buildApiUrl(path: string) {
+  const base = ENV.apiBaseUrl;
+  if (!base) {
+    throw new Error('未配置 VITE_API_BASE_URL，无法直连远程后端');
+  }
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${normalizedPath}`;
+}
+
 export async function postConnectionTest(payload: ProxyTestRequest): Promise<ProxyTestResponse> {
-  const response = await fetch(`${ENV.apiBaseUrl}/conn/test`, {
+  const response = await fetch(buildApiUrl('/conn/test'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
 
   if (!response.ok) {
-    throw new Error(`代理接口异常：HTTP ${response.status}`);
+    throw new Error(`后端接口异常：HTTP ${response.status}`);
   }
 
   return (await response.json()) as ProxyTestResponse;

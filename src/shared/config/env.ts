@@ -1,5 +1,15 @@
+const rawApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
+
+function normalizeApiBaseUrl(url: string) {
+  return url.endsWith('/') ? url.slice(0, -1) : url;
+}
+
 export const ENV = {
-  apiBaseUrl: import.meta.env.VITE_API_BASE_URL || '/api',
+  /**
+   * 直接请求远程后端域名（示例：https://api.example.com）
+   * 不再默认走本地 /api 代理。
+   */
+  apiBaseUrl: normalizeApiBaseUrl(rawApiBaseUrl),
   requestTimeoutMs: Number(import.meta.env.VITE_REQUEST_TIMEOUT_MS || 8000),
   logLevel: import.meta.env.VITE_LOG_LEVEL || 'info',
   aiBaseUrl: import.meta.env.VITE_AI_BASE_URL || 'https://ai.shuaihong.fun/v1',

@@ -150,7 +150,8 @@ src/
 参考 [.env.example](.env.example)：
 
 ```bash
-VITE_API_BASE_URL=/api
+# 直连远程后端域名（必填），示例：https://api.your-domain.com
+VITE_API_BASE_URL=
 VITE_REQUEST_TIMEOUT_MS=8000
 VITE_LOG_LEVEL=info
 
@@ -241,16 +242,16 @@ docker compose up --build
 安全策略：
 
 - 明确提示前端无法安全保存 DB 凭证
-- 生产场景建议必须走代理模式
+- 前端采用直连后端 HTTP API 模式（由后端再访问数据库）
 
 代理接口规范（前端已对接）：
 
-- `POST /api/conn/test`
-- `POST /api/conn/save`
-- `GET /api/conn/list`
-- `DELETE /api/conn/:id`
-- `POST /api/sync-local-data`：将本地交易/账户/分类批量同步到 PostgreSQL
-- `POST /api/sync-change`：数据库已配置后，前端每次新增/编辑/删除触发增量写入
+- `POST /conn/test`
+- `POST /conn/save`
+- `GET /conn/list`
+- `DELETE /conn/:id`
+- `POST /sync-local-data`：将本地交易/账户/分类批量同步到 PostgreSQL
+- `POST /sync-change`：数据库已配置后，前端每次新增/编辑/删除触发增量写入
 
 前端兼容策略（用于降低 HTTP 405/404 概率）：
 

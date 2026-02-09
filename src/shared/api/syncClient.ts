@@ -111,7 +111,11 @@ async function requestWithFallback<T>(
   let lastError: unknown;
   const attempts: string[] = [];
   const attemptedSet = new Set<string>();
-  const baseCandidates = Array.from(new Set([normalizeBase(ENV.apiBaseUrl), '']));
+  const normalizedBase = normalizeBase(ENV.apiBaseUrl);
+  if (!normalizedBase) {
+    throw new Error('未配置 VITE_API_BASE_URL，无法直连远程后端');
+  }
+  const baseCandidates = [normalizedBase];
 
   for (const base of baseCandidates) {
     for (const path of paths) {
