@@ -937,10 +937,51 @@ small.mono {
   padding: var(--space-2);
 }
 
+.dashboard-forecast-axes {
+  display: grid;
+  grid-template-columns: 68px 1fr;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.dashboard-forecast-axis-y {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+  padding: 8px 0;
+}
+
 .dashboard-forecast-chart svg {
   width: 100%;
-  height: 160px;
+  height: 180px;
   display: block;
+}
+
+.dashboard-forecast-axis-x {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(54px, 1fr));
+  gap: 4px;
+  margin-top: 6px;
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+}
+
+.dashboard-forecast-axis-x span {
+  text-align: center;
+  padding: 2px 0;
+  border-radius: 999px;
+}
+
+.dashboard-forecast-axis-x span.forecast {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  border: 1px solid var(--color-primary-border);
+}
+
+.dashboard-forecast-axis-x span.history {
+  color: var(--color-text-secondary);
 }
 
 .dashboard-forecast-legend {
@@ -964,6 +1005,7 @@ small.mono {
 .dashboard-forecast-legend span.forecast {
   color: var(--color-primary);
   border-color: var(--color-primary-border);
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
 }
 
 /* ============================================================

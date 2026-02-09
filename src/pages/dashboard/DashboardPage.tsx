@@ -194,23 +194,32 @@ export function DashboardPage() {
     return [...history, ...future];
   }, [forecast?.points, monthlyBalance, recentMonths]);
 
+  const chartRange = useMemo(() => {
+    const values = chartData.map((item) => item.value);
+    const max = Math.max(...values, 1);
+    const min = Math.min(...values, 0);
+    const range = Math.max(max - min, 1);
+    return { max, min, range };
+  }, [chartData]);
+
+  const axisTicks = useMemo(() => {
+    const mid = (chartRange.max + chartRange.min) / 2;
+    return [chartRange.max, mid, chartRange.min];
+  }, [chartRange.max, chartRange.min]);
+
   const polylinePoints = useMemo(() => {
     if (chartData.length < 2) return '';
     const width = 600;
     const height = 240;
     const pad = 20;
-    const values = chartData.map((item) => item.value);
-    const max = Math.max(...values, 1);
-    const min = Math.min(...values, 0);
-    const range = Math.max(max - min, 1);
     return chartData
       .map((item, index) => {
         const x = pad + (index * (width - pad * 2)) / (chartData.length - 1);
-        const y = pad + ((max - item.value) / range) * (height - pad * 2);
+        const y = pad + ((chartRange.max - item.value) / chartRange.range) * (height - pad * 2);
         return `${x},${y}`;
       })
       .join(' ');
-  }, [chartData]);
+  }, [chartData, chartRange.max, chartRange.range]);
 
   const tipIndex = new Date().getDate() % TIPS.length;
 
@@ -295,9 +304,25 @@ export function DashboardPage() {
             {forecastError ? <p className="dashboard-future-tip">{forecastError}</p> : null}
 
             <div className="dashboard-forecast-chart" aria-label="未来趋势动态图表">
-              <svg viewBox="0 0 600 240" role="img" aria-label="历史与未来趋势折线图">
-                <polyline points={polylinePoints} fill="none" stroke="var(--color-primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <div className="dashboard-forecast-axes">
+                <div className="dashboard-forecast-axis-y" aria-label="金额轴">
+                  {axisTicks.map((value, index) => (
+                    <span key={`y-${index}`}>{formatCurrency(value)}</span>
+                  ))}
+                </div>
+                <svg viewBox="0 0 600 240" role="img" aria-label="历史与未来趋势折线图">
+                  <line x1="24" y1="20" x2="24" y2="220" stroke="var(--color-border)" strokeWidth="1" />
+                  <line x1="24" y1="220" x2="580" y2="220" stroke="var(--color-border)" strokeWidth="1" />
+                  <polyline points={polylinePoints} fill="none" stroke="var(--color-primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div className="dashboard-forecast-axis-x" aria-label="时间轴">
+                {chartData.map((item, index) => (
+                  <span key={`x-${item.label}-${index}`} className={item.type === 'forecast' ? 'forecast' : 'history'}>
+                    {item.label}
+                  </span>
+                ))}
+              </div>
               <div className="dashboard-forecast-legend">
                 {chartData.map((item, index) => (
                   <span key={`${item.label}-${index}`} className={item.type === 'forecast' ? 'forecast' : 'history'}>
