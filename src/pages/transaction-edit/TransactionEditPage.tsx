@@ -75,7 +75,7 @@ export function TransactionEditPage() {
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
 
   const current = useMemo(() => transactions.find((item) => item.id === id), [transactions, id]);
-  const [type, setType] = useState<'income' | 'expense'>(current?.type ?? 'expense');
+  const [type, setType] = useState<'income' | 'expense' | 'budget' | 'repayment'>(current?.type ?? 'expense');
   const [categoryId, setCategoryId] = useState(current?.categoryId ?? categories[0]?.id ?? '');
   const [accountId, setAccountId] = useState(current?.accountId ?? accounts[0]?.id ?? '');
   const [amount, setAmount] = useState(String(current?.amount ?? ''));
@@ -137,9 +137,11 @@ export function TransactionEditPage() {
       <form onSubmit={handleSubmit}>
         <div className="field">
           <label>类型</label>
-          <select value={type} onChange={(e) => setType(e.target.value as 'income' | 'expense')}>
+          <select value={type} onChange={(e) => setType(e.target.value as 'income' | 'expense' | 'budget' | 'repayment')}>
             <option value="expense">支出</option>
             <option value="income">收入</option>
+            <option value="budget">预算</option>
+            <option value="repayment">还款</option>
           </select>
         </div>
 

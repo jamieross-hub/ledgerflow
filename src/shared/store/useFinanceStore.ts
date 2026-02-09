@@ -13,7 +13,7 @@ interface FinanceState {
   addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
   updateTransaction: (id: string, payload: Omit<TransactionItem, 'id'>) => void;
   removeTransaction: (id: string) => void;
-  addCategory: (name: string) => void;
+  addCategory: (name: string) => string;
   removeCategory: (id: string) => void;
   addAccount: (name: string, type?: Account['type'], initialBalance?: number) => void;
   updateAccountBalance: (id: string, balance: number) => void;
@@ -61,6 +61,7 @@ export const useFinanceStore = create<FinanceState>()(
         const row = { id: generateId(), name: name.trim() };
         set((s) => ({ categories: [...s.categories, row] }));
         void syncChangeIfNeeded({ entity: 'categories', action: 'insert', row });
+        return row.id;
       },
       removeCategory: (id) => {
         set((s) => ({ categories: s.categories.filter((item) => item.id !== id) }));

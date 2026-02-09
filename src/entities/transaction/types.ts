@@ -1,8 +1,10 @@
 export type TransactionSource = 'manual' | 'wechat' | 'alipay' | 'ai';
 
+export type TransactionType = 'expense' | 'income' | 'budget' | 'repayment';
+
 export interface TransactionItem {
   id: string;
-  type: 'expense' | 'income';
+  type: TransactionType;
   categoryId: string;
   accountId: string;
   amount: number;

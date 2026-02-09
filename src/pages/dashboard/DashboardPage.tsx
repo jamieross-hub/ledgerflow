@@ -126,7 +126,9 @@ export function DashboardPage() {
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   });
   const income = monthly.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-  const expense = monthly.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+  const expense = monthly
+    .filter((t) => t.type === 'expense' || t.type === 'budget' || t.type === 'repayment')
+    .reduce((sum, t) => sum + t.amount, 0);
   const monthlyBalance = income - expense;
 
   const totalBalance = accounts.reduce((sum, a) => sum + Number(a.balance ?? a.initialBalance ?? 0), 0);
@@ -142,7 +144,9 @@ export function DashboardPage() {
         const key = monthKey(d);
         const rows = transactions.filter((t) => monthKey(new Date(t.date)) === key);
         const mIncome = rows.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-        const mExpense = rows.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+        const mExpense = rows
+          .filter((t) => t.type === 'expense' || t.type === 'budget' || t.type === 'repayment')
+          .reduce((sum, t) => sum + t.amount, 0);
         const shortLabel = `${d.getMonth() + 1}月`;
         return { key, shortLabel, income: mIncome, expense: mExpense, balance: mIncome - mExpense };
       }),

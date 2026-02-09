@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-export type TransactionTypeFilter = 'all' | 'income' | 'expense';
+export type TransactionTypeFilter = 'all' | 'income' | 'expense' | 'budget' | 'repayment';
 export type TransactionSourceFilter = 'all' | 'manual' | 'wechat' | 'alipay' | 'ai';
 export type TransactionDatePreset = 'all' | 'thisMonth' | 'last30' | 'custom';
 
@@ -52,7 +52,10 @@ export function parseTransactionFilterParams(params: URLSearchParams): Transacti
 
   const parsed: TransactionFilterState = {
     keyword: params.get('keyword')?.trim() ?? '',
-    type: type === 'income' || type === 'expense' ? type : 'all',
+    type:
+      type === 'income' || type === 'expense' || type === 'budget' || type === 'repayment'
+        ? type
+        : 'all',
     source:
       source === 'manual' || source === 'wechat' || source === 'alipay' || source === 'ai' ? source : 'all',
     datePreset:

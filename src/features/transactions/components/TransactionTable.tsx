@@ -12,7 +12,7 @@ export type TransactionSortDirection = 'asc' | 'desc';
 
 export interface TransactionQuickFilters {
   date: string;
-  type: 'all' | 'income' | 'expense';
+  type: 'all' | 'income' | 'expense' | 'budget' | 'repayment';
   category: string;
   account: string;
   amount: string;
@@ -179,7 +179,7 @@ export function TransactionTable({
           </section>
 
           <div className="transaction-table-wrap">
-          <table>
+            <table>
             <thead>
               <tr>
                 <th className="transaction-select-col">
@@ -281,6 +281,8 @@ export function TransactionTable({
                       <option value="all">全部</option>
                       <option value="income">收入</option>
                       <option value="expense">支出</option>
+                      <option value="budget">预算</option>
+                      <option value="repayment">还款</option>
                     </select>
                   </th>
                 ) : null}
@@ -345,8 +347,16 @@ export function TransactionTable({
                     {visibleColumns.date ? <td>{formatDate(item.date)}</td> : null}
                     {visibleColumns.type ? (
                       <td>
-                        <span className={item.type === 'income' ? 'badge badge-success' : 'badge badge-danger'}>
-                          {item.type === 'income' ? '收入' : '支出'}
+                        <span
+                          className={item.type === 'income' ? 'badge badge-success' : 'badge badge-danger'}
+                        >
+                          {item.type === 'income'
+                            ? '收入'
+                            : item.type === 'budget'
+                              ? '预算'
+                              : item.type === 'repayment'
+                                ? '还款'
+                                : '支出'}
                         </span>
                       </td>
                     ) : null}
@@ -379,7 +389,7 @@ export function TransactionTable({
                 );
               })}
             </tbody>
-          </table>
+            </table>
           </div>
 
           <div className="transaction-mobile-list" aria-label="移动端交易列表">
@@ -421,8 +431,16 @@ export function TransactionTable({
                   <div className="transaction-mobile-swipe">
                     <div className="transaction-mobile-main">
                       <header>
-                        <span className={item.type === 'income' ? 'badge badge-success' : 'badge badge-danger'}>
-                          {item.type === 'income' ? '收入' : '支出'}
+                        <span
+                          className={item.type === 'income' ? 'badge badge-success' : 'badge badge-danger'}
+                        >
+                          {item.type === 'income'
+                            ? '收入'
+                            : item.type === 'budget'
+                              ? '预算'
+                              : item.type === 'repayment'
+                                ? '还款'
+                                : '支出'}
                         </span>
                         <strong>{formatCurrency(item.amount)}</strong>
                       </header>

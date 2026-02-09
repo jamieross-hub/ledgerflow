@@ -53,6 +53,8 @@ export function TransactionFilters({
             <option value="all">全部</option>
             <option value="income">收入</option>
             <option value="expense">支出</option>
+            <option value="budget">预算</option>
+            <option value="repayment">还款</option>
           </select>
         </div>
 
