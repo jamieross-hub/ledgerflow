@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { sendAiChat, sendAiChatStream } from '../../features/assistant/api/openaiCompatibleClient';
+import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { DebugLogPanel } from '../../features/debug-log/ui/DebugLogPanel';
 import { formatCurrency } from '../../shared/lib/format';
 import { useAiSettings } from '../../shared/store/useAiSettings';
@@ -391,81 +391,57 @@ export function DashboardPage() {
       setMonthlyInsightError('');
       setMonthlyInsightText('');
       try {
-        await sendAiChatStream(
-          {
-            baseUrl,
-            apiKey,
-            model,
-            systemPrompt:
-              '你是财务洞察分析助手。输出 JSON，不要输出 Markdown。JSON 结构：{"summary":"字符串","categoryBreakdown":[{"name":"分类","amount":123,"percent":0.12}],"topTransactions":[{"date":"YYYY-MM-DD","category":"分类","amount":123,"note":""}],"highlights":["要点1","要点2"]}。',
-            messages: [
-              {
-                role: 'user',
-                text: `请基于以下本月账务数据进行洞察，关注分类结构、异常支出与改善建议。\n${JSON.stringify(monthlyInsightInput)}`
-              }
-            ]
-          },
-          {
-            onDelta: (delta) => {
-              if (canceled) return;
-              setMonthlyInsightStatus('streaming');
-              setMonthlyInsightText((prev) => prev + delta);
-            },
-            onDone: (content) => {
-              if (canceled) return;
-              try {
-                const parsed = JSON.parse(extractJson(content)) as Partial<MonthlyInsightPayload>;
-                const categoryBreakdown = Array.isArray(parsed.categoryBreakdown)
-                  ? parsed.categoryBreakdown
-                      .map((item) => ({
-                        name: String(item?.name || '未分类'),
-                        amount: toSafeNumber(item?.amount, 0),
-                        percent: toSafeNumber(item?.percent, 0)
-                      }))
-                      .filter((item) => item.name)
-                  : [];
-                const topTransactions = Array.isArray(parsed.topTransactions)
-                  ? parsed.topTransactions
-                      .map((item) => ({
-                        date: String(item?.date || ''),
-                        category: String(item?.category || '未分类'),
-                        amount: toSafeNumber(item?.amount, 0),
-                        note: String(item?.note || '')
-                      }))
-                      .filter((item) => item.date)
-                  : [];
-                const highlights = Array.isArray(parsed.highlights)
-                  ? parsed.highlights.map((item) => String(item).trim()).filter(Boolean)
-                  : [];
-                const summary = typeof parsed.summary === 'string' && parsed.summary.trim().length > 0
-                  ? parsed.summary.trim()
-                  : '本月洞察已生成，可结合分类与大额交易进行预算调整。';
-                const next: MonthlyInsightPayload = {
-                  summary,
-                  categoryBreakdown,
-                  topTransactions,
-                  highlights
-                };
-                setMonthlyInsight(next);
-                setMonthlyInsightStatus('done');
-                setMonthlyInsightDurationSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
-                setMonthlyInsightStartedAt(null);
-              } catch (error) {
-                setMonthlyInsightStatus('error');
-                setMonthlyInsightError(error instanceof Error ? error.message : '本月趋势分析失败');
-                setMonthlyInsightDurationSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
-                setMonthlyInsightStartedAt(null);
-              }
-            },
-            onError: (error) => {
-              if (canceled) return;
-              setMonthlyInsightStatus('error');
-              setMonthlyInsightError(error.message || '本月趋势分析失败');
-              setMonthlyInsightDurationSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
-              setMonthlyInsightStartedAt(null);
+        const res = await sendAiChat({
+          baseUrl,
+          apiKey,
+          model,
+          systemPrompt:
+            '你是财务洞察分析助手。输出 JSON，不要输出 Markdown。JSON 结构：{"summary":"字符串","categoryBreakdown":[{"name":"分类","amount":123,"percent":0.12}],"topTransactions":[{"date":"YYYY-MM-DD","category":"分类","amount":123,"note":""}],"highlights":["要点1","要点2"]}。',
+          messages: [
+            {
+              role: 'user',
+              text: `请基于以下本月账务数据进行洞察，关注分类结构、异常支出与改善建议。\n${JSON.stringify(monthlyInsightInput)}`
             }
-          }
-        );
+          ]
+        });
+
+        if (canceled) return;
+        const parsed = JSON.parse(extractJson(res.content)) as Partial<MonthlyInsightPayload>;
+        const categoryBreakdown = Array.isArray(parsed.categoryBreakdown)
+          ? parsed.categoryBreakdown
+              .map((item) => ({
+                name: String(item?.name || '未分类'),
+                amount: toSafeNumber(item?.amount, 0),
+                percent: toSafeNumber(item?.percent, 0)
+              }))
+              .filter((item) => item.name)
+          : [];
+        const topTransactions = Array.isArray(parsed.topTransactions)
+          ? parsed.topTransactions
+              .map((item) => ({
+                date: String(item?.date || ''),
+                category: String(item?.category || '未分类'),
+                amount: toSafeNumber(item?.amount, 0),
+                note: String(item?.note || '')
+              }))
+              .filter((item) => item.date)
+          : [];
+        const highlights = Array.isArray(parsed.highlights)
+          ? parsed.highlights.map((item) => String(item).trim()).filter(Boolean)
+          : [];
+        const summary = typeof parsed.summary === 'string' && parsed.summary.trim().length > 0
+          ? parsed.summary.trim()
+          : '本月洞察已生成，可结合分类与大额交易进行预算调整。';
+        const next: MonthlyInsightPayload = {
+          summary,
+          categoryBreakdown,
+          topTransactions,
+          highlights
+        };
+        setMonthlyInsight(next);
+        setMonthlyInsightStatus('done');
+        setMonthlyInsightDurationSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+        setMonthlyInsightStartedAt(null);
       } catch (error) {
         if (!canceled) {
           setMonthlyInsightStatus('error');
