@@ -37,7 +37,7 @@ export function TransactionFilters({
     <section className="panel">
       <h2>交易记录</h2>
 
-      <div className="transaction-filters-grid">
+      <div className="transaction-filters-primary-row">
         <div className="field" style={{ marginBottom: 0 }}>
           <label>关键词</label>
           <input
@@ -59,20 +59,6 @@ export function TransactionFilters({
         </div>
 
         <div className="field" style={{ marginBottom: 0 }}>
-          <label>来源</label>
-          <select
-            value={filters.source}
-            onChange={(event) => onSourceChange(event.target.value as TransactionSourceFilter)}
-          >
-            <option value="all">全部来源</option>
-            <option value="manual">手工录入</option>
-            <option value="wechat">微信导入</option>
-            <option value="alipay">支付宝导入</option>
-            <option value="ai">AI 记账</option>
-          </select>
-        </div>
-
-        <div className="field" style={{ marginBottom: 0 }}>
           <label>日期</label>
           <select
             value={filters.datePreset}
@@ -85,36 +71,68 @@ export function TransactionFilters({
           </select>
         </div>
 
-        {filters.datePreset === 'custom' ? (
-          <>
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label>开始日期</label>
-              <input type="date" value={filters.dateFrom} onChange={(event) => onDateFromChange(event.target.value)} />
-            </div>
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label>结束日期</label>
-              <input type="date" value={filters.dateTo} onChange={(event) => onDateToChange(event.target.value)} />
-            </div>
-          </>
-        ) : null}
+        <div className="transaction-filters-primary-cta">
+          <label style={{ visibility: 'hidden' }}>操作</label>
+          <Link to="/transactions/new">
+            <button className="primary">新增账目</button>
+          </Link>
+        </div>
       </div>
 
-      <div className="row" style={{ marginTop: 12 }}>
-        <button type="button" onClick={onExport}>
-          导出 CSV
-        </button>
-        <button type="button" onClick={onImportWechat}>
-          导入微信账单
-        </button>
-        <button type="button" onClick={onImportAlipay}>
-          导入支付宝账单
-        </button>
-        <button type="button" onClick={onClear}>
-          清空筛选
-        </button>
-        <Link to="/transactions/new">
-          <button className="primary">新增账目</button>
-        </Link>
+      {filters.datePreset === 'custom' ? (
+        <div className="transaction-filters-custom-date-row">
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>开始日期</label>
+            <input type="date" value={filters.dateFrom} onChange={(event) => onDateFromChange(event.target.value)} />
+          </div>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>结束日期</label>
+            <input type="date" value={filters.dateTo} onChange={(event) => onDateToChange(event.target.value)} />
+          </div>
+        </div>
+      ) : null}
+
+      <div className="transaction-filters-secondary-row">
+        <details className="transaction-filter-popover">
+          <summary>更多筛选</summary>
+          <div className="transaction-filter-popover-panel">
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label>来源</label>
+              <select
+                value={filters.source}
+                onChange={(event) => onSourceChange(event.target.value as TransactionSourceFilter)}
+              >
+                <option value="all">全部来源</option>
+                <option value="manual">手工录入</option>
+                <option value="wechat">微信导入</option>
+                <option value="alipay">支付宝导入</option>
+                <option value="ai">AI 记账</option>
+              </select>
+            </div>
+            <div className="row" style={{ marginTop: 8, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={onClear}>
+                清空筛选
+              </button>
+            </div>
+          </div>
+        </details>
+
+        <details className="transaction-filter-popover">
+          <summary>更多操作</summary>
+          <div className="transaction-filter-popover-panel">
+            <div className="row" style={{ marginTop: 0 }}>
+              <button type="button" onClick={onExport}>
+                导出 CSV
+              </button>
+              <button type="button" onClick={onImportWechat}>
+                导入微信账单
+              </button>
+              <button type="button" onClick={onImportAlipay}>
+                导入支付宝账单
+              </button>
+            </div>
+          </div>
+        </details>
       </div>
     </section>
   );

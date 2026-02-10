@@ -106,13 +106,6 @@ function saveForecastCache(payload: ForecastPayload, updatedAt: string) {
   }
 }
 
-const QUICK_ACTIONS = [
-  { to: '/transactions/new', icon: '✏️', label: '记一笔', desc: '快速添加收入或支出' },
-  { to: '/assistant', icon: '🤖', label: '记账助手', desc: 'AI 智能识别账单' },
-  { to: '/transactions', icon: '📋', label: '账目列表', desc: '查看所有交易记录' },
-  { to: '/categories-accounts', icon: '🏷️', label: '分类管理', desc: '管理分类与账户' }
-];
-
 const TIPS = [
   '你可以在记账助手中粘贴账单截图，AI 会自动识别并生成记账数据',
   '支持拖拽图片到记账助手，快速识别消费信息',
@@ -681,29 +674,16 @@ export function DashboardPage() {
               <div className="dashboard-summary-chip">AI 分析聚焦于本月分类结构与异常波动</div>
             </div>
 
-            <div className="dashboard-ai-output" aria-live="polite">
-              <div className="dashboard-ai-headline">
-                <p className="dashboard-ai-title">AI 洞察摘要</p>
-                <div className={`dashboard-ai-live status-${monthlyInsightStatus}`}>
-                  <span className="dashboard-ai-live-dot" aria-hidden="true" />
-                  <span>{monthlyInsightLiveText}</span>
-                </div>
-              </div>
-              <p className="dashboard-ai-text">
-                {monthlySummaryText}
-                {monthlyInsightStatus === 'loading' || monthlyInsightStatus === 'streaming' ? <span className="dashboard-ai-caret">▋</span> : null}
-              </p>
+            <div className="dashboard-ai-actions" style={{ marginBottom: 'var(--space-3)' }}>
+              <button
+                type="button"
+                className="dashboard-forecast-refresh"
+                onClick={handleRefreshMonthlyInsight}
+                disabled={monthlyInsightStatus === 'loading' || monthlyInsightStatus === 'streaming' || transactions.length === 0}
+              >
+                重新分析
+              </button>
               {monthlyInsightError ? <p className="dashboard-ai-error">{monthlyInsightError}</p> : null}
-              <div className="dashboard-ai-actions">
-                <button
-                  type="button"
-                  className="dashboard-forecast-refresh"
-                  onClick={handleRefreshMonthlyInsight}
-                  disabled={monthlyInsightStatus === 'loading' || monthlyInsightStatus === 'streaming' || transactions.length === 0}
-                >
-                  重新分析
-                </button>
-              </div>
             </div>
 
             <div className="dashboard-trend-sections">
@@ -714,14 +694,15 @@ export function DashboardPage() {
                 </div>
                 <div className="dashboard-breakdown-grid">
                   {displayCategoryBreakdown.map((item, index) => {
-                    const percentText = 'percent' in item ? `${item.percent}%` : `${Math.round((item.amount / Math.max(expense, 1)) * 100)}%`;
-                    const extraText = 'count' in item ? ` · ${item.count} 笔` : '';
+                    const percentValue = 'percent' in item ? item.percent : Math.round((item.amount / Math.max(expense, 1)) * 100);
+                    const percentText = `${percentValue}%`;
+                    const emoji = item.amount >= 0 ? '📌' : '🔻';
                     return (
                       <article key={`${item.name}-${index}`} className="dashboard-breakdown-item">
                         <div>
-                          <p className="dashboard-breakdown-name">{item.name}</p>
+                          <p className="dashboard-breakdown-name">{emoji} {item.name}</p>
                           <p className="dashboard-breakdown-meta">
-                            {formatCurrency(item.amount)} · {percentText}{extraText}
+                            {item.name} {formatCurrency(item.amount)}，占比 {percentText}
                           </p>
                         </div>
                         <div className="dashboard-breakdown-bar">
@@ -842,16 +823,6 @@ export function DashboardPage() {
         </div>
       )}
 
-      <h2 style={{ margin: '24px 0 12px', fontSize: 'var(--font-lg)', fontWeight: 600 }}>快捷操作</h2>
-      <div className="grid grid-4">
-        {QUICK_ACTIONS.map((action) => (
-          <Link key={action.to} to={action.to} className="quick-action-card">
-            <span className="quick-action-icon">{action.icon}</span>
-            <strong className="quick-action-label">{action.label}</strong>
-            <span className="quick-action-desc">{action.desc}</span>
-          </Link>
-        ))}
-      </div>
 
       <DebugLogPanel />
     </div>

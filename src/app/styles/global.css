@@ -556,6 +556,101 @@ button.danger:hover:not(:disabled) {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
+.transaction-filters-primary-row {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(220px, 2fr) repeat(2, minmax(150px, 1fr)) minmax(120px, auto);
+  align-items: end;
+}
+
+.transaction-filters-primary-cta {
+  display: grid;
+  align-items: end;
+}
+
+.transaction-filters-primary-cta a,
+.transaction-filters-primary-cta button {
+  width: 100%;
+}
+
+.transaction-filters-custom-date-row {
+  margin-top: var(--space-3);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+}
+
+.transaction-filters-secondary-row {
+  margin-top: var(--space-3);
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.transaction-filter-popover {
+  position: relative;
+}
+
+.transaction-filter-popover > summary {
+  list-style: none;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text);
+  padding: 8px 14px;
+  font-size: var(--font-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.transaction-filter-popover > summary:hover {
+  background: var(--color-bg-hover);
+}
+
+.transaction-filter-popover > summary::-webkit-details-marker {
+  display: none;
+}
+
+.transaction-filter-popover[open] > summary {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-bg);
+}
+
+.transaction-filter-popover-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  min-width: 240px;
+  max-width: min(92vw, 360px);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-md);
+}
+
+@media (max-width: 900px) {
+  .transaction-filters-primary-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .transaction-filters-custom-date-row {
+    grid-template-columns: 1fr;
+  }
+
+  .transaction-filter-popover-panel {
+    position: fixed;
+    left: 50%;
+    top: 18vh;
+    transform: translateX(-50%);
+    width: min(92vw, 420px);
+    max-width: 92vw;
+  }
+}
+
 .import-result-banner {
   display: flex;
   align-items: center;
