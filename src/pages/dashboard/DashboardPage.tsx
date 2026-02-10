@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { DebugLogPanel } from '../../features/debug-log/ui/DebugLogPanel';
 import { formatCurrency } from '../../shared/lib/format';
@@ -133,11 +132,7 @@ export function DashboardPage() {
   const [monthlyInsight, setMonthlyInsight] = useState<MonthlyInsightPayload | null>(null);
   const [monthlyInsightStatus, setMonthlyInsightStatus] = useState<'idle' | 'loading' | 'streaming' | 'done' | 'error'>('idle');
   const [monthlyInsightError, setMonthlyInsightError] = useState('');
-  const [monthlyInsightText, setMonthlyInsightText] = useState('');
   const [monthlyInsightRequestToken, setMonthlyInsightRequestToken] = useState(0);
-  const [monthlyInsightStartedAt, setMonthlyInsightStartedAt] = useState<number | null>(null);
-  const [monthlyInsightDurationSec, setMonthlyInsightDurationSec] = useState<number | null>(null);
-  const [monthlyInsightNow, setMonthlyInsightNow] = useState(() => Date.now());
 
   const now = new Date();
   const currentMonth = now.getMonth();
@@ -297,7 +292,6 @@ export function DashboardPage() {
       setMonthlyInsight(null);
       setMonthlyInsightStatus('idle');
       setMonthlyInsightError('');
-      setMonthlyInsightText('');
       return;
     }
 
@@ -378,11 +372,8 @@ export function DashboardPage() {
 
     const run = async () => {
       const startedAt = Date.now();
-      setMonthlyInsightStartedAt(startedAt);
-      setMonthlyInsightDurationSec(null);
       setMonthlyInsightStatus('loading');
       setMonthlyInsightError('');
-      setMonthlyInsightText('');
       try {
         const res = await sendAiChat({
           baseUrl,
@@ -433,14 +424,10 @@ export function DashboardPage() {
         };
         setMonthlyInsight(next);
         setMonthlyInsightStatus('done');
-        setMonthlyInsightDurationSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
-        setMonthlyInsightStartedAt(null);
       } catch (error) {
         if (!canceled) {
           setMonthlyInsightStatus('error');
           setMonthlyInsightError(error instanceof Error ? error.message : '本月趋势分析失败');
-          setMonthlyInsightDurationSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
-          setMonthlyInsightStartedAt(null);
         }
       }
     };
@@ -451,16 +438,6 @@ export function DashboardPage() {
       canceled = true;
     };
   }, [apiKey, baseUrl, model, monthlyInsightInput, monthlyInsightRequestToken, transactions.length]);
-
-  useEffect(() => {
-    if (monthlyInsightStatus !== 'loading' && monthlyInsightStatus !== 'streaming') {
-      return;
-    }
-    const timer = window.setInterval(() => {
-      setMonthlyInsightNow(Date.now());
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [monthlyInsightStatus]);
 
   const handleRefreshForecast = () => {
     setForecastRequestToken((prev) => prev + 1);
@@ -534,22 +511,6 @@ export function DashboardPage() {
 
   const currentMonthLabel = `${currentYear}年${currentMonth + 1}月`;
 
-  const monthlySummaryText =
-    monthlyInsightStatus === 'streaming'
-      ? monthlyInsightText || '模型正在生成本月分析...'
-      : monthlyInsight?.summary || '点击“重新分析”后生成本月洞察摘要。';
-
-  const liveElapsedSec = monthlyInsightStartedAt ? Math.max(0, Math.floor((monthlyInsightNow - monthlyInsightStartedAt) / 1000)) : null;
-  const monthlyInsightLiveText =
-    monthlyInsightStatus === 'loading'
-      ? `正在连接模型 · ${liveElapsedSec ?? 0}s`
-      : monthlyInsightStatus === 'streaming'
-        ? `实时生成中 · 已接收 ${monthlyInsightText.length} 字 · ${liveElapsedSec ?? 0}s`
-        : monthlyInsightStatus === 'done'
-          ? `已完成${monthlyInsightDurationSec !== null ? ` · 用时 ${monthlyInsightDurationSec}s` : ''}`
-          : monthlyInsightStatus === 'error'
-            ? `分析异常${monthlyInsightDurationSec !== null ? ` · ${monthlyInsightDurationSec}s` : ''}`
-            : '待分析';
 
   const displayCategoryBreakdown = useMemo(
     () =>
