@@ -623,9 +623,18 @@ export function DashboardPage() {
             <div className="dashboard-trend-summary">
               <div>
                 <p className="dashboard-summary-title">本月收支概览</p>
-                <p className="dashboard-summary-main">结余 {formatCurrency(monthlyBalance)}</p>
+                <p className="dashboard-summary-main">
+                  结余
+                  <span className={monthlyBalance >= 0 ? 'dashboard-summary-main-amount positive' : 'dashboard-summary-main-amount negative'}>
+                    {formatCurrency(monthlyBalance)}
+                  </span>
+                </p>
                 <p className="dashboard-summary-sub">
-                  收入 {formatCurrency(income)} · 支出 {formatCurrency(expense)} · 交易 {monthly.length} 笔
+                  <span className="dashboard-summary-metric income">收入 {formatCurrency(income)}</span>
+                  <span className="dashboard-summary-dot">·</span>
+                  <span className="dashboard-summary-metric expense">支出 {formatCurrency(expense)}</span>
+                  <span className="dashboard-summary-dot">·</span>
+                  <span className="dashboard-summary-metric neutral">交易 {monthly.length} 笔</span>
                 </p>
               </div>
               <div className="dashboard-summary-chip">AI 分析聚焦于本月分类结构与异常波动</div>
