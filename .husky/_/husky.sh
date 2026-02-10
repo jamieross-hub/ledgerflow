@@ -1,4 +1,9 @@
-#!/usr/bin/env sh
+echo "husky - DEPRECATED
 
-# Husky bootstrap shim
-# 保留这个文件是为了兼容 pre-commit 中的 source 调用。
+Please remove the following two lines from $0:
+
+#!/usr/bin/env sh
+. \"\$(dirname -- \"\$0\")/_/husky.sh\"
+
+They WILL FAIL in v10.0.0
+"
