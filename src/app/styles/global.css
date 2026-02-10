@@ -626,6 +626,12 @@ button.danger:hover:not(:disabled) {
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
+  position: relative;
+  z-index: 3;
+}
+
+.transaction-filters-panel {
+  overflow: visible;
 }
 
 .transaction-filter-popover {
@@ -654,6 +660,10 @@ button.danger:hover:not(:disabled) {
   display: none;
 }
 
+.transaction-filter-popover[open] {
+  z-index: 50;
+}
+
 .transaction-filter-popover[open] > summary {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-bg);
@@ -663,7 +673,7 @@ button.danger:hover:not(:disabled) {
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  z-index: 20;
+  z-index: 60;
   min-width: 240px;
   max-width: min(92vw, 360px);
   padding: var(--space-3);
@@ -690,6 +700,16 @@ button.danger:hover:not(:disabled) {
     width: min(92vw, 420px);
     max-width: 92vw;
   }
+}
+
+.transaction-filter-actions-grid {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.transaction-filter-actions-grid > button {
+  width: 100%;
+  justify-content: flex-start;
 }
 
 .import-result-banner {
@@ -1035,6 +1055,63 @@ tr:hover td {
   border-radius: 0;
   border: none;
   min-height: 100%;
+}
+
+.transaction-context-menu {
+  position: fixed;
+  z-index: 90;
+  min-width: 220px;
+  max-width: min(90vw, 300px);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-dropdown);
+}
+
+.transaction-context-item {
+  width: 100%;
+  justify-content: flex-start;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text);
+  padding: 8px 10px;
+}
+
+.transaction-context-item:hover {
+  background: var(--color-bg-subtle);
+  border-color: var(--color-border-light);
+}
+
+.transaction-context-item.danger {
+  color: var(--color-danger);
+}
+
+.transaction-context-divider {
+  height: 1px;
+  margin: var(--space-2) 0;
+  background: var(--color-border-light);
+}
+
+.transaction-context-title {
+  margin: 0 0 var(--space-2) 0;
+  padding: 0 4px;
+  font-size: var(--font-xs);
+  color: var(--color-text-tertiary);
+}
+
+.transaction-context-columns {
+  display: grid;
+  gap: 6px;
+}
+
+.transaction-context-columns label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+  padding: 4px;
 }
 
 small.mono {

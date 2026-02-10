@@ -34,7 +34,7 @@ export function TransactionFilters({
   onImportAlipay
 }: TransactionFiltersProps) {
   return (
-    <section className="panel">
+    <section className="panel transaction-filters-panel">
       <h2>交易记录</h2>
 
       <div className="transaction-filters-primary-row">
@@ -48,8 +48,13 @@ export function TransactionFilters({
         </div>
 
         <div className="field" style={{ marginBottom: 0 }}>
-          <label>类型</label>
-          <select value={filters.type} onChange={(event) => onTypeChange(event.target.value as TransactionTypeFilter)}>
+          <label htmlFor="tx-filter-type">类型</label>
+          <select
+            id="tx-filter-type"
+            aria-label="按交易类型筛选"
+            value={filters.type}
+            onChange={(event) => onTypeChange(event.target.value as TransactionTypeFilter)}
+          >
             <option value="all">全部</option>
             <option value="income">收入</option>
             <option value="expense">支出</option>
@@ -59,8 +64,10 @@ export function TransactionFilters({
         </div>
 
         <div className="field" style={{ marginBottom: 0 }}>
-          <label>日期</label>
+          <label htmlFor="tx-filter-date-preset">日期</label>
           <select
+            id="tx-filter-date-preset"
+            aria-label="按日期范围筛选"
             value={filters.datePreset}
             onChange={(event) => onDatePresetChange(event.target.value as TransactionDatePreset)}
           >
@@ -82,12 +89,24 @@ export function TransactionFilters({
       {filters.datePreset === 'custom' ? (
         <div className="transaction-filters-custom-date-row">
           <div className="field" style={{ marginBottom: 0 }}>
-            <label>开始日期</label>
-            <input type="date" value={filters.dateFrom} onChange={(event) => onDateFromChange(event.target.value)} />
+            <label htmlFor="tx-filter-date-from">开始日期</label>
+            <input
+              id="tx-filter-date-from"
+              aria-label="筛选开始日期"
+              type="date"
+              value={filters.dateFrom}
+              onChange={(event) => onDateFromChange(event.target.value)}
+            />
           </div>
           <div className="field" style={{ marginBottom: 0 }}>
-            <label>结束日期</label>
-            <input type="date" value={filters.dateTo} onChange={(event) => onDateToChange(event.target.value)} />
+            <label htmlFor="tx-filter-date-to">结束日期</label>
+            <input
+              id="tx-filter-date-to"
+              aria-label="筛选结束日期"
+              type="date"
+              value={filters.dateTo}
+              onChange={(event) => onDateToChange(event.target.value)}
+            />
           </div>
         </div>
       ) : null}
@@ -95,10 +114,12 @@ export function TransactionFilters({
       <div className="transaction-filters-secondary-row">
         <details className="transaction-filter-popover">
           <summary>更多筛选</summary>
-          <div className="transaction-filter-popover-panel">
+          <div className="transaction-filter-popover-panel" role="group" aria-label="更多筛选项">
             <div className="field" style={{ marginBottom: 0 }}>
-              <label>来源</label>
+              <label htmlFor="tx-filter-source">来源</label>
               <select
+                id="tx-filter-source"
+                aria-label="按来源筛选"
                 value={filters.source}
                 onChange={(event) => onSourceChange(event.target.value as TransactionSourceFilter)}
               >
@@ -119,8 +140,8 @@ export function TransactionFilters({
 
         <details className="transaction-filter-popover">
           <summary>更多操作</summary>
-          <div className="transaction-filter-popover-panel">
-            <div className="row" style={{ marginTop: 0 }}>
+          <div className="transaction-filter-popover-panel" role="group" aria-label="更多操作项">
+            <div className="transaction-filter-actions-grid">
               <button type="button" onClick={onExport}>
                 导出 CSV
               </button>

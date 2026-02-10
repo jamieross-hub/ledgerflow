@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { TransactionItem } from '../../../entities/transaction/types';
 import { formatCurrency, formatDate } from '../../../shared/lib/format';
 import { EmptyState } from '../../../shared/ui/EmptyState';
@@ -126,7 +126,11 @@ export function TransactionTable({
   onToggleColumn
 }: TransactionTableProps) {
   const [swipedId, setSwipedId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const touchStartXRef = useRef<number | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const navigate = useNavigate();
 
   const columnOptions: Array<{ key: TransactionColumnKey; label: string }> = [
     { key: 'date', label: '日期' },
@@ -138,6 +142,38 @@ export function TransactionTable({
     { key: 'merchantOrderNo', label: '商家订单号' },
     { key: 'note', label: '备注' }
   ];
+
+  useEffect(() => {
+    if (!contextMenu) {
+      return;
+    }
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!contextMenuRef.current?.contains(event.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setContextMenu(null);
+      }
+    };
+
+    const onViewportChange = () => setContextMenu(null);
+
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('scroll', onViewportChange, true);
+    window.addEventListener('resize', onViewportChange);
+    window.addEventListener('keydown', onEscape);
+
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('scroll', onViewportChange, true);
+      window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('keydown', onEscape);
+    };
+  }, [contextMenu]);
 
   return (
     <section className="panel">
@@ -184,25 +220,6 @@ export function TransactionTable({
               </div>
             </div>
           ) : null}
-
-          <section className="transaction-columns-panel" aria-label="交易列表列显示设置">
-            <div className="transaction-columns-head">
-              <strong>列显示设置</strong>
-              <span>勾选你常用的字段，表格会立刻变清爽。</span>
-            </div>
-            <div className="transaction-columns-grid">
-              {columnOptions.map((option) => (
-                <label key={option.key}>
-                  <input
-                    type="checkbox"
-                    checked={visibleColumns[option.key]}
-                    onChange={() => onToggleColumn(option.key)}
-                  />
-                  <span>{option.label}</span>
-                </label>
-              ))}
-            </div>
-          </section>
 
           <div className="transaction-table-wrap">
             <table>
@@ -307,7 +324,6 @@ export function TransactionTable({
                       </button>
                     </th>
                   ) : null}
-                  <th className="transaction-action-col" aria-label="行操作" />
                 </tr>
                 <tr className="transaction-filter-row">
                   <th className="transaction-select-col" />
@@ -323,6 +339,7 @@ export function TransactionTable({
                   {visibleColumns.type ? (
                     <th>
                       <select
+                        aria-label="按类型筛选"
                         value={quickFilters.type}
                         onChange={(event) =>
                           onQuickFilterChange(
@@ -395,7 +412,6 @@ export function TransactionTable({
                       />
                     </th>
                   ) : null}
-                  <th className="transaction-action-col" />
                 </tr>
               </thead>
               <tbody>
@@ -408,6 +424,22 @@ export function TransactionTable({
                       id={`transaction-row-${item.id}`}
                       className={`transaction-row-clickable ${highlightId === item.id ? 'transaction-row-highlight' : ''}`.trim()}
                       onClick={() => onOpenDetail(item.id)}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        const menuWidth = 280;
+                        const menuHeight = 420;
+                        const padding = 8;
+                        const x = Math.min(event.clientX, window.innerWidth - menuWidth - padding);
+                        const y = Math.min(
+                          event.clientY,
+                          window.innerHeight - menuHeight - padding
+                        );
+                        setContextMenu({
+                          x: Math.max(padding, x),
+                          y: Math.max(padding, y),
+                          id: item.id
+                        });
+                      }}
                     >
                       <td
                         className="transaction-select-col"
@@ -462,31 +494,6 @@ export function TransactionTable({
                           <span title={note}>{truncateNote(note)}</span>
                         </td>
                       ) : null}
-                      <td
-                        className="row transaction-row-actions"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <details className="transaction-actions-menu">
-                          <summary className="transaction-actions-trigger" aria-label="更多操作">
-                            ⋯
-                          </summary>
-                          <div className="transaction-actions-popover">
-                            <Link
-                              to={`/transactions/${item.id}`}
-                              className="transaction-actions-item"
-                            >
-                              编辑
-                            </Link>
-                            <button
-                              type="button"
-                              className="transaction-actions-item transaction-action-danger"
-                              onClick={() => onDelete(item.id)}
-                            >
-                              删除
-                            </button>
-                          </div>
-                        </details>
-                      </td>
                     </tr>
                   );
                 })}
@@ -574,6 +581,51 @@ export function TransactionTable({
               );
             })}
           </div>
+
+          {contextMenu ? (
+            <div
+              ref={contextMenuRef}
+              className="transaction-context-menu"
+              style={{ left: contextMenu.x, top: contextMenu.y }}
+              onClick={(event) => event.stopPropagation()}
+              aria-label="交易右键菜单"
+            >
+              <button
+                type="button"
+                className="transaction-context-item"
+                onClick={() => {
+                  navigate(`/transactions/${contextMenu.id}`);
+                  setContextMenu(null);
+                }}
+              >
+                编辑账单
+              </button>
+              <button
+                type="button"
+                className="transaction-context-item danger"
+                onClick={() => {
+                  onDelete(contextMenu.id);
+                  setContextMenu(null);
+                }}
+              >
+                删除账单
+              </button>
+              <div className="transaction-context-divider" />
+              <p className="transaction-context-title">列显示设置</p>
+              <div className="transaction-context-columns">
+                {columnOptions.map((option) => (
+                  <label key={`ctx-${option.key}`}>
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns[option.key]}
+                      onChange={() => onToggleColumn(option.key)}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="row" style={{ marginTop: 12, justifyContent: 'space-between' }}>
             <small style={{ color: 'var(--color-text-secondary)' }}>
