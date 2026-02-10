@@ -173,26 +173,28 @@ export function CategoriesAccountsPage() {
         ) : categories.length === 0 ? (
           <EmptyState title="暂无分类" description="请添加第一个交易分类。" icon="🧩" />
         ) : (
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {displayCategories.map((item) => (
-              <li key={item.id} className="row" style={{ padding: '8px 0', borderBottom: '1px solid var(--color-border-light)' }}>
-                <span style={{ flex: 1 }}>{item.name}</span>
-                <button className="danger" onClick={() => removeCategory(item.id)}>
-                  删除
+          <>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {displayCategories.map((item) => (
+                <li key={item.id} className="row" style={{ padding: '8px 0', borderBottom: '1px solid var(--color-border-light)' }}>
+                  <span style={{ flex: 1 }}>{item.name}</span>
+                  <button className="danger" onClick={() => removeCategory(item.id)}>
+                    删除
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {categories.length > COLLAPSE_THRESHOLD ? (
+              <div className="row" style={{ justifyContent: 'space-between', marginTop: 10 }}>
+                <small style={{ color: 'var(--color-text-secondary)' }}>
+                  已显示 {displayCategories.length}/{categories.length}
+                </small>
+                <button type="button" onClick={() => setShowAllCategories((prev) => !prev)}>
+                  {showAllCategories ? '收起' : `展开剩余 ${hiddenCategoryCount} 项`}
                 </button>
-              </li>
-            ))}
-          </ul>
-          {categories.length > COLLAPSE_THRESHOLD ? (
-            <div className="row" style={{ justifyContent: 'space-between', marginTop: 10 }}>
-              <small style={{ color: 'var(--color-text-secondary)' }}>
-                已显示 {displayCategories.length}/{categories.length}
-              </small>
-              <button type="button" onClick={() => setShowAllCategories((prev) => !prev)}>
-                {showAllCategories ? '收起' : `展开剩余 ${hiddenCategoryCount} 项`}
-              </button>
-            </div>
-          ) : null}
+              </div>
+            ) : null}
+          </>
         )}
 
         <h3 style={{ marginTop: 20 }}>交易标签</h3>
