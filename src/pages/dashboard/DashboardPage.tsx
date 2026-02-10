@@ -319,6 +319,7 @@ export function DashboardPage() {
 
   useEffect(() => {
     if (transactions.length === 0) return;
+    if (forecastRequestToken <= 0) return;
 
     let canceled = false;
 
@@ -378,6 +379,7 @@ export function DashboardPage() {
 
   useEffect(() => {
     if (transactions.length === 0) return;
+    if (monthlyInsightRequestToken <= 0) return;
 
     let canceled = false;
 
@@ -566,7 +568,7 @@ export function DashboardPage() {
   const monthlySummaryText =
     monthlyInsightStatus === 'streaming'
       ? monthlyInsightText || '模型正在生成本月分析...'
-      : monthlyInsight?.summary || '正在根据本月账单生成趋势分析...';
+      : monthlyInsight?.summary || '点击“重新分析”后生成本月洞察摘要。';
 
   const liveElapsedSec = monthlyInsightStartedAt ? Math.max(0, Math.floor((monthlyInsightNow - monthlyInsightStartedAt) / 1000)) : null;
   const monthlyInsightLiveText =
@@ -851,7 +853,7 @@ export function DashboardPage() {
               </div>
             </div>
 
-            <p className="dashboard-future-text">{forecast?.summary || '正在根据账目、账户与交易详情生成未来趋势分析...'}</p>
+            <p className="dashboard-future-text">{forecast?.summary || '点击“手动分析”生成未来趋势分析。'}</p>
             {forecast?.suggestions?.length ? (
               <ul className="dashboard-future-suggestions">
                 {forecast.suggestions.map((item, index) => (
