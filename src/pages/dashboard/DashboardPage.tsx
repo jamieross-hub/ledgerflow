@@ -371,7 +371,6 @@ export function DashboardPage() {
     let canceled = false;
 
     const run = async () => {
-      const startedAt = Date.now();
       setMonthlyInsightStatus('loading');
       setMonthlyInsightError('');
       try {
