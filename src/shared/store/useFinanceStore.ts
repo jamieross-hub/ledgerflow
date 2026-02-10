@@ -33,6 +33,28 @@ const defaultAccounts: Account[] = [
 
 const defaultTransactions: TransactionItem[] = [];
 
+function computeAccountBalances(accounts: Account[], transactions: TransactionItem[]): Account[] {
+  return accounts.map((account) => {
+    const base = Number(account.initialBalance ?? 0);
+    const safeBase = Number.isFinite(base) ? base : 0;
+    const delta = transactions.reduce((sum, item) => {
+      if (item.accountId !== account.id) {
+        return sum;
+      }
+      const amount = Number(item.amount);
+      if (!Number.isFinite(amount)) {
+        return sum;
+      }
+      return item.type === 'income' ? sum + amount : sum - amount;
+    }, 0);
+
+    return {
+      ...account,
+      balance: safeBase + delta
+    };
+  });
+}
+
 export const useFinanceStore = create<FinanceState>()(
   persist(
     (set) => ({
@@ -42,19 +64,35 @@ export const useFinanceStore = create<FinanceState>()(
       addTransaction: (payload) => {
         const id = generateId();
         const row = { ...payload, id };
-        set((s) => ({ transactions: [...s.transactions, row] }));
+        set((s) => {
+          const transactions = [...s.transactions, row];
+          return {
+            transactions,
+            accounts: computeAccountBalances(s.accounts, transactions)
+          };
+        });
         void syncChangeIfNeeded({ entity: 'transactions', action: 'insert', row });
         return id;
       },
       updateTransaction: (id, payload) => {
         const row = { ...payload, id };
-        set((s) => ({
-          transactions: s.transactions.map((item) => (item.id === id ? row : item))
-        }));
+        set((s) => {
+          const transactions = s.transactions.map((item) => (item.id === id ? row : item));
+          return {
+            transactions,
+            accounts: computeAccountBalances(s.accounts, transactions)
+          };
+        });
         void syncChangeIfNeeded({ entity: 'transactions', action: 'update', row, id });
       },
       removeTransaction: (id) => {
-        set((s) => ({ transactions: s.transactions.filter((item) => item.id !== id) }));
+        set((s) => {
+          const transactions = s.transactions.filter((item) => item.id !== id);
+          return {
+            transactions,
+            accounts: computeAccountBalances(s.accounts, transactions)
+          };
+        });
         void syncChangeIfNeeded({ entity: 'transactions', action: 'delete', id });
       },
       addCategory: (name) => {
@@ -75,22 +113,45 @@ export const useFinanceStore = create<FinanceState>()(
           initialBalance,
           balance: initialBalance
         };
-        set((s) => ({
-          accounts: [...s.accounts, row]
-        }));
+        set((s) => {
+          const accounts = computeAccountBalances([...s.accounts, row], s.transactions);
+          return { accounts };
+        });
         void syncChangeIfNeeded({ entity: 'accounts', action: 'insert', row });
       },
       updateAccountBalance: (id, balance) => {
         let updatedRow: Account | null = null;
-        set((s) => ({
-          accounts: s.accounts.map((item) => {
+        set((s) => {
+          const transactions = s.transactions;
+          const accounts = s.accounts.map((item) => {
             if (item.id !== id) {
               return item;
             }
-            updatedRow = { ...item, balance };
+
+            const txDelta = transactions.reduce((sum, tx) => {
+              if (tx.accountId !== id) {
+                return sum;
+              }
+              const amount = Number(tx.amount);
+              if (!Number.isFinite(amount)) {
+                return sum;
+              }
+              return tx.type === 'income' ? sum + amount : sum - amount;
+            }, 0);
+
+            const nextInitial = balance - txDelta;
+            updatedRow = {
+              ...item,
+              initialBalance: nextInitial,
+              balance
+            };
             return updatedRow;
-          })
-        }));
+          });
+
+          return {
+            accounts: computeAccountBalances(accounts, transactions)
+          };
+        });
         if (updatedRow) {
           void syncChangeIfNeeded({ entity: 'accounts', action: 'update', row: updatedRow, id });
         }

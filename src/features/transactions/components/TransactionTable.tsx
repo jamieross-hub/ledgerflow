@@ -182,8 +182,11 @@ export function TransactionTable({
             </div>
           ) : null}
 
-          <section className="transaction-columns-panel" aria-label="交易列表标题设置">
-            <strong>标题栏模块</strong>
+          <section className="transaction-columns-panel" aria-label="交易列表列显示设置">
+            <div className="transaction-columns-head">
+              <strong>列显示设置</strong>
+              <span>勾选你常用的字段，表格会立刻变清爽。</span>
+            </div>
             <div className="transaction-columns-grid">
               {columnOptions.map((option) => (
                 <label key={option.key}>

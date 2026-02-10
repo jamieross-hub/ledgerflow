@@ -64,3 +64,26 @@ export const ACCOUNT_PRESETS: AccountPreset[] = [
 export function getAccountTypeLabel(type?: AccountType): string {
   return type ? ACCOUNT_TYPE_LABELS[type] : '未分类';
 }
+
+/** 根据账户名称 + 类型推断展示图标 */
+export function getAccountDisplayIcon(name: string, type?: AccountType): string {
+  const normalized = name.trim().toLowerCase();
+
+  if (normalized.includes('支付宝') || normalized.includes('alipay')) {
+    return '🅰️';
+  }
+  if (normalized.includes('微信') || normalized.includes('wechat')) {
+    return '🟩';
+  }
+  if (normalized.includes('云闪付')) {
+    return '⚡';
+  }
+  if (normalized.includes('现金')) {
+    return '💵';
+  }
+  if (normalized.includes('花呗') || normalized.includes('白条')) {
+    return '💳';
+  }
+
+  return type ? ACCOUNT_TYPE_ICONS[type] : '💼';
+}

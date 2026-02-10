@@ -19,6 +19,7 @@ interface ChatMessageInput {
   role: 'system' | 'user' | 'assistant';
   text: string;
   imageDataUrl?: string;
+  imageDataUrls?: string[];
 }
 
 interface ChatCompletionResponse {
@@ -67,12 +68,18 @@ export async function sendAiChatStream(
       model: input.model,
       stream: true,
       messages: outboundMessages.map((message) => {
-        if (message.role === 'user' && message.imageDataUrl) {
+        const imageUrls = Array.isArray(message.imageDataUrls) && message.imageDataUrls.length > 0
+          ? message.imageDataUrls
+          : message.imageDataUrl
+            ? [message.imageDataUrl]
+            : [];
+
+        if (message.role === 'user' && imageUrls.length > 0) {
           return {
             role: message.role,
             content: [
               { type: 'text', text: message.text || '请基于图片进行记账建议分析。' },
-              { type: 'image_url', image_url: { url: message.imageDataUrl } }
+              ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } }))
             ]
           };
         }
@@ -196,12 +203,18 @@ export async function sendAiChat(input: ChatRequestInput): Promise<SendAiChatRes
     body: JSON.stringify({
       model: input.model,
       messages: outboundMessages.map((message) => {
-        if (message.role === 'user' && message.imageDataUrl) {
+        const imageUrls = Array.isArray(message.imageDataUrls) && message.imageDataUrls.length > 0
+          ? message.imageDataUrls
+          : message.imageDataUrl
+            ? [message.imageDataUrl]
+            : [];
+
+        if (message.role === 'user' && imageUrls.length > 0) {
           return {
             role: message.role,
             content: [
               { type: 'text', text: message.text || '请基于图片进行记账建议分析。' },
-              { type: 'image_url', image_url: { url: message.imageDataUrl } }
+              ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } }))
             ]
           };
         }

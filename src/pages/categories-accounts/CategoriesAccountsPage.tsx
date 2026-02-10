@@ -4,7 +4,7 @@ import { formatCurrency } from '../../shared/lib/format';
 import { EmptyState } from '../../shared/ui/EmptyState';
 import { LoadingSkeleton } from '../../shared/ui/LoadingSkeleton';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
-import { getAccountTypeLabel } from '../../features/accounts/model/accountTypes';
+import { getAccountDisplayIcon, getAccountTypeLabel } from '../../features/accounts/model/accountTypes';
 import type { AccountType } from '../../features/accounts/model/accountTypes';
 
 export function CategoriesAccountsPage() {
@@ -25,6 +25,10 @@ export function CategoriesAccountsPage() {
   const [loading, setLoading] = useState(true);
   const [pendingDeleteAccountId, setPendingDeleteAccountId] = useState<string | null>(null);
   const [editingBalances, setEditingBalances] = useState<Record<string, string>>({});
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const [showAllAccounts, setShowAllAccounts] = useState(false);
+
+  const COLLAPSE_THRESHOLD = 8;
 
   useEffect(() => {
     const timer = window.setTimeout(() => setLoading(false), 120);
@@ -77,12 +81,45 @@ export function CategoriesAccountsPage() {
     });
   }, [transactions]);
 
+  const displayCategories = useMemo(
+    () => (showAllCategories ? categories : categories.slice(0, COLLAPSE_THRESHOLD)),
+    [categories, showAllCategories]
+  );
+
+  const displayAccounts = useMemo(
+    () => (showAllAccounts ? accounts : accounts.slice(0, COLLAPSE_THRESHOLD)),
+    [accounts, showAllAccounts]
+  );
+
+  const hiddenCategoryCount = Math.max(0, categories.length - displayCategories.length);
+  const hiddenAccountCount = Math.max(0, accounts.length - displayAccounts.length);
+
+  const accountBalanceMap = useMemo(() => {
+    const map = new Map<string, number>();
+    accounts.forEach((account) => {
+      const base = Number(account.initialBalance ?? 0);
+      map.set(account.id, Number.isFinite(base) ? base : 0);
+    });
+
+    transactions.forEach((tx) => {
+      const amount = Number(tx.amount);
+      if (!tx.accountId || !Number.isFinite(amount) || !map.has(tx.accountId)) {
+        return;
+      }
+      const prev = map.get(tx.accountId) || 0;
+      const next = tx.type === 'income' ? prev + amount : prev - amount;
+      map.set(tx.accountId, next);
+    });
+
+    return map;
+  }, [accounts, transactions]);
+
   const applyAccountBalance = (accountId: string) => {
     const current = accounts.find((item) => item.id === accountId);
     if (!current) {
       return;
     }
-    const raw = editingBalances[accountId] ?? String(current.balance ?? current.initialBalance ?? 0);
+    const raw = editingBalances[accountId] ?? String(accountBalanceMap.get(accountId) ?? current.balance ?? current.initialBalance ?? 0);
     const parsed = Number(raw || '0');
     if (!Number.isFinite(parsed)) {
       return;
@@ -90,6 +127,18 @@ export function CategoriesAccountsPage() {
     updateAccountBalance(accountId, parsed);
     setEditingBalances((prev) => ({ ...prev, [accountId]: String(parsed) }));
   };
+
+  const accountCards = useMemo(
+    () =>
+      displayAccounts.map((item) => {
+        const computedBalance = accountBalanceMap.get(item.id) ?? Number(item.balance ?? item.initialBalance ?? 0);
+        return {
+          ...item,
+          computedBalance
+        };
+      }),
+    [displayAccounts, accountBalanceMap]
+  );
 
   const removeTagFromAllTransactions = (tagLabel: string) => {
     const normalized = tagLabel.trim().toLowerCase();
@@ -125,7 +174,7 @@ export function CategoriesAccountsPage() {
           <EmptyState title="暂无分类" description="请添加第一个交易分类。" icon="🧩" />
         ) : (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {categories.map((item) => (
+            {displayCategories.map((item) => (
               <li key={item.id} className="row" style={{ padding: '8px 0', borderBottom: '1px solid var(--color-border-light)' }}>
                 <span style={{ flex: 1 }}>{item.name}</span>
                 <button className="danger" onClick={() => removeCategory(item.id)}>
@@ -134,6 +183,16 @@ export function CategoriesAccountsPage() {
               </li>
             ))}
           </ul>
+          {categories.length > COLLAPSE_THRESHOLD ? (
+            <div className="row" style={{ justifyContent: 'space-between', marginTop: 10 }}>
+              <small style={{ color: 'var(--color-text-secondary)' }}>
+                已显示 {displayCategories.length}/{categories.length}
+              </small>
+              <button type="button" onClick={() => setShowAllCategories((prev) => !prev)}>
+                {showAllCategories ? '收起' : `展开剩余 ${hiddenCategoryCount} 项`}
+              </button>
+            </div>
+          ) : null}
         )}
 
         <h3 style={{ marginTop: 20 }}>交易标签</h3>
@@ -202,43 +261,55 @@ export function CategoriesAccountsPage() {
         ) : accounts.length === 0 ? (
           <EmptyState title="暂无账户" description="请添加第一个资金账户。" icon="💳" />
         ) : (
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {accounts.map((item) => (
-              <li
-                key={item.id}
-                style={{
-                  padding: '10px 0',
-                  borderBottom: '1px solid var(--color-border-light)',
-                  display: 'grid',
-                  gap: 8
-                }}
-              >
-                <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <span style={{ flex: 1 }}>
-                    {item.name}
-                    {item.type && <span className="account-type-badge">{getAccountTypeLabel(item.type)}</span>}
-                  </span>
-                  <span className="mono-inline" style={{ color: 'var(--color-text-secondary)' }}>
-                    当前 {formatCurrency(item.balance ?? item.initialBalance ?? 0)}
-                  </span>
-                </div>
-                <div className="row" style={{ gap: 8 }}>
-                  <input
-                    type="number"
-                    value={editingBalances[item.id] ?? String(item.balance ?? item.initialBalance ?? 0)}
-                    onChange={(e) => setEditingBalances((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                    style={{ width: 160 }}
-                  />
-                  <button type="button" onClick={() => applyAccountBalance(item.id)}>
-                    更新结余
-                  </button>
-                  <button className="danger" onClick={() => setPendingDeleteAccountId(item.id)}>
-                    删除
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <>
+            <div className="account-card-grid">
+              {accountCards.map((item) => (
+                <article key={item.id} className="account-card">
+                  <header className="account-card-head">
+                    <span className="account-card-icon" aria-hidden="true">
+                      {getAccountDisplayIcon(item.name, item.type)}
+                    </span>
+                    <div className="account-card-main">
+                      <strong>{item.name}</strong>
+                      {item.type ? <span className="account-type-badge">{getAccountTypeLabel(item.type)}</span> : null}
+                    </div>
+                    <span className="mono-inline account-card-balance">{formatCurrency(item.computedBalance)}</span>
+                  </header>
+
+                  <div className="account-card-meta">
+                    <span>初始：{formatCurrency(item.initialBalance ?? 0)}</span>
+                    <span>按交易自动汇总</span>
+                  </div>
+
+                  <div className="row" style={{ gap: 8 }}>
+                    <input
+                      type="number"
+                      value={editingBalances[item.id] ?? String(item.computedBalance)}
+                      onChange={(e) => setEditingBalances((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                      style={{ width: 140 }}
+                    />
+                    <button type="button" onClick={() => applyAccountBalance(item.id)}>
+                      校准余额
+                    </button>
+                    <button className="danger" onClick={() => setPendingDeleteAccountId(item.id)}>
+                      删除
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            {accounts.length > COLLAPSE_THRESHOLD ? (
+              <div className="row" style={{ justifyContent: 'space-between', marginTop: 10 }}>
+                <small style={{ color: 'var(--color-text-secondary)' }}>
+                  已显示 {displayAccounts.length}/{accounts.length}
+                </small>
+                <button type="button" onClick={() => setShowAllAccounts((prev) => !prev)}>
+                  {showAllAccounts ? '收起' : `展开剩余 ${hiddenAccountCount} 项`}
+                </button>
+              </div>
+            ) : null}
+          </>
         )}
       </section>
 

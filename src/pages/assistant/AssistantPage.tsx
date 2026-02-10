@@ -17,6 +17,7 @@ interface ChatItem {
   role: 'user' | 'assistant';
   text: string;
   imageDataUrl?: string;
+  imageDataUrls?: string[];
   reasoning?: string;
   parsedBill?: AiBillResult | null;
   createdAt: number;
@@ -30,6 +31,8 @@ interface AiBillItem {
   category?: string;
   account?: string;
   tags?: string[];
+  orderNo?: string;
+  merchantOrderNo?: string;
 }
 
 interface AiBillResult {
@@ -45,7 +48,7 @@ const JSON_AGENT_PROMPT = `你是 LedgerFlow 个人记账助手，专门帮助�
 4. 仅处理个人日常记账相关内容
 
 请严格按以下 JSON schema 返回，不要返回 markdown 代码块：
-{"transactions":[{"type":"expense|income|budget|repayment","amount":number,"date":"YYYY-MM-DD","note":"string","category":"string","account":"string","tags":["string"]}]}
+{"transactions":[{"type":"expense|income|budget|repayment","amount":number,"date":"YYYY-MM-DD","note":"string","category":"string","account":"string","tags":["string"],"orderNo":"string(可选)","merchantOrderNo":"string(可选)"}]}
 
 规则：
 - type 只能是 expense（支出）、income（收入）、budget（预算）、repayment（还款）
@@ -53,6 +56,8 @@ const JSON_AGENT_PROMPT = `你是 LedgerFlow 个人记账助手，专门帮助�
 - date 格式为 YYYY-MM-DD，未提供则用今天日期
 - category 必须给出并尽量使用常见生活分类（餐饮、交通、购物、娱乐、居住、医疗、教育、工资、兼职等）
 - tags 必须给出，至少 1 个，优先提取场景标签（如 早餐、打车、网购、电影、报销、工资）
+- 如识别到交易订单号/商家订单号，必须分别写入 orderNo / merchantOrderNo 字段
+- 如未识别到订单号，orderNo / merchantOrderNo 可省略，不要伪造
 - 如图片里可识别到商户名/平台名（如 美团、滴滴、支付宝、微信、京东），应体现在 note 或 tags
 - 如果信息不完整，按最合理的日常场景推断并在 note 中说明
 - 你是一个生活记账工具，只处理个人日常收支记录`;
@@ -100,6 +105,11 @@ function restoreAssistantMessages(days: number): ChatItem[] {
           role: row.role === 'assistant' ? 'assistant' : 'user',
           text: String(row.text || ''),
           imageDataUrl: row.imageDataUrl ? String(row.imageDataUrl) : undefined,
+          imageDataUrls: Array.isArray(row.imageDataUrls)
+            ? row.imageDataUrls.map((item) => String(item)).filter(Boolean)
+            : row.imageDataUrl
+              ? [String(row.imageDataUrl)]
+              : undefined,
           reasoning: row.reasoning ? String(row.reasoning) : undefined,
           parsedBill: row.parsedBill || undefined,
           createdAt: Number(row.createdAt) || Date.now()
@@ -273,6 +283,9 @@ function normalizeAiBill(raw: unknown): AiBillResult | null {
       Array.isArray(candidate.tags) ? candidate.tags.map((t) => String(t)) : []
     );
 
+    const orderNo = typeof candidate.orderNo === 'string' ? candidate.orderNo.trim() : '';
+    const merchantOrderNo = typeof candidate.merchantOrderNo === 'string' ? candidate.merchantOrderNo.trim() : '';
+
     txs.push({
       type,
       amount,
@@ -280,7 +293,9 @@ function normalizeAiBill(raw: unknown): AiBillResult | null {
       note,
       category,
       account: candidate.account || '',
-      tags
+      tags,
+      orderNo: orderNo || undefined,
+      merchantOrderNo: merchantOrderNo || undefined
     });
   }
 
@@ -336,7 +351,7 @@ export function AssistantPage() {
 
   const [models, setModels] = useState<string[]>([]);
   const [textInput, setTextInput] = useState('');
-  const [imageDataUrl, setImageDataUrl] = useState<string>('');
+  const [imageDataUrls, setImageDataUrls] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>('');
@@ -362,13 +377,13 @@ export function AssistantPage() {
     setRetryMessages(null);
     setError('');
     setTextInput('');
-    setImageDataUrl('');
+    setImageDataUrls([]);
     setToast({ message: '已清除上下文记录', variant: 'success', visible: true });
   };
 
   const canSubmit = useMemo(
-    () => hasApiKey && Boolean(model.trim()) && (Boolean(textInput.trim()) || Boolean(imageDataUrl)),
-    [hasApiKey, model, textInput, imageDataUrl]
+    () => hasApiKey && Boolean(model.trim()) && (Boolean(textInput.trim()) || imageDataUrls.length > 0),
+    [hasApiKey, model, textInput, imageDataUrls]
   );
 
   // 自动滚动到底部
@@ -405,7 +420,7 @@ export function AssistantPage() {
       return;
     }
     const dataUrl = await readImageAsDataUrl(file);
-    setImageDataUrl(dataUrl);
+    setImageDataUrls((prev) => [...prev, dataUrl]);
   };
 
   const handlePasteImage = async (event: ClipboardEvent<HTMLTextAreaElement>) => {
@@ -421,7 +436,6 @@ export function AssistantPage() {
         if (file) {
           event.preventDefault();
           await handleSetImage(file);
-          return;
         }
       }
     }
@@ -429,8 +443,8 @@ export function AssistantPage() {
 
   const handleDropImage = async (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    const file = event.dataTransfer.files?.[0];
-    if (file && file.type.startsWith('image/')) {
+    const files = (Array.from(event.dataTransfer.files || []) as File[]).filter((file: File) => file.type.startsWith('image/'));
+    for (const file of files) {
       await handleSetImage(file);
     }
   };
@@ -457,7 +471,7 @@ export function AssistantPage() {
   };
 
   const sendWithMessages = async (nextMessages: ChatItem[]) => {
-    const hasImage = nextMessages.some((item) => Boolean(item.imageDataUrl));
+    const hasImage = nextMessages.some((item) => Boolean(item.imageDataUrl) || (item.imageDataUrls?.length || 0) > 0);
     const chinaNetworkTime = await fetchChinaNetworkTime();
     const localChinaTime = formatChinaTimeText(new Date());
     const timeContext = chinaNetworkTime
@@ -474,7 +488,8 @@ export function AssistantPage() {
       messages: nextMessages.map((item) => ({
         role: item.role,
         text: item.text,
-        imageDataUrl: item.imageDataUrl
+        imageDataUrl: item.imageDataUrl,
+        imageDataUrls: item.imageDataUrls
       }))
     });
 
@@ -505,7 +520,7 @@ export function AssistantPage() {
 
     setRetryMessages(null);
     setTextInput('');
-    setImageDataUrl('');
+    setImageDataUrls([]);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -526,14 +541,15 @@ export function AssistantPage() {
       id: newMessageId(),
       role: 'user',
       text: textInput.trim(),
-      imageDataUrl: imageDataUrl || undefined,
+      imageDataUrl: imageDataUrls[0] || undefined,
+      imageDataUrls: imageDataUrls.length > 0 ? imageDataUrls : undefined,
       createdAt: Date.now()
     };
 
     const nextMessages = [...messages, userMessage];
     setMessages(nextMessages);
     setTextInput('');
-    setImageDataUrl('');
+    setImageDataUrls([]);
 
     try {
       await sendWithMessages(nextMessages);
@@ -614,6 +630,8 @@ export function AssistantPage() {
         tags: finalTags,
         categoryId: ensureCategoryId(finalCategory),
         accountId: resolveAccountId(item.account),
+        orderNo: item.orderNo?.trim() || undefined,
+        merchantOrderNo: item.merchantOrderNo?.trim() || undefined,
         source: 'ai'
       });
     });
@@ -705,7 +723,13 @@ export function AssistantPage() {
                 <header className="chat-msg-header">{item.role === 'user' ? '你' : '记账助手'}</header>
                 <div className="chat-msg-content">
                   <p>{item.text || '（仅图片）'}</p>
-                  {item.imageDataUrl ? <img src={item.imageDataUrl} alt="user upload" className="chat-msg-image" /> : null}
+                  {(item.imageDataUrls && item.imageDataUrls.length > 0) || item.imageDataUrl ? (
+                    <div className="chat-msg-image-grid">
+                      {(item.imageDataUrls && item.imageDataUrls.length > 0 ? item.imageDataUrls : item.imageDataUrl ? [item.imageDataUrl] : []).map((url, idx) => (
+                        <img key={`${item.id}-img-${idx}`} src={url} alt={`user upload ${idx + 1}`} className="chat-msg-image" />
+                      ))}
+                    </div>
+                  ) : null}
                   {item.reasoning ? (
                     <details className="chat-thinking-box">
                       <summary>思考过程（已折叠）</summary>
@@ -770,10 +794,24 @@ export function AssistantPage() {
       {/* ===== 底部输入栏 ===== */}
       <footer className="chat-input-bar">
 
-        {imageDataUrl ? (
+        {imageDataUrls.length > 0 ? (
           <div className="chat-image-strip">
-            <img src={imageDataUrl} alt="待发送图片" className="chat-thumb" />
-            <button type="button" onClick={() => setImageDataUrl('')}>✕ 移除</button>
+            <div className="chat-thumb-list" aria-label="待发送图片列表">
+              {imageDataUrls.map((url, idx) => (
+                <div key={`pending-img-${idx}`} className="chat-thumb-item">
+                  <img src={url} alt={`待发送图片 ${idx + 1}`} className="chat-thumb" />
+                  <button
+                    type="button"
+                    className="chat-thumb-remove"
+                    onClick={() => setImageDataUrls((prev) => prev.filter((_, i) => i !== idx))}
+                    aria-label={`移除第 ${idx + 1} 张图片`}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={() => setImageDataUrls([])}>清空全部</button>
           </div>
         ) : null}
 
@@ -782,20 +820,21 @@ export function AssistantPage() {
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            multiple
             className="chat-file-input-hidden"
             onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
+              const files = (Array.from(e.target.files || []) as File[]).filter((file: File) => file.type.startsWith('image/'));
+              files.forEach((file: File) => {
                 void handleSetImage(file);
-              }
+              });
               e.target.value = '';
             }}
           />
           <button
             type="button"
             className="chat-upload-btn"
-            title="上传图片"
-            aria-label="上传图片"
+            title="上传图片（可多选）"
+            aria-label="上传图片（可多选）"
             disabled={!hasApiKey}
             onClick={() => fileInputRef.current?.click()}
           >
@@ -822,7 +861,7 @@ export function AssistantPage() {
             className="chat-input-textarea"
             placeholder={
               hasApiKey
-                ? '输入消息，Enter 发送 · 支持图片'
+                ? '输入消息，Enter 发送 · 支持多图'
                 : '请先在设置页填写 API Key'
             }
             disabled={!hasApiKey}

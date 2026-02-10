@@ -118,7 +118,7 @@ const TIPS = [
   '支持拖拽图片到记账助手，快速识别消费信息',
   '在设置页面可以配置 AI 供应商和 API Key',
   '所有数据存储在浏览器本地，你的隐私完全受保护',
-  '支持导出 CSV 文件，方便在 Excel 中进一步分析',
+  '支持导出 CSV 文件：Excel 看了都想给你点个赞',
   '试试暗黑模式，在侧边栏底部的主题切换器中选择'
 ];
 
@@ -141,6 +141,10 @@ export function DashboardPage() {
   const [monthlyInsightStatus, setMonthlyInsightStatus] = useState<'idle' | 'loading' | 'streaming' | 'done' | 'error'>('idle');
   const [monthlyInsightError, setMonthlyInsightError] = useState('');
   const [monthlyInsightText, setMonthlyInsightText] = useState('');
+  const [monthlyInsightRequestToken, setMonthlyInsightRequestToken] = useState(0);
+  const [monthlyInsightStartedAt, setMonthlyInsightStartedAt] = useState<number | null>(null);
+  const [monthlyInsightDurationSec, setMonthlyInsightDurationSec] = useState<number | null>(null);
+  const [monthlyInsightNow, setMonthlyInsightNow] = useState(() => Date.now());
 
   const now = new Date();
   const currentMonth = now.getMonth();
@@ -378,6 +382,9 @@ export function DashboardPage() {
     let canceled = false;
 
     const run = async () => {
+      const startedAt = Date.now();
+      setMonthlyInsightStartedAt(startedAt);
+      setMonthlyInsightDurationSec(null);
       setMonthlyInsightStatus('loading');
       setMonthlyInsightError('');
       setMonthlyInsightText('');
@@ -439,15 +446,21 @@ export function DashboardPage() {
                 };
                 setMonthlyInsight(next);
                 setMonthlyInsightStatus('done');
+                setMonthlyInsightDurationSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+                setMonthlyInsightStartedAt(null);
               } catch (error) {
                 setMonthlyInsightStatus('error');
                 setMonthlyInsightError(error instanceof Error ? error.message : '本月趋势分析失败');
+                setMonthlyInsightDurationSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+                setMonthlyInsightStartedAt(null);
               }
             },
             onError: (error) => {
               if (canceled) return;
               setMonthlyInsightStatus('error');
               setMonthlyInsightError(error.message || '本月趋势分析失败');
+              setMonthlyInsightDurationSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+              setMonthlyInsightStartedAt(null);
             }
           }
         );
@@ -455,6 +468,8 @@ export function DashboardPage() {
         if (!canceled) {
           setMonthlyInsightStatus('error');
           setMonthlyInsightError(error instanceof Error ? error.message : '本月趋势分析失败');
+          setMonthlyInsightDurationSec(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+          setMonthlyInsightStartedAt(null);
         }
       }
     };
@@ -464,10 +479,24 @@ export function DashboardPage() {
     return () => {
       canceled = true;
     };
-  }, [apiKey, baseUrl, model, monthlyInsightInput, transactions.length]);
+  }, [apiKey, baseUrl, model, monthlyInsightInput, monthlyInsightRequestToken, transactions.length]);
+
+  useEffect(() => {
+    if (monthlyInsightStatus !== 'loading' && monthlyInsightStatus !== 'streaming') {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setMonthlyInsightNow(Date.now());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [monthlyInsightStatus]);
 
   const handleRefreshForecast = () => {
     setForecastRequestToken((prev) => prev + 1);
+  };
+
+  const handleRefreshMonthlyInsight = () => {
+    setMonthlyInsightRequestToken((prev) => prev + 1);
   };
 
   const currentIndex = Math.max(recentMonths.length - 1, 0);
@@ -538,6 +567,18 @@ export function DashboardPage() {
     monthlyInsightStatus === 'streaming'
       ? monthlyInsightText || '模型正在生成本月分析...'
       : monthlyInsight?.summary || '正在根据本月账单生成趋势分析...';
+
+  const liveElapsedSec = monthlyInsightStartedAt ? Math.max(0, Math.floor((monthlyInsightNow - monthlyInsightStartedAt) / 1000)) : null;
+  const monthlyInsightLiveText =
+    monthlyInsightStatus === 'loading'
+      ? `正在连接模型 · ${liveElapsedSec ?? 0}s`
+      : monthlyInsightStatus === 'streaming'
+        ? `实时生成中 · 已接收 ${monthlyInsightText.length} 字 · ${liveElapsedSec ?? 0}s`
+        : monthlyInsightStatus === 'done'
+          ? `已完成${monthlyInsightDurationSec !== null ? ` · 用时 ${monthlyInsightDurationSec}s` : ''}`
+          : monthlyInsightStatus === 'error'
+            ? `分析异常${monthlyInsightDurationSec !== null ? ` · ${monthlyInsightDurationSec}s` : ''}`
+            : '待分析';
 
   const displayCategoryBreakdown = useMemo(
     () =>
@@ -663,9 +704,28 @@ export function DashboardPage() {
             </div>
 
             <div className="dashboard-ai-output" aria-live="polite">
-              <p className="dashboard-ai-title">AI 洞察摘要</p>
-              <p className="dashboard-ai-text">{monthlySummaryText}</p>
+              <div className="dashboard-ai-headline">
+                <p className="dashboard-ai-title">AI 洞察摘要</p>
+                <div className={`dashboard-ai-live status-${monthlyInsightStatus}`}>
+                  <span className="dashboard-ai-live-dot" aria-hidden="true" />
+                  <span>{monthlyInsightLiveText}</span>
+                </div>
+              </div>
+              <p className="dashboard-ai-text">
+                {monthlySummaryText}
+                {monthlyInsightStatus === 'loading' || monthlyInsightStatus === 'streaming' ? <span className="dashboard-ai-caret">▋</span> : null}
+              </p>
               {monthlyInsightError ? <p className="dashboard-ai-error">{monthlyInsightError}</p> : null}
+              <div className="dashboard-ai-actions">
+                <button
+                  type="button"
+                  className="dashboard-forecast-refresh"
+                  onClick={handleRefreshMonthlyInsight}
+                  disabled={monthlyInsightStatus === 'loading' || monthlyInsightStatus === 'streaming' || transactions.length === 0}
+                >
+                  重新分析
+                </button>
+              </div>
             </div>
 
             <div className="dashboard-trend-sections">
