@@ -155,11 +155,33 @@ export function DashboardPage() {
     .reduce((sum, t) => sum + t.amount, 0);
   const monthlyBalance = income - expense;
 
-  const totalBalance = accounts.reduce((sum, a) => sum + Number(a.balance ?? a.initialBalance ?? 0), 0);
+  const liabilityNameKeywords = ['信用卡', '花呗', '白条', '借呗', '欠款', '负债', 'credit', 'visa', 'master'];
+  const isLiabilityAccount = (account: (typeof accounts)[number]) => {
+    if (account.type === 'credit' || account.type === 'liability') {
+      return true;
+    }
+    const name = String(account.name || '').toLowerCase();
+    return liabilityNameKeywords.some((keyword) => name.includes(keyword.toLowerCase()));
+  };
+
   const liabilities = accounts
-    .filter((a) => a.type === 'credit' || a.type === 'liability')
-    .reduce((sum, a) => sum + Math.abs(Number(a.balance ?? a.initialBalance ?? 0)), 0);
-  const netAssets = totalBalance - liabilities;
+    .filter(isLiabilityAccount)
+    .reduce((sum, account) => {
+      const balance = Number(account.balance ?? account.initialBalance ?? 0);
+      if (!Number.isFinite(balance)) {
+        return sum;
+      }
+      return sum + (balance < 0 ? Math.abs(balance) : balance);
+    }, 0);
+
+  const assetBalance = accounts
+    .filter((account) => !isLiabilityAccount(account))
+    .reduce((sum, account) => {
+      const balance = Number(account.balance ?? account.initialBalance ?? 0);
+      return Number.isFinite(balance) ? sum + balance : sum;
+    }, 0);
+
+  const netAssets = assetBalance - liabilities;
 
   const recentMonths = useMemo(
     () =>
@@ -579,7 +601,7 @@ export function DashboardPage() {
           <div className="stat-card stat-expense">
             <span className="stat-icon">📄</span>
             <div>
-              <h3>负债</h3>
+              <h3>欠款负债</h3>
               <strong className="stat-value">{formatCurrency(liabilities)}</strong>
             </div>
           </div>
@@ -608,7 +630,7 @@ export function DashboardPage() {
           />
         </section>
       ) : (
-        <div className="grid grid-2" style={{ marginTop: 16 }}>
+        <div className="grid grid-2 dashboard-main-grid" style={{ marginTop: 16 }}>
           <section className="panel">
             <header className="dashboard-panel-header">
               <div>

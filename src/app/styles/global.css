@@ -379,13 +379,14 @@ body {
 
 @media (min-width: 1440px) {
   .content {
-    max-width: 1360px;
+    max-width: none;
+    width: min(1680px, calc(100vw - var(--sidebar-width) - 48px));
   }
 }
 
 @media (min-width: 1920px) {
   .content {
-    max-width: 1560px;
+    width: min(1880px, calc(100vw - var(--sidebar-width) - 48px));
   }
 }
 
@@ -429,9 +430,20 @@ body {
    Grid Layouts
    ============================================================ */
 .grid { display: grid; gap: var(--space-4); }
-.grid-2 { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-.grid-3 { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-.grid-4 { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.grid-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.grid-4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+.dashboard-main-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (min-width: 1800px) {
+  .dashboard-main-grid {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  }
+}
 
 /* ============================================================
    Form Elements
@@ -2668,6 +2680,10 @@ small.mono {
   }
 
   .grid.grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-main-grid {
     grid-template-columns: 1fr;
   }
 }
