@@ -377,6 +377,18 @@ body {
   padding: var(--space-6);
 }
 
+@media (min-width: 1440px) {
+  .content {
+    max-width: 1360px;
+  }
+}
+
+@media (min-width: 1920px) {
+  .content {
+    max-width: 1560px;
+  }
+}
+
 /* ============================================================
    Card / Panel
    ============================================================ */
@@ -992,12 +1004,14 @@ small.mono {
   font-weight: 600;
   color: var(--color-text-secondary);
   display: inline-flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .dashboard-summary-main-amount {
-  display: block;
+  display: inline;
   font-size: clamp(26px, 5.2vw, 34px);
   line-height: 1.15;
   letter-spacing: 0.01em;
