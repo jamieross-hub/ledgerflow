@@ -100,8 +100,8 @@ export function ConnectionConfigForm({ initialValues, onSubmit, onCancel }: Conn
                   }
                 }}
               >
-                <option value="postgresql">PostgreSQL</option>
                 <option value="mysql">MySQL</option>
+                <option value="postgresql">PostgreSQL</option>
                 <option value="redis">Redis</option>
               </select>
             </div>

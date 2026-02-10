@@ -674,11 +674,6 @@ export function AssistantPage() {
               </div>
             ) : null}
           </div>
-          <div className="chat-topbar-actions">
-            <button type="button" className="chat-clear-btn" onClick={handleClearContext} disabled={messages.length <= 1}>
-              清除上下文
-            </button>
-          </div>
         </div>
         <div className="chat-topbar-right">
           <button type="button" className="chat-clear-btn" onClick={handleClearContext} disabled={messages.length <= 1}>

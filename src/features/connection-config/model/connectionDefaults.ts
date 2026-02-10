@@ -7,7 +7,7 @@ const DEFAULT_PORT: Record<ConnectionFormValues['type'], number> = {
 };
 
 export function getConnectionDefaults(
-  type: ConnectionFormValues['type'] = 'postgresql'
+  type: ConnectionFormValues['type'] = 'mysql'
 ): ConnectionFormValues {
   return {
     name: '',

@@ -55,6 +55,18 @@ function toSafeNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function buildSmoothPath(points: Array<{ x: number; y: number }>): string {
+  if (points.length < 2) return '';
+  const cmds: string[] = [`M ${points[0].x} ${points[0].y}`];
+  for (let i = 1; i < points.length; i += 1) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    const cx = (prev.x + curr.x) / 2;
+    cmds.push(`Q ${cx} ${prev.y}, ${curr.x} ${curr.y}`);
+  }
+  return cmds.join(' ');
+}
+
 const FORECAST_CACHE_KEY = 'dashboard_forecast_cache_v1';
 
 function normalizeForecastPayload(raw: unknown, fallback: number): ForecastPayload | null {
@@ -474,26 +486,17 @@ export function DashboardPage() {
 
   const historySegment = useMemo(() => {
     if (chartPoints.length < 2 || currentIndex < 1) return '';
-    return chartPoints
-      .slice(0, currentIndex)
-      .map((item) => `${item.x},${item.y}`)
-      .join(' ');
+    return buildSmoothPath(chartPoints.slice(0, currentIndex));
   }, [chartPoints, currentIndex]);
 
   const currentSegment = useMemo(() => {
     if (chartPoints.length < 2 || currentIndex < 1) return '';
-    return chartPoints
-      .slice(currentIndex - 1, currentIndex + 1)
-      .map((item) => `${item.x},${item.y}`)
-      .join(' ');
+    return buildSmoothPath(chartPoints.slice(currentIndex - 1, currentIndex + 1));
   }, [chartPoints, currentIndex]);
 
   const forecastSegment = useMemo(() => {
     if (chartPoints.length - currentIndex < 2) return '';
-    return chartPoints
-      .slice(currentIndex, chartPoints.length)
-      .map((item) => `${item.x},${item.y}`)
-      .join(' ');
+    return buildSmoothPath(chartPoints.slice(currentIndex, chartPoints.length));
   }, [chartPoints, currentIndex]);
 
   const monthlyStatusText =
@@ -713,14 +716,20 @@ export function DashboardPage() {
                   <line x1="24" y1="20" x2="24" y2="220" stroke="var(--color-border)" strokeWidth="1" />
                   <line x1="24" y1="220" x2="580" y2="220" stroke="var(--color-border)" strokeWidth="1" />
                   {historySegment ? (
-                    <polyline points={historySegment} className="history-line" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d={historySegment} className="history-line dashboard-forecast-path" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                   ) : null}
                   {currentSegment ? (
-                    <polyline points={currentSegment} className="current-line" fill="none" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d={currentSegment} className="current-line dashboard-forecast-path" fill="none" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
                   ) : null}
                   {forecastSegment ? (
-                    <polyline points={forecastSegment} className="forecast-line" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d={forecastSegment} className="forecast-line dashboard-forecast-path" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                   ) : null}
+                  {chartPoints.map((point, index) => (
+                    <g key={`point-${point.label}-${index}`} className="dashboard-forecast-point">
+                      <circle cx={point.x} cy={point.y} r={index === currentIndex ? 4.8 : 3.6} />
+                      <title>{`${point.label}：${formatCurrency(point.value)}`}</title>
+                    </g>
+                  ))}
                 </svg>
               </div>
               <div className="dashboard-forecast-axis-x" aria-label="时间轴">
@@ -755,7 +764,7 @@ export function DashboardPage() {
             {forecast?.suggestions?.length ? (
               <ul className="dashboard-future-suggestions">
                 {forecast.suggestions.map((item, index) => (
-                  <li key={`${item}-${index}`}>{item}</li>
+                  <li key={`${item}-${index}`} className="dashboard-future-focus-item">{item}</li>
                 ))}
               </ul>
             ) : null}

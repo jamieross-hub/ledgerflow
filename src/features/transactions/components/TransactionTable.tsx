@@ -7,7 +7,15 @@ import { TableSkeleton } from '../../../shared/ui/TableSkeleton';
 
 const NOTE_MAX_LENGTH = 22;
 
-export type TransactionSortKey = 'date' | 'type' | 'category' | 'account' | 'amount' | 'note';
+export type TransactionSortKey =
+  | 'date'
+  | 'type'
+  | 'category'
+  | 'account'
+  | 'amount'
+  | 'orderNo'
+  | 'merchantOrderNo'
+  | 'note';
 export type TransactionSortDirection = 'asc' | 'desc';
 
 export interface TransactionQuickFilters {
@@ -16,6 +24,8 @@ export interface TransactionQuickFilters {
   category: string;
   account: string;
   amount: string;
+  orderNo: string;
+  merchantOrderNo: string;
   note: string;
 }
 
@@ -39,7 +49,15 @@ export interface TransactionRowView {
   accountName: string;
 }
 
-export type TransactionColumnKey = 'date' | 'type' | 'category' | 'account' | 'amount' | 'note';
+export type TransactionColumnKey =
+  | 'date'
+  | 'type'
+  | 'category'
+  | 'account'
+  | 'amount'
+  | 'orderNo'
+  | 'merchantOrderNo'
+  | 'note';
 
 interface TransactionTableProps {
   rows: TransactionRowView[];
@@ -113,6 +131,8 @@ export function TransactionTable({
     { key: 'category', label: '分类' },
     { key: 'account', label: '账户' },
     { key: 'amount', label: '金额' },
+    { key: 'orderNo', label: '交易订单号' },
+    { key: 'merchantOrderNo', label: '商家订单号' },
     { key: 'note', label: '备注' }
   ];
 
@@ -246,6 +266,28 @@ export function TransactionTable({
                     </button>
                   </th>
                 ) : null}
+                {visibleColumns.orderNo ? (
+                  <th>
+                    <button
+                      type="button"
+                      className={`transaction-sort-btn ${sortKey === 'orderNo' ? 'active' : ''}`}
+                      onClick={() => onSortChange('orderNo')}
+                    >
+                      交易订单号 <span>{sortIndicator(sortKey === 'orderNo', sortDirection)}</span>
+                    </button>
+                  </th>
+                ) : null}
+                {visibleColumns.merchantOrderNo ? (
+                  <th>
+                    <button
+                      type="button"
+                      className={`transaction-sort-btn ${sortKey === 'merchantOrderNo' ? 'active' : ''}`}
+                      onClick={() => onSortChange('merchantOrderNo')}
+                    >
+                      商家订单号 <span>{sortIndicator(sortKey === 'merchantOrderNo', sortDirection)}</span>
+                    </button>
+                  </th>
+                ) : null}
                 {visibleColumns.note ? (
                   <th>
                     <button
@@ -313,6 +355,24 @@ export function TransactionTable({
                     />
                   </th>
                 ) : null}
+                {visibleColumns.orderNo ? (
+                  <th>
+                    <input
+                      value={quickFilters.orderNo}
+                      onChange={(event) => onQuickFilterChange('orderNo', event.target.value)}
+                      placeholder="筛选交易订单号"
+                    />
+                  </th>
+                ) : null}
+                {visibleColumns.merchantOrderNo ? (
+                  <th>
+                    <input
+                      value={quickFilters.merchantOrderNo}
+                      onChange={(event) => onQuickFilterChange('merchantOrderNo', event.target.value)}
+                      placeholder="筛选商家订单号"
+                    />
+                  </th>
+                ) : null}
                 {visibleColumns.note ? (
                   <th>
                     <input
@@ -372,6 +432,8 @@ export function TransactionTable({
                         {formatCurrency(item.amount)}
                       </td>
                     ) : null}
+                    {visibleColumns.orderNo ? <td>{item.orderNo || '-'}</td> : null}
+                    {visibleColumns.merchantOrderNo ? <td>{item.merchantOrderNo || '-'}</td> : null}
                     {visibleColumns.note ? (
                       <td>
                         <span title={note}>{truncateNote(note)}</span>
@@ -445,6 +507,11 @@ export function TransactionTable({
                         <strong>{formatCurrency(item.amount)}</strong>
                       </header>
                       <p>{note}</p>
+                      {(item.orderNo || item.merchantOrderNo) ? (
+                        <small>
+                          交易订单：{item.orderNo || '-'} · 商家订单：{item.merchantOrderNo || '-'}
+                        </small>
+                      ) : null}
                       <small>{formatDate(item.date)} · {categoryName} · {accountName}</small>
                     </div>
                     <button

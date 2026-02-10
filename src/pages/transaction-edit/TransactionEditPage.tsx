@@ -1,5 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { TransactionStatus } from '../../entities/transaction/types';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 
 const MAX_AMOUNT = 999999999.99;
@@ -85,6 +86,9 @@ export function TransactionEditPage() {
   });
   const [note, setNote] = useState(current?.note ?? '');
   const [tags, setTags] = useState(current?.tags.join(',') ?? '');
+  const [orderNo, setOrderNo] = useState(current?.orderNo ?? '');
+  const [merchantOrderNo, setMerchantOrderNo] = useState(current?.merchantOrderNo ?? '');
+  const [status, setStatus] = useState<TransactionStatus>(current?.status ?? 'completed');
   const [amountError, setAmountError] = useState('');
   const [dateError, setDateError] = useState('');
   const [formError, setFormError] = useState('');
@@ -125,7 +129,10 @@ export function TransactionEditPage() {
       date: dateResult.value,
       note,
       tags: parseTags(tags),
-      source: current?.source ?? 'manual'
+      source: current?.source ?? 'manual',
+      orderNo: orderNo.trim() || undefined,
+      merchantOrderNo: merchantOrderNo.trim() || undefined,
+      status
     };
 
     if (id) {
@@ -203,6 +210,31 @@ export function TransactionEditPage() {
             type="datetime-local"
           />
           {dateError ? <small className="error">{dateError}</small> : null}
+        </div>
+
+        <div className="field">
+          <label>交易订单号</label>
+          <input value={orderNo} onChange={(e) => setOrderNo(e.target.value)} placeholder="如：202602100001" />
+        </div>
+
+        <div className="field">
+          <label>商家订单号</label>
+          <input
+            value={merchantOrderNo}
+            onChange={(e) => setMerchantOrderNo(e.target.value)}
+            placeholder="如：MCH-20260210-01"
+          />
+        </div>
+
+        <div className="field">
+          <label>交易状态</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value as TransactionStatus)}>
+            <option value="pending">待处理</option>
+            <option value="completed">已完成</option>
+            <option value="refunded">已退款</option>
+            <option value="closed">已关闭</option>
+            <option value="failed">失败</option>
+          </select>
         </div>
 
         <div className="field">

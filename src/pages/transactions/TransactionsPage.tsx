@@ -31,6 +31,8 @@ const DEFAULT_QUICK_FILTERS: TransactionQuickFilters = {
   category: '',
   account: '',
   amount: '',
+  orderNo: '',
+  merchantOrderNo: '',
   note: ''
 };
 
@@ -40,6 +42,8 @@ const DEFAULT_VISIBLE_COLUMNS: Record<TransactionColumnKey, boolean> = {
   category: true,
   account: true,
   amount: true,
+  orderNo: true,
+  merchantOrderNo: true,
   note: true
 };
 
@@ -200,6 +204,8 @@ export function TransactionsPage() {
     const categoryFilter = quickFilters.category.trim().toLowerCase();
     const accountFilter = quickFilters.account.trim().toLowerCase();
     const amountFilter = quickFilters.amount.trim().toLowerCase();
+    const orderNoFilter = quickFilters.orderNo.trim().toLowerCase();
+    const merchantOrderNoFilter = quickFilters.merchantOrderNo.trim().toLowerCase();
     const noteFilter = quickFilters.note.trim().toLowerCase();
 
     return mappedRows.filter((row) => {
@@ -207,13 +213,26 @@ export function TransactionsPage() {
       const typePass = quickFilters.type === 'all' ? true : row.item.type === quickFilters.type;
       const categoryPass = !categoryFilter || row.categoryName.toLowerCase().includes(categoryFilter);
       const accountPass = !accountFilter || row.accountName.toLowerCase().includes(accountFilter);
+      const orderNoPass = !orderNoFilter || (row.item.orderNo || '').toLowerCase().includes(orderNoFilter);
+      const merchantOrderNoPass =
+        !merchantOrderNoFilter ||
+        (row.item.merchantOrderNo || '').toLowerCase().includes(merchantOrderNoFilter);
       const notePass = !noteFilter || (row.item.note || '').toLowerCase().includes(noteFilter);
       const amountPass =
         !amountFilter ||
         String(row.item.amount).toLowerCase().includes(amountFilter) ||
         formatCurrency(row.item.amount).toLowerCase().includes(amountFilter);
 
-      return (!dateFilter || dateText.includes(dateFilter)) && typePass && categoryPass && accountPass && notePass && amountPass;
+      return (
+        (!dateFilter || dateText.includes(dateFilter)) &&
+        typePass &&
+        categoryPass &&
+        accountPass &&
+        amountPass &&
+        orderNoPass &&
+        merchantOrderNoPass &&
+        notePass
+      );
     });
   }, [mappedRows, quickFilters]);
 
@@ -237,6 +256,12 @@ export function TransactionsPage() {
           break;
         case 'amount':
           compare = a.item.amount - b.item.amount;
+          break;
+        case 'orderNo':
+          compare = (a.item.orderNo || '').localeCompare(b.item.orderNo || '', 'zh-CN');
+          break;
+        case 'merchantOrderNo':
+          compare = (a.item.merchantOrderNo || '').localeCompare(b.item.merchantOrderNo || '', 'zh-CN');
           break;
         case 'note':
           compare = (a.item.note || '').localeCompare(b.item.note || '', 'zh-CN');
@@ -403,6 +428,8 @@ export function TransactionsPage() {
     quickFilters.category.trim().length > 0 ||
     quickFilters.account.trim().length > 0 ||
     quickFilters.amount.trim().length > 0 ||
+    quickFilters.orderNo.trim().length > 0 ||
+    quickFilters.merchantOrderNo.trim().length > 0 ||
     quickFilters.note.trim().length > 0;
 
   const handleQuickFilterChange = <K extends keyof TransactionQuickFilters>(key: K, value: TransactionQuickFilters[K]) => {
