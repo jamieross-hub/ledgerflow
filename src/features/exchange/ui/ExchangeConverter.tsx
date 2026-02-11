@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ExchangeRate } from '../model/types';
-import { getCurrencyName } from '../model/types';
+import { getCurrencyFlag, getCurrencyName } from '../model/types';
 
 interface ExchangeConverterProps {
   rates: ExchangeRate[];
@@ -10,28 +10,22 @@ interface ExchangeConverterProps {
 const KEYPAD = [
   'C',
   '⌫',
-  '(',
-  ')',
+  '÷',
+  '×',
   '7',
   '8',
   '9',
-  '÷',
+  '-',
   '4',
   '5',
   '6',
-  '×',
+  '+',
   '1',
   '2',
   '3',
-  '-',
-  '±',
+  '=',
   '0',
-  '.',
-  '+',
-  'x²',
-  '√x',
-  '1/x',
-  '='
+  '.'
 ] as const;
 
 function normalizeExpression(input: string): string {
@@ -49,7 +43,6 @@ function evaluateExpression(input: string): number | null {
   }
 
   try {
-    // eslint-disable-next-line no-new-func
     const result = Function(`"use strict"; return (${expression});`)() as unknown;
     if (typeof result !== 'number' || !Number.isFinite(result)) {
       return null;
@@ -110,39 +103,6 @@ export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
     });
   };
 
-  const applyUnary = (kind: 'square' | 'sqrt' | 'inv' | 'sign') => {
-    const current = evaluateExpression(expression);
-    if (current === null) {
-      setError('表达式无效，无法执行计算');
-      return;
-    }
-
-    let next = current;
-    if (kind === 'square') {
-      next = current * current;
-    }
-    if (kind === 'sqrt') {
-      if (current < 0) {
-        setError('负数无法开方');
-        return;
-      }
-      next = Math.sqrt(current);
-    }
-    if (kind === 'inv') {
-      if (current === 0) {
-        setError('0 无法作为除数');
-        return;
-      }
-      next = 1 / current;
-    }
-    if (kind === 'sign') {
-      next = -current;
-    }
-
-    setError('');
-    setExpression(prettyNumber(next));
-  };
-
   const applyEqual = () => {
     const value = evaluateExpression(expression);
     if (value === null) {
@@ -168,23 +128,6 @@ export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
       applyEqual();
       return;
     }
-    if (key === 'x²') {
-      applyUnary('square');
-      return;
-    }
-    if (key === '√x') {
-      applyUnary('sqrt');
-      return;
-    }
-    if (key === '1/x') {
-      applyUnary('inv');
-      return;
-    }
-    if (key === '±') {
-      applyUnary('sign');
-      return;
-    }
-
     appendToken(key);
   };
 
@@ -194,26 +137,42 @@ export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
 
       <div className="exchange-converter-row">
         <div className="exchange-converter-field">
-          <label>从</label>
-          <select value={fromCode} onChange={(e) => setFromCode(e.target.value)}>
+          <label htmlFor="exchange-from-code">从</label>
+          <select
+            id="exchange-from-code"
+            aria-label="从货币"
+            value={fromCode}
+            onChange={(e) => setFromCode(e.target.value)}
+          >
             {allCurrencies.map((code) => (
               <option key={code} value={code}>
-                {code} - {getCurrencyName(code)}
+                {getCurrencyFlag(code)} {code} - {getCurrencyName(code)}
               </option>
             ))}
           </select>
         </div>
 
-        <button className="exchange-swap-btn" type="button" onClick={swap} title="交换货币" aria-label="交换货币">
+        <button
+          className="exchange-swap-btn"
+          type="button"
+          onClick={swap}
+          title="交换货币"
+          aria-label="交换货币"
+        >
           ⇄
         </button>
 
         <div className="exchange-converter-field">
-          <label>到</label>
-          <select value={toCode} onChange={(e) => setToCode(e.target.value)}>
+          <label htmlFor="exchange-to-code">到</label>
+          <select
+            id="exchange-to-code"
+            aria-label="到货币"
+            value={toCode}
+            onChange={(e) => setToCode(e.target.value)}
+          >
             {allCurrencies.map((code) => (
               <option key={code} value={code}>
-                {code} - {getCurrencyName(code)}
+                {getCurrencyFlag(code)} {code} - {getCurrencyName(code)}
               </option>
             ))}
           </select>
@@ -221,7 +180,9 @@ export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
       </div>
 
       <div className="exchange-calculator">
-        <label>金额（{fromCode}）</label>
+        <label>
+          金额（{getCurrencyFlag(fromCode)} {fromCode}）
+        </label>
         <div className="exchange-calculator-screen mono-inline" aria-live="polite">
           {expression}
         </div>
@@ -230,14 +191,13 @@ export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
           {KEYPAD.map((key) => {
             const isNum = /^\d$/.test(key) || key === '.';
             const isOperator = ['÷', '×', '-', '+', '='].includes(key);
-            const isFn = ['(', ')', 'x²', '√x', '1/x', '±'].includes(key);
             const isDanger = key === 'C' || key === '⌫';
 
             return (
               <button
                 key={key}
                 type="button"
-                className={`exchange-key ${isNum ? 'exchange-key-num' : ''} ${isOperator ? 'exchange-key-op' : ''} ${isFn ? 'exchange-key-fn' : ''} ${isDanger ? 'exchange-key-danger' : ''} ${key === '=' ? 'exchange-key-equal primary' : ''}`.trim()}
+                className={`exchange-key ${isNum ? 'exchange-key-num' : ''} ${isOperator ? 'exchange-key-op' : ''} ${isDanger ? 'exchange-key-danger' : ''} ${key === '=' ? 'exchange-key-equal primary' : ''}`.trim()}
                 onClick={() => applyKey(key)}
               >
                 {key}
@@ -253,7 +213,8 @@ export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
 
       {fromRate > 0 && toRate > 0 && (
         <p className="exchange-converter-hint">
-          1 {fromCode} = {((1 / fromRate) * toRate).toFixed(6)} {toCode}
+          1 {getCurrencyFlag(fromCode)} {fromCode} = {((1 / fromRate) * toRate).toFixed(6)}{' '}
+          {getCurrencyFlag(toCode)} {toCode}
         </p>
       )}
     </section>

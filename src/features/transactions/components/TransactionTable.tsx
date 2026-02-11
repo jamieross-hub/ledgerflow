@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { TransactionItem } from '../../../entities/transaction/types';
 import { formatCurrency, formatDate } from '../../../shared/lib/format';
@@ -582,50 +583,53 @@ export function TransactionTable({
             })}
           </div>
 
-          {contextMenu ? (
-            <div
-              ref={contextMenuRef}
-              className="transaction-context-menu"
-              style={{ left: contextMenu.x, top: contextMenu.y }}
-              onClick={(event) => event.stopPropagation()}
-              aria-label="交易右键菜单"
-            >
-              <button
-                type="button"
-                className="transaction-context-item"
-                onClick={() => {
-                  navigate(`/transactions/${contextMenu.id}`);
-                  setContextMenu(null);
-                }}
-              >
-                编辑账单
-              </button>
-              <button
-                type="button"
-                className="transaction-context-item danger"
-                onClick={() => {
-                  onDelete(contextMenu.id);
-                  setContextMenu(null);
-                }}
-              >
-                删除账单
-              </button>
-              <div className="transaction-context-divider" />
-              <p className="transaction-context-title">列显示设置</p>
-              <div className="transaction-context-columns">
-                {columnOptions.map((option) => (
-                  <label key={`ctx-${option.key}`}>
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns[option.key]}
-                      onChange={() => onToggleColumn(option.key)}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ) : null}
+          {contextMenu
+            ? createPortal(
+                <div
+                  ref={contextMenuRef}
+                  className="transaction-context-menu"
+                  style={{ left: contextMenu.x, top: contextMenu.y }}
+                  onClick={(event) => event.stopPropagation()}
+                  aria-label="交易右键菜单"
+                >
+                  <button
+                    type="button"
+                    className="transaction-context-item"
+                    onClick={() => {
+                      navigate(`/transactions/${contextMenu.id}`);
+                      setContextMenu(null);
+                    }}
+                  >
+                    编辑账单
+                  </button>
+                  <button
+                    type="button"
+                    className="transaction-context-item danger"
+                    onClick={() => {
+                      onDelete(contextMenu.id);
+                      setContextMenu(null);
+                    }}
+                  >
+                    删除账单
+                  </button>
+                  <div className="transaction-context-divider" />
+                  <p className="transaction-context-title">列显示设置</p>
+                  <div className="transaction-context-columns">
+                    {columnOptions.map((option) => (
+                      <label key={`ctx-${option.key}`}>
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns[option.key]}
+                          onChange={() => onToggleColumn(option.key)}
+                        />
+                        <span>{option.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>,
+                document.body
+              )
+            : null}
 
           <div className="row" style={{ marginTop: 12, justifyContent: 'space-between' }}>
             <small style={{ color: 'var(--color-text-secondary)' }}>

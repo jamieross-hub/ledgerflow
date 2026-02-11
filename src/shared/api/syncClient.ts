@@ -12,6 +12,7 @@ export interface FinanceSyncData {
 export interface SyncLocalDataRequest {
   source: 'manual' | 'auto';
   strategy?: 'append' | 'upsert';
+  targetDbType?: 'postgresql' | 'mysql';
   data: FinanceSyncData;
 }
 
@@ -27,6 +28,7 @@ export interface SyncChangeRequest {
   action: 'insert' | 'update' | 'delete';
   row?: unknown;
   id?: string;
+  targetDbType?: 'postgresql' | 'mysql';
   happenedAt: string;
 }
 
@@ -61,7 +63,10 @@ function joinBaseAndPath(base: string, path: string) {
   if (!base) return normalizedPath;
 
   // 避免 /api + /api/** 变成 /api/api/**
-  if ((base === '/api' || base.endsWith('/api')) && (normalizedPath === '/api' || normalizedPath.startsWith('/api/'))) {
+  if (
+    (base === '/api' || base.endsWith('/api')) &&
+    (normalizedPath === '/api' || normalizedPath.startsWith('/api/'))
+  ) {
     const trimmed = normalizedPath.slice(4) || '/';
     return `${base}${trimmed}`;
   }
@@ -69,7 +74,11 @@ function joinBaseAndPath(base: string, path: string) {
   return `${base}${normalizedPath}`;
 }
 
-async function requestJson<T>(url: string, payload: unknown, method: 'POST' | 'PUT' = 'POST'): Promise<T> {
+async function requestJson<T>(
+  url: string,
+  payload: unknown,
+  method: 'POST' | 'PUT' = 'POST'
+): Promise<T> {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), ENV.requestTimeoutMs);
 
@@ -89,7 +98,10 @@ async function requestJson<T>(url: string, payload: unknown, method: 'POST' | 'P
 
     if (!response.ok) {
       const message = body.error || body.message || `HTTP ${response.status}`;
-      throw new HttpRequestError(response.status, body.detail ? `${message}：${body.detail}` : message);
+      throw new HttpRequestError(
+        response.status,
+        body.detail ? `${message}：${body.detail}` : message
+      );
     }
 
     return body as T;
@@ -137,7 +149,10 @@ async function requestWithFallback<T>(
     }
   }
 
-  if (lastError instanceof HttpRequestError && (lastError.status === 404 || lastError.status === 405)) {
+  if (
+    lastError instanceof HttpRequestError &&
+    (lastError.status === 404 || lastError.status === 405)
+  ) {
     const tested = attempts.join(' | ');
     throw new Error(`同步接口不可用（HTTP 404/405）。已尝试：${tested}`);
   }
@@ -145,7 +160,9 @@ async function requestWithFallback<T>(
   throw lastError instanceof Error ? lastError : new Error('同步请求失败');
 }
 
-export async function postSyncLocalData(payload: SyncLocalDataRequest): Promise<SyncLocalDataResponse> {
+export async function postSyncLocalData(
+  payload: SyncLocalDataRequest
+): Promise<SyncLocalDataResponse> {
   return requestWithFallback<SyncLocalDataResponse>(
     [
       ENV.syncLocalDataPath,

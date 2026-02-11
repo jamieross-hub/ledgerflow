@@ -3978,6 +3978,49 @@ small.mono {
   gap: var(--space-3);
 }
 
+.sync-reminder {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.sync-reminder p {
+  margin: 0;
+}
+
+.sync-reminder-soft {
+  background: var(--color-bg-subtle);
+  border-color: var(--color-border-light);
+}
+
+.sync-reminder-warn {
+  background: color-mix(in srgb, var(--color-warning-bg) 65%, var(--color-bg-elevated));
+  border-color: color-mix(in srgb, var(--color-warning) 38%, var(--color-border));
+}
+
+.sync-target-switch {
+  margin-top: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.sync-target-chip {
+  border-radius: var(--radius-full);
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+}
+
+.sync-target-chip.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
 .sync-progress {
   font-size: var(--font-sm);
   color: var(--color-text-secondary);
@@ -3997,6 +4040,15 @@ small.mono {
   .sync-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .sync-target-switch {
+    align-items: stretch;
+  }
+
+  .sync-target-chip {
+    width: 100%;
+    justify-content: center;
   }
 
   .debug-log-fab-wrap {

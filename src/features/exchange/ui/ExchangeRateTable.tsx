@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ExchangeRate } from '../model/types';
-import { getCurrencyName } from '../model/types';
+import { getCurrencyFlag, getCurrencyName } from '../model/types';
 
 interface ExchangeRateTableProps {
   rates: ExchangeRate[];
@@ -43,9 +43,7 @@ export function ExchangeRateTable({
 
   const keyword = search.trim().toLowerCase();
   const filtered = rates.filter(
-    (r) =>
-      r.code.toLowerCase().includes(keyword) ||
-      r.name.toLowerCase().includes(keyword)
+    (r) => r.code.toLowerCase().includes(keyword) || r.name.toLowerCase().includes(keyword)
   );
 
   // 收藏置顶
@@ -74,8 +72,7 @@ export function ExchangeRateTable({
           }}
         />
         <span className="exchange-meta">
-          基准: {base} ({getCurrencyName(base)})
-          {date ? ` · ${date}` : ''}
+          基准: {getCurrencyFlag(base)} {base} ({getCurrencyName(base)}){date ? ` · ${date}` : ''}
           {fromCache ? ' · 📦 缓存' : ''}
         </span>
         <button onClick={onRefresh} disabled={loading} title="刷新汇率">
@@ -87,7 +84,9 @@ export function ExchangeRateTable({
       {error && (
         <div className="exchange-error">
           ⚠️ {error}
-          <button onClick={onRefresh} style={{ marginLeft: 8 }}>重试</button>
+          <button onClick={onRefresh} style={{ marginLeft: 8 }}>
+            重试
+          </button>
         </div>
       )}
 
@@ -96,7 +95,7 @@ export function ExchangeRateTable({
         <thead>
           <tr>
             <th style={{ width: 40 }}>⭐</th>
-            <th>货币代码</th>
+            <th>货币</th>
             <th>货币名称</th>
             <th style={{ textAlign: 'right' }}>汇率 (1 {base})</th>
           </tr>
@@ -104,7 +103,10 @@ export function ExchangeRateTable({
         <tbody>
           {pageRows.length === 0 ? (
             <tr>
-              <td colSpan={4} style={{ textAlign: 'center', padding: 24, color: 'var(--color-text-tertiary)' }}>
+              <td
+                colSpan={4}
+                style={{ textAlign: 'center', padding: 24, color: 'var(--color-text-tertiary)' }}
+              >
                 {loading ? '加载中…' : '无匹配货币'}
               </td>
             </tr>
@@ -120,7 +122,9 @@ export function ExchangeRateTable({
                     {favorites.includes(r.code) ? '⭐' : '☆'}
                   </button>
                 </td>
-                <td className="mono-inline">{r.code}</td>
+                <td className="mono-inline">
+                  {getCurrencyFlag(r.code)} {r.code}
+                </td>
                 <td>{r.name}</td>
                 <td style={{ textAlign: 'right' }} className="mono-inline">
                   {r.rate.toFixed(r.rate < 1 ? 6 : 4)}
@@ -134,9 +138,15 @@ export function ExchangeRateTable({
       {/* 分页 */}
       {totalPages > 1 && (
         <div className="exchange-pagination">
-          <button disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>上一页</button>
-          <span>{safePage} / {totalPages}</span>
-          <button disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>下一页</button>
+          <button disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>
+            上一页
+          </button>
+          <span>
+            {safePage} / {totalPages}
+          </span>
+          <button disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>
+            下一页
+          </button>
         </div>
       )}
     </div>

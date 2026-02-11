@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { postSyncLocalData } from '../api/syncClient';
-import { hasEnabledPostgresConnection } from '../lib/dataSync';
+import { hasEnabledSqlConnection, resolveSyncTargetDbType } from '../lib/dataSync';
 import { useDebugLogStore } from './useDebugLogStore';
 import { useFinanceStore } from './useFinanceStore';
 
@@ -33,11 +33,21 @@ export const useSyncStore = create<SyncState>()((set) => ({
       progress: { synced: 0, total: 0 }
     }),
   syncToDatabase: async () => {
-    if (!hasEnabledPostgresConnection()) {
+    if (!hasEnabledSqlConnection()) {
       set({
         status: 'needs-config',
-        message: '请配置数据库连接后再同步数据',
-        detail: '请在上方连接配置区新增 PostgreSQL 连接并启用后重试。'
+        message: '当前未配置可用数据库连接',
+        detail: '可先继续本地记账，稍后在下方新增 MySQL / PostgreSQL 连接再一键迁移历史数据。'
+      });
+      return;
+    }
+
+    const targetDbType = resolveSyncTargetDbType();
+    if (!targetDbType) {
+      set({
+        status: 'needs-config',
+        message: '当前未配置可用数据库连接',
+        detail: '请先启用一个 MySQL 或 PostgreSQL 连接。'
       });
       return;
     }
@@ -61,6 +71,7 @@ export const useSyncStore = create<SyncState>()((set) => ({
       const result = await postSyncLocalData({
         source: 'manual',
         strategy: 'upsert',
+        targetDbType,
         data
       });
 
@@ -72,14 +83,16 @@ export const useSyncStore = create<SyncState>()((set) => ({
       set({
         status: 'success',
         message: '数据同步成功',
-        detail: result.message || '本地数据已写入 PostgreSQL',
+        detail:
+          result.message ||
+          `本地数据已写入 ${targetDbType === 'postgresql' ? 'PostgreSQL' : 'MySQL'}`,
         progress: { synced, total }
       });
 
       useDebugLogStore.getState().addLog({
         action: '手动同步',
         status: 'success',
-        dbType: 'postgresql',
+        dbType: targetDbType,
         message: `同步成功：${synced}/${total} 条记录`
       });
     } catch (error) {
@@ -93,7 +106,7 @@ export const useSyncStore = create<SyncState>()((set) => ({
       useDebugLogStore.getState().addLog({
         action: '手动同步',
         status: 'error',
-        dbType: 'postgresql',
+        dbType: targetDbType,
         message
       });
     }

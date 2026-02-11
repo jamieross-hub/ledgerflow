@@ -62,6 +62,47 @@ export const CURRENCY_NAMES: Record<string, string> = {
   ISK: '冰岛克朗'
 };
 
+/** 货币代码与国家/地区旗帜映射（用于 UI 展示） */
+const CURRENCY_FLAGS: Record<string, string> = {
+  USD: '🇺🇸',
+  EUR: '🇪🇺',
+  GBP: '🇬🇧',
+  JPY: '🇯🇵',
+  CNY: '🇨🇳',
+  HKD: '🇭🇰',
+  TWD: '🇹🇼',
+  KRW: '🇰🇷',
+  SGD: '🇸🇬',
+  AUD: '🇦🇺',
+  CAD: '🇨🇦',
+  CHF: '🇨🇭',
+  NZD: '🇳🇿',
+  THB: '🇹🇭',
+  INR: '🇮🇳',
+  MYR: '🇲🇾',
+  PHP: '🇵🇭',
+  IDR: '🇮🇩',
+  SEK: '🇸🇪',
+  NOK: '🇳🇴',
+  DKK: '🇩🇰',
+  PLN: '🇵🇱',
+  CZK: '🇨🇿',
+  HUF: '🇭🇺',
+  TRY: '🇹🇷',
+  ZAR: '🇿🇦',
+  BRL: '🇧🇷',
+  MXN: '🇲🇽',
+  ILS: '🇮🇱',
+  RON: '🇷🇴',
+  BGN: '🇧🇬',
+  ISK: '🇮🇸'
+};
+
+/** 获取货币国旗，无映射时返回 🌐 */
+export function getCurrencyFlag(code: string): string {
+  return CURRENCY_FLAGS[code] || '🌐';
+}
+
 /** 获取货币中文名，无映射时返回代码本身 */
 export function getCurrencyName(code: string): string {
   return CURRENCY_NAMES[code] || code;

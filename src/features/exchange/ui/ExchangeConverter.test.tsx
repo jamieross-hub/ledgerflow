@@ -24,7 +24,7 @@ describe('ExchangeConverter', () => {
     fireEvent.click(swapBtn);
 
     const result = screen.getByLabelText('换算结果').textContent;
-    expect(result).toMatch(/7\.1428/);
+    expect(result).toMatch(/7\.1429/);
   });
 
   it('计算器键盘可输入表达式并实时换算', () => {
@@ -41,15 +41,20 @@ describe('ExchangeConverter', () => {
     expect(screen.getByLabelText('换算结果').textContent).toContain('2.1000');
   });
 
-  it('应支持基础科学计算按键', () => {
+  it('应保持简单键盘，仅支持加减乘除', () => {
     render(<ExchangeConverter rates={mockRates} base="CNY" />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'C' }));
-    fireEvent.click(screen.getByRole('button', { name: '9' }));
-    fireEvent.click(screen.getByRole('button', { name: '√x' }));
-    expect(screen.getByText('3')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '√x' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'x²' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '1/x' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '±' })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'x²' }));
-    expect(screen.getByText('9')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'C' }));
+    fireEvent.click(screen.getByRole('button', { name: '8' }));
+    fireEvent.click(screen.getByRole('button', { name: '÷' }));
+    fireEvent.click(screen.getByRole('button', { name: '4' }));
+    fireEvent.click(screen.getByRole('button', { name: '=' }));
+
+    expect(screen.getByText('2', { selector: '.exchange-calculator-screen' })).toBeTruthy();
   });
 });
