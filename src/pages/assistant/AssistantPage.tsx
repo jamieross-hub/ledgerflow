@@ -7,6 +7,9 @@ import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { Toast } from '../../shared/ui/Toast';
 
+/**
+ * 将内部状态机状态映射为顶部可读文案。
+ */
 function statusText(status: ReturnType<typeof useAssistantWorkbench>['status']): string {
   switch (status) {
     case 'idle':
@@ -28,6 +31,10 @@ function statusText(status: ReturnType<typeof useAssistantWorkbench>['status']):
   }
 }
 
+/**
+ * 仅做最轻量的行内 Markdown 渲染：当前支持 **加粗**。
+ * 这里不用第三方解析器，避免引入额外依赖与 XSS 风险面。
+ */
 function renderInlineMarkdown(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   const strongRegex = /\*\*(.+?)\*\*/g;
@@ -44,6 +51,13 @@ function renderInlineMarkdown(text: string): ReactNode[] {
   return nodes;
 }
 
+/**
+ * 将模型返回文本按“段落/标题/列表”切分并转为 React 节点。
+ * 支持：
+ * - # / ## / ### 标题
+ * - - / * 无序列表
+ * - 1. 2. 有序列表（统一渲染为列表项）
+ */
 function renderMarkdownContent(raw: string): ReactNode[] {
   const lines = raw.split(/\n/);
   const nodes: ReactNode[] = [];
@@ -131,11 +145,13 @@ export function AssistantPage() {
   const [modelOpen, setModelOpen] = useState(false);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
 
+  // 仅保留“被勾选且通过校验”的条目，作为一键保存候选。
   const selectedValidEntries = useMemo(
     () => wb.entries.filter((item) => item.selected && item.issues.length === 0),
     [wb.entries]
   );
 
+  // 预览卡片需要的 JSON 结构，避免在渲染阶段重复构造。
   const previewPayload = useMemo(
     () => ({
       transactions: selectedValidEntries.map((item) => ({
@@ -153,6 +169,7 @@ export function AssistantPage() {
     [selectedValidEntries]
   );
 
+  // 每次状态或消息变化后，自动将视图滚动到底部，保持聊天体验。
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [wb.status, wb.rawContent, wb.rawReasoning, wb.entries.length, wb.error]);
@@ -168,6 +185,7 @@ export function AssistantPage() {
     void wb.handleRecognize(event as unknown as FormEvent);
   };
 
+  // 非记账分析时，模型返回自由文本，解析 JSON 失败属于预期，不展示底部红条。
   const shouldShowError =
     Boolean(wb.error) && !/unexpected token|invalid json|json/i.test(wb.error.toLowerCase());
 

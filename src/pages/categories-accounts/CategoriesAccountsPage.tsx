@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
-import { formatCurrency } from '../../shared/lib/format';
+import { formatCurrencyFixed2 } from '../../shared/lib/format';
 import { EmptyState } from '../../shared/ui/EmptyState';
 import { LoadingSkeleton } from '../../shared/ui/LoadingSkeleton';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
@@ -285,7 +285,7 @@ export function CategoriesAccountsPage() {
           <h2>账户管理</h2>
           <div className="categories-accounts-metrics" aria-label="账户统计">
             <span className="metric-chip metric-chip-highlight">
-              当前总余额 <strong>{formatCurrency(totalBalance)}</strong>
+              当前总余额 <strong>{formatCurrencyFixed2(totalBalance)}</strong>
             </span>
             <span className="metric-chip">
               负余额 <strong>{negativeAccounts}</strong>
@@ -356,12 +356,12 @@ export function CategoriesAccountsPage() {
                           : 'account-card-balance-positive'
                       }`}
                     >
-                      {formatCurrency(item.computedBalance)}
+                      {formatCurrencyFixed2(item.computedBalance)}
                     </span>
                   </header>
 
                   <div className="account-card-meta">
-                    <span>初始：{formatCurrency(item.initialBalance ?? 0)}</span>
+                    <span>初始：{formatCurrencyFixed2(item.initialBalance ?? 0)}</span>
                     <span>按交易自动汇总</span>
                   </div>
 

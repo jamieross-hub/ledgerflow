@@ -33,6 +33,65 @@ const defaultAccounts: Account[] = [
 
 const defaultTransactions: TransactionItem[] = [];
 
+function normalizeCategoryName(raw: string): string {
+  return String(raw || '')
+    .replace(/[\u00A0\u3000]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function categoryNameKey(raw: string): string {
+  return normalizeCategoryName(raw).toLocaleLowerCase('zh-CN');
+}
+
+function sanitizeCategoriesAndTransactions(
+  categories: Category[],
+  transactions: TransactionItem[]
+): {
+  categories: Category[];
+  transactions: TransactionItem[];
+} {
+  const mergedCategories: Category[] = [];
+  const canonicalByKey = new Map<string, Category>();
+  const categoryIdAlias = new Map<string, string>();
+
+  categories.forEach((item) => {
+    const normalizedName = normalizeCategoryName(item.name);
+    if (!normalizedName) {
+      return;
+    }
+    const key = categoryNameKey(normalizedName);
+    const found = canonicalByKey.get(key);
+    if (found) {
+      categoryIdAlias.set(item.id, found.id);
+      return;
+    }
+    const normalizedRow = { ...item, name: normalizedName };
+    canonicalByKey.set(key, normalizedRow);
+    mergedCategories.push(normalizedRow);
+  });
+
+  const fallbackCategoryId = mergedCategories[0]?.id;
+  const nextTransactions = transactions.map((tx) => {
+    const remappedCategoryId = categoryIdAlias.get(tx.categoryId);
+    if (remappedCategoryId) {
+      return { ...tx, categoryId: remappedCategoryId };
+    }
+    if (tx.categoryId && mergedCategories.some((category) => category.id === tx.categoryId)) {
+      return tx;
+    }
+    if (fallbackCategoryId) {
+      return { ...tx, categoryId: fallbackCategoryId };
+    }
+    return tx;
+  });
+
+  return {
+    categories: mergedCategories,
+    transactions: nextTransactions
+  };
+}
+
 function computeAccountBalances(accounts: Account[], transactions: TransactionItem[]): Account[] {
   return accounts.map((account) => {
     const base = Number(account.initialBalance ?? 0);
@@ -96,10 +155,39 @@ export const useFinanceStore = create<FinanceState>()(
         void syncChangeIfNeeded({ entity: 'transactions', action: 'delete', id });
       },
       addCategory: (name) => {
-        const row = { id: generateId(), name: name.trim() };
-        set((s) => ({ categories: [...s.categories, row] }));
-        void syncChangeIfNeeded({ entity: 'categories', action: 'insert', row });
-        return row.id;
+        const normalizedName = normalizeCategoryName(name);
+        if (!normalizedName) {
+          return defaultCategories[0]?.id || 'cat-unknown';
+        }
+
+        let insertedRow: Category | null = null;
+        let resolvedId = defaultCategories[0]?.id || 'cat-unknown';
+
+        set((s) => {
+          const key = categoryNameKey(normalizedName);
+          const existing = s.categories.find((item) => categoryNameKey(item.name) === key);
+          if (existing) {
+            resolvedId = existing.id;
+            return s;
+          }
+
+          insertedRow = { id: generateId(), name: normalizedName };
+          resolvedId = insertedRow.id;
+          const compacted = sanitizeCategoriesAndTransactions(
+            [...s.categories, insertedRow],
+            s.transactions
+          );
+          return {
+            categories: compacted.categories,
+            transactions: compacted.transactions
+          };
+        });
+
+        if (insertedRow) {
+          void syncChangeIfNeeded({ entity: 'categories', action: 'insert', row: insertedRow });
+        }
+
+        return resolvedId;
       },
       removeCategory: (id) => {
         set((s) => ({ categories: s.categories.filter((item) => item.id !== id) }));
@@ -161,6 +249,30 @@ export const useFinanceStore = create<FinanceState>()(
         void syncChangeIfNeeded({ entity: 'accounts', action: 'delete', id });
       }
     }),
-    { name: 'ledgerflow-finance' }
+    {
+      name: 'ledgerflow-finance',
+      version: 2,
+      merge: (persistedState, currentState) => {
+        const incoming = (persistedState as Partial<FinanceState>) || {};
+        const categories = Array.isArray(incoming.categories)
+          ? incoming.categories
+          : currentState.categories;
+        const transactions = Array.isArray(incoming.transactions)
+          ? incoming.transactions
+          : currentState.transactions;
+        const compacted = sanitizeCategoriesAndTransactions(categories, transactions);
+
+        return {
+          ...currentState,
+          ...incoming,
+          categories: compacted.categories,
+          transactions: compacted.transactions,
+          accounts: computeAccountBalances(
+            Array.isArray(incoming.accounts) ? incoming.accounts : currentState.accounts,
+            compacted.transactions
+          )
+        };
+      }
+    }
   )
 );

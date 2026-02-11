@@ -6,6 +6,16 @@ export function formatCurrency(value: number) {
   }).format(value);
 }
 
+/** 货币格式化（固定两位小数） */
+export function formatCurrencyFixed2(value: number) {
+  return new Intl.NumberFormat('zh-CN', {
+    style: 'currency',
+    currency: 'CNY',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value);
+}
+
 /** 格式化日期（仅日期） */
 export function formatDate(value: string) {
   return new Intl.DateTimeFormat('zh-CN').format(new Date(value));

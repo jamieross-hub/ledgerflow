@@ -23,6 +23,7 @@ import {
 } from './workbenchMapping';
 import type { AssistantToastState, DraftBillEntry, WorkbenchStatus } from './workbenchTypes';
 
+/** 模型列表本地缓存 key：用于启动时秒开下拉列表。 */
 const MODEL_CACHE_KEY = 'ledgerflow-assistant-model-cache-v1';
 
 interface UseAssistantWorkbenchInput {
@@ -36,6 +37,12 @@ interface UseAssistantWorkbenchInput {
   addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
 }
 
+/**
+ * Assistant 核心工作流 Hook：
+ * - 管理输入（文本/图片）、识别状态、预览与保存
+ * - 管理模型拉取与本地缓存
+ * - 统一输出 UI 所需行为与状态
+ */
 export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
   const { addLog } = useDebugLogStore();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -64,12 +71,14 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     [input.transactions, input.categories, input.accounts]
   );
 
+  // 根据当前输入与结果条目，自动维护主状态机。
   useEffect(() => {
     if (status === 'recognizing' || status === 'saving' || status === 'preview') return;
     if (entries.length > 0) return setStatus('preview');
     setStatus(hasInput ? 'ready' : 'idle');
   }, [status, hasInput, entries.length]);
 
+  // 首次加载：尝试从本地缓存恢复模型列表（失败不阻塞主流程）。
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(MODEL_CACHE_KEY);
@@ -111,6 +120,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     for (const file of files) await handleSetImage(file);
   };
 
+  // 主动刷新模型：远端拉取成功后同步覆盖本地缓存。
   const handleLoadModels = async () => {
     if (!hasApiKey) return setError('请先填写 API Key');
     setLoadingModels(true);
@@ -131,6 +141,12 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     }
   };
 
+  /**
+   * 识别入口：
+   * 1) 组装系统提示词 + 交易快照上下文
+   * 2) 请求模型并回写原始内容
+   * 3) 尝试提取 JSON 账单；若失败则按“纯分析文本”处理
+   */
   const handleRecognize = async (event: FormEvent) => {
     event.preventDefault();
     if (!canRecognize) return;
@@ -149,6 +165,9 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       setRawContent(reply.content);
       setRawReasoning(reply.reasoning || '');
 
+      // 兼容两类场景：
+      // - 记账：返回 JSON 可落库
+      // - 分析：返回普通文本（JSON 解析失败视为预期）
       let parsed = null;
       try {
         parsed = normalizeAiBill(JSON.parse(extractJsonString(reply.content)) as unknown);
@@ -196,6 +215,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
 
   const removeEntry = (id: string) => setEntries((prev) => prev.filter((item) => item.id !== id));
 
+  /** 将当前勾选且校验通过的草稿条目写入账本。 */
   const saveSelected = () => {
     const rows = entries.filter((item) => item.selected && item.issues.length === 0);
     if (rows.length === 0)
