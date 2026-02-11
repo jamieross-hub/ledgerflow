@@ -631,6 +631,9 @@ button.danger:hover:not(:disabled) {
 }
 
 .transaction-filters-panel {
+  position: relative;
+  z-index: 120;
+  isolation: isolate;
   overflow: visible;
 }
 
@@ -673,7 +676,7 @@ button.danger:hover:not(:disabled) {
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  z-index: 60;
+  z-index: 160;
   min-width: 240px;
   max-width: min(92vw, 360px);
   padding: var(--space-3);
@@ -699,6 +702,7 @@ button.danger:hover:not(:disabled) {
     transform: translateX(-50%);
     width: min(92vw, 420px);
     max-width: 92vw;
+    z-index: 180;
   }
 }
 
@@ -909,6 +913,8 @@ tr:hover td {
 }
 
 .transaction-table-wrap {
+  position: relative;
+  z-index: 1;
   overflow-x: auto;
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
