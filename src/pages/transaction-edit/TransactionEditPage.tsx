@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { TransactionStatus } from '../../entities/transaction/types';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
@@ -76,7 +76,9 @@ export function TransactionEditPage() {
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
 
   const current = useMemo(() => transactions.find((item) => item.id === id), [transactions, id]);
-  const [type, setType] = useState<'income' | 'expense' | 'budget' | 'repayment'>(current?.type ?? 'expense');
+  const [type, setType] = useState<'income' | 'expense' | 'budget' | 'repayment'>(
+    current?.type ?? 'expense'
+  );
   const [categoryId, setCategoryId] = useState(current?.categoryId ?? categories[0]?.id ?? '');
   const [accountId, setAccountId] = useState(current?.accountId ?? accounts[0]?.id ?? '');
   const [amount, setAmount] = useState(String(current?.amount ?? ''));
@@ -92,6 +94,23 @@ export function TransactionEditPage() {
   const [amountError, setAmountError] = useState('');
   const [dateError, setDateError] = useState('');
   const [formError, setFormError] = useState('');
+
+  const handleBack = useCallback(() => {
+    navigate('/transactions');
+  }, [navigate]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+      event.preventDefault();
+      handleBack();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleBack]);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -145,11 +164,22 @@ export function TransactionEditPage() {
 
   return (
     <section className="panel">
+      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
+        <button type="button" onClick={handleBack} aria-label="返回交易列表">
+          ← 返回
+        </button>
+        <small style={{ color: 'var(--color-text-secondary)' }}>按 Esc 快速返回</small>
+      </div>
       <h2>{id ? '编辑账目' : '新增账目'}</h2>
       <form onSubmit={handleSubmit}>
         <div className="field">
           <label>类型</label>
-          <select value={type} onChange={(e) => setType(e.target.value as 'income' | 'expense' | 'budget' | 'repayment')}>
+          <select
+            value={type}
+            onChange={(e) =>
+              setType(e.target.value as 'income' | 'expense' | 'budget' | 'repayment')
+            }
+          >
             <option value="expense">支出</option>
             <option value="income">收入</option>
             <option value="budget">预算</option>
@@ -214,7 +244,11 @@ export function TransactionEditPage() {
 
         <div className="field">
           <label>交易订单号</label>
-          <input value={orderNo} onChange={(e) => setOrderNo(e.target.value)} placeholder="如：202602100001" />
+          <input
+            value={orderNo}
+            onChange={(e) => setOrderNo(e.target.value)}
+            placeholder="如：202602100001"
+          />
         </div>
 
         <div className="field">
