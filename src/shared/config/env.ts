@@ -1,19 +1,18 @@
-const configuredApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
-const hasConfiguredApiBaseUrl = configuredApiBaseUrl.length > 0;
-const rawApiBaseUrl = hasConfiguredApiBaseUrl ? configuredApiBaseUrl : '/api';
+const DEFAULT_API_BASE_URL = '/api';
 
 function normalizeApiBaseUrl(url: string) {
-  if (!url) return '/api';
+  if (!url) return DEFAULT_API_BASE_URL;
   const normalized = url.endsWith('/') ? url.slice(0, -1) : url;
-  return normalized || '/api';
+  return normalized || DEFAULT_API_BASE_URL;
 }
+
+const resolvedApiBaseUrl = normalizeApiBaseUrl(DEFAULT_API_BASE_URL);
 
 export const ENV = {
   /**
-   * 兼容模式：优先直连远程后端域名；未配置时回退到本地 /api 代理。
+   * Web 同域代理模式：固定走 /api，不依赖前端填写或环境变量中的后端地址。
    */
-  apiBaseUrl: normalizeApiBaseUrl(rawApiBaseUrl),
-  hasConfiguredApiBaseUrl,
+  apiBaseUrl: resolvedApiBaseUrl,
   requestTimeoutMs: Number(import.meta.env.VITE_REQUEST_TIMEOUT_MS || 8000),
   logLevel: import.meta.env.VITE_LOG_LEVEL || 'info',
   aiBaseUrl: import.meta.env.VITE_AI_BASE_URL || 'https://ai.shuaihong.fun/v1',

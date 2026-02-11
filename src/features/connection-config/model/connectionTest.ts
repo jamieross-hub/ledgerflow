@@ -1,8 +1,6 @@
 import { ConnectionFormValues, connectionFormSchema } from './connectionFormSchema';
 import { ConnectionTestResult } from '../../../entities/connection/types';
 import { postConnectionTest } from '../../../shared/api/connectionClient';
-import { ENV } from '../../../shared/config/env';
-import { saveConnection } from './connectionStorage';
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
   return new Promise<T>((resolve, reject) => {
@@ -31,27 +29,12 @@ async function testByProxy(config: ConnectionFormValues): Promise<ConnectionTest
   };
 }
 
-async function testByLocal(config: ConnectionFormValues): Promise<ConnectionTestResult> {
-  const start = performance.now();
+export async function testConnection(config: ConnectionFormValues) {
   const parsed = connectionFormSchema.safeParse(config);
   if (!parsed.success) {
     const first = parsed.error.issues[0];
-    throw new Error(first?.message || '请先完善连接配置，再保存使用');
+    throw new Error(first?.message || '请先完善连接配置后再测试连接');
   }
 
-  const saved = saveConnection(parsed.data);
-
-  return {
-    ok: true,
-    message: '未配置后端接口，已自动保存到本地，可立即使用',
-    elapsedMs: Math.round(performance.now() - start),
-    detail: `[local-mode] saved connection: ${saved.name} (${saved.type})`
-  };
-}
-
-export async function testConnection(config: ConnectionFormValues) {
-  if (!ENV.hasConfiguredApiBaseUrl) {
-    return testByLocal(config);
-  }
-  return testByProxy(config);
+  return testByProxy(parsed.data);
 }

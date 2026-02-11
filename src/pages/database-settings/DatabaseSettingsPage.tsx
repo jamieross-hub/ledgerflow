@@ -63,6 +63,7 @@ export function DatabaseSettingsPage() {
           <li>推荐仅填写：名称、数据库类型、Host、Port、数据库名、用户名、密码。</li>
           <li>高级参数默认收起，普通场景无需调整。</li>
           <li>前端会优先使用你选择的目标数据库类型进行同步。</li>
+          <li>无需填写后端地址：Web 端固定通过同域 /api 调用连接测试与同步接口。</li>
         </ul>
       </section>
 
