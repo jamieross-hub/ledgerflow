@@ -29,9 +29,12 @@ export function CategoriesAccountsPage() {
   const [pendingDeleteAccountId, setPendingDeleteAccountId] = useState<string | null>(null);
   const [editingBalances, setEditingBalances] = useState<Record<string, string>>({});
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [showAllTags, setShowAllTags] = useState(false);
   const [showAllAccounts, setShowAllAccounts] = useState(false);
 
-  const COLLAPSE_THRESHOLD = 8;
+  const CATEGORY_COLLAPSE_THRESHOLD = 3;
+  const TAG_COLLAPSE_THRESHOLD = 3;
+  const ACCOUNT_COLLAPSE_THRESHOLD = 8;
 
   useEffect(() => {
     const timer = window.setTimeout(() => setLoading(false), 120);
@@ -89,16 +92,22 @@ export function CategoriesAccountsPage() {
   }, [transactions]);
 
   const displayCategories = useMemo(
-    () => (showAllCategories ? categories : categories.slice(0, COLLAPSE_THRESHOLD)),
+    () => (showAllCategories ? categories : categories.slice(0, CATEGORY_COLLAPSE_THRESHOLD)),
     [categories, showAllCategories]
   );
 
+  const displayTags = useMemo(
+    () => (showAllTags ? tagGroups : tagGroups.slice(0, TAG_COLLAPSE_THRESHOLD)),
+    [tagGroups, showAllTags]
+  );
+
   const displayAccounts = useMemo(
-    () => (showAllAccounts ? accounts : accounts.slice(0, COLLAPSE_THRESHOLD)),
+    () => (showAllAccounts ? accounts : accounts.slice(0, ACCOUNT_COLLAPSE_THRESHOLD)),
     [accounts, showAllAccounts]
   );
 
   const hiddenCategoryCount = Math.max(0, categories.length - displayCategories.length);
+  const hiddenTagCount = Math.max(0, tagGroups.length - displayTags.length);
   const hiddenAccountCount = Math.max(0, accounts.length - displayAccounts.length);
 
   const accountBalanceMap = useMemo(() => {
@@ -218,7 +227,7 @@ export function CategoriesAccountsPage() {
                 </li>
               ))}
             </ul>
-            {categories.length > COLLAPSE_THRESHOLD ? (
+            {categories.length > CATEGORY_COLLAPSE_THRESHOLD ? (
               <div className="row" style={{ justifyContent: 'space-between', marginTop: 10 }}>
                 <small style={{ color: 'var(--color-text-secondary)' }}>
                   已显示 {displayCategories.length}/{categories.length}
@@ -239,10 +248,9 @@ export function CategoriesAccountsPage() {
             icon="🏷️"
           />
         ) : (
-          <details open>
-            <summary className="tag-fold-summary">查看全部标签（{tagGroups.length}）</summary>
+          <>
             <ul className="categories-list">
-              {tagGroups.map((tag) => (
+              {displayTags.map((tag) => (
                 <li key={tag.key} className="row categories-row">
                   <span style={{ flex: 1 }}>
                     #{tag.label}
@@ -258,7 +266,17 @@ export function CategoriesAccountsPage() {
                 </li>
               ))}
             </ul>
-          </details>
+            {tagGroups.length > TAG_COLLAPSE_THRESHOLD ? (
+              <div className="row" style={{ justifyContent: 'space-between', marginTop: 10 }}>
+                <small style={{ color: 'var(--color-text-secondary)' }}>
+                  已显示 {displayTags.length}/{tagGroups.length}
+                </small>
+                <button type="button" onClick={() => setShowAllTags((prev) => !prev)}>
+                  {showAllTags ? '收起' : `展开剩余 ${hiddenTagCount} 项`}
+                </button>
+              </div>
+            ) : null}
+          </>
         )}
       </section>
 
@@ -370,7 +388,7 @@ export function CategoriesAccountsPage() {
               ))}
             </div>
 
-            {accounts.length > COLLAPSE_THRESHOLD ? (
+            {accounts.length > ACCOUNT_COLLAPSE_THRESHOLD ? (
               <div className="row" style={{ justifyContent: 'space-between', marginTop: 10 }}>
                 <small style={{ color: 'var(--color-text-secondary)' }}>
                   已显示 {displayAccounts.length}/{accounts.length}
