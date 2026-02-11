@@ -15,9 +15,14 @@ interface FinanceState {
   removeTransaction: (id: string) => void;
   addCategory: (name: string) => string;
   removeCategory: (id: string) => void;
-  addAccount: (name: string, type?: Account['type'], initialBalance?: number) => void;
+  addAccount: (name: string, type?: Account['type'], initialBalance?: number) => string;
   updateAccountBalance: (id: string, balance: number) => void;
   removeAccount: (id: string) => void;
+  replaceAllData: (payload: {
+    transactions: TransactionItem[];
+    categories: Category[];
+    accounts: Account[];
+  }) => void;
 }
 
 const defaultCategories: Category[] = [
@@ -206,6 +211,7 @@ export const useFinanceStore = create<FinanceState>()(
           return { accounts };
         });
         void syncChangeIfNeeded({ entity: 'accounts', action: 'insert', row });
+        return row.id;
       },
       updateAccountBalance: (id, balance) => {
         let updatedRow: Account | null = null;
@@ -247,6 +253,22 @@ export const useFinanceStore = create<FinanceState>()(
       removeAccount: (id) => {
         set((s) => ({ accounts: s.accounts.filter((item) => item.id !== id) }));
         void syncChangeIfNeeded({ entity: 'accounts', action: 'delete', id });
+      },
+      replaceAllData: (payload) => {
+        const incomingCategories = Array.isArray(payload.categories) ? payload.categories : [];
+        const incomingTransactions = Array.isArray(payload.transactions)
+          ? payload.transactions
+          : [];
+        const incomingAccounts = Array.isArray(payload.accounts) ? payload.accounts : [];
+        const compacted = sanitizeCategoriesAndTransactions(
+          incomingCategories,
+          incomingTransactions
+        );
+        set(() => ({
+          categories: compacted.categories,
+          transactions: compacted.transactions,
+          accounts: computeAccountBalances(incomingAccounts, compacted.transactions)
+        }));
       }
     }),
     {

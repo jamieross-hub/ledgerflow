@@ -42,7 +42,7 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
 const logoMenuItems = [
   { to: '/settings', label: '设置', icon: '⚙️' },
   { to: '/about', label: '关于', icon: 'ℹ️' },
-  { to: '/database-settings', label: '数据库设置', icon: '🗄️' }
+  { to: '/database-settings', label: '备份设置', icon: '🗄️' }
 ];
 
 const SIDEBAR_COLLAPSED_WIDTH = 76;
@@ -125,7 +125,9 @@ export function AppLayout() {
   return (
     <div
       className="layout-shell"
-      style={{ ['--sidebar-width' as string]: `${collapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth}px` }}
+      style={{
+        ['--sidebar-width' as string]: `${collapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth}px`
+      }}
     >
       <aside className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
         <div className="sidebar-header">
@@ -149,7 +151,11 @@ export function AppLayout() {
               {section.items.map((item) => {
                 if (!item.to || item.disabled) {
                   return (
-                    <div key={`${section.title}-${item.label}`} className="sidebar-link disabled" title={item.label}>
+                    <div
+                      key={`${section.title}-${item.label}`}
+                      className="sidebar-link disabled"
+                      title={item.label}
+                    >
                       <span className="sidebar-link-icon">{item.icon}</span>
                       {collapsed ? null : <span className="sidebar-link-label">{item.label}</span>}
                     </div>
@@ -161,7 +167,9 @@ export function AppLayout() {
                     key={`${section.title}-${item.label}`}
                     to={item.to}
                     end={item.end}
-                    className={({ isActive }) => (isActive ? 'sidebar-link active' : 'sidebar-link')}
+                    className={({ isActive }) =>
+                      isActive ? 'sidebar-link active' : 'sidebar-link'
+                    }
                     title={item.label}
                   >
                     <span className="sidebar-link-icon">{item.icon}</span>
@@ -177,7 +185,9 @@ export function AppLayout() {
           <ThemeSwitcher />
         </div>
 
-        {!collapsed ? <div className="sidebar-resize-handle" onMouseDown={() => (draggingRef.current = true)} /> : null}
+        {!collapsed ? (
+          <div className="sidebar-resize-handle" onMouseDown={() => (draggingRef.current = true)} />
+        ) : null}
       </aside>
 
       <div className="workspace">
@@ -204,7 +214,12 @@ export function AppLayout() {
             {menuOpen ? (
               <div className="logo-menu" role="menu">
                 {logoMenuItems.map((item) => (
-                  <Link key={item.to} to={item.to} className="logo-menu-item" onClick={() => setMenuOpen(false)}>
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className="logo-menu-item"
+                    onClick={() => setMenuOpen(false)}
+                  >
                     <span className="logo-menu-icon">{item.icon}</span> {item.label}
                   </Link>
                 ))}
@@ -257,11 +272,26 @@ export function AppLayout() {
       </div>
 
       {mobileNavOpen ? (
-        <div className="mobile-nav-overlay" role="presentation" onClick={() => setMobileNavOpen(false)}>
-          <aside className="mobile-nav-drawer" role="dialog" aria-modal="true" aria-label="功能抽屉" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="mobile-nav-overlay"
+          role="presentation"
+          onClick={() => setMobileNavOpen(false)}
+        >
+          <aside
+            className="mobile-nav-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="功能抽屉"
+            onClick={(e) => e.stopPropagation()}
+          >
             <header className="mobile-nav-header">
               <strong>功能抽屉</strong>
-              <button type="button" className="icon-btn" onClick={() => setMobileNavOpen(false)} aria-label="关闭功能抽屉">
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setMobileNavOpen(false)}
+                aria-label="关闭功能抽屉"
+              >
                 ✕
               </button>
             </header>
@@ -276,7 +306,9 @@ export function AppLayout() {
                         key={`${section.title}-${item.label}`}
                         to={item.to!}
                         end={item.end}
-                        className={({ isActive }) => (isActive ? 'sidebar-link active' : 'sidebar-link')}
+                        className={({ isActive }) =>
+                          isActive ? 'sidebar-link active' : 'sidebar-link'
+                        }
                         onClick={() => setMobileNavOpen(false)}
                       >
                         <span className="sidebar-link-icon">{item.icon}</span>
