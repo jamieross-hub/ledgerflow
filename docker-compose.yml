@@ -1,8 +1,7 @@
 services:
   ledgerflow-web:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: 34v0wphix/ledgerflow:latest
+    container_name: ledgerflow-web
     ports:
-      - "8080:80"
+      - "18080:80"
     restart: unless-stopped
