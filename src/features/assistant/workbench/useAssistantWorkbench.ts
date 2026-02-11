@@ -23,6 +23,8 @@ import {
 } from './workbenchMapping';
 import type { AssistantToastState, DraftBillEntry, WorkbenchStatus } from './workbenchTypes';
 
+const MODEL_CACHE_KEY = 'ledgerflow-assistant-model-cache-v1';
+
 interface UseAssistantWorkbenchInput {
   baseUrl: string;
   apiKey: string;
@@ -68,6 +70,21 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     setStatus(hasInput ? 'ready' : 'idle');
   }, [status, hasInput, entries.length]);
 
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(MODEL_CACHE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) return;
+      const list = parsed.filter(
+        (item): item is string => typeof item === 'string' && item.trim().length > 0
+      );
+      if (list.length > 0) setModels(list);
+    } catch {
+      // ignore cache parse errors
+    }
+  }, []);
+
   const handleSetImage = async (file?: File) => {
     if (!file) return;
     const dataUrl = await readImageAsDataUrl(file);
@@ -99,7 +116,13 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     setLoadingModels(true);
     setError('');
     try {
-      setModels(await fetchAiModels(input.baseUrl, input.apiKey));
+      const nextModels = await fetchAiModels(input.baseUrl, input.apiKey);
+      setModels(nextModels);
+      try {
+        window.localStorage.setItem(MODEL_CACHE_KEY, JSON.stringify(nextModels));
+      } catch {
+        // ignore storage write errors
+      }
       setToast({ visible: true, variant: 'success', message: '模型列表刷新成功' });
     } catch (err) {
       setError(err instanceof Error ? err.message : '模型拉取失败');

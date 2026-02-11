@@ -1,14 +1,11 @@
-import { useMemo } from 'react';
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { SMART_TRANSACTION_COMMANDS } from '../../features/assistant/workbench/workbenchTypes';
+import { useAssistantWorkbench } from '../../features/assistant/workbench/useAssistantWorkbench';
+import { BillPreviewCard } from '../../features/assistant/ui/BillPreviewCard';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { Toast } from '../../shared/ui/Toast';
-import { WorkbenchAdvancedPanel } from '../../features/assistant/workbench/WorkbenchAdvancedPanel';
-import { WorkbenchInputPanel } from '../../features/assistant/workbench/WorkbenchInputPanel';
-import { WorkbenchPreviewPanel } from '../../features/assistant/workbench/WorkbenchPreviewPanel';
-import { WorkbenchSavePanel } from '../../features/assistant/workbench/WorkbenchSavePanel';
-import { WorkbenchSettingsDrawer } from '../../features/assistant/workbench/WorkbenchSettingsDrawer';
-import { WorkbenchTopbar } from '../../features/assistant/workbench/WorkbenchTopbar';
-import { useAssistantWorkbench } from '../../features/assistant/workbench/useAssistantWorkbench';
 
 function statusText(status: ReturnType<typeof useAssistantWorkbench>['status']): string {
   switch (status) {
@@ -19,29 +16,30 @@ function statusText(status: ReturnType<typeof useAssistantWorkbench>['status']):
     case 'recognizing':
       return '模型识别中';
     case 'preview':
-      return '请确认并编辑识别结果';
+      return '识别完成，可保存到账本';
     case 'saving':
-      return '保存到账本中';
+      return '正在保存';
     case 'saved':
       return '保存成功';
     case 'error':
-      return '存在错误，请检查';
+      return '识别失败';
     default:
       return '';
   }
+}
+
+function splitParagraphs(raw: string): string[] {
+  return raw
+    .split(/\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 export function AssistantPage() {
   const baseUrl = useAiSettings((s) => s.baseUrl);
   const apiKey = useAiSettings((s) => s.apiKey);
   const model = useAiSettings((s) => s.model);
-  const memoryDays = useAiSettings((s) => s.memoryDays);
-  const memoryBackend = useAiSettings((s) => s.memoryBackend);
-  const setBaseUrl = useAiSettings((s) => s.setBaseUrl);
-  const setApiKey = useAiSettings((s) => s.setApiKey);
   const setModel = useAiSettings((s) => s.setModel);
-  const setMemoryDays = useAiSettings((s) => s.setMemoryDays);
-  const setMemoryBackend = useAiSettings((s) => s.setMemoryBackend);
 
   const categories = useFinanceStore((s) => s.categories);
   const accounts = useFinanceStore((s) => s.accounts);
@@ -60,83 +58,278 @@ export function AssistantPage() {
     addTransaction
   });
 
-  const selected = useMemo(() => wb.entries.filter((item) => item.selected).length, [wb.entries]);
-  const valid = useMemo(
-    () => wb.entries.filter((item) => item.selected && item.issues.length === 0).length,
+  const [modelOpen, setModelOpen] = useState(false);
+  const messageEndRef = useRef<HTMLDivElement | null>(null);
+
+  const selectedValidEntries = useMemo(
+    () => wb.entries.filter((item) => item.selected && item.issues.length === 0),
     [wb.entries]
   );
 
+  const previewPayload = useMemo(
+    () => ({
+      transactions: selectedValidEntries.map((item) => ({
+        type: item.type,
+        amount: item.amount,
+        date: item.date,
+        note: item.note,
+        category: item.category,
+        account: item.account,
+        tags: item.tags,
+        orderNo: item.orderNo,
+        merchantOrderNo: item.merchantOrderNo
+      }))
+    }),
+    [selectedValidEntries]
+  );
+
+  useEffect(() => {
+    messageEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [wb.status, wb.rawContent, wb.rawReasoning, wb.entries.length, wb.error]);
+
+  const onSubmit = (event: FormEvent) => {
+    void wb.handleRecognize(event);
+  };
+
+  const onInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    if (!wb.canRecognize || wb.status === 'recognizing') return;
+    void wb.handleRecognize(event as unknown as FormEvent);
+  };
+
   return (
-    <div className="assistant-wb-page">
-      <WorkbenchTopbar
-        status={wb.status}
-        providerText={baseUrl}
-        onOpenSettings={() => wb.setDrawerOpen(true)}
-      />
+    <div
+      className="chat-fullscreen"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => void wb.handleDropImage(e)}
+    >
+      <header className="chat-topbar">
+        <div className="chat-topbar-left">
+          <span className="chat-topbar-title">AI 记账助手</span>
+          <span className="chat-topbar-sep">·</span>
+          <span>{statusText(wb.status)}</span>
+        </div>
 
-      <WorkbenchInputPanel
-        hasApiKey={wb.hasApiKey}
-        submitting={wb.status === 'recognizing'}
-        canRecognize={wb.canRecognize}
-        textInput={wb.textInput}
-        imageDataUrls={wb.imageDataUrls}
-        onTextChange={wb.setTextInput}
-        onApplyCommand={wb.applyCommand}
-        onSubmit={(e) => void wb.handleRecognize(e)}
-        onPaste={(e) => void wb.handlePasteImage(e)}
-        onDrop={(e) => void wb.handleDropImage(e)}
-        onSelectFiles={(files) => {
-          files.forEach((file) => {
-            void wb.handleSetImage(file);
-          });
-        }}
-        onRemoveImage={(index) =>
-          wb.setImageDataUrls((prev) => prev.filter((_, idx) => idx !== index))
-        }
-        onClearImages={() => wb.setImageDataUrls([])}
-      />
+        <div className="chat-model-selector">
+          <button
+            type="button"
+            className="chat-model-btn"
+            onClick={() => setModelOpen((v) => !v)}
+            aria-haspopup="listbox"
+          >
+            {model || '选择模型'}
+            <span className="chat-model-arrow">▼</span>
+          </button>
 
-      {wb.error ? <section className="panel assistant-wb-error">{wb.error}</section> : null}
+          {modelOpen ? (
+            <div className="chat-model-dropdown" role="dialog" aria-label="模型列表">
+              <div className="chat-model-dropdown-header">
+                <button
+                  type="button"
+                  className="chat-model-fetch-btn"
+                  disabled={wb.loadingModels}
+                  onClick={() => void wb.handleLoadModels()}
+                >
+                  {wb.loadingModels ? '拉取中...' : '刷新模型列表'}
+                </button>
+              </div>
+              <div className="chat-model-list">
+                {wb.models.length === 0 ? (
+                  <div className="chat-model-empty">暂无模型，请先拉取</div>
+                ) : (
+                  wb.models.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className={`chat-model-option ${item === model ? 'active' : ''}`}
+                      onClick={() => {
+                        setModel(item);
+                        setModelOpen(false);
+                      }}
+                    >
+                      {item}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
 
-      <WorkbenchPreviewPanel
-        entries={wb.entries}
-        onUpdate={wb.updateEntry}
-        onRemove={wb.removeEntry}
-      />
+        <div className="chat-topbar-right">
+          <span className="chat-topbar-provider">{baseUrl || '默认服务地址'}</span>
+        </div>
+      </header>
 
-      <WorkbenchSavePanel
-        total={wb.entries.length}
-        selected={selected}
-        valid={valid}
-        saving={wb.status === 'saving'}
-        statusText={statusText(wb.status)}
-        onSave={wb.saveSelected}
-      />
+      <section className="chat-messages-area">
+        <div className="chat-messages-inner">
+          {!wb.hasApiKey ? (
+            <section className="chat-key-required">
+              <h3>请先配置 API Key</h3>
+              <p>未检测到可用密钥，助手暂时不能请求模型。</p>
+              <Link className="chat-key-required-link" to="/settings">
+                前往设置
+              </Link>
+            </section>
+          ) : null}
 
-      <WorkbenchAdvancedPanel
-        rawContent={wb.rawContent}
-        rawReasoning={wb.rawReasoning}
-        entries={wb.entries}
-      />
+          <article className="chat-msg">
+            <div className="chat-msg-avatar">🤖</div>
+            <div className="chat-msg-body">
+              <div className="chat-msg-header">助手</div>
+              <div className="chat-msg-content">
+                <p>可直接输入消费流水，或粘贴账单截图（支持拖拽）进行识别。</p>
+              </div>
+            </div>
+          </article>
 
-      <WorkbenchSettingsDrawer
-        open={wb.drawerOpen}
-        baseUrl={baseUrl}
-        apiKey={apiKey}
-        model={model}
-        memoryDays={memoryDays}
-        memoryBackend={memoryBackend}
-        models={wb.models}
-        loadingModels={wb.loadingModels}
-        onClose={() => wb.setDrawerOpen(false)}
-        onLoadModels={() => void wb.handleLoadModels()}
-        onChangeBaseUrl={setBaseUrl}
-        onChangeApiKey={setApiKey}
-        onChangeModel={setModel}
-        onChangeMemoryDays={setMemoryDays}
-        onChangeMemoryBackend={setMemoryBackend}
-        onResetWorkbench={wb.resetWorkbench}
-      />
+          {wb.rawContent ? (
+            <article className="chat-msg">
+              <div className="chat-msg-avatar">🤖</div>
+              <div className="chat-msg-body">
+                <div className="chat-msg-header">识别结果</div>
+                <div className="chat-msg-content">
+                  {splitParagraphs(wb.rawContent).map((line, idx) => (
+                    <p key={`raw-${idx}`}>{line}</p>
+                  ))}
+                </div>
+                {wb.rawReasoning ? (
+                  <details className="chat-thinking-box">
+                    <summary>查看推理摘要</summary>
+                    <div className="chat-thinking-scroll">{wb.rawReasoning}</div>
+                  </details>
+                ) : null}
+
+                {selectedValidEntries.length > 0 ? (
+                  <BillPreviewCard
+                    payload={previewPayload}
+                    onSave={wb.saveSelected}
+                    onSaved={() => wb.setToastState('账单已写入账本', 'success')}
+                  />
+                ) : null}
+              </div>
+            </article>
+          ) : null}
+
+          {wb.status === 'recognizing' ? (
+            <article className="chat-msg">
+              <div className="chat-msg-avatar">🤖</div>
+              <div className="chat-msg-body">
+                <div className="chat-msg-header">助手</div>
+                <div className="chat-typing">
+                  模型思考中<span className="dot1">.</span>
+                  <span className="dot2">.</span>
+                  <span className="dot3">.</span>
+                </div>
+              </div>
+            </article>
+          ) : null}
+
+          {wb.status === 'saved' ? (
+            <article className="chat-msg">
+              <div className="chat-msg-avatar">✅</div>
+              <div className="chat-msg-body">
+                <div className="chat-msg-header">系统</div>
+                <div className="chat-auto-card">
+                  <strong>账单已保存到账本。</strong>
+                </div>
+              </div>
+            </article>
+          ) : null}
+
+          <div ref={messageEndRef} />
+        </div>
+      </section>
+
+      <section className="chat-input-bar">
+        <div className="chat-smart-command-row">
+          {SMART_TRANSACTION_COMMANDS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className="chat-smart-command-chip"
+              onClick={() => wb.applyCommand(item.prompt)}
+              disabled={wb.status === 'recognizing'}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        {wb.error ? (
+          <div className="chat-error-strip" role="alert">
+            <span>{wb.error}</span>
+            <button type="button" onClick={() => wb.resetWorkbench()}>
+              清空重试
+            </button>
+          </div>
+        ) : null}
+
+        {wb.imageDataUrls.length > 0 ? (
+          <div className="chat-image-strip">
+            <div className="chat-thumb-list">
+              {wb.imageDataUrls.map((url, idx) => (
+                <div className="chat-thumb-item" key={`${url.slice(0, 12)}-${idx}`}>
+                  <img className="chat-thumb" src={url} alt={`截图${idx + 1}`} />
+                  <button
+                    type="button"
+                    className="chat-thumb-remove"
+                    onClick={() => wb.setImageDataUrls((prev) => prev.filter((_, i) => i !== idx))}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={() => wb.setImageDataUrls([])}>
+              清空图片
+            </button>
+          </div>
+        ) : null}
+
+        <form className="chat-input-form" onSubmit={onSubmit}>
+          <textarea
+            ref={wb.textareaRef}
+            className="chat-input-textarea"
+            rows={2}
+            placeholder="输入账单文本，或先上传截图..."
+            value={wb.textInput}
+            onChange={(e) => wb.setTextInput(e.target.value)}
+            onPaste={(e) => void wb.handlePasteImage(e)}
+            onKeyDown={onInputKeyDown}
+          />
+
+          <input
+            ref={wb.fileInputRef}
+            className="chat-file-input-hidden"
+            type="file"
+            accept="image/*"
+            title="上传账单图片"
+            aria-label="上传账单图片"
+            onChange={(e) => void wb.handleSetImage(e.target.files?.[0])}
+          />
+
+          <button
+            type="button"
+            className="chat-upload-btn"
+            title="上传图片"
+            onClick={() => wb.fileInputRef.current?.click()}
+            disabled={wb.status === 'recognizing'}
+          >
+            ＋
+          </button>
+
+          <button
+            type="submit"
+            className="chat-send-btn"
+            title="发送"
+            disabled={!wb.canRecognize || wb.status === 'recognizing'}
+          >
+            ↑
+          </button>
+        </form>
+      </section>
 
       <Toast
         message={wb.toast.message}
