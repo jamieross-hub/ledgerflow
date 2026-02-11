@@ -4,7 +4,10 @@ import { formatCurrency } from '../../shared/lib/format';
 import { EmptyState } from '../../shared/ui/EmptyState';
 import { LoadingSkeleton } from '../../shared/ui/LoadingSkeleton';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
-import { getAccountDisplayIcon, getAccountTypeLabel } from '../../features/accounts/model/accountTypes';
+import {
+  getAccountDisplayIcon,
+  getAccountTypeLabel
+} from '../../features/accounts/model/accountTypes';
 import type { AccountType } from '../../features/accounts/model/accountTypes';
 
 export function CategoriesAccountsPage() {
@@ -46,7 +49,11 @@ export function CategoriesAccountsPage() {
     e.preventDefault();
     if (!accountName.trim()) return;
     const initialBalance = Number(accountInitialBalance || '0');
-    addAccount(accountName, accountType || undefined, Number.isFinite(initialBalance) ? initialBalance : 0);
+    addAccount(
+      accountName,
+      accountType || undefined,
+      Number.isFinite(initialBalance) ? initialBalance : 0
+    );
     setAccountName('');
     setAccountType('');
     setAccountInitialBalance('0');
@@ -119,7 +126,9 @@ export function CategoriesAccountsPage() {
     if (!current) {
       return;
     }
-    const raw = editingBalances[accountId] ?? String(accountBalanceMap.get(accountId) ?? current.balance ?? current.initialBalance ?? 0);
+    const raw =
+      editingBalances[accountId] ??
+      String(accountBalanceMap.get(accountId) ?? current.balance ?? current.initialBalance ?? 0);
     const parsed = Number(raw || '0');
     if (!Number.isFinite(parsed)) {
       return;
@@ -131,7 +140,8 @@ export function CategoriesAccountsPage() {
   const accountCards = useMemo(
     () =>
       displayAccounts.map((item) => {
-        const computedBalance = accountBalanceMap.get(item.id) ?? Number(item.balance ?? item.initialBalance ?? 0);
+        const computedBalance =
+          accountBalanceMap.get(item.id) ?? Number(item.balance ?? item.initialBalance ?? 0);
         return {
           ...item,
           computedBalance
@@ -153,11 +163,35 @@ export function CategoriesAccountsPage() {
     });
   };
 
+  const totalBalance = useMemo(
+    () => accountCards.reduce((sum, item) => sum + item.computedBalance, 0),
+    [accountCards]
+  );
+
+  const negativeAccounts = useMemo(
+    () => accountCards.filter((item) => item.computedBalance < 0).length,
+    [accountCards]
+  );
+
   return (
-    <div className="grid grid-2">
-      <section className="panel">
-        <h2>分类与标签管理</h2>
-        <form onSubmit={submitCategory} className="row" style={{ marginBottom: 16 }}>
+    <div className="grid grid-2 categories-accounts-page">
+      <section className="panel categories-panel">
+        <header className="categories-accounts-head">
+          <h2>分类与标签管理</h2>
+          <div className="categories-accounts-metrics" aria-label="分类统计">
+            <span className="metric-chip">
+              分类 <strong>{categories.length}</strong>
+            </span>
+            <span className="metric-chip">
+              标签 <strong>{tagGroups.length}</strong>
+            </span>
+          </div>
+        </header>
+        <form
+          onSubmit={submitCategory}
+          className="row categories-form-row"
+          style={{ marginBottom: 16 }}
+        >
           <input
             placeholder="新增分类名称"
             value={categoryName}
@@ -174,9 +208,9 @@ export function CategoriesAccountsPage() {
           <EmptyState title="暂无分类" description="请添加第一个交易分类。" icon="🧩" />
         ) : (
           <>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            <ul className="categories-list">
               {displayCategories.map((item) => (
-                <li key={item.id} className="row" style={{ padding: '8px 0', borderBottom: '1px solid var(--color-border-light)' }}>
+                <li key={item.id} className="row categories-row">
                   <span style={{ flex: 1 }}>{item.name}</span>
                   <button className="danger" onClick={() => removeCategory(item.id)}>
                     删除
@@ -199,18 +233,26 @@ export function CategoriesAccountsPage() {
 
         <h3 style={{ marginTop: 20 }}>交易标签</h3>
         {tagGroups.length === 0 ? (
-          <EmptyState title="暂无标签" description="标签来自交易明细，新增交易标签后会自动聚合到这里。" icon="🏷️" />
+          <EmptyState
+            title="暂无标签"
+            description="标签来自交易明细，新增交易标签后会自动聚合到这里。"
+            icon="🏷️"
+          />
         ) : (
           <details open>
             <summary className="tag-fold-summary">查看全部标签（{tagGroups.length}）</summary>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            <ul className="categories-list">
               {tagGroups.map((tag) => (
-                <li key={tag.key} className="row" style={{ padding: '8px 0', borderBottom: '1px solid var(--color-border-light)' }}>
+                <li key={tag.key} className="row categories-row">
                   <span style={{ flex: 1 }}>
                     #{tag.label}
-                    <small style={{ marginLeft: 8, color: 'var(--color-text-secondary)' }}>{tag.count} 条</small>
+                    <small className="tag-count-chip">{tag.count} 条</small>
                   </span>
-                  <button type="button" className="danger" onClick={() => removeTagFromAllTransactions(tag.label)}>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => removeTagFromAllTransactions(tag.label)}
+                  >
                     全部移除
                   </button>
                 </li>
@@ -220,11 +262,21 @@ export function CategoriesAccountsPage() {
         )}
       </section>
 
-      <section className="panel">
-        <h2>账户管理</h2>
+      <section className="panel accounts-panel">
+        <header className="categories-accounts-head">
+          <h2>账户管理</h2>
+          <div className="categories-accounts-metrics" aria-label="账户统计">
+            <span className="metric-chip metric-chip-highlight">
+              当前总余额 <strong>{formatCurrency(totalBalance)}</strong>
+            </span>
+            <span className="metric-chip">
+              负余额 <strong>{negativeAccounts}</strong>
+            </span>
+          </div>
+        </header>
 
         <form onSubmit={submitAccount} style={{ marginBottom: 16 }}>
-          <div className="row" style={{ gap: 8, marginBottom: 8 }}>
+          <div className="row account-create-row" style={{ gap: 8, marginBottom: 8 }}>
             <input
               placeholder="新增账户名称"
               value={accountName}
@@ -232,6 +284,8 @@ export function CategoriesAccountsPage() {
               style={{ flex: 1 }}
             />
             <select
+              aria-label="账户类型"
+              title="账户类型"
               value={accountType}
               onChange={(e) => setAccountType(e.target.value as AccountType | '')}
               style={{ minWidth: 100 }}
@@ -273,9 +327,19 @@ export function CategoriesAccountsPage() {
                     </span>
                     <div className="account-card-main">
                       <strong>{item.name}</strong>
-                      {item.type ? <span className="account-type-badge">{getAccountTypeLabel(item.type)}</span> : null}
+                      {item.type ? (
+                        <span className="account-type-badge">{getAccountTypeLabel(item.type)}</span>
+                      ) : null}
                     </div>
-                    <span className="mono-inline account-card-balance">{formatCurrency(item.computedBalance)}</span>
+                    <span
+                      className={`mono-inline account-card-balance ${
+                        item.computedBalance < 0
+                          ? 'account-card-balance-negative'
+                          : 'account-card-balance-positive'
+                      }`}
+                    >
+                      {formatCurrency(item.computedBalance)}
+                    </span>
                   </header>
 
                   <div className="account-card-meta">
@@ -283,12 +347,17 @@ export function CategoriesAccountsPage() {
                     <span>按交易自动汇总</span>
                   </div>
 
-                  <div className="row" style={{ gap: 8 }}>
+                  <div className="row account-card-actions" style={{ gap: 8 }}>
                     <input
+                      className="account-balance-input"
                       type="number"
+                      aria-label={`校准余额：${item.name}`}
+                      title={`校准余额：${item.name}`}
+                      placeholder="输入余额"
                       value={editingBalances[item.id] ?? String(item.computedBalance)}
-                      onChange={(e) => setEditingBalances((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                      style={{ width: 140 }}
+                      onChange={(e) =>
+                        setEditingBalances((prev) => ({ ...prev, [item.id]: e.target.value }))
+                      }
                     />
                     <button type="button" onClick={() => applyAccountBalance(item.id)}>
                       校准余额
