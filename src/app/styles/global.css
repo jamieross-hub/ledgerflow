@@ -2305,6 +2305,64 @@ small.mono {
   color: var(--color-text);
 }
 
+.chat-msg-content-rich {
+  border: 1px solid var(--color-primary-border);
+  background: linear-gradient(180deg, var(--color-primary-bg) 0%, transparent 100%);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.chat-md-paragraph {
+  margin: 0;
+}
+
+.chat-md-heading {
+  margin: 0;
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1.45;
+  border-left: 3px solid var(--color-primary);
+  padding-left: var(--space-2);
+}
+
+.chat-md-h1 {
+  font-size: 20px;
+}
+
+.chat-md-h2 {
+  font-size: 18px;
+}
+
+.chat-md-h3 {
+  font-size: 16px;
+}
+
+.chat-msg-content-rich strong {
+  color: var(--color-primary);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--color-primary-bg) 65%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary-border) 70%, transparent);
+  border-radius: 6px;
+  padding: 0 6px;
+}
+
+.chat-md-list {
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--color-text);
+}
+
+.chat-md-list li::marker {
+  color: var(--color-primary);
+}
+
+.chat-md-list li + li {
+  margin-top: 4px;
+}
+
 .chat-msg-image {
   max-width: 280px;
   border-radius: var(--radius-md);

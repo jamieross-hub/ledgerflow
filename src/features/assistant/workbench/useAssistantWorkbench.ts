@@ -148,17 +148,34 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       });
       setRawContent(reply.content);
       setRawReasoning(reply.reasoning || '');
-      const parsed = normalizeAiBill(JSON.parse(extractJsonString(reply.content)) as unknown);
-      if (!parsed) throw new Error('未识别出可保存的 JSON 账单');
-      setEntries(toDraftEntries(parsed));
+
+      let parsed = null;
+      try {
+        parsed = normalizeAiBill(JSON.parse(extractJsonString(reply.content)) as unknown);
+      } catch {
+        parsed = null;
+      }
+
       setTextInput('');
       setImageDataUrls([]);
-      setStatus('preview');
-      addLog({
-        action: 'assistant.recognize',
-        status: 'success',
-        message: `识别成功，条目 ${parsed.transactions.length}`
-      });
+
+      if (parsed && parsed.transactions.length > 0) {
+        setEntries(toDraftEntries(parsed));
+        setStatus('preview');
+        addLog({
+          action: 'assistant.recognize',
+          status: 'success',
+          message: `识别成功，条目 ${parsed.transactions.length}`
+        });
+      } else {
+        setEntries([]);
+        setStatus('idle');
+        addLog({
+          action: 'assistant.recognize',
+          status: 'success',
+          message: '分析完成（文本模式，无可保存账单）'
+        });
+      }
     } catch (err) {
       const message = err instanceof Error ? mapAssistantErrorMessage(err.message) : '识别失败';
       setError(message);

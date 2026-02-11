@@ -1,4 +1,4 @@
-import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, KeyboardEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SMART_TRANSACTION_COMMANDS } from '../../features/assistant/workbench/workbenchTypes';
 import { useAssistantWorkbench } from '../../features/assistant/workbench/useAssistantWorkbench';
@@ -28,11 +28,81 @@ function statusText(status: ReturnType<typeof useAssistantWorkbench>['status']):
   }
 }
 
-function splitParagraphs(raw: string): string[] {
-  return raw
-    .split(/\n+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
+function renderInlineMarkdown(text: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const strongRegex = /\*\*(.+?)\*\*/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null = null;
+
+  while ((match = strongRegex.exec(text)) !== null) {
+    if (match.index > cursor) nodes.push(text.slice(cursor, match.index));
+    nodes.push(<strong key={`md-strong-${match.index}`}>{match[1]}</strong>);
+    cursor = match.index + match[0].length;
+  }
+
+  if (cursor < text.length) nodes.push(text.slice(cursor));
+  return nodes;
+}
+
+function renderMarkdownContent(raw: string): ReactNode[] {
+  const lines = raw.split(/\n/);
+  const nodes: ReactNode[] = [];
+  let bullets: string[] = [];
+
+  const flushBullets = () => {
+    if (bullets.length === 0) return;
+    nodes.push(
+      <ul key={`md-ul-${nodes.length}`} className="chat-md-list">
+        {bullets.map((item, idx) => (
+          <li key={`md-li-${idx}`}>{renderInlineMarkdown(item)}</li>
+        ))}
+      </ul>
+    );
+    bullets = [];
+  };
+
+  lines.forEach((rawLine, idx) => {
+    const line = rawLine.trim();
+    if (!line) {
+      flushBullets();
+      return;
+    }
+
+    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+    if (headingMatch) {
+      flushBullets();
+      const level = headingMatch[1].length;
+      const title = headingMatch[2];
+      nodes.push(
+        <p key={`md-h-${idx}`} className={`chat-md-heading chat-md-h${level}`}>
+          {renderInlineMarkdown(title)}
+        </p>
+      );
+      return;
+    }
+
+    const bulletMatch = line.match(/^[-*]\s+(.+)$/);
+    if (bulletMatch) {
+      bullets.push(bulletMatch[1]);
+      return;
+    }
+
+    const numberedMatch = line.match(/^(\d+)\.\s+(.+)$/);
+    if (numberedMatch) {
+      bullets.push(`${numberedMatch[1]}. ${numberedMatch[2]}`);
+      return;
+    }
+
+    flushBullets();
+    nodes.push(
+      <p key={`md-p-${idx}`} className="chat-md-paragraph">
+        {renderInlineMarkdown(line)}
+      </p>
+    );
+  });
+
+  flushBullets();
+  return nodes;
 }
 
 export function AssistantPage() {
@@ -97,6 +167,9 @@ export function AssistantPage() {
     if (!wb.canRecognize || wb.status === 'recognizing') return;
     void wb.handleRecognize(event as unknown as FormEvent);
   };
+
+  const shouldShowError =
+    Boolean(wb.error) && !/unexpected token|invalid json|json/i.test(wb.error.toLowerCase());
 
   return (
     <div
@@ -189,10 +262,8 @@ export function AssistantPage() {
               <div className="chat-msg-avatar">🤖</div>
               <div className="chat-msg-body">
                 <div className="chat-msg-header">识别结果</div>
-                <div className="chat-msg-content">
-                  {splitParagraphs(wb.rawContent).map((line, idx) => (
-                    <p key={`raw-${idx}`}>{line}</p>
-                  ))}
+                <div className="chat-msg-content chat-msg-content-rich">
+                  {renderMarkdownContent(wb.rawContent)}
                 </div>
                 {wb.rawReasoning ? (
                   <details className="chat-thinking-box">
@@ -257,7 +328,7 @@ export function AssistantPage() {
           ))}
         </div>
 
-        {wb.error ? (
+        {shouldShowError ? (
           <div className="chat-error-strip" role="alert">
             <span>{wb.error}</span>
             <button type="button" onClick={() => wb.resetWorkbench()}>
