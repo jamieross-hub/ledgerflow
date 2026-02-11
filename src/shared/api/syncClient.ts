@@ -163,6 +163,20 @@ async function requestWithFallback<T>(
 export async function postSyncLocalData(
   payload: SyncLocalDataRequest
 ): Promise<SyncLocalDataResponse> {
+  if (!ENV.hasConfiguredApiBaseUrl) {
+    const synced =
+      payload.data.transactions.length +
+      payload.data.accounts.length +
+      payload.data.categories.length;
+
+    return {
+      ok: true,
+      message: '未配置后端同步接口，当前使用本地模式',
+      synced,
+      detail: '[local-mode] skipped remote sync (VITE_API_BASE_URL not configured)'
+    };
+  }
+
   return requestWithFallback<SyncLocalDataResponse>(
     [
       ENV.syncLocalDataPath,
@@ -179,6 +193,14 @@ export async function postSyncLocalData(
 }
 
 export async function postSyncChange(payload: SyncChangeRequest): Promise<SyncChangeResponse> {
+  if (!ENV.hasConfiguredApiBaseUrl) {
+    return {
+      ok: true,
+      message: '未配置后端同步接口，已跳过远程增量同步',
+      detail: '[local-mode] skipped remote incremental sync (VITE_API_BASE_URL not configured)'
+    };
+  }
+
   return requestWithFallback<SyncChangeResponse>(
     [
       ENV.syncChangePath,
