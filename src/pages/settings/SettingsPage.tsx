@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { Toast } from '../../shared/ui/Toast';
+import { usePwaInstallPrompt } from '../../shared/hooks/usePwaInstallPrompt';
 
 const MODEL_PRESETS = [
   'gemini-2.5-flash-lite',
@@ -96,6 +97,7 @@ function ModelSelector({ label, hint, value, presets, onChange }: ModelSelectorP
 
 export function SettingsPage() {
   const navigate = useNavigate();
+  const { canInstall, triggerInstall } = usePwaInstallPrompt();
 
   const baseUrl = useAiSettings((s) => s.baseUrl);
   const apiKey = useAiSettings((s) => s.apiKey);

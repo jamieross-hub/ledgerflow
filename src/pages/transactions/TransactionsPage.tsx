@@ -269,11 +269,6 @@ export function TransactionsPage() {
   >(() =>
     restoreRecordState<TransactionDetailSectionKey>(TX_DETAIL_SECTIONS_KEY, DEFAULT_DETAIL_SECTIONS)
   );
-  const [visibleColumns, setVisibleColumns] =
-    useState<Record<TransactionColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS);
-  const [columnOrder, setColumnOrder] = useState<TransactionColumnKey[]>(DEFAULT_COLUMN_ORDER);
-  const [visibleDetailSections, setVisibleDetailSections] =
-    useState<Record<TransactionDetailSectionKey, boolean>>(DEFAULT_DETAIL_SECTIONS);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const importSourceRef = useRef<BillSource | null>(null);
@@ -658,98 +653,70 @@ export function TransactionsPage() {
   };
 
   const handleCheckDuplicates = () => {
-    // 仅针对当前筛选结果做判重，避免对全量历史误操作。
+    // 仅针对当前筛选结果做判重，避免对全量历史做破坏性处理。
     const duplicateGroups = buildDuplicateGroups(sortedRows);
     const duplicateCount = duplicateGroups.reduce((sum, group) => sum + group.length, 0);
 
-    if (duplicateCount > 0) {
-      const shouldOverwrite = window.confirm(
-        `检测完成：发现 ${duplicateCount} 条疑似重复账单。\n点击“确定”覆盖重复账单（每组保留最新一条）；点击“取消”继续选择删除重复。`
-      );
-
-      if (shouldOverwrite) {
-        // 覆盖策略：每组保留最新一条，并把其他重复条目的补充信息并入后删除。
-        duplicateGroups.forEach((group) => {
-          const txs = group
-            .map((id) => transactions.find((item) => item.id === id))
-            .filter((item): item is NonNullable<typeof item> => Boolean(item))
-            .sort((a, b) => +new Date(b.date) - +new Date(a.date));
-          const keeper = txs[0];
-          const duplicates = txs.slice(1);
-          if (!keeper || duplicates.length === 0) return;
-
-          const merged = duplicates.reduce(
-            (acc, item) => ({
-              ...acc,
-              note: acc.note || item.note,
-              orderNo: acc.orderNo || item.orderNo,
-              merchantOrderNo: acc.merchantOrderNo || item.merchantOrderNo,
-              tags: Array.from(new Set([...(acc.tags || []), ...(item.tags || [])]))
-            }),
-            keeper
-          );
-
-          updateTransaction(keeper.id, {
-            ...merged,
-            amount: Math.round(Number(merged.amount || 0) * 100) / 100
-          });
-          duplicates.forEach((item) => removeTransaction(item.id));
-        });
-
-        showToast('已完成覆盖去重（每组保留最新一条）。', 'success');
-        return;
-      }
-
-      const shouldDelete = window.confirm(
-        '是否删除重复账单？\n点击“确定”删除重复账单（每组保留最早一条）；点击“取消”不处理。'
-      );
-
-      if (shouldDelete) {
-        // 删除策略：每组保留最早一条，删除其余重复条目。
-        duplicateGroups.forEach((group) => {
-          const txs = group
-            .map((id) => transactions.find((item) => item.id === id))
-            .filter((item): item is NonNullable<typeof item> => Boolean(item))
-            .sort((a, b) => +new Date(a.date) - +new Date(b.date));
-          txs.slice(1).forEach((item) => removeTransaction(item.id));
-        });
-        showToast('已删除重复账单（每组保留最早一条）。', 'success');
-        return;
-      }
-
-      showToast('已取消重复账单处理。', 'warning');
-    const orderNoMap = new Map<string, number>();
-    const merchantOrderNoMap = new Map<string, number>();
-    const contentMap = new Map<string, number>();
-
-    sortedRows.forEach(({ item }) => {
-      if (item.orderNo) {
-        orderNoMap.set(item.orderNo, (orderNoMap.get(item.orderNo) || 0) + 1);
-      }
-      if (item.merchantOrderNo) {
-        merchantOrderNoMap.set(
-          item.merchantOrderNo,
-          (merchantOrderNoMap.get(item.merchantOrderNo) || 0) + 1
-        );
-      }
-      const sig = buildDuplicateSignature(item);
-      contentMap.set(sig, (contentMap.get(sig) || 0) + 1);
-    });
-
-    const duplicateCount = sortedRows.filter(({ item }) => {
-      const byOrderNo = item.orderNo ? (orderNoMap.get(item.orderNo) || 0) > 1 : false;
-      const byMerchantOrderNo = item.merchantOrderNo
-        ? (merchantOrderNoMap.get(item.merchantOrderNo) || 0) > 1
-        : false;
-      const byContent = (contentMap.get(buildDuplicateSignature(item)) || 0) > 1;
-      return byOrderNo || byMerchantOrderNo || byContent;
-    }).length;
-
-    if (duplicateCount > 0) {
-      showToast(`检测完成：发现 ${duplicateCount} 条疑似重复账单。`, 'warning');
+    if (duplicateCount === 0) {
+      showToast('检测完成：未发现重复账单。', 'success');
       return;
     }
-    showToast('检测完成：未发现重复账单。', 'success');
+
+    const shouldOverwrite = window.confirm(
+      `检测完成：发现 ${duplicateCount} 条疑似重复账单。\n点击“确定”覆盖重复账单（每组保留最新一条）；点击“取消”继续选择删除重复。`
+    );
+
+    if (shouldOverwrite) {
+      // 覆盖策略：每组保留最新一条，并把其他重复条目的补充信息并入后删除。
+      duplicateGroups.forEach((group) => {
+        const txs = group
+          .map((id) => transactions.find((item) => item.id === id))
+          .filter((item): item is NonNullable<typeof item> => Boolean(item))
+          .sort((a, b) => +new Date(b.date) - +new Date(a.date));
+        const keeper = txs[0];
+        const duplicates = txs.slice(1);
+        if (!keeper || duplicates.length === 0) return;
+
+        const merged = duplicates.reduce(
+          (acc, item) => ({
+            ...acc,
+            note: acc.note || item.note,
+            orderNo: acc.orderNo || item.orderNo,
+            merchantOrderNo: acc.merchantOrderNo || item.merchantOrderNo,
+            tags: Array.from(new Set([...(acc.tags || []), ...(item.tags || [])]))
+          }),
+          keeper
+        );
+
+        updateTransaction(keeper.id, {
+          ...merged,
+          amount: Math.round(Number(merged.amount || 0) * 100) / 100
+        });
+        duplicates.forEach((item) => removeTransaction(item.id));
+      });
+
+      showToast('已完成覆盖去重（每组保留最新一条）。', 'success');
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      '是否删除重复账单？\n点击“确定”删除重复账单（每组保留最早一条）；点击“取消”不处理。'
+    );
+
+    if (shouldDelete) {
+      // 删除策略：每组保留最早一条，删除其余重复条目。
+      duplicateGroups.forEach((group) => {
+        const txs = group
+          .map((id) => transactions.find((item) => item.id === id))
+          .filter((item): item is NonNullable<typeof item> => Boolean(item))
+          .sort((a, b) => +new Date(a.date) - +new Date(b.date));
+        txs.slice(1).forEach((item) => removeTransaction(item.id));
+      });
+      showToast('已删除重复账单（每组保留最早一条）。', 'success');
+      return;
+    }
+
+    showToast('已取消重复账单处理。', 'warning');
   };
 
   const handleToggleColumn = (key: TransactionColumnKey) => {
@@ -795,7 +762,7 @@ export function TransactionsPage() {
     : 'manual';
 
   return (
-    <div>
+    <div className="transactions-page">
       <TransactionFilters
         filters={filters}
         onKeywordChange={setKeyword}
