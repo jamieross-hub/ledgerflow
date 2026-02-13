@@ -145,8 +145,6 @@ interface PresetQuestion {
   text: string;
 }
 
-const CHAT_HISTORY_CACHE_KEY = 'ledgerflow.assistant.chatHistory.v1';
-
 const QUICK_BILL_TEMPLATES = [
   { label: '🍜 午饭 18（支付宝）', prompt: '今天午饭18元，用支付宝支付' },
   { label: '☕ 咖啡 23（微信）', prompt: '今天买咖啡23元，用微信支付' },
@@ -252,6 +250,7 @@ export function AssistantPage() {
       return [];
     }
   });
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const lastAssistantRef = useRef('');
   const messageEndRef = useRef<HTMLDivElement | null>(null);
 
