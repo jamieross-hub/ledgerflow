@@ -9,7 +9,15 @@ interface ParseBillInput {
   defaultAccountId: string;
 }
 
-const DATE_KEYS = ['交易时间', '入账时间', '创建时间', '交易创建时间', '付款时间', '完成时间', '最近修改时间'];
+const DATE_KEYS = [
+  '交易时间',
+  '入账时间',
+  '创建时间',
+  '交易创建时间',
+  '付款时间',
+  '完成时间',
+  '最近修改时间'
+];
 const AMOUNT_KEYS = ['金额', '金额(元)', '金额（元）', '订单金额', '交易金额', '收/支金额'];
 const TYPE_KEYS = ['收/支', '收支类型', '交易类型', '资金类型', '类型'];
 const NOTE_KEYS = ['商品名称', '商品', '商品说明', '交易对方', '备注', '商户', '收款方'];
@@ -28,7 +36,10 @@ const HEADER_HINT_KEYS = [
 ];
 
 function normalizeText(text: string): string {
-  return text.replace(/^\uFEFF/, '').replace(/\r/g, '').trim();
+  return text
+    .replace(/^\uFEFF/, '')
+    .replace(/\r/g, '')
+    .trim();
 }
 
 function parseDelimitedLine(line: string, delimiter: ',' | '\t'): string[] {
@@ -88,7 +99,9 @@ function pickByKeys(row: Record<string, string>, keys: string[]): string {
 function parseAmount(raw: string): number {
   const cleaned = raw.replace(/[¥￥,\s]/g, '');
   const value = Number.parseFloat(cleaned);
-  return Number.isFinite(value) ? Math.abs(value) : 0;
+  if (!Number.isFinite(value)) return 0;
+  // 统一两位小数，避免浮点误差导致金额展示异常。
+  return Math.round(Math.abs(value) * 100) / 100;
 }
 
 function parseType(row: Record<string, string>, amountRaw: string): 'income' | 'expense' {
@@ -193,18 +206,17 @@ function findHeaderIndex(lines: string[], delimiter: ',' | '\t'): number {
   return 0;
 }
 
-function buildNote(row: Record<string, string>, source: BillSource): string {
+function buildNote(row: Record<string, string>): string {
   const counterparty = pickByKeys(row, ['交易对方', '收款方', '商户']);
   const goods = pickByKeys(row, ['商品名称', '商品', '商品说明']);
   const remark = pickByKeys(row, ['备注']);
-  const sourcePrefix = source === 'wechat' ? '微信账单导入' : '支付宝账单导入';
 
   const parts = [counterparty, goods, remark].map((item) => item.trim()).filter(Boolean);
   if (parts.length === 0) {
-    return sourcePrefix;
+    return '导入账单';
   }
 
-  return `${sourcePrefix}：${parts.join(' · ')}`;
+  return parts.join(' · ');
 }
 
 function shouldSkipRow(line: string): boolean {
@@ -216,7 +228,11 @@ function shouldSkipRow(line: string): boolean {
     return true;
   }
 
-  if (/^支付宝交易记录明细查询|^微信支付账单明细|^账号:|^起始日期:|^终止日期:|交易记录明细列表/.test(line)) {
+  if (
+    /^支付宝交易记录明细查询|^微信支付账单明细|^账号:|^起始日期:|^终止日期:|交易记录明细列表/.test(
+      line
+    )
+  ) {
     return true;
   }
 
@@ -280,7 +296,7 @@ export function parseBillCsvToTransactions(input: ParseBillInput): Omit<Transact
       type: parseType(row, amountRaw),
       amount,
       date: parseDate(dateRaw),
-      note: buildNote(row, input.source),
+      note: buildNote(row),
       tags: [input.source === 'wechat' ? '微信导入' : '支付宝导入'],
       categoryId: input.defaultCategoryId,
       accountId: input.defaultAccountId,

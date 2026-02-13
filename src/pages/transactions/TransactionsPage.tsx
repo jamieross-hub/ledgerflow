@@ -19,7 +19,11 @@ import {
   TransactionSortKey,
   TransactionTable
 } from '../../features/transactions/components/TransactionTable';
-import { resolveDateRange, useTransactionFilters } from '../../features/transactions/hooks/useTransactionFilters';
+import {
+  resolveDateRange,
+  useTransactionFilters
+} from '../../features/transactions/hooks/useTransactionFilters';
+import { Category } from '../../entities/category/types';
 import { TransactionSource } from '../../entities/transaction/types';
 
 const PAGE_SIZE = 8;
@@ -47,6 +51,17 @@ const DEFAULT_VISIBLE_COLUMNS: Record<TransactionColumnKey, boolean> = {
   note: true
 };
 
+const DEFAULT_COLUMN_ORDER: TransactionColumnKey[] = [
+  'date',
+  'type',
+  'category',
+  'account',
+  'amount',
+  'orderNo',
+  'merchantOrderNo',
+  'note'
+];
+
 const DEFAULT_DETAIL_SECTIONS: Record<TransactionDetailSectionKey, boolean> = {
   base: true,
   source: true,
@@ -55,7 +70,108 @@ const DEFAULT_DETAIL_SECTIONS: Record<TransactionDetailSectionKey, boolean> = {
   json: false
 };
 
-function detectSource(source: TransactionSource | undefined, note: string, tags: string[]): TransactionSource {
+const TX_VISIBLE_COLUMNS_KEY = 'ledgerflow.transactions.visibleColumns';
+const TX_COLUMN_ORDER_KEY = 'ledgerflow.transactions.columnOrder';
+const TX_DETAIL_SECTIONS_KEY = 'ledgerflow.transactions.detailSections';
+
+const IMPORT_CATEGORY_RULES: Array<{ pattern: RegExp; names: string[] }> = [
+  { pattern: /工资|薪资|salary|payroll|奖金/i, names: ['工资', '收入'] },
+  {
+    pattern: /打车|出租|滴滴|顺风车|地铁|公交|高德|出行|交通|taxi|metro|bus/i,
+    names: ['交通', '出行', '打车']
+  },
+  { pattern: /餐|外卖|奶茶|咖啡|food|meal|restaurant/i, names: ['餐饮', '美食'] }
+];
+
+function restoreRecordState<K extends string>(
+  storageKey: string,
+  defaults: Record<K, boolean>
+): Record<K, boolean> {
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw) as Partial<Record<K, boolean>>;
+    const next = { ...defaults };
+    (Object.keys(defaults) as K[]).forEach((key) => {
+      if (typeof parsed[key] === 'boolean') {
+        next[key] = Boolean(parsed[key]);
+      }
+    });
+    return next;
+  } catch {
+    return defaults;
+  }
+}
+
+function restoreColumnOrder(storageKey: string): TransactionColumnKey[] {
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return DEFAULT_COLUMN_ORDER;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return DEFAULT_COLUMN_ORDER;
+    const valid = parsed.filter((item): item is TransactionColumnKey =>
+      DEFAULT_COLUMN_ORDER.includes(item as TransactionColumnKey)
+    );
+    if (valid.length !== DEFAULT_COLUMN_ORDER.length) return DEFAULT_COLUMN_ORDER;
+    return valid;
+  } catch {
+    return DEFAULT_COLUMN_ORDER;
+  }
+}
+
+/**
+ * 导入账单分类匹配：优先按关键字命中“交通/工资/餐饮”等，失败时回落到默认分类。
+ * 规则顺序很关键：交通在餐饮前，避免“高德打车”被误命中到餐饮。
+ */
+function resolveImportedCategoryId(
+  item: { type: string; note: string; tags?: string[] },
+  categories: Category[],
+  fallbackCategoryId: string
+): string {
+  const text = `${item.note || ''} ${(item.tags || []).join(' ')}`;
+  const typePrefixedText = `${item.type} ${text}`;
+
+  for (const rule of IMPORT_CATEGORY_RULES) {
+    if (!rule.pattern.test(typePrefixedText)) continue;
+    const hit = categories.find((category) =>
+      rule.names.some((name) => category.name.includes(name))
+    );
+    if (hit) return hit.id;
+  }
+
+  return fallbackCategoryId;
+}
+
+/**
+ * 兼容账单文件常见编码：
+ * - 优先 UTF-8
+ * - 若出现乱码，再尝试 GB18030（覆盖 GBK/GB2312）
+ */
+function decodeBillFileText(file: File): Promise<string> {
+  return file.arrayBuffer().then((buffer) => {
+    const utf8 = new TextDecoder('utf-8').decode(buffer);
+    if (/交易|金额|收\/支|交易时间|交易创建时间/.test(utf8) && !utf8.includes('�')) {
+      return utf8;
+    }
+
+    try {
+      const gbText = new TextDecoder('gb18030').decode(buffer);
+      if (/交易|金额|收\/支|交易时间|交易创建时间/.test(gbText)) {
+        return gbText;
+      }
+    } catch {
+      // ignore unsupported encoding
+    }
+
+    return utf8;
+  });
+}
+
+function detectSource(
+  source: TransactionSource | undefined,
+  note: string,
+  tags: string[]
+): TransactionSource {
   if (source) {
     return source;
   }
@@ -72,11 +188,35 @@ function detectSource(source: TransactionSource | undefined, note: string, tags:
   return 'manual';
 }
 
+function buildDuplicateSignature(item: {
+  date: string;
+  amount: number;
+  type: string;
+  note: string;
+}) {
+  return `${item.date.slice(0, 10)}|${Math.round(Number(item.amount || 0) * 100) / 100}|${item.type}|${String(item.note || '').trim()}`;
+}
+
+/** 将交易按“可判重 key”分组：订单号 > 商家订单号 > 内容指纹。 */
+function buildDuplicateGroups(rows: TransactionRowView[]): string[][] {
+  const groups = new Map<string, string[]>();
+  rows.forEach(({ item }) => {
+    const key = item.orderNo
+      ? `order:${item.orderNo}`
+      : item.merchantOrderNo
+        ? `merchant:${item.merchantOrderNo}`
+        : `content:${buildDuplicateSignature(item)}`;
+    groups.set(key, [...(groups.get(key) || []), item.id]);
+  });
+  return Array.from(groups.values()).filter((ids) => ids.length > 1);
+}
+
 export function TransactionsPage() {
   const transactions = useFinanceStore((s) => s.transactions);
   const categories = useFinanceStore((s) => s.categories);
   const accounts = useFinanceStore((s) => s.accounts);
   const addTransaction = useFinanceStore((s) => s.addTransaction);
+  const updateTransaction = useFinanceStore((s) => s.updateTransaction);
   const removeTransaction = useFinanceStore((s) => s.removeTransaction);
 
   const {
@@ -100,7 +240,11 @@ export function TransactionsPage() {
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [highlightId, setHighlightId] = useState<string>('');
-  const [importNotice, setImportNotice] = useState<{ visible: boolean; message: string; variant: ToastVariant }>({
+  const [importNotice, setImportNotice] = useState<{
+    visible: boolean;
+    message: string;
+    variant: ToastVariant;
+  }>({
     visible: false,
     message: '',
     variant: 'success'
@@ -114,16 +258,30 @@ export function TransactionsPage() {
   const [quickFilters, setQuickFilters] = useState<TransactionQuickFilters>(DEFAULT_QUICK_FILTERS);
   const [sortKey, setSortKey] = useState<TransactionSortKey>('date');
   const [sortDirection, setSortDirection] = useState<TransactionSortDirection>('desc');
-  const [visibleColumns, setVisibleColumns] = useState<Record<TransactionColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS);
-  const [visibleDetailSections, setVisibleDetailSections] =
-    useState<Record<TransactionDetailSectionKey, boolean>>(DEFAULT_DETAIL_SECTIONS);
+  const [visibleColumns, setVisibleColumns] = useState<Record<TransactionColumnKey, boolean>>(() =>
+    restoreRecordState<TransactionColumnKey>(TX_VISIBLE_COLUMNS_KEY, DEFAULT_VISIBLE_COLUMNS)
+  );
+  const [columnOrder, setColumnOrder] = useState<TransactionColumnKey[]>(() =>
+    restoreColumnOrder(TX_COLUMN_ORDER_KEY)
+  );
+  const [visibleDetailSections, setVisibleDetailSections] = useState<
+    Record<TransactionDetailSectionKey, boolean>
+  >(() =>
+    restoreRecordState<TransactionDetailSectionKey>(TX_DETAIL_SECTIONS_KEY, DEFAULT_DETAIL_SECTIONS)
+  );
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const importSourceRef = useRef<BillSource | null>(null);
 
   const dateRange = useMemo(() => resolveDateRange(filters), [filters]);
 
   useEffect(() => {
-    if (filters.datePreset === 'custom' && dateRange.from && dateRange.to && dateRange.from > dateRange.to) {
+    if (
+      filters.datePreset === 'custom' &&
+      dateRange.from &&
+      dateRange.to &&
+      dateRange.from > dateRange.to
+    ) {
       setErrorMessage('自定义日期范围无效：开始日期不能晚于结束日期。');
       return;
     }
@@ -134,7 +292,15 @@ export function TransactionsPage() {
     setLoading(true);
     const timer = window.setTimeout(() => setLoading(false), 180);
     return () => window.clearTimeout(timer);
-  }, [filters.keyword, filters.type, filters.source, filters.datePreset, filters.dateFrom, filters.dateTo, filters.page]);
+  }, [
+    filters.keyword,
+    filters.type,
+    filters.source,
+    filters.datePreset,
+    filters.dateFrom,
+    filters.dateTo,
+    filters.page
+  ]);
 
   useEffect(() => {
     if (!importNotice.visible) {
@@ -145,6 +311,18 @@ export function TransactionsPage() {
     }, 5200);
     return () => window.clearTimeout(timer);
   }, [importNotice.visible]);
+
+  useEffect(() => {
+    window.localStorage.setItem(TX_VISIBLE_COLUMNS_KEY, JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
+
+  useEffect(() => {
+    window.localStorage.setItem(TX_COLUMN_ORDER_KEY, JSON.stringify(columnOrder));
+  }, [columnOrder]);
+
+  useEffect(() => {
+    window.localStorage.setItem(TX_DETAIL_SECTIONS_KEY, JSON.stringify(visibleDetailSections));
+  }, [visibleDetailSections]);
 
   useEffect(() => {
     const highlight = searchParams.get('highlight') ?? '';
@@ -211,9 +389,11 @@ export function TransactionsPage() {
     return mappedRows.filter((row) => {
       const dateText = formatDate(row.item.date).toLowerCase();
       const typePass = quickFilters.type === 'all' ? true : row.item.type === quickFilters.type;
-      const categoryPass = !categoryFilter || row.categoryName.toLowerCase().includes(categoryFilter);
+      const categoryPass =
+        !categoryFilter || row.categoryName.toLowerCase().includes(categoryFilter);
       const accountPass = !accountFilter || row.accountName.toLowerCase().includes(accountFilter);
-      const orderNoPass = !orderNoFilter || (row.item.orderNo || '').toLowerCase().includes(orderNoFilter);
+      const orderNoPass =
+        !orderNoFilter || (row.item.orderNo || '').toLowerCase().includes(orderNoFilter);
       const merchantOrderNoPass =
         !merchantOrderNoFilter ||
         (row.item.merchantOrderNo || '').toLowerCase().includes(merchantOrderNoFilter);
@@ -261,7 +441,10 @@ export function TransactionsPage() {
           compare = (a.item.orderNo || '').localeCompare(b.item.orderNo || '', 'zh-CN');
           break;
         case 'merchantOrderNo':
-          compare = (a.item.merchantOrderNo || '').localeCompare(b.item.merchantOrderNo || '', 'zh-CN');
+          compare = (a.item.merchantOrderNo || '').localeCompare(
+            b.item.merchantOrderNo || '',
+            'zh-CN'
+          );
           break;
         case 'note':
           compare = (a.item.note || '').localeCompare(b.item.note || '', 'zh-CN');
@@ -291,13 +474,18 @@ export function TransactionsPage() {
   );
 
   const selectedCategoryName = selected
-    ? categories.find((item) => item.id === selected.categoryId)?.name ?? '-'
+    ? (categories.find((item) => item.id === selected.categoryId)?.name ?? '-')
     : '-';
   const selectedAccountName = selected
-    ? accounts.find((item) => item.id === selected.accountId)?.name ?? '-'
+    ? (accounts.find((item) => item.id === selected.accountId)?.name ?? '-')
     : '-';
 
+  /**
+   * 这里同时写 state + ref：
+   * state 用于 UI，ref 用于规避“点击后立即选文件”时的异步时序竞态。
+   */
   const openImport = (source: BillSource) => {
+    importSourceRef.current = source;
     setImportSource(source);
     fileInputRef.current?.click();
   };
@@ -312,12 +500,13 @@ export function TransactionsPage() {
 
   const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !importSource) {
+    const activeSource = importSourceRef.current || importSource;
+    if (!file || !activeSource) {
       return;
     }
 
     try {
-      const csvText = await file.text();
+      const csvText = await decodeBillFileText(file);
       const defaultCategoryId = categories[0]?.id;
       const defaultAccountId = accounts[0]?.id;
 
@@ -330,7 +519,7 @@ export function TransactionsPage() {
 
       const parsed = parseBillCsvToTransactions({
         csvText,
-        source: importSource,
+        source: activeSource,
         defaultCategoryId,
         defaultAccountId
       });
@@ -342,12 +531,17 @@ export function TransactionsPage() {
         return;
       }
 
-      const insertedIds = parsed.map((item) => addTransaction(item));
+      const normalizedParsed = parsed.map((item) => ({
+        ...item,
+        categoryId: resolveImportedCategoryId(item, categories, defaultCategoryId)
+      }));
+
+      const insertedIds = normalizedParsed.map((item) => addTransaction(item));
       const newestId = insertedIds[insertedIds.length - 1];
-      const expectedIndex = Math.max(0, filteredRows.length + parsed.length - 1);
+      const expectedIndex = Math.max(0, filteredRows.length + normalizedParsed.length - 1);
       const expectedPage = Math.floor(expectedIndex / PAGE_SIZE) + 1;
       setPage(expectedPage);
-      const message = `导入成功：新增 ${parsed.length} 条记录。`;
+      const message = `导入成功：新增 ${normalizedParsed.length} 条记录。`;
       showToast(message, 'success');
       showImportNotice(`${message} 已自动定位到最新一条。`, 'success');
 
@@ -361,6 +555,7 @@ export function TransactionsPage() {
     } finally {
       event.target.value = '';
       setImportSource(null);
+      importSourceRef.current = null;
     }
   };
 
@@ -376,7 +571,10 @@ export function TransactionsPage() {
     }
 
     setSelectedIds((prev) => prev.filter((id) => !pendingDeleteIds.includes(id)));
-    showToast(pendingDeleteIds.length > 1 ? `已删除 ${pendingDeleteIds.length} 条交易。` : '交易已删除。', 'success');
+    showToast(
+      pendingDeleteIds.length > 1 ? `已删除 ${pendingDeleteIds.length} 条交易。` : '交易已删除。',
+      'success'
+    );
     setPendingDeleteIds([]);
   };
 
@@ -432,7 +630,10 @@ export function TransactionsPage() {
     quickFilters.merchantOrderNo.trim().length > 0 ||
     quickFilters.note.trim().length > 0;
 
-  const handleQuickFilterChange = <K extends keyof TransactionQuickFilters>(key: K, value: TransactionQuickFilters[K]) => {
+  const handleQuickFilterChange = <K extends keyof TransactionQuickFilters>(
+    key: K,
+    value: TransactionQuickFilters[K]
+  ) => {
     setQuickFilters((prev) => ({ ...prev, [key]: value }));
     setPage(1);
   };
@@ -451,6 +652,72 @@ export function TransactionsPage() {
     setQuickFilters(DEFAULT_QUICK_FILTERS);
   };
 
+  const handleCheckDuplicates = () => {
+    // 仅针对当前筛选结果做判重，避免对全量历史误操作。
+    const duplicateGroups = buildDuplicateGroups(sortedRows);
+    const duplicateCount = duplicateGroups.reduce((sum, group) => sum + group.length, 0);
+
+    if (duplicateCount > 0) {
+      const shouldOverwrite = window.confirm(
+        `检测完成：发现 ${duplicateCount} 条疑似重复账单。\n点击“确定”覆盖重复账单（每组保留最新一条）；点击“取消”继续选择删除重复。`
+      );
+
+      if (shouldOverwrite) {
+        // 覆盖策略：每组保留最新一条，并把其他重复条目的补充信息并入后删除。
+        duplicateGroups.forEach((group) => {
+          const txs = group
+            .map((id) => transactions.find((item) => item.id === id))
+            .filter((item): item is NonNullable<typeof item> => Boolean(item))
+            .sort((a, b) => +new Date(b.date) - +new Date(a.date));
+          const keeper = txs[0];
+          const duplicates = txs.slice(1);
+          if (!keeper || duplicates.length === 0) return;
+
+          const merged = duplicates.reduce(
+            (acc, item) => ({
+              ...acc,
+              note: acc.note || item.note,
+              orderNo: acc.orderNo || item.orderNo,
+              merchantOrderNo: acc.merchantOrderNo || item.merchantOrderNo,
+              tags: Array.from(new Set([...(acc.tags || []), ...(item.tags || [])]))
+            }),
+            keeper
+          );
+
+          updateTransaction(keeper.id, {
+            ...merged,
+            amount: Math.round(Number(merged.amount || 0) * 100) / 100
+          });
+          duplicates.forEach((item) => removeTransaction(item.id));
+        });
+
+        showToast('已完成覆盖去重（每组保留最新一条）。', 'success');
+        return;
+      }
+
+      const shouldDelete = window.confirm(
+        '是否删除重复账单？\n点击“确定”删除重复账单（每组保留最早一条）；点击“取消”不处理。'
+      );
+
+      if (shouldDelete) {
+        // 删除策略：每组保留最早一条，删除其余重复条目。
+        duplicateGroups.forEach((group) => {
+          const txs = group
+            .map((id) => transactions.find((item) => item.id === id))
+            .filter((item): item is NonNullable<typeof item> => Boolean(item))
+            .sort((a, b) => +new Date(a.date) - +new Date(b.date));
+          txs.slice(1).forEach((item) => removeTransaction(item.id));
+        });
+        showToast('已删除重复账单（每组保留最早一条）。', 'success');
+        return;
+      }
+
+      showToast('已取消重复账单处理。', 'warning');
+      return;
+    }
+    showToast('检测完成：未发现重复账单。', 'success');
+  };
+
   const handleToggleColumn = (key: TransactionColumnKey) => {
     setVisibleColumns((prev) => {
       const next = !prev[key];
@@ -461,6 +728,18 @@ export function TransactionsPage() {
         }
       }
       return { ...prev, [key]: next };
+    });
+  };
+
+  const handleColumnReorder = (fromKey: TransactionColumnKey, toKey: TransactionColumnKey) => {
+    setColumnOrder((prev) => {
+      const fromIndex = prev.indexOf(fromKey);
+      const toIndex = prev.indexOf(toKey);
+      if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return prev;
+      const next = [...prev];
+      next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, fromKey);
+      return next;
     });
   };
 
@@ -477,7 +756,9 @@ export function TransactionsPage() {
     });
   };
 
-  const selectedSource = selected ? detectSource(selected.source, selected.note, selected.tags) : 'manual';
+  const selectedSource = selected
+    ? detectSource(selected.source, selected.note, selected.tags)
+    : 'manual';
 
   return (
     <div>
@@ -493,13 +774,21 @@ export function TransactionsPage() {
         onExport={() => exportTransactionsCsv(filteredRows)}
         onImportWechat={() => openImport('wechat')}
         onImportAlipay={() => openImport('alipay')}
+        onCheckDuplicates={handleCheckDuplicates}
       />
 
       {importNotice.visible ? (
-        <section className={`import-result-banner import-result-${importNotice.variant}`} role="status" aria-live="polite">
+        <section
+          className={`import-result-banner import-result-${importNotice.variant}`}
+          role="status"
+          aria-live="polite"
+        >
           <strong>导入结果：</strong>
           <span>{importNotice.message}</span>
-          <button type="button" onClick={() => setImportNotice((prev) => ({ ...prev, visible: false }))}>
+          <button
+            type="button"
+            onClick={() => setImportNotice((prev) => ({ ...prev, visible: false }))}
+          >
             知道了
           </button>
         </section>
@@ -536,13 +825,15 @@ export function TransactionsPage() {
         selectedIds={selectedIds}
         canSelectAllOnPage={canSelectAllOnPage}
         allPageSelected={allPageSelected}
-        onDelete={((id) => setPendingDeleteIds([id]))}
+        onDelete={(id) => setPendingDeleteIds([id])}
         onDeleteSelected={handleDeleteSelected}
         onClearSelection={() => setSelectedIds([])}
         onToggleSelect={handleToggleSelect}
         onToggleSelectPage={handleToggleSelectPage}
         visibleColumns={visibleColumns}
+        columnOrder={columnOrder}
         onToggleColumn={handleToggleColumn}
+        onColumnReorder={handleColumnReorder}
       />
 
       <TransactionDetailDrawer

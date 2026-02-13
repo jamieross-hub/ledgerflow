@@ -30,6 +30,13 @@ interface ChatCompletionResponse {
       reasoning?: string;
     };
   }>;
+  usage?: ChatUsage;
+}
+
+interface ChatUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
 }
 
 interface ChatCompletionStreamChunk {
@@ -46,6 +53,7 @@ interface ChatCompletionStreamChunk {
 export interface SendAiChatResult {
   content: string;
   reasoning?: string;
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
 }
 
 export async function sendAiChatStream(
@@ -68,11 +76,12 @@ export async function sendAiChatStream(
       model: input.model,
       stream: true,
       messages: outboundMessages.map((message) => {
-        const imageUrls = Array.isArray(message.imageDataUrls) && message.imageDataUrls.length > 0
-          ? message.imageDataUrls
-          : message.imageDataUrl
-            ? [message.imageDataUrl]
-            : [];
+        const imageUrls =
+          Array.isArray(message.imageDataUrls) && message.imageDataUrls.length > 0
+            ? message.imageDataUrls
+            : message.imageDataUrl
+              ? [message.imageDataUrl]
+              : [];
 
         if (message.role === 'user' && imageUrls.length > 0) {
           return {
@@ -176,7 +185,9 @@ export async function fetchAiModels(baseUrl?: string, apiKey?: string): Promise<
   return (payload.data || []).map((item) => item.id).filter(Boolean);
 }
 
-function normalizeMessageContent(content: string | Array<{ type: 'text'; text: string }> | undefined) {
+function normalizeMessageContent(
+  content: string | Array<{ type: 'text'; text: string }> | undefined
+) {
   if (!content) {
     return '';
   }
@@ -203,11 +214,12 @@ export async function sendAiChat(input: ChatRequestInput): Promise<SendAiChatRes
     body: JSON.stringify({
       model: input.model,
       messages: outboundMessages.map((message) => {
-        const imageUrls = Array.isArray(message.imageDataUrls) && message.imageDataUrls.length > 0
-          ? message.imageDataUrls
-          : message.imageDataUrl
-            ? [message.imageDataUrl]
-            : [];
+        const imageUrls =
+          Array.isArray(message.imageDataUrls) && message.imageDataUrls.length > 0
+            ? message.imageDataUrls
+            : message.imageDataUrl
+              ? [message.imageDataUrl]
+              : [];
 
         if (message.role === 'user' && imageUrls.length > 0) {
           return {
@@ -239,6 +251,13 @@ export async function sendAiChat(input: ChatRequestInput): Promise<SendAiChatRes
 
   return {
     content: content || '模型未返回可解析内容',
-    reasoning: reasoning || undefined
+    reasoning: reasoning || undefined,
+    usage: payload.usage
+      ? {
+          promptTokens: Number(payload.usage.prompt_tokens || 0),
+          completionTokens: Number(payload.usage.completion_tokens || 0),
+          totalTokens: Number(payload.usage.total_tokens || 0)
+        }
+      : undefined
   };
 }

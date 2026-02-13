@@ -37,6 +37,11 @@ function truncateNote(note: string): string {
   return `${note.slice(0, NOTE_MAX_LENGTH)}…`;
 }
 
+function truncateOrderNo(value: string): string {
+  if (value.length <= 16) return value;
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
+}
+
 function sortIndicator(active: boolean, direction: TransactionSortDirection): string {
   if (!active) {
     return '⇅';
@@ -92,7 +97,9 @@ interface TransactionTableProps {
     value: TransactionQuickFilters[K]
   ) => void;
   visibleColumns: Record<TransactionColumnKey, boolean>;
+  columnOrder: TransactionColumnKey[];
   onToggleColumn: (key: TransactionColumnKey) => void;
+  onColumnReorder: (fromKey: TransactionColumnKey, toKey: TransactionColumnKey) => void;
 }
 
 export function TransactionTable({
@@ -124,12 +131,15 @@ export function TransactionTable({
   onSortChange,
   onQuickFilterChange,
   visibleColumns,
-  onToggleColumn
+  columnOrder,
+  onToggleColumn,
+  onColumnReorder
 }: TransactionTableProps) {
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
+  const dragColumnRef = useRef<TransactionColumnKey | null>(null);
 
   const navigate = useNavigate();
 
@@ -143,6 +153,53 @@ export function TransactionTable({
     { key: 'merchantOrderNo', label: '商家订单号' },
     { key: 'note', label: '备注' }
   ];
+
+  const orderedColumns = columnOrder
+    .map((key) => columnOptions.find((item) => item.key === key))
+    .filter((item): item is { key: TransactionColumnKey; label: string } => Boolean(item));
+
+  const renderCellValue = (columnKey: TransactionColumnKey, row: TransactionRowView) => {
+    const { item, categoryName, accountName } = row;
+    switch (columnKey) {
+      case 'date':
+        return formatDate(item.date);
+      case 'type':
+        return item.type === 'income'
+          ? '收入'
+          : item.type === 'budget'
+            ? '预算'
+            : item.type === 'repayment'
+              ? '还款'
+              : '支出';
+      case 'category':
+        return categoryName;
+      case 'account':
+        return accountName;
+      case 'amount':
+        return formatCurrency(item.amount);
+      case 'orderNo':
+        return item.orderNo || '-';
+      case 'merchantOrderNo':
+        return item.merchantOrderNo || '-';
+      case 'note':
+        return truncateNote(item.note || '-');
+      default:
+        return '-';
+    }
+  };
+
+  const textFilterKeyMap: Record<
+    Exclude<TransactionColumnKey, 'type'>,
+    Exclude<keyof TransactionQuickFilters, 'type'>
+  > = {
+    date: 'date',
+    category: 'category',
+    account: 'account',
+    amount: 'amount',
+    orderNo: 'orderNo',
+    merchantOrderNo: 'merchantOrderNo',
+    note: 'note'
+  };
 
   useEffect(() => {
     if (!contextMenu) {
@@ -235,184 +292,79 @@ export function TransactionTable({
                       aria-label="全选当前页"
                     />
                   </th>
-                  {visibleColumns.date ? (
-                    <th>
-                      <button
-                        type="button"
-                        className={`transaction-sort-btn ${sortKey === 'date' ? 'active' : ''}`}
-                        onClick={() => onSortChange('date')}
+                  {orderedColumns.map((column) => {
+                    if (!visibleColumns[column.key]) return null;
+                    return (
+                      <th
+                        key={`head-${column.key}`}
+                        draggable
+                        onDragStart={() => {
+                          dragColumnRef.current = column.key;
+                        }}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={() => {
+                          if (dragColumnRef.current && dragColumnRef.current !== column.key) {
+                            onColumnReorder(dragColumnRef.current, column.key);
+                          }
+                          dragColumnRef.current = null;
+                        }}
                       >
-                        日期 <span>{sortIndicator(sortKey === 'date', sortDirection)}</span>
-                      </button>
-                    </th>
-                  ) : null}
-                  {visibleColumns.type ? (
-                    <th>
-                      <button
-                        type="button"
-                        className={`transaction-sort-btn ${sortKey === 'type' ? 'active' : ''}`}
-                        onClick={() => onSortChange('type')}
-                      >
-                        类型 <span>{sortIndicator(sortKey === 'type', sortDirection)}</span>
-                      </button>
-                    </th>
-                  ) : null}
-                  {visibleColumns.category ? (
-                    <th>
-                      <button
-                        type="button"
-                        className={`transaction-sort-btn ${sortKey === 'category' ? 'active' : ''}`}
-                        onClick={() => onSortChange('category')}
-                      >
-                        分类 <span>{sortIndicator(sortKey === 'category', sortDirection)}</span>
-                      </button>
-                    </th>
-                  ) : null}
-                  {visibleColumns.account ? (
-                    <th>
-                      <button
-                        type="button"
-                        className={`transaction-sort-btn ${sortKey === 'account' ? 'active' : ''}`}
-                        onClick={() => onSortChange('account')}
-                      >
-                        账户 <span>{sortIndicator(sortKey === 'account', sortDirection)}</span>
-                      </button>
-                    </th>
-                  ) : null}
-                  {visibleColumns.amount ? (
-                    <th>
-                      <button
-                        type="button"
-                        className={`transaction-sort-btn ${sortKey === 'amount' ? 'active' : ''}`}
-                        onClick={() => onSortChange('amount')}
-                      >
-                        金额 <span>{sortIndicator(sortKey === 'amount', sortDirection)}</span>
-                      </button>
-                    </th>
-                  ) : null}
-                  {visibleColumns.orderNo ? (
-                    <th>
-                      <button
-                        type="button"
-                        className={`transaction-sort-btn ${sortKey === 'orderNo' ? 'active' : ''}`}
-                        onClick={() => onSortChange('orderNo')}
-                      >
-                        交易订单号{' '}
-                        <span>{sortIndicator(sortKey === 'orderNo', sortDirection)}</span>
-                      </button>
-                    </th>
-                  ) : null}
-                  {visibleColumns.merchantOrderNo ? (
-                    <th>
-                      <button
-                        type="button"
-                        className={`transaction-sort-btn ${sortKey === 'merchantOrderNo' ? 'active' : ''}`}
-                        onClick={() => onSortChange('merchantOrderNo')}
-                      >
-                        商家订单号{' '}
-                        <span>{sortIndicator(sortKey === 'merchantOrderNo', sortDirection)}</span>
-                      </button>
-                    </th>
-                  ) : null}
-                  {visibleColumns.note ? (
-                    <th>
-                      <button
-                        type="button"
-                        className={`transaction-sort-btn ${sortKey === 'note' ? 'active' : ''}`}
-                        onClick={() => onSortChange('note')}
-                      >
-                        备注 <span>{sortIndicator(sortKey === 'note', sortDirection)}</span>
-                      </button>
-                    </th>
-                  ) : null}
+                        <button
+                          type="button"
+                          className={`transaction-sort-btn ${sortKey === column.key ? 'active' : ''}`}
+                          onClick={() => onSortChange(column.key)}
+                        >
+                          {column.label}{' '}
+                          <span>{sortIndicator(sortKey === column.key, sortDirection)}</span>
+                        </button>
+                      </th>
+                    );
+                  })}
                 </tr>
                 <tr className="transaction-filter-row">
                   <th className="transaction-select-col" />
-                  {visibleColumns.date ? (
-                    <th>
-                      <input
-                        value={quickFilters.date}
-                        onChange={(event) => onQuickFilterChange('date', event.target.value)}
-                        placeholder="筛选日期"
-                      />
-                    </th>
-                  ) : null}
-                  {visibleColumns.type ? (
-                    <th>
-                      <select
-                        aria-label="按类型筛选"
-                        value={quickFilters.type}
-                        onChange={(event) =>
-                          onQuickFilterChange(
-                            'type',
-                            event.target.value as TransactionQuickFilters['type']
-                          )
-                        }
-                      >
-                        <option value="all">全部</option>
-                        <option value="income">收入</option>
-                        <option value="expense">支出</option>
-                        <option value="budget">预算</option>
-                        <option value="repayment">还款</option>
-                      </select>
-                    </th>
-                  ) : null}
-                  {visibleColumns.category ? (
-                    <th>
-                      <input
-                        value={quickFilters.category}
-                        onChange={(event) => onQuickFilterChange('category', event.target.value)}
-                        placeholder="筛选分类"
-                      />
-                    </th>
-                  ) : null}
-                  {visibleColumns.account ? (
-                    <th>
-                      <input
-                        value={quickFilters.account}
-                        onChange={(event) => onQuickFilterChange('account', event.target.value)}
-                        placeholder="筛选账户"
-                      />
-                    </th>
-                  ) : null}
-                  {visibleColumns.amount ? (
-                    <th>
-                      <input
-                        value={quickFilters.amount}
-                        onChange={(event) => onQuickFilterChange('amount', event.target.value)}
-                        placeholder="筛选金额"
-                      />
-                    </th>
-                  ) : null}
-                  {visibleColumns.orderNo ? (
-                    <th>
-                      <input
-                        value={quickFilters.orderNo}
-                        onChange={(event) => onQuickFilterChange('orderNo', event.target.value)}
-                        placeholder="筛选交易订单号"
-                      />
-                    </th>
-                  ) : null}
-                  {visibleColumns.merchantOrderNo ? (
-                    <th>
-                      <input
-                        value={quickFilters.merchantOrderNo}
-                        onChange={(event) =>
-                          onQuickFilterChange('merchantOrderNo', event.target.value)
-                        }
-                        placeholder="筛选商家订单号"
-                      />
-                    </th>
-                  ) : null}
-                  {visibleColumns.note ? (
-                    <th>
-                      <input
-                        value={quickFilters.note}
-                        onChange={(event) => onQuickFilterChange('note', event.target.value)}
-                        placeholder="筛选备注"
-                      />
-                    </th>
-                  ) : null}
+                  {orderedColumns.map((column) => {
+                    if (!visibleColumns[column.key]) return null;
+                    if (column.key === 'type') {
+                      return (
+                        <th key={`filter-${column.key}`}>
+                          <select
+                            aria-label="按类型筛选"
+                            value={quickFilters.type}
+                            onChange={(event) =>
+                              onQuickFilterChange(
+                                'type',
+                                event.target.value as TransactionQuickFilters['type']
+                              )
+                            }
+                          >
+                            <option value="all">全部</option>
+                            <option value="income">收入</option>
+                            <option value="expense">支出</option>
+                            <option value="budget">预算</option>
+                            <option value="repayment">还款</option>
+                          </select>
+                        </th>
+                      );
+                    }
+                    return (
+                      <th key={`filter-${column.key}`}>
+                        <input
+                          value={
+                            quickFilters[
+                              textFilterKeyMap[column.key as Exclude<TransactionColumnKey, 'type'>]
+                            ]
+                          }
+                          onChange={(event) => {
+                            const filterKey =
+                              textFilterKeyMap[column.key as Exclude<TransactionColumnKey, 'type'>];
+                            onQuickFilterChange(filterKey, event.target.value);
+                          }}
+                          placeholder={`筛选${column.label}`}
+                        />
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
@@ -453,48 +405,71 @@ export function TransactionTable({
                           aria-label={`选择交易 ${formatDate(item.date)} ${item.note || ''}`}
                         />
                       </td>
-                      {visibleColumns.date ? <td>{formatDate(item.date)}</td> : null}
-                      {visibleColumns.type ? (
-                        <td>
-                          <span
-                            className={
-                              item.type === 'income' ? 'badge badge-success' : 'badge badge-danger'
-                            }
-                          >
-                            {item.type === 'income'
-                              ? '收入'
-                              : item.type === 'budget'
-                                ? '预算'
-                                : item.type === 'repayment'
-                                  ? '还款'
-                                  : '支出'}
-                          </span>
-                        </td>
-                      ) : null}
-                      {visibleColumns.category ? <td>{categoryName}</td> : null}
-                      {visibleColumns.account ? <td>{accountName}</td> : null}
-                      {visibleColumns.amount ? (
-                        <td
-                          style={{
-                            fontWeight: 600,
-                            color:
-                              item.type === 'income'
-                                ? 'var(--color-income)'
-                                : 'var(--color-expense)'
-                          }}
-                        >
-                          {formatCurrency(item.amount)}
-                        </td>
-                      ) : null}
-                      {visibleColumns.orderNo ? <td>{item.orderNo || '-'}</td> : null}
-                      {visibleColumns.merchantOrderNo ? (
-                        <td>{item.merchantOrderNo || '-'}</td>
-                      ) : null}
-                      {visibleColumns.note ? (
-                        <td>
-                          <span title={note}>{truncateNote(note)}</span>
-                        </td>
-                      ) : null}
+                      {orderedColumns.map((column) => {
+                        if (!visibleColumns[column.key]) return null;
+                        if (column.key === 'type') {
+                          return (
+                            <td key={`${item.id}-${column.key}`}>
+                              <span
+                                className={
+                                  item.type === 'income'
+                                    ? 'badge badge-success'
+                                    : 'badge badge-danger'
+                                }
+                              >
+                                {renderCellValue(column.key, { item, categoryName, accountName })}
+                              </span>
+                            </td>
+                          );
+                        }
+                        if (column.key === 'amount') {
+                          return (
+                            <td
+                              key={`${item.id}-${column.key}`}
+                              style={{
+                                fontWeight: 600,
+                                color:
+                                  item.type === 'income'
+                                    ? 'var(--color-income)'
+                                    : 'var(--color-expense)'
+                              }}
+                            >
+                              {renderCellValue(column.key, { item, categoryName, accountName })}
+                            </td>
+                          );
+                        }
+                        if (column.key === 'note') {
+                          return (
+                            <td key={`${item.id}-${column.key}`}>
+                              <span title={note}>
+                                {renderCellValue(column.key, { item, categoryName, accountName })}
+                              </span>
+                            </td>
+                          );
+                        }
+                        if (column.key === 'orderNo' || column.key === 'merchantOrderNo') {
+                          const orderText = renderCellValue(column.key, {
+                            item,
+                            categoryName,
+                            accountName
+                          });
+                          return (
+                            <td key={`${item.id}-${column.key}`}>
+                              <span
+                                className="transaction-order-ellipsis"
+                                title={String(orderText)}
+                              >
+                                {orderText === '-' ? '-' : truncateOrderNo(String(orderText))}
+                              </span>
+                            </td>
+                          );
+                        }
+                        return (
+                          <td key={`${item.id}-${column.key}`}>
+                            {renderCellValue(column.key, { item, categoryName, accountName })}
+                          </td>
+                        );
+                      })}
                     </tr>
                   );
                 })}

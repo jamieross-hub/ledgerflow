@@ -1,7 +1,24 @@
 import type { Account } from '../../../entities/account/types';
 import type { Category } from '../../../entities/category/types';
-import type { TransactionType } from '../../../entities/transaction/types';
+import type { TransactionSource, TransactionType } from '../../../entities/transaction/types';
 import type { DraftBillEntry } from './workbenchTypes';
+
+/** 金额统一按分级精度保留两位，避免出现 337.280000000000001 这类展示噪音。 */
+export function normalizeMoney(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(value * 100) / 100;
+}
+
+/**
+ * 根据文本做轻量来源识别：用于 AI 记账场景下自动匹配“微信/支付宝”等账户。
+ * 这里只做 deterministic 规则，避免引入额外随机性。
+ */
+export function inferSourceFromText(text: string): TransactionSource {
+  const normalized = text.toLowerCase();
+  if (/微信|wechat|wxpay/.test(normalized)) return 'wechat';
+  if (/支付宝|alipay|蚂蚁/.test(normalized)) return 'alipay';
+  return 'ai';
+}
 
 export function inferCategoryFromText(type: TransactionType, text: string): string {
   const normalized = text.toLowerCase();
@@ -72,10 +89,40 @@ export function ensureCategoryId(
   return addCategory(normalized) || categories[0]?.id || 'cat-unknown';
 }
 
-export function resolveAccountId(name: string | undefined, accounts: Account[]): string {
+/**
+ * 严谨账户匹配策略：
+ * 1) 先做名称精确匹配；
+ * 2) 若失败，按来源关键字（微信/支付宝）在账户名中匹配；
+ * 3) 还款类优先落到信用卡/负债类账户；
+ * 4) 再兜底到首账户。
+ */
+export function resolveAccountId(
+  name: string | undefined,
+  accounts: Account[],
+  options?: { source?: TransactionSource; type?: TransactionType }
+): string {
   const normalized = (name || '').trim().toLowerCase();
-  const matched = accounts.find((item) => item.name.trim().toLowerCase() === normalized);
-  return matched?.id || accounts[0]?.id || 'acc-unknown';
+  if (normalized) {
+    const exact = accounts.find((item) => item.name.trim().toLowerCase() === normalized);
+    if (exact) return exact.id;
+  }
+
+  const source = options?.source;
+  if (source === 'wechat') {
+    const wechat = accounts.find((item) => /微信|wechat|零钱|wx/i.test(item.name));
+    if (wechat) return wechat.id;
+  }
+  if (source === 'alipay') {
+    const alipay = accounts.find((item) => /支付宝|alipay|余额宝|蚂蚁/i.test(item.name));
+    if (alipay) return alipay.id;
+  }
+
+  if (options?.type === 'repayment') {
+    const liability = accounts.find((item) => item.type === 'credit' || item.type === 'liability');
+    if (liability) return liability.id;
+  }
+
+  return accounts[0]?.id || 'acc-unknown';
 }
 
 export function mapAssistantErrorMessage(raw: string): string {
@@ -103,7 +150,7 @@ export function toPayloadRows(entries: DraftBillEntry[]) {
     .filter((item) => item.selected && item.issues.length === 0)
     .map((item) => ({
       type: item.type === 'unknown' ? 'expense' : item.type,
-      amount: item.amount,
+      amount: normalizeMoney(item.amount),
       date: item.date,
       note: item.note,
       category: item.category,

@@ -17,6 +17,7 @@ export interface AiBillItem {
   category?: string;
   account?: string;
   tags?: string[];
+  sourceHint?: 'wechat' | 'alipay' | 'bank' | 'cash' | 'unknown';
   orderNo?: string;
   merchantOrderNo?: string;
 }
@@ -40,8 +41,11 @@ export interface DraftBillEntry {
   category: string;
   account: string;
   tags: string[];
+  sourceHint?: 'wechat' | 'alipay' | 'bank' | 'cash' | 'unknown';
   orderNo?: string;
   merchantOrderNo?: string;
+  duplicateTxId?: string;
+  duplicateReason?: 'orderNo' | 'merchantOrderNo' | 'content';
   issues: ValidationIssue[];
 }
 

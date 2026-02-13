@@ -6,11 +6,15 @@ interface AiSettingsState {
   baseUrl: string;
   apiKey: string;
   model: string;
+  embeddingModel: string;
+  rerankModel: string;
   memoryDays: number;
   memoryBackend: 'local' | 'redis';
   setBaseUrl: (baseUrl: string) => void;
   setApiKey: (apiKey: string) => void;
   setModel: (model: string) => void;
+  setEmbeddingModel: (model: string) => void;
+  setRerankModel: (model: string) => void;
   setMemoryDays: (days: number) => void;
   setMemoryBackend: (backend: 'local' | 'redis') => void;
 }
@@ -26,14 +30,34 @@ export const useAiSettings = create<AiSettingsState>()(
       baseUrl: ENV.aiBaseUrl,
       apiKey: ENV.aiApiKey,
       model: ENV.aiDefaultModel,
+      embeddingModel: 'text-embedding-3-small',
+      rerankModel: 'bge-reranker-v2-m3',
       memoryDays: 3,
       memoryBackend: 'local',
       setBaseUrl: (baseUrl: string) => set({ baseUrl: baseUrl.trim() }),
       setApiKey: (apiKey: string) => set({ apiKey: apiKey.trim() }),
-      setModel: (model: string) => set({ model: model.trim() }),
-      setMemoryDays: (days: number) => set({ memoryDays: Math.min(3, Math.max(1, Math.round(days || 1))) }),
+      setModel: (model: string) => set({ model: model.trim() || ENV.aiDefaultModel }),
+      setEmbeddingModel: (model: string) => set({ embeddingModel: model.trim() }),
+      setRerankModel: (model: string) => set({ rerankModel: model.trim() }),
+      setMemoryDays: (days: number) =>
+        set({ memoryDays: Math.min(3, Math.max(1, Math.round(days || 1))) }),
       setMemoryBackend: (backend: 'local' | 'redis') => set({ memoryBackend: backend })
     }),
-    { name: 'ledgerflow-ai-settings' }
+    {
+      name: 'ledgerflow-ai-settings',
+      merge: (persisted, current) => {
+        const next = { ...current, ...(persisted as Partial<AiSettingsState>) };
+        if (!next.model?.trim()) {
+          next.model = ENV.aiDefaultModel;
+        }
+        if (!next.embeddingModel?.trim()) {
+          next.embeddingModel = 'text-embedding-3-small';
+        }
+        if (!next.rerankModel?.trim()) {
+          next.rerankModel = 'bge-reranker-v2-m3';
+        }
+        return next;
+      }
+    }
   )
 );

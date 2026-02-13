@@ -2006,7 +2006,8 @@ small.mono {
 .chat-fullscreen {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - var(--topbar-height) - var(--space-6) * 2);
+  height: calc(100vh - var(--topbar-height));
+  min-height: 0;
   margin: calc(var(--space-6) * -1);
   overflow: hidden;
   background: var(--color-bg);
@@ -2231,11 +2232,13 @@ small.mono {
 
 .chat-messages-inner {
   max-width: 780px;
+  min-height: 100%;
   margin: 0 auto;
-  padding: var(--space-6) var(--space-5);
+  padding: var(--space-4) var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  justify-content: flex-end;
+  gap: var(--space-4);
 }
 
 /* ---------- Message Bubble ---------- */
@@ -3333,8 +3336,9 @@ small.mono {
   }
 
   .mobile-nav-footer .theme-switcher {
-    width: 100%;
-    justify-content: space-between;
+    width: auto;
+    justify-content: center;
+    margin-top: var(--space-2);
   }
 
   .sidebar {
@@ -4005,13 +4009,21 @@ small.mono {
 
 .categories-accounts-page {
   align-items: start;
-  grid-template-columns: minmax(320px, 0.9fr) minmax(420px, 1.1fr);
+  grid-template-columns: minmax(320px, 0.9fr) minmax(440px, 1.1fr);
   gap: var(--space-4);
 }
 
 .categories-panel,
 .accounts-panel {
   min-height: 100%;
+}
+
+.accounts-panel {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-primary) 3%, var(--color-bg-elevated)) 0%,
+    var(--color-bg-elevated) 100%
+  );
 }
 
 .categories-accounts-head {
@@ -4037,7 +4049,7 @@ small.mono {
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   background: var(--color-bg-subtle);
@@ -4053,8 +4065,8 @@ small.mono {
 }
 
 .metric-chip-highlight {
-  border-color: color-mix(in srgb, var(--color-primary) 38%, var(--color-border));
-  background: color-mix(in srgb, var(--color-primary-bg) 82%, var(--color-bg-elevated));
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary-bg) 80%, var(--color-bg-elevated));
 }
 
 .metric-chip-highlight strong {
@@ -4065,6 +4077,42 @@ small.mono {
 .categories-form-row,
 .account-create-row {
   align-items: center;
+}
+
+.account-toolbar-tip {
+  margin: 0 0 var(--space-3) 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-primary-border);
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg-subtle));
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+}
+
+.account-create-form {
+  margin-bottom: var(--space-4);
+}
+
+.account-create-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.8fr auto;
+  gap: var(--space-2);
+  align-items: end;
+}
+
+.account-create-grid > .field {
+  min-width: 0;
+}
+
+.account-create-grid .field input,
+.account-create-grid .field select {
+  width: 100%;
+  min-width: 0;
+}
+
+.account-create-submit {
+  white-space: nowrap;
+  min-height: 42px;
 }
 
 .categories-list {
@@ -4090,59 +4138,73 @@ small.mono {
 
 .account-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: var(--space-3);
 }
 
 .account-card {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-border) 90%, transparent);
+  border-radius: var(--radius-xl);
   background: var(--color-bg-elevated);
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
   box-shadow: var(--shadow-xs);
 }
 
 .account-card-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: var(--space-2);
 }
 
 .account-card-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: var(--color-bg-subtle);
   border: 1px solid var(--color-border);
-  font-size: 16px;
+  font-size: 20px;
 }
 
 .account-card-main {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1);
-  flex: 1;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
 .account-card-main strong {
-  font-size: var(--font-base);
+  font-size: 20px;
   color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 160px;
+}
+
+.account-card-main small {
+  color: var(--color-text-tertiary);
+}
+
+.account-card-balance-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.account-card-balance-wrap small {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-xs);
 }
 
 .account-card-balance {
-  font-size: clamp(22px, 2.1vw, 30px);
+  font-size: clamp(26px, 2.4vw, 44px);
   font-weight: 800;
   letter-spacing: 0.01em;
   line-height: 1;
@@ -4157,25 +4219,103 @@ small.mono {
   color: var(--color-danger);
 }
 
-.account-card-meta {
-  display: flex;
-  justify-content: space-between;
+.account-card-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(112px, auto) minmax(96px, auto);
+  align-items: end;
   gap: var(--space-2);
-  font-size: var(--font-xs);
-  color: var(--color-text-tertiary);
 }
 
-.account-card-actions {
-  align-items: center;
+.account-balance-field {
+  margin: 0;
+}
+
+.account-balance-field label {
+  margin-bottom: 4px;
 }
 
 .account-balance-input {
-  width: 180px;
+  width: 100%;
+  min-width: 0;
   font-weight: 600;
 }
 
-@media (max-width: 1024px) {
+.transaction-order-ellipsis {
+  display: inline-block;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.settings-model-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.settings-model-field small {
+  color: var(--color-text-secondary);
+}
+
+.settings-model-input-row {
+  margin-top: 6px;
+}
+
+.settings-model-chips {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.settings-model-chips button {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: var(--font-xs);
+}
+
+.settings-model-chips button.active {
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-bg-subtle));
+}
+
+.settings-presets-toggle {
+  margin-top: 8px;
+  align-self: flex-start;
+  font-size: var(--font-xs);
+  padding: 4px 10px;
+}
+
+.settings-ai-summary {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+}
+
+.settings-ai-summary p {
+  margin: 4px 0 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+}
+
+@media (max-width: 1100px) {
   .categories-accounts-page {
+    grid-template-columns: 1fr;
+  }
+
+  .account-create-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .settings-model-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -4190,12 +4330,21 @@ small.mono {
     justify-content: flex-start;
   }
 
-  .account-create-row {
-    flex-wrap: wrap;
+  .account-create-grid {
+    grid-template-columns: 1fr;
   }
 
-  .account-balance-input {
-    width: 100%;
+  .account-card-head {
+    grid-template-columns: auto 1fr;
+  }
+
+  .account-card-balance-wrap {
+    align-items: flex-start;
+    grid-column: 1 / -1;
+  }
+
+  .account-card-actions {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -4522,4 +4671,129 @@ small.mono {
   .assistant-wb-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* incremental ui polish */
+.drawer-add-link {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 24px;
+  text-decoration: none;
+}
+
+.dashboard-forecast-quick-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.dashboard-forecast-quick-card {
+  border: 1px solid var(--color-border-light);
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--color-bg-subtle);
+}
+
+.about-page {
+  max-width: 920px;
+  margin: 0 auto;
+}
+.about-header {
+  margin-bottom: 14px;
+}
+.about-block {
+  margin-bottom: 14px;
+  line-height: 1.75;
+}
+.about-block h3 {
+  margin-bottom: 8px;
+}
+.about-block ul,
+.about-block ol {
+  padding-left: 20px;
+  color: var(--color-text-secondary);
+}
+.about-api-pre {
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  line-height: var(--leading-relaxed);
+  overflow-x: auto;
+  color: var(--color-text-secondary);
+}
+
+.chat-msg-user {
+  flex-direction: row-reverse;
+}
+.chat-msg-user .chat-msg-body {
+  align-items: flex-end;
+}
+.chat-msg-user .chat-msg-content {
+  background: color-mix(in oklab, var(--color-primary) 18%, transparent);
+}
+.chat-message-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.chat-token-usage {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.chat-disclaimer {
+  margin: 0;
+  padding: 6px var(--space-5) 0;
+  font-size: 11px;
+  color: var(--color-text-placeholder);
+}
+
+.chat-dup-alert {
+  margin: 0 0 var(--space-2) 0;
+  font-size: var(--font-xs);
+  color: var(--color-warning);
+}
+
+.chat-dup-alert.subtle {
+  color: var(--color-text-tertiary);
+}
+
+.chat-bill-rows {
+  display: grid;
+  gap: 8px;
+  margin-bottom: var(--space-3);
+}
+
+.chat-bill-row-item {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  display: grid;
+  gap: 3px;
+  background: var(--color-bg-subtle);
+}
+
+.chat-bill-row-item small {
+  color: var(--color-text-secondary);
+}
+
+.chat-dup-badge {
+  justify-self: start;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border-radius: var(--radius-full);
+  padding: 1px 8px;
+  font-size: 11px;
 }
