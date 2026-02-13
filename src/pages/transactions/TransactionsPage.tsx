@@ -26,7 +26,9 @@ import {
 import { Category } from '../../entities/category/types';
 import { TransactionSource } from '../../entities/transaction/types';
 
-const PAGE_SIZE = 8;
+const DEFAULT_PAGE_SIZE = 8;
+const PAGE_SIZE_OPTIONS = [8, 20, 50, 100] as const;
+const TX_PAGE_SIZE_KEY = 'ledgerflow.transactions.pageSize';
 type BillSource = 'wechat' | 'alipay';
 
 const DEFAULT_QUICK_FILTERS: TransactionQuickFilters = {
@@ -100,6 +102,19 @@ function restoreRecordState<K extends string>(
     return next;
   } catch {
     return defaults;
+  }
+}
+
+function restorePageSize(): number {
+  try {
+    const raw = window.localStorage.getItem(TX_PAGE_SIZE_KEY);
+    if (!raw) return DEFAULT_PAGE_SIZE;
+    const parsed = Number(raw);
+    return PAGE_SIZE_OPTIONS.includes(parsed as (typeof PAGE_SIZE_OPTIONS)[number])
+      ? parsed
+      : DEFAULT_PAGE_SIZE;
+  } catch {
+    return DEFAULT_PAGE_SIZE;
   }
 }
 
@@ -269,6 +284,8 @@ export function TransactionsPage() {
   >(() =>
     restoreRecordState<TransactionDetailSectionKey>(TX_DETAIL_SECTIONS_KEY, DEFAULT_DETAIL_SECTIONS)
   );
+  // 页大小允许用户按账单密度自由切换，长列表下减少翻页成本。
+  const [pageSize, setPageSize] = useState<number>(() => restorePageSize());
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const importSourceRef = useRef<BillSource | null>(null);
@@ -323,6 +340,10 @@ export function TransactionsPage() {
   useEffect(() => {
     window.localStorage.setItem(TX_DETAIL_SECTIONS_KEY, JSON.stringify(visibleDetailSections));
   }, [visibleDetailSections]);
+
+  useEffect(() => {
+    window.localStorage.setItem(TX_PAGE_SIZE_KEY, String(pageSize));
+  }, [pageSize]);
 
   useEffect(() => {
     const highlight = searchParams.get('highlight') ?? '';
@@ -457,7 +478,7 @@ export function TransactionsPage() {
     return rows;
   }, [quickFilteredRows, sortDirection, sortKey]);
 
-  const pages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE));
+  const pages = Math.max(1, Math.ceil(sortedRows.length / pageSize));
   const page = Math.min(filters.page, pages);
 
   useEffect(() => {
@@ -466,7 +487,7 @@ export function TransactionsPage() {
     }
   }, [filters.page, pages, setPage]);
 
-  const viewRows = sortedRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const viewRows = sortedRows.slice((page - 1) * pageSize, page * pageSize);
 
   const selected = useMemo(
     () => transactions.find((item) => item.id === selectedId) ?? null,
@@ -539,7 +560,7 @@ export function TransactionsPage() {
       const insertedIds = normalizedParsed.map((item) => addTransaction(item));
       const newestId = insertedIds[insertedIds.length - 1];
       const expectedIndex = Math.max(0, filteredRows.length + normalizedParsed.length - 1);
-      const expectedPage = Math.floor(expectedIndex / PAGE_SIZE) + 1;
+      const expectedPage = Math.floor(expectedIndex / pageSize) + 1;
       setPage(expectedPage);
       const message = `导入成功：新增 ${normalizedParsed.length} 条记录。`;
       showToast(message, 'success');
@@ -804,6 +825,8 @@ export function TransactionsPage() {
       />
 
       <TransactionTable
+        pageSize={pageSize}
+        pageSizeOptions={[...PAGE_SIZE_OPTIONS]}
         rows={viewRows}
         total={transactions.length}
         filteredTotal={sortedRows.length}
@@ -822,6 +845,11 @@ export function TransactionsPage() {
         onQuickFilterChange={handleQuickFilterChange}
         onPrevPage={() => setPage(Math.max(1, page - 1))}
         onNextPage={() => setPage(Math.min(pages, page + 1))}
+        onPageSizeChange={(size) => {
+          // 切换页大小后重置到第一页，避免超页码导致用户误解“数据丢失”。
+          setPageSize(size);
+          setPage(1);
+        }}
         onOpenDetail={setSelectedId}
         selectedIds={selectedIds}
         canSelectAllOnPage={canSelectAllOnPage}
