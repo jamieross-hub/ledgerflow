@@ -274,7 +274,7 @@ body {
 .workspace-topbar {
   position: sticky;
   top: 0;
-  z-index: 8;
+  z-index: 220;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
   padding: var(--space-3) var(--space-5);
@@ -369,7 +369,7 @@ body {
   box-shadow: var(--shadow-dropdown);
   display: grid;
   padding: var(--space-1);
-  z-index: 20;
+  z-index: 260;
 }
 
 .logo-menu-item {
@@ -655,7 +655,7 @@ button.danger:hover:not(:disabled) {
 
 .transaction-filters-panel {
   position: relative;
-  z-index: 120;
+  z-index: 4;
   isolation: isolate;
   overflow: visible;
 }
@@ -699,7 +699,7 @@ button.danger:hover:not(:disabled) {
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  z-index: 160;
+  z-index: 40;
   min-width: 240px;
   max-width: min(92vw, 360px);
   padding: var(--space-3);
@@ -707,6 +707,11 @@ button.danger:hover:not(:disabled) {
   border-radius: var(--radius-md);
   background: var(--color-bg-elevated);
   box-shadow: var(--shadow-md);
+}
+
+.transaction-filter-popover-actions .transaction-filter-popover-panel {
+  left: auto;
+  right: 0;
 }
 
 @media (max-width: 900px) {
@@ -726,6 +731,10 @@ button.danger:hover:not(:disabled) {
     width: min(92vw, 420px);
     max-width: 92vw;
     z-index: 180;
+  }
+
+  .transaction-filter-popover-actions .transaction-filter-popover-panel {
+    right: auto;
   }
 }
 
@@ -2067,6 +2076,31 @@ small.mono {
   min-width: 0;
 }
 
+.chat-mode-switch {
+  margin-left: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 2px;
+  background: var(--color-bg-subtle);
+}
+
+.chat-mode-switch button {
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  padding: 4px 10px;
+  font-size: var(--font-xs);
+  border-radius: var(--radius-full);
+}
+
+.chat-mode-switch button.active {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
 .chat-topbar-title {
   font-weight: 600;
   font-size: var(--font-md);
@@ -2693,6 +2727,57 @@ small.mono {
   font-size: var(--font-xs);
 }
 
+.chat-assistant-panel {
+  gap: var(--space-3);
+}
+
+.chat-preset-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.chat-preset-head strong {
+  font-size: var(--font-sm);
+  color: var(--color-text);
+}
+
+.chat-preset-head button {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  font-size: var(--font-xs);
+}
+
+.chat-preset-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.chat-preset-item {
+  text-align: left;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-elevated) 80%, var(--color-primary-bg));
+  color: var(--color-text);
+  padding: 10px 12px;
+  font-size: var(--font-sm);
+  line-height: 1.45;
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.chat-preset-item:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-primary-border);
+  box-shadow: var(--shadow-xs);
+}
+
 .chat-quick-amount-row {
   display: flex;
   align-items: center;
@@ -2941,6 +3026,22 @@ small.mono {
   font-size: 16px;
   padding: 0;
   flex-shrink: 0;
+  border: 1px solid var(--color-primary-border);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.chat-send-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.chat-send-btn:disabled {
+  border-color: var(--color-border-light);
+  background: var(--color-bg-subtle);
+  color: var(--color-text-placeholder);
+  cursor: not-allowed;
 }
 
 /* ============================================================
@@ -3524,7 +3625,7 @@ small.mono {
   .mobile-nav-drawer {
     width: min(320px, 88vw);
     height: 100vh;
-    background: #f5f6f8;
+    background: var(--color-bg);
     border-right: 1px solid var(--color-border);
     box-shadow: var(--shadow-xl);
     padding: var(--space-3);
@@ -3596,7 +3697,8 @@ small.mono {
   .mobile-nav-grid-item {
     min-height: 78px;
     border-radius: var(--radius-md);
-    background: #f8f9fc;
+    background: var(--color-bg-subtle);
+    border: 1px solid var(--color-border-light);
     color: var(--color-text);
     text-decoration: none;
     display: flex;
@@ -4309,7 +4411,7 @@ small.mono {
 
 .account-create-grid {
   display: grid;
-  grid-template-columns: 1.2fr 1fr 0.8fr auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-2);
   align-items: end;
 }
@@ -4325,6 +4427,9 @@ small.mono {
 }
 
 .account-create-submit {
+  grid-column: 1 / -1;
+  justify-self: end;
+  width: 160px;
   white-space: nowrap;
   min-height: 42px;
 }
@@ -4418,11 +4523,14 @@ small.mono {
 }
 
 .account-card-balance {
-  font-size: clamp(26px, 2.4vw, 44px);
+  font-size: clamp(18px, 2.2vw, 44px);
   font-weight: 800;
   letter-spacing: 0.01em;
   line-height: 1;
   white-space: nowrap;
+  max-width: min(100%, 280px);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .account-card-balance-positive {
@@ -4536,6 +4644,11 @@ small.mono {
     grid-template-columns: 1fr 1fr;
   }
 
+  .account-create-submit {
+    width: 100%;
+    justify-self: stretch;
+  }
+
   .settings-model-grid {
     grid-template-columns: 1fr;
   }
@@ -4553,6 +4666,11 @@ small.mono {
 
   .account-create-grid {
     grid-template-columns: 1fr;
+  }
+
+  .account-create-submit {
+    grid-column: auto;
+    width: 100%;
   }
 
   .account-card-head {
@@ -4966,6 +5084,21 @@ small.mono {
   display: flex;
   gap: 8px;
   margin-top: 8px;
+}
+
+.chat-icon-action-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.chat-secondary-action-btn {
+  padding: 4px 10px;
+  min-height: 28px;
+  font-size: var(--font-xs);
 }
 .chat-token-usage {
   margin-top: 6px;

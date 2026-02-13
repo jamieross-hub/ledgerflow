@@ -5,6 +5,7 @@ import type { Category } from '../../../entities/category/types';
 import type { TransactionItem } from '../../../entities/transaction/types';
 import { useDebugLogStore } from '../../../shared/store/useDebugLogStore';
 import {
+  ANALYSIS_AGENT_PROMPT,
   buildTimeContext,
   buildTransactionPromptContext,
   extractJsonString,
@@ -27,6 +28,20 @@ import type { AssistantToastState, DraftBillEntry, WorkbenchStatus } from './wor
 
 /** 模型列表本地缓存 key：用于启动时秒开下拉列表。 */
 const MODEL_CACHE_KEY = 'ledgerflow-assistant-model-cache-v1';
+const MIN_ALLOWED_DATE = '2000-01-01';
+const MAX_ALLOWED_DATE = '2100-12-31';
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
+
+function normalizeEntryDate(inputDate?: string) {
+  const fallback = new Date().toISOString();
+  if (!inputDate) return fallback;
+  const parsed = new Date(inputDate);
+  if (Number.isNaN(parsed.getTime())) return fallback;
+
+  const day = parsed.toISOString().slice(0, 10);
+  if (day < MIN_ALLOWED_DATE || day > MAX_ALLOWED_DATE) return fallback;
+  return parsed.toISOString();
+}
 
 interface UseAssistantWorkbenchInput {
   baseUrl: string;
@@ -38,6 +53,7 @@ interface UseAssistantWorkbenchInput {
   addCategory: (name: string) => string;
   addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
   updateTransaction: (id: string, payload: Omit<TransactionItem, 'id'>) => void;
+  sceneMode?: 'bookkeeping' | 'assistant';
 }
 
 /**
@@ -142,6 +158,14 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
 
   const handleSetImage = async (file?: File) => {
     if (!file) return;
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      const maxSizeMb = Math.round(MAX_IMAGE_SIZE_BYTES / (1024 * 1024));
+      const currentMb = (file.size / (1024 * 1024)).toFixed(1);
+      const message = `图片过大（${currentMb}MB），请上传小于 ${maxSizeMb}MB 的图片。`;
+      setError(message);
+      setToast({ visible: true, variant: 'warning', message });
+      return;
+    }
     const dataUrl = await readImageAsDataUrl(file);
     setImageDataUrls((prev) => [...prev, dataUrl]);
   };
@@ -193,20 +217,23 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
    * 2) 请求模型并回写原始内容
    * 3) 尝试提取 JSON 账单；若失败则按“纯分析文本”处理
    */
-  const handleRecognize = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!canRecognize) return;
+  const runRecognize = async (promptText: string) => {
+    const cleanPrompt = promptText.trim();
+    const hasPromptInput = Boolean(cleanPrompt) || imageDataUrls.length > 0;
+    if (!hasApiKey || !input.model.trim() || !hasPromptInput) return;
     setStatus('recognizing');
     setError('');
     addLog({ action: 'assistant.recognize', status: 'pending', message: '开始识别请求' });
     try {
-      const prompt = `${JSON_AGENT_PROMPT}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}`;
+      const basePrompt =
+        input.sceneMode === 'assistant' ? ANALYSIS_AGENT_PROMPT : JSON_AGENT_PROMPT;
+      const prompt = `${basePrompt}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}`;
       const reply = await sendAiChat({
         baseUrl: input.baseUrl,
         apiKey: input.apiKey,
         model: input.model,
         systemPrompt: prompt,
-        messages: [{ role: 'user', text: textInput.trim(), imageDataUrls }]
+        messages: [{ role: 'user', text: cleanPrompt, imageDataUrls }]
       });
       setRawContent(reply.content);
       setRawReasoning(reply.reasoning || '');
@@ -248,6 +275,15 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       setStatus('error');
       addLog({ action: 'assistant.recognize', status: 'error', message });
     }
+  };
+
+  const handleRecognize = async (event: FormEvent) => {
+    event.preventDefault();
+    await runRecognize(textInput);
+  };
+
+  const handleRecognizeWithPrompt = async (promptText: string) => {
+    await runRecognize(promptText);
   };
 
   const updateEntry = (id: string, patch: Partial<DraftBillEntry>) => {
@@ -296,7 +332,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       const payload = {
         type,
         amount: normalizeMoney(item.amount),
-        date: item.date || new Date().toISOString(),
+        date: normalizeEntryDate(item.date),
         note: item.note || 'AI 导入账单',
         tags: inferTags(type, item.note, category, item.tags || ['AI识别']),
         categoryId: ensureCategoryId(category, input.categories, input.addCategory),
@@ -355,6 +391,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     handleDropImage,
     handleLoadModels,
     handleRecognize,
+    handleRecognizeWithPrompt,
     updateEntry,
     removeEntry,
     saveSelected,
