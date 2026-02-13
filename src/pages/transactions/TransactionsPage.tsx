@@ -85,6 +85,7 @@ const DEFAULT_DETAIL_SECTIONS: Record<TransactionDetailSectionKey, boolean> = {
 
 const TX_VISIBLE_COLUMNS_KEY = 'ledgerflow.transactions.visibleColumns';
 const TX_COLUMN_ORDER_KEY = 'ledgerflow.transactions.columnOrder';
+const TX_COLUMN_WIDTHS_KEY = 'ledgerflow.transactions.columnWidths';
 const TX_DETAIL_SECTIONS_KEY = 'ledgerflow.transactions.detailSections';
 
 const IMPORT_CATEGORY_RULES: Array<{ pattern: RegExp; names: string[] }> = [
@@ -142,6 +143,24 @@ function restoreColumnOrder(storageKey: string): TransactionColumnKey[] {
     return valid;
   } catch {
     return DEFAULT_COLUMN_ORDER;
+  }
+}
+
+function restoreColumnWidths(storageKey: string): Partial<Record<TransactionColumnKey, number>> {
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const next: Partial<Record<TransactionColumnKey, number>> = {};
+    DEFAULT_COLUMN_ORDER.forEach((key) => {
+      const value = Number(parsed[key]);
+      if (Number.isFinite(value) && value >= 90 && value <= 640) {
+        next[key] = Math.round(value);
+      }
+    });
+    return next;
+  } catch {
+    return {};
   }
 }
 
@@ -295,6 +314,9 @@ export function TransactionsPage() {
   >(() =>
     restoreRecordState<TransactionDetailSectionKey>(TX_DETAIL_SECTIONS_KEY, DEFAULT_DETAIL_SECTIONS)
   );
+  const [columnWidths, setColumnWidths] = useState<Partial<Record<TransactionColumnKey, number>>>(
+    () => restoreColumnWidths(TX_COLUMN_WIDTHS_KEY)
+  );
   // 页大小允许用户按账单密度自由切换，长列表下减少翻页成本。
   const [pageSize, setPageSize] = useState<number>(() => restorePageSize());
 
@@ -355,6 +377,10 @@ export function TransactionsPage() {
   useEffect(() => {
     window.localStorage.setItem(TX_PAGE_SIZE_KEY, String(pageSize));
   }, [pageSize]);
+
+  useEffect(() => {
+    window.localStorage.setItem(TX_COLUMN_WIDTHS_KEY, JSON.stringify(columnWidths));
+  }, [columnWidths]);
 
   useEffect(() => {
     const highlight = searchParams.get('highlight') ?? '';
@@ -776,6 +802,10 @@ export function TransactionsPage() {
     });
   };
 
+  const handleColumnResize = (key: TransactionColumnKey, width: number) => {
+    setColumnWidths((prev) => ({ ...prev, [key]: Math.max(90, Math.round(width)) }));
+  };
+
   const handleToggleDetailSection = (key: TransactionDetailSectionKey) => {
     setVisibleDetailSections((prev) => {
       const next = !prev[key];
@@ -876,6 +906,8 @@ export function TransactionsPage() {
         visibleColumns={visibleColumns}
         columnOrder={columnOrder}
         onColumnReorder={handleColumnReorder}
+        columnWidths={columnWidths}
+        onColumnResize={handleColumnResize}
       />
 
       <TransactionDetailDrawer

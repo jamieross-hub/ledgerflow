@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 
 export type TransactionTypeFilter = 'all' | 'income' | 'expense' | 'budget' | 'repayment';
 export type TransactionSourceFilter = 'all' | 'manual' | 'wechat' | 'alipay' | 'ai';
-export type TransactionDatePreset = 'all' | 'thisMonth' | 'last30' | 'custom';
+export type TransactionDatePreset = 'all' | 'thisMonth' | 'last30' | 'last3Months' | 'custom';
 
 export interface TransactionFilterState {
   keyword: string;
@@ -57,9 +57,16 @@ export function parseTransactionFilterParams(params: URLSearchParams): Transacti
         ? type
         : 'all',
     source:
-      source === 'manual' || source === 'wechat' || source === 'alipay' || source === 'ai' ? source : 'all',
+      source === 'manual' || source === 'wechat' || source === 'alipay' || source === 'ai'
+        ? source
+        : 'all',
     datePreset:
-      datePreset === 'thisMonth' || datePreset === 'last30' || datePreset === 'custom' ? datePreset : 'all',
+      datePreset === 'thisMonth' ||
+      datePreset === 'last30' ||
+      datePreset === 'last3Months' ||
+      datePreset === 'custom'
+        ? datePreset
+        : 'all',
     dateFrom: normalizeDate(params.get('dateFrom')),
     dateTo: normalizeDate(params.get('dateTo')),
     page: clampPage(params.get('page'))
@@ -128,6 +135,16 @@ export function resolveDateRange(filters: TransactionFilterState): { from: strin
     const to = new Date(now);
     const from = new Date(now);
     from.setDate(from.getDate() - 29);
+    return {
+      from: from.toISOString().slice(0, 10),
+      to: to.toISOString().slice(0, 10)
+    };
+  }
+
+  if (filters.datePreset === 'last3Months') {
+    const now = new Date();
+    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const from = new Date(now.getFullYear(), now.getMonth() - 2, 1);
     return {
       from: from.toISOString().slice(0, 10),
       to: to.toISOString().slice(0, 10)

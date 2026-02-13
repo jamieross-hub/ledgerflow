@@ -23,9 +23,9 @@ const KEYPAD = [
   '1',
   '2',
   '3',
-  '=',
+  '.',
   '0',
-  '.'
+  '='
 ] as const;
 
 function normalizeExpression(input: string): string {
@@ -197,7 +197,7 @@ export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
               <button
                 key={key}
                 type="button"
-                className={`exchange-key ${isNum ? 'exchange-key-num' : ''} ${isOperator ? 'exchange-key-op' : ''} ${isDanger ? 'exchange-key-danger' : ''} ${key === '=' ? 'exchange-key-equal primary' : ''}`.trim()}
+                className={`exchange-key ${isNum ? 'exchange-key-num' : ''} ${isOperator ? 'exchange-key-op' : ''} ${isDanger ? 'exchange-key-danger' : ''} ${key === '=' ? 'exchange-key-equal primary' : ''} ${key === '0' ? 'exchange-key-zero' : ''}`.trim()}
                 onClick={() => applyKey(key)}
               >
                 {key}

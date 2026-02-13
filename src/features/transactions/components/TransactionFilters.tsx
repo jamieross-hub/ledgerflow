@@ -85,6 +85,7 @@ export function TransactionFilters({
           >
             <option value="all">全部时间</option>
             <option value="thisMonth">本月</option>
+            <option value="last3Months">最近三月</option>
             <option value="last30">最近 30 天</option>
             <option value="custom">自定义</option>
           </select>
@@ -109,6 +110,19 @@ export function TransactionFilters({
               value={filters.dateFrom}
               onChange={(event) => onDateFromChange(event.target.value)}
             />
+            <button
+              type="button"
+              className="transaction-date-shortcut-btn"
+              onClick={() => {
+                const today = new Date();
+                const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+                  .toISOString()
+                  .slice(0, 10);
+                onDateFromChange(monthStart);
+              }}
+            >
+              日历开始
+            </button>
           </div>
           <div className="field" style={{ marginBottom: 0 }}>
             <label htmlFor="tx-filter-date-to">结束日期</label>
@@ -119,6 +133,19 @@ export function TransactionFilters({
               value={filters.dateTo}
               onChange={(event) => onDateToChange(event.target.value)}
             />
+            <button
+              type="button"
+              className="transaction-date-shortcut-btn"
+              onClick={() => {
+                const today = new Date();
+                const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+                  .toISOString()
+                  .slice(0, 10);
+                onDateToChange(monthEnd);
+              }}
+            >
+              日历结束
+            </button>
           </div>
         </div>
       ) : null}
@@ -129,7 +156,6 @@ export function TransactionFilters({
             type="button"
             className="transaction-filter-trigger"
             onClick={() => setMenuOpen((prev) => !prev)}
-            aria-expanded={menuOpen}
             aria-haspopup="true"
           >
             筛选与操作

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TransactionItem } from '../../../entities/transaction/types';
 import { formatCurrency, formatDate } from '../../../shared/lib/format';
 import { EmptyState } from '../../../shared/ui/EmptyState';
@@ -100,6 +100,8 @@ interface TransactionTableProps {
   visibleColumns: Record<TransactionColumnKey, boolean>;
   columnOrder: TransactionColumnKey[];
   onColumnReorder: (fromKey: TransactionColumnKey, toKey: TransactionColumnKey) => void;
+  columnWidths: Partial<Record<TransactionColumnKey, number>>;
+  onColumnResize: (key: TransactionColumnKey, width: number) => void;
 }
 
 export function TransactionTable({
@@ -135,11 +137,18 @@ export function TransactionTable({
   onQuickFilterChange,
   visibleColumns,
   columnOrder,
-  onColumnReorder
+  onColumnReorder,
+  columnWidths,
+  onColumnResize
 }: TransactionTableProps) {
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const dragColumnRef = useRef<TransactionColumnKey | null>(null);
+  const resizeStateRef = useRef<{
+    key: TransactionColumnKey;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
 
   const columnOptions: Array<{ key: TransactionColumnKey; label: string }> = [
     { key: 'date', label: '日期' },
@@ -199,6 +208,26 @@ export function TransactionTable({
     note: 'note'
   };
 
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!resizeStateRef.current) return;
+      const { key, startX, startWidth } = resizeStateRef.current;
+      const next = Math.max(90, Math.round(startWidth + (event.clientX - startX)));
+      onColumnResize(key, next);
+    };
+
+    const handleMouseUp = () => {
+      resizeStateRef.current = null;
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [onColumnResize]);
+
   return (
     <section className="panel">
       {loading ? (
@@ -247,6 +276,14 @@ export function TransactionTable({
 
           <div className="transaction-table-wrap">
             <table>
+              <colgroup>
+                <col style={{ width: 40 }} />
+                {orderedColumns.map((column) => {
+                  if (!visibleColumns[column.key]) return null;
+                  const width = columnWidths[column.key];
+                  return <col key={`col-${column.key}`} style={width ? { width } : undefined} />;
+                })}
+              </colgroup>
               <thead>
                 <tr>
                   <th className="transaction-select-col">
@@ -283,6 +320,30 @@ export function TransactionTable({
                           {column.label}{' '}
                           <span>{sortIndicator(sortKey === column.key, sortDirection)}</span>
                         </button>
+                        <span
+                          className="transaction-col-resizer"
+                          role="separator"
+                          aria-label={`${column.label}列宽拖拽调节`}
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            const currentWidth =
+                              (
+                                event.currentTarget.parentElement as HTMLElement | null
+                              )?.getBoundingClientRect().width ||
+                              columnWidths[column.key] ||
+                              140;
+                            resizeStateRef.current = {
+                              key: column.key,
+                              startX: event.clientX,
+                              startWidth: currentWidth
+                            };
+                          }}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                          }}
+                        />
                       </th>
                     );
                   })}

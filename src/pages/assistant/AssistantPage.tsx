@@ -327,6 +327,18 @@ export function AssistantPage() {
     submitPrompt(previousUser.text);
   };
 
+  const clearChatHistory = () => {
+    if (chatHistory.length === 0) return;
+    const shouldClear = window.confirm('确认清空当前模式的全部聊天记录？该操作不可恢复。');
+    if (!shouldClear) return;
+    setChatHistory([]);
+    try {
+      window.sessionStorage.removeItem(CHAT_HISTORY_CACHE_KEYS[mode]);
+    } catch {
+      // ignore storage errors
+    }
+  };
+
   const todayLabel = new Intl.DateTimeFormat('zh-CN', {
     month: 'numeric',
     day: 'numeric',
@@ -483,6 +495,14 @@ export function AssistantPage() {
         </div>
 
         <div className="chat-topbar-right">
+          <button
+            type="button"
+            className="chat-clear-btn"
+            onClick={clearChatHistory}
+            disabled={chatHistory.length === 0 || wb.status === 'recognizing'}
+          >
+            清空历史
+          </button>
           <span className="chat-topbar-provider">{baseUrl || '默认服务地址'}</span>
         </div>
       </header>

@@ -939,6 +939,7 @@ tr:hover td {
 
 .transaction-select-col {
   width: 40px;
+  min-width: 40px;
   text-align: center;
 }
 
@@ -1026,6 +1027,8 @@ tr:hover td {
 
 .transaction-table-wrap table {
   font-size: clamp(13px, 0.88vw, 14px);
+  min-width: 100%;
+  width: max-content;
 }
 
 .transaction-table-wrap thead th {
@@ -1033,6 +1036,22 @@ tr:hover td {
   top: 0;
   z-index: 1;
   background: var(--color-bg-elevated);
+  min-width: 90px;
+}
+
+.transaction-table-wrap thead th:not(.transaction-select-col) {
+  position: sticky;
+}
+
+.transaction-col-resizer {
+  position: absolute;
+  top: 0;
+  right: -5px;
+  width: 10px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 2;
 }
 
 .transaction-action-col {
@@ -3164,6 +3183,12 @@ small.mono {
   }
 
   .chat-topbar-right {
+    display: inline-flex;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .chat-topbar-provider {
     display: none;
   }
 
@@ -4008,7 +4033,7 @@ small.mono {
   background: var(--color-bg-subtle);
   padding: var(--space-3);
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .exchange-calculator-screen {
@@ -4031,7 +4056,7 @@ small.mono {
 }
 
 .exchange-key {
-  min-height: 40px;
+  min-height: 44px;
   font-size: var(--font-lg);
   font-weight: 600;
 }
@@ -4059,8 +4084,9 @@ small.mono {
   color: var(--color-danger);
 }
 
-.exchange-key-equal {
-  grid-column: span 1;
+.exchange-key-equal,
+.exchange-key-zero {
+  grid-column: span 2;
 }
 
 .exchange-calculator-error {
@@ -4874,8 +4900,9 @@ small.mono {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .exchange-key-equal {
-    grid-column: span 1;
+  .exchange-key-equal,
+  .exchange-key-zero {
+    grid-column: span 2;
   }
 
   .transaction-columns-head {

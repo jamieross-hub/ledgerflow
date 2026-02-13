@@ -239,28 +239,25 @@ export function DashboardPage() {
     const txRows = transactions
       .slice()
       .sort((a, b) => +new Date(b.date) - +new Date(a.date))
-      .slice(0, 200)
+      .slice(0, 40)
       .map((item) => ({
         date: item.date,
         type: item.type,
         amount: item.amount,
         category: categories.find((c) => c.id === item.categoryId)?.name || item.categoryId,
-        account: accounts.find((a) => a.id === item.accountId)?.name || item.accountId,
-        tags: item.tags,
-        note: item.note
+        note: String(item.note || '').slice(0, 24)
       }));
 
     return {
       monthBalance: monthlyBalance,
-      recentMonths: recentMonths.map((item) => ({
+      recentMonths: recentMonths.slice(-3).map((item) => ({
         month: item.shortLabel,
         income: item.income,
         expense: item.expense,
         balance: item.balance
       })),
-      accounts: accounts.map((item) => ({
+      accountSummary: accounts.map((item) => ({
         name: item.name,
-        type: item.type,
         balance: Number(item.balance ?? item.initialBalance ?? 0)
       })),
       transactions: txRows
@@ -298,14 +295,14 @@ export function DashboardPage() {
     const topTransactions = monthly
       .slice()
       .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
-      .slice(0, 6)
+      .slice(0, 4)
       .map((item) => ({
         date: item.date,
         category:
           categories.find((c) => c.id === item.categoryId)?.name || item.categoryId || '未分类',
         amount: item.amount,
         type: item.type,
-        note: item.note
+        note: String(item.note || '').slice(0, 24)
       }));
 
     return {
@@ -369,7 +366,7 @@ export function DashboardPage() {
           apiKey,
           model,
           systemPrompt:
-            '你是财务趋势分析助手。仅输出 JSON，不要输出 Markdown。JSON 结构：{"summary":"使用通俗中文，按先结论后原因输出","points":[n1,n2,n3],"suggestions":["可执行建议1","可执行建议2"]}。summary 必须清晰易懂、避免术语堆砌。points 为未来 3 个月结余预测。',
+            '你是财务趋势分析助手。仅输出 JSON：{"summary":"简明结论","points":[n1,n2,n3],"suggestions":["建议1","建议2"]}。points 仅保留未来 3 个月。',
           messages: [
             {
               role: 'user',
@@ -429,7 +426,7 @@ export function DashboardPage() {
           apiKey,
           model,
           systemPrompt:
-            '你是财务洞察分析助手。输出 JSON，不要输出 Markdown。JSON 结构：{"summary":"字符串","categoryBreakdown":[{"name":"分类","amount":123,"percent":0.12}],"topTransactions":[{"date":"YYYY-MM-DD","category":"分类","amount":123,"note":""}],"highlights":["要点1","要点2"]}。',
+            '你是财务洞察分析助手。只输出 JSON：{"summary":"字符串","categoryBreakdown":[{"name":"分类","amount":123,"percent":0.12}],"topTransactions":[{"date":"YYYY-MM-DD","category":"分类","amount":123,"note":""}],"highlights":["要点1","要点2"]}。内容简洁，避免冗长描述。',
           messages: [
             {
               role: 'user',
@@ -563,18 +560,13 @@ export function DashboardPage() {
     return buildSmoothPath(chartPoints.slice(currentIndex, chartPoints.length));
   }, [chartPoints, currentIndex]);
 
-  const monthlyStatusText =
-    monthlyInsightStatus === 'loading'
-      ? '分析中'
-      : monthlyInsightStatus === 'streaming'
-        ? '流式输出中'
-        : monthlyInsightStatus === 'done'
-          ? '已完成'
-          : monthlyInsightStatus === 'error'
-            ? '异常'
-            : '待分析';
-
   const currentMonthLabel = `${currentYear}年${currentMonth + 1}月`;
+  const monthlyInsightActionLabel =
+    monthlyInsightStatus === 'loading' || monthlyInsightStatus === 'streaming'
+      ? '分析中...'
+      : monthlyInsightStatus === 'done'
+        ? '重新分析'
+        : 'AI 待分析';
 
   const displayCategoryBreakdown = useMemo(
     () =>
@@ -675,9 +667,18 @@ export function DashboardPage() {
                 <h3>本月趋势</h3>
               </div>
               <div className="dashboard-panel-actions">
-                <span className={`dashboard-ai-status status-${monthlyInsightStatus}`}>
-                  AI {monthlyStatusText}
-                </span>
+                <button
+                  type="button"
+                  className="dashboard-forecast-refresh"
+                  onClick={handleRefreshMonthlyInsight}
+                  disabled={
+                    monthlyInsightStatus === 'loading' ||
+                    monthlyInsightStatus === 'streaming' ||
+                    transactions.length === 0
+                  }
+                >
+                  {monthlyInsightActionLabel}
+                </button>
               </div>
             </header>
 
@@ -711,23 +712,11 @@ export function DashboardPage() {
               <div className="dashboard-summary-chip">AI 分析聚焦于本月分类结构与异常波动</div>
             </div>
 
-            <div className="dashboard-ai-actions" style={{ marginBottom: 'var(--space-3)' }}>
-              <button
-                type="button"
-                className="dashboard-forecast-refresh"
-                onClick={handleRefreshMonthlyInsight}
-                disabled={
-                  monthlyInsightStatus === 'loading' ||
-                  monthlyInsightStatus === 'streaming' ||
-                  transactions.length === 0
-                }
-              >
-                重新分析
-              </button>
-              {monthlyInsightError ? (
+            {monthlyInsightError ? (
+              <div className="dashboard-ai-actions" style={{ marginBottom: 'var(--space-3)' }}>
                 <p className="dashboard-ai-error">{monthlyInsightError}</p>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
 
             <div className="dashboard-trend-sections">
               <section>
