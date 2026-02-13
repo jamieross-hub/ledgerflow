@@ -71,6 +71,8 @@ interface TransactionTableProps {
   filteredTotal: number;
   page: number;
   pages: number;
+  pageSize: number;
+  pageSizeOptions: number[];
   loading: boolean;
   errorMessage?: string;
   hasFilters: boolean;
@@ -85,6 +87,7 @@ interface TransactionTableProps {
   onClearFilters: () => void;
   onPrevPage: () => void;
   onNextPage: () => void;
+  onPageSizeChange: (size: number) => void;
   onOpenDetail: (id: string) => void;
   onDelete: (id: string) => void;
   onDeleteSelected: () => void;
@@ -108,6 +111,8 @@ export function TransactionTable({
   filteredTotal,
   page,
   pages,
+  pageSize,
+  pageSizeOptions,
   loading,
   errorMessage,
   hasFilters,
@@ -122,6 +127,7 @@ export function TransactionTable({
   onClearFilters,
   onPrevPage,
   onNextPage,
+  onPageSizeChange,
   onOpenDetail,
   onDelete,
   onDeleteSelected,
@@ -606,11 +612,28 @@ export function TransactionTable({
               )
             : null}
 
-          <div className="row" style={{ marginTop: 12, justifyContent: 'space-between' }}>
+          <div
+            className="row transaction-pagination"
+            style={{ marginTop: 12, justifyContent: 'space-between' }}
+          >
             <small style={{ color: 'var(--color-text-secondary)' }}>
               当前 {filteredTotal} 条 / 全部 {total} 条
             </small>
-            <div className="row">
+            <div className="row transaction-pagination-controls">
+              <label className="transaction-page-size">
+                每页
+                <select
+                  aria-label="每页显示条数"
+                  value={pageSize}
+                  onChange={(event) => onPageSizeChange(Number(event.target.value))}
+                >
+                  {pageSizeOptions.map((size) => (
+                    <option key={`page-size-${size}`} value={size}>
+                      {size} 条
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button type="button" disabled={page === 1} onClick={onPrevPage}>
                 上一页
               </button>

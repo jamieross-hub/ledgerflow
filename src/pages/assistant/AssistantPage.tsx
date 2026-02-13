@@ -153,6 +153,7 @@ const QUICK_BILL_TEMPLATES = [
 ];
 
 const QUICK_AMOUNT_ACTIONS = [10, 20, 50, 100];
+const CHAT_HISTORY_CACHE_KEY = 'ledgerflow.assistant.chatHistory';
 
 function toMonthKey(date: string) {
   return date.slice(0, 7);
@@ -232,7 +233,6 @@ export function AssistantPage() {
   });
 
   const [modelOpen, setModelOpen] = useState(false);
-  const [mode, setMode] = useState<AssistantMode>('assistant');
   const [presetQuestions, setPresetQuestions] = useState<PresetQuestion[]>([]);
   const [loadingPresets, setLoadingPresets] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(() => {
@@ -252,7 +252,6 @@ export function AssistantPage() {
       return [];
     }
   });
-  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const lastAssistantRef = useRef('');
   const messageEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -319,20 +318,14 @@ export function AssistantPage() {
     const usageText = wb.lastUsage
       ? `Token 消耗：输入 ${wb.lastUsage.promptTokens} / 输出 ${wb.lastUsage.completionTokens} / 总计 ${wb.lastUsage.totalTokens}`
       : undefined;
-    setChatHistories((prev) => ({
+    setChatHistory((prev) => [
       ...prev,
-      [mode]: [
-        ...(prev[mode] || []),
-        { id: `${Date.now()}-assistant`, role: 'assistant', text: wb.rawContent, usageText }
-      ]
-    }));
-  }, [mode, wb.lastUsage, wb.rawContent]);
+      { id: `${Date.now()}-assistant`, role: 'assistant', text: wb.rawContent, usageText }
+    ]);
+  }, [wb.lastUsage, wb.rawContent]);
 
   const removeMessage = (id: string) =>
-    setChatHistories((prev) => ({
-      ...prev,
-      [mode]: (prev[mode] || []).filter((item) => item.id !== id)
-    }));
+    setChatHistory((prev) => prev.filter((item) => item.id !== id));
 
   const retryMessage = (index: number) => {
     const previousUser = [...chatHistory]

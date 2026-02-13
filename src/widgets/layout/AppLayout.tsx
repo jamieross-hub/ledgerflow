@@ -167,7 +167,7 @@ export function AppLayout() {
 
   return (
     <div
-      className="layout-shell"
+      className={`layout-shell ${collapsed ? 'sidebar-is-collapsed' : ''}`.trim()}
       style={{
         ['--sidebar-width' as string]: `${collapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth}px`
       }}
@@ -276,7 +276,7 @@ export function AppLayout() {
               </div>
             ) : null}
 
-            <div>
+            <div className={`topbar-brand-copy ${collapsed ? 'compact' : ''}`.trim()}>
               <h1>LedgerFlow</h1>
               <span>v{APP_VERSION} · 智能记账工作台</span>
             </div>
