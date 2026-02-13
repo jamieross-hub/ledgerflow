@@ -145,10 +145,6 @@ interface PresetQuestion {
   text: string;
 }
 
-function historyCacheKey(mode: AssistantMode) {
-  return `ledgerflow.assistant.chatHistory.v1.${mode}`;
-}
-
 const QUICK_BILL_TEMPLATES = [
   { label: '🍜 午饭 18（支付宝）', prompt: '今天午饭18元，用支付宝支付' },
   { label: '☕ 咖啡 23（微信）', prompt: '今天买咖啡23元，用微信支付' },
@@ -236,35 +232,27 @@ export function AssistantPage() {
   });
 
   const [modelOpen, setModelOpen] = useState(false);
+  const [mode, setMode] = useState<AssistantMode>('assistant');
   const [presetQuestions, setPresetQuestions] = useState<PresetQuestion[]>([]);
   const [loadingPresets, setLoadingPresets] = useState(false);
-  const [chatHistories, setChatHistories] = useState<Record<AssistantMode, ChatHistoryItem[]>>(
-    () => {
-      const readHistory = (key: string) => {
-        try {
-          const raw = window.sessionStorage.getItem(key);
-          if (!raw) return [];
-          const parsed = JSON.parse(raw) as ChatHistoryItem[];
-          if (!Array.isArray(parsed)) return [];
-          return parsed.filter(
-            (item): item is ChatHistoryItem =>
-              Boolean(item) &&
-              typeof item.id === 'string' &&
-              (item.role === 'user' || item.role === 'assistant') &&
-              typeof item.text === 'string'
-          );
-        } catch {
-          return [];
-        }
-      };
-
-      return {
-        bookkeeping: readHistory(historyCacheKey('bookkeeping')),
-        assistant: readHistory(historyCacheKey('assistant'))
-      };
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(() => {
+    try {
+      const raw = window.sessionStorage.getItem(CHAT_HISTORY_CACHE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as ChatHistoryItem[];
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(
+        (item): item is ChatHistoryItem =>
+          Boolean(item) &&
+          typeof item.id === 'string' &&
+          (item.role === 'user' || item.role === 'assistant') &&
+          typeof item.text === 'string'
+      );
+    } catch {
+      return [];
     }
-  );
-  const chatHistory = chatHistories[mode] || [];
+  });
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const lastAssistantRef = useRef('');
   const messageEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -305,10 +293,7 @@ export function AssistantPage() {
   const submitPrompt = (prompt: string) => {
     const clean = prompt.trim();
     if (!clean || wb.status === 'recognizing') return;
-    setChatHistories((prev) => ({
-      ...prev,
-      [mode]: [...(prev[mode] || []), { id: `${Date.now()}-user`, role: 'user', text: clean }]
-    }));
+    setChatHistory((prev) => [...prev, { id: `${Date.now()}-user`, role: 'user', text: clean }]);
     void wb.handleRecognizeWithPrompt(clean);
   };
 
@@ -429,18 +414,11 @@ export function AssistantPage() {
 
   useEffect(() => {
     try {
-      window.sessionStorage.setItem(
-        historyCacheKey('bookkeeping'),
-        JSON.stringify(chatHistories.bookkeeping || [])
-      );
-      window.sessionStorage.setItem(
-        historyCacheKey('assistant'),
-        JSON.stringify(chatHistories.assistant || [])
-      );
+      window.sessionStorage.setItem(CHAT_HISTORY_CACHE_KEY, JSON.stringify(chatHistory));
     } catch {
       // ignore storage write errors
     }
-  }, [chatHistories]);
+  }, [chatHistory]);
 
   return (
     <div
