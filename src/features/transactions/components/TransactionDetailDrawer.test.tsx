@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import { TransactionDetailDrawer } from './TransactionDetailDrawer';
 
 const sample = {
@@ -18,25 +19,27 @@ describe('TransactionDetailDrawer', () => {
     const onCopyJson = vi.fn();
 
     render(
-      <TransactionDetailDrawer
-        open
-        transaction={sample}
-        categoryName="餐饮"
-        accountName="现金"
-        source="manual"
-        onClose={() => undefined}
-        onCopyNote={() => undefined}
-        onCopyJson={onCopyJson}
-        onDelete={() => undefined}
-        visibleSections={{
-          base: true,
-          source: true,
-          note: true,
-          tags: true,
-          json: true
-        }}
-        onToggleSection={() => undefined}
-      />
+      <MemoryRouter>
+        <TransactionDetailDrawer
+          open
+          transaction={sample}
+          categoryName="餐饮"
+          accountName="现金"
+          source="manual"
+          onClose={() => undefined}
+          onCopyNote={() => undefined}
+          onCopyJson={onCopyJson}
+          onDelete={() => undefined}
+          visibleSections={{
+            base: true,
+            source: true,
+            note: true,
+            tags: true,
+            json: true
+          }}
+          onToggleSection={() => undefined}
+        />
+      </MemoryRouter>
     );
 
     fireEvent.click(screen.getByRole('button', { name: '复制 JSON' }));

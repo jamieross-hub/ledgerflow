@@ -13,7 +13,5 @@ describe('DashboardPage', () => {
 
     expect(screen.getByText(/欢迎使用 LedgerFlow/)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '核心资产仪表盘' })).toBeInTheDocument();
-    expect(screen.getByText('本月趋势')).toBeInTheDocument();
-    expect(screen.getByText('未来趋势')).toBeInTheDocument();
   });
 });

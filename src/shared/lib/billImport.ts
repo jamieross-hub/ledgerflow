@@ -9,7 +9,15 @@ interface ParseBillInput {
   defaultAccountId: string;
 }
 
-const DATE_KEYS = ['交易时间', '入账时间', '创建时间', '交易创建时间', '付款时间', '完成时间', '最近修改时间'];
+const DATE_KEYS = [
+  '交易时间',
+  '入账时间',
+  '创建时间',
+  '交易创建时间',
+  '付款时间',
+  '完成时间',
+  '最近修改时间'
+];
 const AMOUNT_KEYS = ['金额', '金额(元)', '金额（元）', '订单金额', '交易金额', '收/支金额'];
 const TYPE_KEYS = ['收/支', '收支类型', '交易类型', '资金类型', '类型'];
 const NOTE_KEYS = ['商品名称', '商品', '商品说明', '交易对方', '备注', '商户', '收款方'];
@@ -28,7 +36,10 @@ const HEADER_HINT_KEYS = [
 ];
 
 function normalizeText(text: string): string {
-  return text.replace(/^\uFEFF/, '').replace(/\r/g, '').trim();
+  return text
+    .replace(/^\uFEFF/, '')
+    .replace(/\r/g, '')
+    .trim();
 }
 
 function parseDelimitedLine(line: string, delimiter: ',' | '\t'): string[] {
@@ -88,7 +99,9 @@ function pickByKeys(row: Record<string, string>, keys: string[]): string {
 function parseAmount(raw: string): number {
   const cleaned = raw.replace(/[¥￥,\s]/g, '');
   const value = Number.parseFloat(cleaned);
-  return Number.isFinite(value) ? Math.abs(value) : 0;
+  if (!Number.isFinite(value)) return 0;
+  // 统一两位小数，避免浮点误差导致金额展示异常。
+  return Math.round(Math.abs(value) * 100) / 100;
 }
 
 function parseType(row: Record<string, string>, amountRaw: string): 'income' | 'expense' {
@@ -216,7 +229,11 @@ function shouldSkipRow(line: string): boolean {
     return true;
   }
 
-  if (/^支付宝交易记录明细查询|^微信支付账单明细|^账号:|^起始日期:|^终止日期:|交易记录明细列表/.test(line)) {
+  if (
+    /^支付宝交易记录明细查询|^微信支付账单明细|^账号:|^起始日期:|^终止日期:|交易记录明细列表/.test(
+      line
+    )
+  ) {
     return true;
   }
 

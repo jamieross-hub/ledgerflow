@@ -74,16 +74,22 @@ function normalizeForecastPayload(raw: unknown, fallback: number): ForecastPaylo
   const points = Array.isArray(parsed.points)
     ? parsed.points.slice(0, 3).map((n) => toSafeNumber(n, fallback))
     : [fallback, fallback, fallback];
-  const summary = typeof parsed.summary === 'string' && parsed.summary.trim().length > 0
-    ? parsed.summary.trim()
-    : '模型已完成分析，建议结合预算目标跟踪未来三个月现金流。';
+  const summary =
+    typeof parsed.summary === 'string' && parsed.summary.trim().length > 0
+      ? parsed.summary.trim()
+      : '模型已完成分析，建议结合预算目标跟踪未来三个月现金流。';
   const suggestions = Array.isArray(parsed.suggestions)
-    ? parsed.suggestions.slice(0, 3).map((item) => String(item).trim()).filter(Boolean)
+    ? parsed.suggestions
+        .slice(0, 3)
+        .map((item) => String(item).trim())
+        .filter(Boolean)
     : [];
   return { summary, points, suggestions };
 }
 
-function readForecastCache(fallback: number): { payload: ForecastPayload; updatedAt: string } | null {
+function readForecastCache(
+  fallback: number
+): { payload: ForecastPayload; updatedAt: string } | null {
   try {
     const raw = localStorage.getItem(FORECAST_CACHE_KEY);
     if (!raw) return null;
@@ -124,13 +130,17 @@ export function DashboardPage() {
   const model = useAiSettings((s) => s.model);
 
   const [forecast, setForecast] = useState<ForecastPayload | null>(null);
-  const [forecastStatus, setForecastStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [forecastStatus, setForecastStatus] = useState<'idle' | 'loading' | 'done' | 'error'>(
+    'idle'
+  );
   const [forecastError, setForecastError] = useState('');
   const [forecastUpdatedAt, setForecastUpdatedAt] = useState<string>('');
   const [forecastRequestToken, setForecastRequestToken] = useState(0);
 
   const [monthlyInsight, setMonthlyInsight] = useState<MonthlyInsightPayload | null>(null);
-  const [monthlyInsightStatus, setMonthlyInsightStatus] = useState<'idle' | 'loading' | 'streaming' | 'done' | 'error'>('idle');
+  const [monthlyInsightStatus, setMonthlyInsightStatus] = useState<
+    'idle' | 'loading' | 'streaming' | 'done' | 'error'
+  >('idle');
   const [monthlyInsightError, setMonthlyInsightError] = useState('');
   const [monthlyInsightRequestToken, setMonthlyInsightRequestToken] = useState(0);
 
@@ -147,7 +157,17 @@ export function DashboardPage() {
     .reduce((sum, t) => sum + t.amount, 0);
   const monthlyBalance = income - expense;
 
-  const liabilityNameKeywords = ['信用卡', '花呗', '白条', '借呗', '欠款', '负债', 'credit', 'visa', 'master'];
+  const liabilityNameKeywords = [
+    '信用卡',
+    '花呗',
+    '白条',
+    '借呗',
+    '欠款',
+    '负债',
+    'credit',
+    'visa',
+    'master'
+  ];
   const isLiabilityAccount = (account: (typeof accounts)[number]) => {
     if (account.type === 'credit' || account.type === 'liability') {
       return true;
@@ -156,15 +176,13 @@ export function DashboardPage() {
     return liabilityNameKeywords.some((keyword) => name.includes(keyword.toLowerCase()));
   };
 
-  const liabilities = accounts
-    .filter(isLiabilityAccount)
-    .reduce((sum, account) => {
-      const balance = Number(account.balance ?? account.initialBalance ?? 0);
-      if (!Number.isFinite(balance)) {
-        return sum;
-      }
-      return sum + (balance < 0 ? Math.abs(balance) : balance);
-    }, 0);
+  const liabilities = accounts.filter(isLiabilityAccount).reduce((sum, account) => {
+    const balance = Number(account.balance ?? account.initialBalance ?? 0);
+    if (!Number.isFinite(balance)) {
+      return sum;
+    }
+    return sum + (balance < 0 ? Math.abs(balance) : balance);
+  }, 0);
 
   const assetBalance = accounts
     .filter((account) => !isLiabilityAccount(account))
@@ -181,7 +199,9 @@ export function DashboardPage() {
         const d = new Date(currentYear, currentMonth - (5 - i), 1);
         const key = monthKey(d);
         const rows = transactions.filter((t) => monthKey(new Date(t.date)) === key);
-        const mIncome = rows.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+        const mIncome = rows
+          .filter((t) => t.type === 'income')
+          .reduce((sum, t) => sum + t.amount, 0);
         const mExpense = rows
           .filter((t) => t.type === 'expense' || t.type === 'budget' || t.type === 'repayment')
           .reduce((sum, t) => sum + t.amount, 0);
@@ -204,7 +224,14 @@ export function DashboardPage() {
         .reduce((sum, t) => sum + t.amount, 0);
       const label = offset === -1 ? '上月' : offset === 0 ? '本月' : '下月';
       const shortLabel = `${label}（${d.getMonth() + 1}月）`;
-      return { key, shortLabel, income: mIncome, expense: mExpense, balance: mIncome - mExpense, isCurrent: offset === 0 };
+      return {
+        key,
+        shortLabel,
+        income: mIncome,
+        expense: mExpense,
+        balance: mIncome - mExpense,
+        isCurrent: offset === 0
+      };
     });
   }, [currentMonth, currentYear, transactions]);
 
@@ -225,16 +252,29 @@ export function DashboardPage() {
 
     return {
       monthBalance: monthlyBalance,
-      recentMonths: recentMonths.map((item) => ({ month: item.shortLabel, income: item.income, expense: item.expense, balance: item.balance })),
-      accounts: accounts.map((item) => ({ name: item.name, type: item.type, balance: Number(item.balance ?? item.initialBalance ?? 0) })),
+      recentMonths: recentMonths.map((item) => ({
+        month: item.shortLabel,
+        income: item.income,
+        expense: item.expense,
+        balance: item.balance
+      })),
+      accounts: accounts.map((item) => ({
+        name: item.name,
+        type: item.type,
+        balance: Number(item.balance ?? item.initialBalance ?? 0)
+      })),
       transactions: txRows
     };
   }, [accounts, categories, monthlyBalance, recentMonths, transactions]);
 
   const monthlyInsightInput = useMemo(() => {
-    const categoryMap = new Map<string, { name: string; income: number; expense: number; count: number }>();
+    const categoryMap = new Map<
+      string,
+      { name: string; income: number; expense: number; count: number }
+    >();
     monthly.forEach((item) => {
-      const name = categories.find((c) => c.id === item.categoryId)?.name || item.categoryId || '未分类';
+      const name =
+        categories.find((c) => c.id === item.categoryId)?.name || item.categoryId || '未分类';
       const entry = categoryMap.get(name) || { name, income: 0, expense: 0, count: 0 };
       if (item.type === 'income') {
         entry.income += item.amount;
@@ -261,7 +301,8 @@ export function DashboardPage() {
       .slice(0, 6)
       .map((item) => ({
         date: item.date,
-        category: categories.find((c) => c.id === item.categoryId)?.name || item.categoryId || '未分类',
+        category:
+          categories.find((c) => c.id === item.categoryId)?.name || item.categoryId || '未分类',
         amount: item.amount,
         type: item.type,
         note: item.note
@@ -281,7 +322,17 @@ export function DashboardPage() {
         balance: item.balance
       }))
     };
-  }, [accounts, categories, currentMonth, currentYear, income, monthly, monthlyBalance, expense, recentMonths]);
+  }, [
+    accounts,
+    categories,
+    currentMonth,
+    currentYear,
+    income,
+    monthly,
+    monthlyBalance,
+    expense,
+    recentMonths
+  ]);
 
   useEffect(() => {
     if (transactions.length === 0) {
@@ -319,7 +370,7 @@ export function DashboardPage() {
           apiKey,
           model,
           systemPrompt:
-            '你是财务趋势分析助手。仅输出 JSON，不要输出 Markdown。JSON 结构：{"summary":"字符串","points":[n1,n2,n3],"suggestions":["建议1","建议2"]}。points 为未来 3 个月结余预测。',
+            '你是财务趋势分析助手。仅输出 JSON，不要输出 Markdown。JSON 结构：{"summary":"使用通俗中文，按先结论后原因输出","points":[n1,n2,n3],"suggestions":["可执行建议1","可执行建议2"]}。summary 必须清晰易懂、避免术语堆砌。points 为未来 3 个月结余预测。',
           messages: [
             {
               role: 'user',
@@ -412,9 +463,10 @@ export function DashboardPage() {
         const highlights = Array.isArray(parsed.highlights)
           ? parsed.highlights.map((item) => String(item).trim()).filter(Boolean)
           : [];
-        const summary = typeof parsed.summary === 'string' && parsed.summary.trim().length > 0
-          ? parsed.summary.trim()
-          : '本月洞察已生成，可结合分类与大额交易进行预算调整。';
+        const summary =
+          typeof parsed.summary === 'string' && parsed.summary.trim().length > 0
+            ? parsed.summary.trim()
+            : '本月洞察已生成，可结合分类与大额交易进行预算调整。';
         const next: MonthlyInsightPayload = {
           summary,
           categoryBreakdown,
@@ -436,7 +488,14 @@ export function DashboardPage() {
     return () => {
       canceled = true;
     };
-  }, [apiKey, baseUrl, model, monthlyInsightInput, monthlyInsightRequestToken, transactions.length]);
+  }, [
+    apiKey,
+    baseUrl,
+    model,
+    monthlyInsightInput,
+    monthlyInsightRequestToken,
+    transactions.length
+  ]);
 
   const handleRefreshForecast = () => {
     setForecastRequestToken((prev) => prev + 1);
@@ -449,10 +508,18 @@ export function DashboardPage() {
   const currentIndex = Math.max(recentMonths.length - 1, 0);
 
   const chartData = useMemo(() => {
-    const history = recentMonths.map((item) => ({ label: item.shortLabel, value: item.balance, type: 'history' as const }));
+    const history = recentMonths.map((item) => ({
+      label: item.shortLabel,
+      value: item.balance,
+      type: 'history' as const
+    }));
     const future = (forecast?.points || []).slice(0, 3).map((value, index) => {
       const d = new Date(currentYear, currentMonth + index + 1, 1);
-      return { label: monthLabel(d), value: toSafeNumber(value, monthlyBalance), type: 'forecast' as const };
+      return {
+        label: monthLabel(d),
+        value: toSafeNumber(value, monthlyBalance),
+        type: 'forecast' as const
+      };
     });
     return [...history, ...future];
   }, [currentMonth, currentYear, forecast?.points, monthlyBalance, recentMonths]);
@@ -510,10 +577,9 @@ export function DashboardPage() {
 
   const currentMonthLabel = `${currentYear}年${currentMonth + 1}月`;
 
-
   const displayCategoryBreakdown = useMemo(
     () =>
-      (monthlyInsight?.categoryBreakdown?.length
+      monthlyInsight?.categoryBreakdown?.length
         ? monthlyInsight.categoryBreakdown.map((item) => ({
             name: item.name,
             amount: item.amount,
@@ -523,20 +589,20 @@ export function DashboardPage() {
             name: item.name,
             amount: item.total,
             count: item.count
-          }))),
+          })),
     [monthlyInsight, monthlyInsightInput]
   );
 
   const displayTopTransactions = useMemo(
     () =>
-      (monthlyInsight?.topTransactions?.length
+      monthlyInsight?.topTransactions?.length
         ? monthlyInsight.topTransactions
         : monthlyInsightInput.topTransactions.map((item) => ({
             date: item.date,
             category: item.category,
             amount: item.amount,
             note: item.note
-          }))),
+          })),
     [monthlyInsight, monthlyInsightInput]
   );
 
@@ -610,7 +676,9 @@ export function DashboardPage() {
                 <h3>本月趋势</h3>
               </div>
               <div className="dashboard-panel-actions">
-                <span className={`dashboard-ai-status status-${monthlyInsightStatus}`}>AI {monthlyStatusText}</span>
+                <span className={`dashboard-ai-status status-${monthlyInsightStatus}`}>
+                  AI {monthlyStatusText}
+                </span>
               </div>
             </header>
 
@@ -619,14 +687,24 @@ export function DashboardPage() {
                 <p className="dashboard-summary-title">本月收支概览</p>
                 <p className="dashboard-summary-main">
                   结余
-                  <span className={monthlyBalance >= 0 ? 'dashboard-summary-main-amount positive' : 'dashboard-summary-main-amount negative'}>
+                  <span
+                    className={
+                      monthlyBalance >= 0
+                        ? 'dashboard-summary-main-amount positive'
+                        : 'dashboard-summary-main-amount negative'
+                    }
+                  >
                     {formatCurrency(monthlyBalance)}
                   </span>
                 </p>
                 <p className="dashboard-summary-sub">
-                  <span className="dashboard-summary-metric income">收入 {formatCurrency(income)}</span>
+                  <span className="dashboard-summary-metric income">
+                    收入 {formatCurrency(income)}
+                  </span>
                   <span className="dashboard-summary-dot">·</span>
-                  <span className="dashboard-summary-metric expense">支出 {formatCurrency(expense)}</span>
+                  <span className="dashboard-summary-metric expense">
+                    支出 {formatCurrency(expense)}
+                  </span>
                   <span className="dashboard-summary-dot">·</span>
                   <span className="dashboard-summary-metric neutral">交易 {monthly.length} 笔</span>
                 </p>
@@ -639,11 +717,17 @@ export function DashboardPage() {
                 type="button"
                 className="dashboard-forecast-refresh"
                 onClick={handleRefreshMonthlyInsight}
-                disabled={monthlyInsightStatus === 'loading' || monthlyInsightStatus === 'streaming' || transactions.length === 0}
+                disabled={
+                  monthlyInsightStatus === 'loading' ||
+                  monthlyInsightStatus === 'streaming' ||
+                  transactions.length === 0
+                }
               >
                 重新分析
               </button>
-              {monthlyInsightError ? <p className="dashboard-ai-error">{monthlyInsightError}</p> : null}
+              {monthlyInsightError ? (
+                <p className="dashboard-ai-error">{monthlyInsightError}</p>
+              ) : null}
             </div>
 
             <div className="dashboard-trend-sections">
@@ -654,13 +738,18 @@ export function DashboardPage() {
                 </div>
                 <div className="dashboard-breakdown-grid">
                   {displayCategoryBreakdown.map((item, index) => {
-                    const percentValue = 'percent' in item ? item.percent : Math.round((item.amount / Math.max(expense, 1)) * 100);
+                    const percentValue =
+                      'percent' in item
+                        ? item.percent
+                        : Math.round((item.amount / Math.max(expense, 1)) * 100);
                     const percentText = `${percentValue}%`;
                     const emoji = item.amount >= 0 ? '📌' : '🔻';
                     return (
                       <article key={`${item.name}-${index}`} className="dashboard-breakdown-item">
                         <div>
-                          <p className="dashboard-breakdown-name">{emoji} {item.name}</p>
+                          <p className="dashboard-breakdown-name">
+                            {emoji} {item.name}
+                          </p>
                           <p className="dashboard-breakdown-meta">
                             {item.name} {formatCurrency(item.amount)}，占比 {percentText}
                           </p>
@@ -683,7 +772,9 @@ export function DashboardPage() {
                   {displayTopTransactions.map((item, index) => (
                     <article key={`${item.date}-${index}`} className="dashboard-top-item">
                       <div>
-                        <p className="dashboard-top-title">{item.category || '未分类'} · {item.date}</p>
+                        <p className="dashboard-top-title">
+                          {item.category || '未分类'} · {item.date}
+                        </p>
                         <p className="dashboard-top-note">{item.note || '无备注'}</p>
                       </div>
                       <strong>{formatCurrency(item.amount)}</strong>
@@ -708,8 +799,25 @@ export function DashboardPage() {
           <section className="panel">
             <h3>未来趋势</h3>
             <div className="dashboard-forecast-header">
-              <p className="dashboard-ai-badge">模型：{model || '默认模型'} · {forecastStatus === 'loading' ? '分析中' : forecastStatus === 'done' ? '已完成' : forecastStatus === 'error' ? '降级展示' : '待分析'}{forecastUpdatedAt ? ` · 上次分析 ${new Date(forecastUpdatedAt).toLocaleString('zh-CN')}` : ''}</p>
-              <button type="button" className="dashboard-forecast-refresh" onClick={handleRefreshForecast} disabled={forecastStatus === 'loading' || transactions.length === 0}>
+              <p className="dashboard-ai-badge">
+                模型：{model || '默认模型'} ·{' '}
+                {forecastStatus === 'loading'
+                  ? '分析中'
+                  : forecastStatus === 'done'
+                    ? '已完成'
+                    : forecastStatus === 'error'
+                      ? '降级展示'
+                      : '待分析'}
+                {forecastUpdatedAt
+                  ? ` · 上次分析 ${new Date(forecastUpdatedAt).toLocaleString('zh-CN')}`
+                  : ''}
+              </p>
+              <button
+                type="button"
+                className="dashboard-forecast-refresh"
+                onClick={handleRefreshForecast}
+                disabled={forecastStatus === 'loading' || transactions.length === 0}
+              >
                 手动分析
               </button>
             </div>
@@ -723,16 +831,51 @@ export function DashboardPage() {
                   ))}
                 </div>
                 <svg viewBox="0 0 600 240" role="img" aria-label="历史与未来趋势折线图">
-                  <line x1="24" y1="20" x2="24" y2="220" stroke="var(--color-border)" strokeWidth="1" />
-                  <line x1="24" y1="220" x2="580" y2="220" stroke="var(--color-border)" strokeWidth="1" />
+                  <line
+                    x1="24"
+                    y1="20"
+                    x2="24"
+                    y2="220"
+                    stroke="var(--color-border)"
+                    strokeWidth="1"
+                  />
+                  <line
+                    x1="24"
+                    y1="220"
+                    x2="580"
+                    y2="220"
+                    stroke="var(--color-border)"
+                    strokeWidth="1"
+                  />
                   {historySegment ? (
-                    <path d={historySegment} className="history-line dashboard-forecast-path" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    <path
+                      d={historySegment}
+                      className="history-line dashboard-forecast-path"
+                      fill="none"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   ) : null}
                   {currentSegment ? (
-                    <path d={currentSegment} className="current-line dashboard-forecast-path" fill="none" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path
+                      d={currentSegment}
+                      className="current-line dashboard-forecast-path"
+                      fill="none"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   ) : null}
                   {forecastSegment ? (
-                    <path d={forecastSegment} className="forecast-line dashboard-forecast-path" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    <path
+                      d={forecastSegment}
+                      className="forecast-line dashboard-forecast-path"
+                      fill="none"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   ) : null}
                   {chartPoints.map((point, index) => (
                     <g key={`point-${point.label}-${index}`} className="dashboard-forecast-point">
@@ -744,7 +887,12 @@ export function DashboardPage() {
               </div>
               <div className="dashboard-forecast-axis-x" aria-label="时间轴">
                 {chartData.map((item, index) => {
-                  const klass = index === currentIndex ? 'current' : item.type === 'forecast' ? 'forecast' : 'history';
+                  const klass =
+                    index === currentIndex
+                      ? 'current'
+                      : item.type === 'forecast'
+                        ? 'forecast'
+                        : 'history';
                   return (
                     <span key={`x-${item.label}-${index}`} className={klass}>
                       {item.label}
@@ -759,30 +907,60 @@ export function DashboardPage() {
               </div>
               <div className="dashboard-forecast-legend">
                 {chartData.map((item, index) => {
-                  const klass = index === currentIndex ? 'current' : item.type === 'forecast' ? 'forecast' : 'history';
+                  const klass =
+                    index === currentIndex
+                      ? 'current'
+                      : item.type === 'forecast'
+                        ? 'forecast'
+                        : 'history';
                   const prefix = item.type === 'forecast' ? '预测' : '';
                   return (
                     <span key={`${item.label}-${index}`} className={klass}>
-                      {prefix}{item.label}：{formatCurrency(item.value)}
+                      {prefix}
+                      {item.label}：{formatCurrency(item.value)}
                     </span>
                   );
                 })}
               </div>
             </div>
 
-            <p className="dashboard-future-text">{forecast?.summary || '点击“手动分析”生成未来趋势分析。'}</p>
+            <div className="dashboard-forecast-quick-cards">
+              {chartData.slice(currentIndex).map((item, index) => (
+                <article
+                  key={`future-card-${item.label}-${index}`}
+                  className="dashboard-forecast-quick-card"
+                >
+                  <p>{index === 0 ? '本月基线' : `未来第${index}个月`}</p>
+                  <strong>{formatCurrency(item.value)}</strong>
+                </article>
+              ))}
+            </div>
+
+            <p className="dashboard-future-text">
+              {forecast?.summary || '点击“手动分析”生成未来趋势分析。'}
+            </p>
+            <p className="dashboard-future-tip">
+              一句话解读：未来趋势是
+              {(forecast?.points?.[2] ?? monthlyBalance) >= monthlyBalance
+                ? '稳中向上'
+                : '需要控制支出'}
+              ，建议优先执行下面两条动作。
+            </p>
             {forecast?.suggestions?.length ? (
               <ul className="dashboard-future-suggestions">
                 {forecast.suggestions.map((item, index) => (
-                  <li key={`${item}-${index}`} className="dashboard-future-focus-item">{item}</li>
+                  <li key={`${item}-${index}`} className="dashboard-future-focus-item">
+                    第 {index + 1} 步：{item}
+                  </li>
                 ))}
               </ul>
             ) : null}
-            <p className="dashboard-future-tip">分析输入源：当前本地账目数据（若已同步数据库，数据会先落地到本地再用于模型分析）。</p>
+            <p className="dashboard-future-tip">
+              分析输入源：当前本地账目数据（若已同步数据库，数据会先落地到本地再用于模型分析）。
+            </p>
           </section>
         </div>
       )}
-
 
       <DebugLogPanel />
     </div>
