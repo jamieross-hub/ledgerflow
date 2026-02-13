@@ -1,53 +1,30 @@
-import { useMemo, useState } from 'react';
 import type { DraftBillEntry } from '../workbench/workbenchTypes';
 
 interface BillPreviewCardProps {
-  payload: unknown;
   entries: DraftBillEntry[];
   duplicateCount: number;
   onCheckDuplicates: () => number;
-  onSave: () => void;
+  onSave: () => boolean;
   onSaved?: () => void;
 }
 
 export function BillPreviewCard({
-  payload,
   entries,
   duplicateCount,
   onCheckDuplicates,
   onSave,
   onSaved
 }: BillPreviewCardProps) {
-  const [collapsed, setCollapsed] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const jsonText = useMemo(() => JSON.stringify(payload, null, 2), [payload]);
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(jsonText);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1400);
-    } catch {
-      setCopied(false);
-    }
-  };
-
   const handleSave = () => {
-    onSave();
-    onSaved?.();
+    if (onSave()) {
+      onSaved?.();
+    }
   };
 
   return (
     <div className="chat-bill-preview">
       <h3>✅ AI 识别账单</h3>
-      <div className="chat-json-toolbar">
-        <button type="button" onClick={handleCopy}>
-          {copied ? '已复制' : '复制 JSON'}
-        </button>
-        <button type="button" onClick={() => setCollapsed((v) => !v)}>
-          {collapsed ? '展开' : '折叠'}
-        </button>
+      <div className="chat-preview-toolbar">
         <button type="button" onClick={onCheckDuplicates}>
           检测重复账单
         </button>
@@ -72,8 +49,6 @@ export function BillPreviewCard({
           </article>
         ))}
       </div>
-
-      {!collapsed ? <pre>{jsonText}</pre> : null}
       <button type="button" className="primary" onClick={handleSave}>
         💾 一键保存到账本
       </button>

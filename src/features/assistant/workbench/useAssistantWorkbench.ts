@@ -307,51 +307,67 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
   /** 将当前勾选且校验通过的草稿条目写入账本。 */
   const saveSelected = () => {
     const rows = entries.filter((item) => item.selected && item.issues.length === 0);
-    if (rows.length === 0)
-      return setToast({ visible: true, variant: 'warning', message: '没有可保存的有效账单' });
+    if (rows.length === 0) {
+      setToast({ visible: true, variant: 'warning', message: '没有可保存的有效账单' });
+      return false;
+    }
     setStatus('saving');
     addLog({ action: 'assistant.save', status: 'pending', message: `准备保存 ${rows.length} 条` });
-    const duplicateRows = rows.filter((item) => item.duplicateTxId);
-    let overwriteDuplicates = false;
-    if (duplicateRows.length > 0) {
-      overwriteDuplicates = window.confirm(
-        `检测到 ${duplicateRows.length} 条疑似重复账单。
+
+    try {
+      const duplicateRows = rows.filter((item) => item.duplicateTxId);
+      let overwriteDuplicates = false;
+      if (duplicateRows.length > 0) {
+        overwriteDuplicates = window.confirm(
+          `检测到 ${duplicateRows.length} 条疑似重复账单。
 点击“确定”将覆盖旧账单；点击“取消”将保留旧账单并新增。`
-      );
-    }
-
-    rows.forEach((item) => {
-      const type = item.type === 'unknown' ? 'expense' : item.type;
-      const category = item.category.trim() || inferCategoryFromText(type, item.note || '');
-      // 来源优先级：模型显式 sourceHint > 文本推断，保证账单账户归属更稳定。
-      const source =
-        item.sourceHint === 'wechat' || item.sourceHint === 'alipay'
-          ? item.sourceHint
-          : inferSourceFromText(`${item.note} ${(item.tags || []).join(' ')}`);
-
-      const payload = {
-        type,
-        amount: normalizeMoney(item.amount),
-        date: normalizeEntryDate(item.date),
-        note: item.note || 'AI 导入账单',
-        tags: inferTags(type, item.note, category, item.tags || ['AI识别']),
-        categoryId: ensureCategoryId(category, input.categories, input.addCategory),
-        accountId: resolveAccountId(item.account, input.accounts, { source, type }),
-        orderNo: item.orderNo?.trim() || undefined,
-        merchantOrderNo: item.merchantOrderNo?.trim() || undefined,
-        source
-      };
-
-      if (overwriteDuplicates && item.duplicateTxId) {
-        input.updateTransaction(item.duplicateTxId, payload);
-      } else {
-        input.addTransaction(payload);
+        );
       }
-    });
-    setEntries([]);
-    setStatus('saved');
-    setToast({ visible: true, variant: 'success', message: `已保存 ${rows.length} 条账单` });
-    addLog({ action: 'assistant.save', status: 'success', message: `保存完成 ${rows.length} 条` });
+
+      rows.forEach((item) => {
+        const type = item.type === 'unknown' ? 'expense' : item.type;
+        const category = item.category.trim() || inferCategoryFromText(type, item.note || '');
+        // 来源优先级：模型显式 sourceHint > 文本推断，保证账单账户归属更稳定。
+        const source =
+          item.sourceHint === 'wechat' || item.sourceHint === 'alipay'
+            ? item.sourceHint
+            : inferSourceFromText(`${item.note} ${(item.tags || []).join(' ')}`);
+
+        const payload = {
+          type,
+          amount: normalizeMoney(item.amount),
+          date: normalizeEntryDate(item.date),
+          note: item.note || 'AI 导入账单',
+          tags: inferTags(type, item.note, category, item.tags || ['AI识别']),
+          categoryId: ensureCategoryId(category, input.categories, input.addCategory),
+          accountId: resolveAccountId(item.account, input.accounts, { source, type }),
+          orderNo: item.orderNo?.trim() || undefined,
+          merchantOrderNo: item.merchantOrderNo?.trim() || undefined,
+          source
+        };
+
+        if (overwriteDuplicates && item.duplicateTxId) {
+          input.updateTransaction(item.duplicateTxId, payload);
+        } else {
+          input.addTransaction(payload);
+        }
+      });
+      setEntries([]);
+      setStatus('saved');
+      setToast({ visible: true, variant: 'success', message: `已保存 ${rows.length} 条账单` });
+      addLog({
+        action: 'assistant.save',
+        status: 'success',
+        message: `保存完成 ${rows.length} 条`
+      });
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '保存失败，请重试';
+      setStatus('error');
+      setToast({ visible: true, variant: 'error', message });
+      addLog({ action: 'assistant.save', status: 'error', message });
+      return false;
+    }
   };
 
   const resetWorkbench = () => {

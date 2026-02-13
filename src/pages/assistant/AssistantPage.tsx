@@ -152,7 +152,6 @@ const QUICK_BILL_TEMPLATES = [
   { label: '💼 工资入账', prompt: '本月工资到账 12000 元，入账银行卡' }
 ];
 
-const QUICK_AMOUNT_ACTIONS = [10, 20, 50, 100];
 const CHAT_HISTORY_CACHE_KEYS: Record<AssistantMode, string> = {
   bookkeeping: 'ledgerflow.assistant.chatHistory.bookkeeping',
   assistant: 'ledgerflow.assistant.chatHistory.assistant'
@@ -273,23 +272,6 @@ export function AssistantPage() {
   const duplicateEntriesCount = useMemo(
     () => wb.entries.filter((item) => item.duplicateTxId).length,
     [wb.entries]
-  );
-
-  const previewPayload = useMemo(
-    () => ({
-      transactions: selectedValidEntries.map((item) => ({
-        type: item.type,
-        amount: item.amount,
-        date: item.date,
-        note: item.note,
-        category: item.category,
-        account: item.account,
-        tags: item.tags,
-        orderNo: item.orderNo,
-        merchantOrderNo: item.merchantOrderNo
-      }))
-    }),
-    [selectedValidEntries]
   );
 
   // 每次状态或消息变化后，自动将视图滚动到底部，保持聊天体验。
@@ -617,24 +599,18 @@ export function AssistantPage() {
             </article>
           ))}
 
-          {wb.rawReasoning ? (
+          {selectedValidEntries.length > 0 ? (
             <article className="chat-msg">
-              <div className="chat-msg-avatar">🧠</div>
+              <div className="chat-msg-avatar">✅</div>
               <div className="chat-msg-body">
-                <details className="chat-thinking-box" open>
-                  <summary>查看推理摘要</summary>
-                  <div className="chat-thinking-scroll">{wb.rawReasoning}</div>
-                </details>
-                {selectedValidEntries.length > 0 ? (
-                  <BillPreviewCard
-                    payload={previewPayload}
-                    entries={wb.entries}
-                    duplicateCount={duplicateEntriesCount}
-                    onCheckDuplicates={wb.checkDuplicates}
-                    onSave={wb.saveSelected}
-                    onSaved={() => wb.setToastState('账单已写入账本', 'success')}
-                  />
-                ) : null}
+                <div className="chat-msg-header">识别结果</div>
+                <BillPreviewCard
+                  entries={wb.entries}
+                  duplicateCount={duplicateEntriesCount}
+                  onCheckDuplicates={wb.checkDuplicates}
+                  onSave={wb.saveSelected}
+                  onSaved={() => wb.setToastState('账单已写入账本', 'success')}
+                />
               </div>
             </article>
           ) : null}
@@ -670,22 +646,6 @@ export function AssistantPage() {
       </section>
 
       <section className="chat-input-bar">
-        {mode === 'bookkeeping' ? (
-          <div className="chat-quick-amount-row">
-            <span>⚡ 快速建单</span>
-            {QUICK_AMOUNT_ACTIONS.map((amount) => (
-              <button
-                key={amount}
-                type="button"
-                onClick={() => wb.applyCommand(`刚刚支出${amount}元，用微信支付`)}
-                disabled={wb.status === 'recognizing'}
-              >
-                -¥{amount}
-              </button>
-            ))}
-          </div>
-        ) : null}
-
         <div className="chat-smart-command-row">
           {SMART_TRANSACTION_COMMANDS.map((item) => (
             <button
