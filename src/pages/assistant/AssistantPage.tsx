@@ -1,11 +1,23 @@
-import { FormEvent, KeyboardEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  FormEvent,
+  KeyboardEvent,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
 import { Link } from 'react-router-dom';
+import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { SMART_TRANSACTION_COMMANDS } from '../../features/assistant/workbench/workbenchTypes';
 import { useAssistantWorkbench } from '../../features/assistant/workbench/useAssistantWorkbench';
 import { BillPreviewCard } from '../../features/assistant/ui/BillPreviewCard';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { Toast } from '../../shared/ui/Toast';
+import type { TransactionItem } from '../../entities/transaction/types';
+import type { Category } from '../../entities/category/types';
 
 /**
  * 将内部状态机状态映射为顶部可读文案。
@@ -126,6 +138,13 @@ interface ChatHistoryItem {
   usageText?: string;
 }
 
+type AssistantMode = 'bookkeeping' | 'assistant';
+
+interface PresetQuestion {
+  id: string;
+  text: string;
+}
+
 const QUICK_BILL_TEMPLATES = [
   { label: '🍜 午饭 18（支付宝）', prompt: '今天午饭18元，用支付宝支付' },
   { label: '☕ 咖啡 23（微信）', prompt: '今天买咖啡23元，用微信支付' },
@@ -134,6 +153,56 @@ const QUICK_BILL_TEMPLATES = [
 ];
 
 const QUICK_AMOUNT_ACTIONS = [10, 20, 50, 100];
+
+function toMonthKey(date: string) {
+  return date.slice(0, 7);
+}
+
+function buildLocalPresetQuestions(transactions: TransactionItem[], categories: Category[]) {
+  const categoryMap = new Map(categories.map((item) => [item.id, item.name]));
+  const expenseRows = [...transactions]
+    .filter((item) => item.type === 'expense')
+    .sort((a, b) => +new Date(b.date) - +new Date(a.date));
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const lastMonth = `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}`;
+  const monthTotal = (month: string) =>
+    expenseRows
+      .filter((item) => toMonthKey(item.date) === month)
+      .reduce((sum, item) => sum + item.amount, 0);
+  const currentTotal = monthTotal(thisMonth);
+  const previousTotal = monthTotal(lastMonth);
+  const deltaPct = previousTotal > 0 ? ((currentTotal - previousTotal) / previousTotal) * 100 : 0;
+
+  const topCategory = Object.values(
+    expenseRows.reduce<Record<string, { name: string; amount: number }>>((acc, item) => {
+      const name = categoryMap.get(item.categoryId) || '其他';
+      if (!acc[name]) acc[name] = { name, amount: 0 };
+      acc[name].amount += item.amount;
+      return acc;
+    }, {})
+  ).sort((a, b) => b.amount - a.amount)[0];
+
+  const latest = expenseRows[0];
+  const questions = [
+    currentTotal > 0
+      ? `本月已支出 ¥${currentTotal.toFixed(2)}，相比上月${deltaPct >= 0 ? '增加' : '减少'} ${Math.abs(deltaPct).toFixed(1)}%，要不要拆解一下波动来源？`
+      : '你这个月还没形成完整支出曲线，要不要我先帮你建立一套“首月预算模板”？',
+    topCategory
+      ? `${topCategory.name} 目前累计 ¥${topCategory.amount.toFixed(2)}，是最近最大头支出，要不要看看哪些商户最容易超预算？`
+      : '最近消费分类还比较少，要不要先按“餐饮/交通/日用”自动补齐分类建议？',
+    latest
+      ? `最近一笔是 ${latest.note || '未备注消费'}（¥${latest.amount.toFixed(2)}），要不要顺便检查是否有可合并的重复记账？`
+      : '最近还没有消费记录，要不要先试试“午饭 18 元支付宝”快速建一笔？',
+    '过去 7 天有哪些“高频小额支出”正在悄悄累加？要不要我按场景给你做一个缩减清单？',
+    '如果把本月非必要支出压缩 10%，预计能多结余多少？要不要我给你一个可执行版本？'
+  ];
+
+  return questions
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 5)
+    .map((text, index) => ({ id: `fallback-${index}`, text }));
+}
 
 export function AssistantPage() {
   const baseUrl = useAiSettings((s) => s.baseUrl);
@@ -161,6 +230,9 @@ export function AssistantPage() {
   });
 
   const [modelOpen, setModelOpen] = useState(false);
+  const [mode, setMode] = useState<AssistantMode>('assistant');
+  const [presetQuestions, setPresetQuestions] = useState<PresetQuestion[]>([]);
+  const [loadingPresets, setLoadingPresets] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const lastAssistantRef = useRef('');
   const messageEndRef = useRef<HTMLDivElement | null>(null);
@@ -251,6 +323,68 @@ export function AssistantPage() {
     weekday: 'short'
   }).format(new Date());
 
+  const loadPersonalizedQuestions = useCallback(async () => {
+    const fallback = () => setPresetQuestions(buildLocalPresetQuestions(transactions, categories));
+    if (!apiKey || !model) {
+      fallback();
+      return;
+    }
+
+    setLoadingPresets(true);
+    try {
+      const snapshot = transactions
+        .slice(-120)
+        .map((item) => ({
+          type: item.type,
+          amount: item.amount,
+          date: item.date,
+          note: item.note,
+          categoryId: item.categoryId
+        }))
+        .sort((a, b) => +new Date(b.date) - +new Date(a.date));
+      const categoryMap = categories.map((item) => ({ id: item.id, name: item.name }));
+      const randomSeed = `${Date.now()}-${Math.round(Math.random() * 1000)}`;
+      const reply = await sendAiChat({
+        baseUrl,
+        apiKey,
+        model,
+        systemPrompt:
+          '你是记账系统中的数据分析助手。请基于用户账单快照一次性生成 3-5 条“可直接点击提问”的问题。必须具体、包含数字或日期锚点、语气轻松有梗但专业。仅返回 JSON 数组，格式：["问题1","问题2"]，不要输出其他文本。',
+        messages: [
+          {
+            role: 'user',
+            text: `随机种子: ${randomSeed}\n分类映射: ${JSON.stringify(categoryMap)}\n最近账单: ${JSON.stringify(snapshot)}`
+          }
+        ]
+      });
+
+      const normalized = reply.content
+        .trim()
+        .replace(/^```json\s*/i, '')
+        .replace(/```$/, '');
+      const parsed = JSON.parse(normalized) as unknown;
+      if (!Array.isArray(parsed) || parsed.length < 3) {
+        fallback();
+        return;
+      }
+      const list = parsed
+        .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+        .slice(0, 5)
+        .map((text, index) => ({ id: `preset-${index}-${Date.now()}`, text: text.trim() }));
+      setPresetQuestions(
+        list.length >= 3 ? list : buildLocalPresetQuestions(transactions, categories)
+      );
+    } catch {
+      fallback();
+    } finally {
+      setLoadingPresets(false);
+    }
+  }, [apiKey, baseUrl, categories, model, transactions]);
+
+  useEffect(() => {
+    void loadPersonalizedQuestions();
+  }, [loadPersonalizedQuestions]);
+
   return (
     <div
       className="chat-fullscreen"
@@ -262,6 +396,22 @@ export function AssistantPage() {
           <span className="chat-topbar-title">AI 记账助手</span>
           <span className="chat-topbar-sep">·</span>
           <span>{statusText(wb.status)}</span>
+          <div className="chat-mode-switch" role="tablist" aria-label="模式切换">
+            <button
+              type="button"
+              className={mode === 'bookkeeping' ? 'active' : ''}
+              onClick={() => setMode('bookkeeping')}
+            >
+              AI 记账
+            </button>
+            <button
+              type="button"
+              className={mode === 'assistant' ? 'active' : ''}
+              onClick={() => setMode('assistant')}
+            >
+              AI 助手
+            </button>
+          </div>
         </div>
 
         <div className="chat-model-selector">
@@ -327,27 +477,56 @@ export function AssistantPage() {
             </section>
           ) : null}
 
-          <section className="chat-kawaii-panel">
-            <div className="chat-kawaii-topline">今天 {todayLabel}</div>
-            <div className="chat-kawaii-amount">¥0.00</div>
-            <div className="chat-kawaii-sub">本轮准备记账 · 一句话也能生成账单 ✨</div>
-            <div className="chat-kawaii-actions">
-              {QUICK_BILL_TEMPLATES.map((item) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  onClick={() => wb.applyCommand(item.prompt)}
-                  disabled={wb.status === 'recognizing'}
-                >
-                  {item.label}
+          {mode === 'bookkeeping' ? (
+            <section className="chat-kawaii-panel">
+              <div className="chat-kawaii-topline">今天 {todayLabel}</div>
+              <div className="chat-kawaii-amount">¥0.00</div>
+              <div className="chat-kawaii-sub">本轮准备记账 · 一句话也能生成账单 ✨</div>
+              <div className="chat-kawaii-actions">
+                {QUICK_BILL_TEMPLATES.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => wb.applyCommand(item.prompt)}
+                    disabled={wb.status === 'recognizing'}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <div className="chat-kawaii-mascot" aria-hidden>
+                <span>૮₍ ˶•⤙•˶ ₎ა</span>
+                <small>来嘛来嘛，点我就能秒记账～</small>
+              </div>
+            </section>
+          ) : (
+            <section className="chat-kawaii-panel chat-assistant-panel">
+              <div className="chat-kawaii-topline">今天 {todayLabel}</div>
+              <div className="chat-kawaii-sub">先看数据，再发问，一次就问到重点。</div>
+              <div className="chat-preset-head">
+                <strong>个性化预设问题</strong>
+                <button type="button" onClick={() => void loadPersonalizedQuestions()}>
+                  {loadingPresets ? '生成中...' : '换一批'}
                 </button>
-              ))}
-            </div>
-            <div className="chat-kawaii-mascot" aria-hidden>
-              <span>૮₍ ˶•⤙•˶ ₎ა</span>
-              <small>来嘛来嘛，点我就能秒记账～</small>
-            </div>
-          </section>
+              </div>
+              <div className="chat-preset-list">
+                {presetQuestions.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="chat-preset-item"
+                    onClick={() => wb.applyCommand(item.text)}
+                  >
+                    {item.text}
+                  </button>
+                ))}
+              </div>
+              <div className="chat-kawaii-mascot" aria-hidden>
+                <span>🧾</span>
+                <small>数据会说话，我负责翻译成能执行的建议。</small>
+              </div>
+            </section>
+          )}
 
           <article className="chat-msg">
             <div className="chat-msg-avatar">🤖</div>
@@ -442,19 +621,21 @@ export function AssistantPage() {
       </section>
 
       <section className="chat-input-bar">
-        <div className="chat-quick-amount-row">
-          <span>⚡ 快速建单</span>
-          {QUICK_AMOUNT_ACTIONS.map((amount) => (
-            <button
-              key={amount}
-              type="button"
-              onClick={() => wb.applyCommand(`刚刚支出${amount}元，用微信支付`)}
-              disabled={wb.status === 'recognizing'}
-            >
-              -¥{amount}
-            </button>
-          ))}
-        </div>
+        {mode === 'bookkeeping' ? (
+          <div className="chat-quick-amount-row">
+            <span>⚡ 快速建单</span>
+            {QUICK_AMOUNT_ACTIONS.map((amount) => (
+              <button
+                key={amount}
+                type="button"
+                onClick={() => wb.applyCommand(`刚刚支出${amount}元，用微信支付`)}
+                disabled={wb.status === 'recognizing'}
+              >
+                -¥{amount}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         <div className="chat-smart-command-row">
           {SMART_TRANSACTION_COMMANDS.map((item) => (

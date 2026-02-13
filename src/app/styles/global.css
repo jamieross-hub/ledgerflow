@@ -2067,6 +2067,31 @@ small.mono {
   min-width: 0;
 }
 
+.chat-mode-switch {
+  margin-left: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 2px;
+  background: var(--color-bg-subtle);
+}
+
+.chat-mode-switch button {
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  padding: 4px 10px;
+  font-size: var(--font-xs);
+  border-radius: var(--radius-full);
+}
+
+.chat-mode-switch button.active {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
 .chat-topbar-title {
   font-weight: 600;
   font-size: var(--font-md);
@@ -2691,6 +2716,57 @@ small.mono {
 
 .chat-kawaii-mascot small {
   font-size: var(--font-xs);
+}
+
+.chat-assistant-panel {
+  gap: var(--space-3);
+}
+
+.chat-preset-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.chat-preset-head strong {
+  font-size: var(--font-sm);
+  color: var(--color-text);
+}
+
+.chat-preset-head button {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  font-size: var(--font-xs);
+}
+
+.chat-preset-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.chat-preset-item {
+  text-align: left;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-elevated) 80%, var(--color-primary-bg));
+  color: var(--color-text);
+  padding: 10px 12px;
+  font-size: var(--font-sm);
+  line-height: 1.45;
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.chat-preset-item:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-primary-border);
+  box-shadow: var(--shadow-xs);
 }
 
 .chat-quick-amount-row {
