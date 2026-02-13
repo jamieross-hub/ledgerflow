@@ -78,6 +78,18 @@ function ModelSelector({ label, hint, value, presets, onChange }: ModelSelectorP
           ))}
         </div>
       ) : null}
+      <div className="settings-model-chips">
+        {presets.map((item) => (
+          <button
+            key={item}
+            type="button"
+            className={item === value ? 'active' : ''}
+            onClick={() => onChange(item)}
+          >
+            {item}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -135,6 +147,19 @@ export function SettingsPage() {
             ← 返回
           </button>
         </div>
+        <div className="field" style={{ marginTop: 16 }}>
+          <label>界面语言</label>
+          <div className="row">
+            <span>简体中文</span>
+            <button disabled={!canInstall} onClick={() => void triggerInstall()}>
+              {canInstall ? '安装 PWA' : '当前不可安装'}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <h2>AI 渠道设置（OpenAI 兼容）</h2>
         <p>
           同一套 Base URL + API Key 可复用于对话、嵌入、重排序，便于账单检索与趋势分析场景统一接入。
         </p>

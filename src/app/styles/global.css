@@ -4222,6 +4222,7 @@ small.mono {
 .account-card-actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(112px, auto) minmax(96px, auto);
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: end;
   gap: var(--space-2);
 }
@@ -4252,6 +4253,12 @@ small.mono {
 .settings-model-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  font-weight: 600;
+}
+
+.settings-model-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-3);
 }
 

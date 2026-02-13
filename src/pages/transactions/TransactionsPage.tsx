@@ -269,6 +269,11 @@ export function TransactionsPage() {
   >(() =>
     restoreRecordState<TransactionDetailSectionKey>(TX_DETAIL_SECTIONS_KEY, DEFAULT_DETAIL_SECTIONS)
   );
+  const [visibleColumns, setVisibleColumns] =
+    useState<Record<TransactionColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS);
+  const [columnOrder, setColumnOrder] = useState<TransactionColumnKey[]>(DEFAULT_COLUMN_ORDER);
+  const [visibleDetailSections, setVisibleDetailSections] =
+    useState<Record<TransactionDetailSectionKey, boolean>>(DEFAULT_DETAIL_SECTIONS);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const importSourceRef = useRef<BillSource | null>(null);
@@ -713,6 +718,35 @@ export function TransactionsPage() {
       }
 
       showToast('已取消重复账单处理。', 'warning');
+    const orderNoMap = new Map<string, number>();
+    const merchantOrderNoMap = new Map<string, number>();
+    const contentMap = new Map<string, number>();
+
+    sortedRows.forEach(({ item }) => {
+      if (item.orderNo) {
+        orderNoMap.set(item.orderNo, (orderNoMap.get(item.orderNo) || 0) + 1);
+      }
+      if (item.merchantOrderNo) {
+        merchantOrderNoMap.set(
+          item.merchantOrderNo,
+          (merchantOrderNoMap.get(item.merchantOrderNo) || 0) + 1
+        );
+      }
+      const sig = buildDuplicateSignature(item);
+      contentMap.set(sig, (contentMap.get(sig) || 0) + 1);
+    });
+
+    const duplicateCount = sortedRows.filter(({ item }) => {
+      const byOrderNo = item.orderNo ? (orderNoMap.get(item.orderNo) || 0) > 1 : false;
+      const byMerchantOrderNo = item.merchantOrderNo
+        ? (merchantOrderNoMap.get(item.merchantOrderNo) || 0) > 1
+        : false;
+      const byContent = (contentMap.get(buildDuplicateSignature(item)) || 0) > 1;
+      return byOrderNo || byMerchantOrderNo || byContent;
+    }).length;
+
+    if (duplicateCount > 0) {
+      showToast(`检测完成：发现 ${duplicateCount} 条疑似重复账单。`, 'warning');
       return;
     }
     showToast('检测完成：未发现重复账单。', 'success');
