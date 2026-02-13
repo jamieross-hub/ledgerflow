@@ -2741,13 +2741,13 @@ small.mono {
   border-radius: 2px;
 }
 
-.chat-json-toolbar {
+.chat-preview-toolbar {
   display: flex;
   gap: var(--space-2);
   margin-bottom: var(--space-3);
 }
 
-.chat-json-toolbar > button {
+.chat-preview-toolbar > button {
   font-size: var(--font-xs);
   padding: 4px 10px;
 }
@@ -2871,35 +2871,6 @@ small.mono {
   transform: translateY(-1px);
   border-color: var(--color-primary-border);
   box-shadow: var(--shadow-xs);
-}
-
-.chat-quick-amount-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  padding: var(--space-2) var(--space-5);
-  border-bottom: 1px solid var(--color-divider);
-  background: color-mix(in srgb, var(--color-primary-bg) 45%, transparent);
-}
-
-.chat-quick-amount-row > span {
-  font-size: var(--font-xs);
-  color: var(--color-text-secondary);
-}
-
-.chat-quick-amount-row > button {
-  font-size: var(--font-xs);
-  border-radius: var(--radius-full);
-  padding: 4px 10px;
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  background: var(--color-bg-elevated);
-}
-
-.chat-quick-amount-row > button:hover:not(:disabled) {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
 }
 
 /* ---------- Input Bar ---------- */
@@ -5203,9 +5174,10 @@ small.mono {
 
 .chat-disclaimer {
   margin: 0;
-  padding: 6px var(--space-5) 0;
+  padding: 8px var(--space-5) 4px;
   font-size: 11px;
   color: var(--color-text-placeholder);
+  text-align: center;
 }
 
 .chat-dup-alert {

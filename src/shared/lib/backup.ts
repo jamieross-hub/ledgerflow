@@ -121,7 +121,13 @@ function joinWebdavPath(endpoint: string, remoteFilePath: string): string {
 }
 
 function buildBasicAuth(username: string, password: string): string {
-  return `Basic ${window.btoa(`${username}:${password}`)}`;
+  const raw = `${username}:${password}`;
+  const bytes = new TextEncoder().encode(raw);
+  let binary = '';
+  bytes.forEach((value) => {
+    binary += String.fromCharCode(value);
+  });
+  return `Basic ${window.btoa(binary)}`;
 }
 
 export async function webdavUploadBackup(
