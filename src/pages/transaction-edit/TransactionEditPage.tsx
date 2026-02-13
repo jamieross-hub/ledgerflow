@@ -4,6 +4,8 @@ import { TransactionStatus } from '../../entities/transaction/types';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 
 const MAX_AMOUNT = 999999999.99;
+const MIN_DATE = '2000-01-01T00:00';
+const MAX_DATE = '2100-12-31T23:59';
 
 function parseTags(raw: string) {
   return raw
@@ -60,6 +62,10 @@ function validateDate(raw: string): { ok: true; value: string } | { ok: false; m
 
   if (formatLocalDateTime(date.toISOString()) !== raw) {
     return { ok: false, message: '日期时间无效，请检查年月日和时间。' };
+  }
+
+  if (raw < MIN_DATE || raw > MAX_DATE) {
+    return { ok: false, message: '日期超出允许范围（2000-01-01 ~ 2100-12-31）。' };
   }
 
   return { ok: true, value: date.toISOString() };
@@ -238,6 +244,8 @@ export function TransactionEditPage() {
               }
             }}
             type="datetime-local"
+            min={MIN_DATE}
+            max={MAX_DATE}
           />
           {dateError ? <small className="error">{dateError}</small> : null}
         </div>

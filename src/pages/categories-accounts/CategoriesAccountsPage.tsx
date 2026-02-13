@@ -10,6 +10,14 @@ import {
 } from '../../features/accounts/model/accountTypes';
 import type { AccountType } from '../../features/accounts/model/accountTypes';
 
+function normalizeNameInput(raw: string) {
+  return raw.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function isValidName(name: string) {
+  return name.length >= 1 && name.length <= 24;
+}
+
 export function CategoriesAccountsPage() {
   const categories = useFinanceStore((s) => s.categories);
   const accounts = useFinanceStore((s) => s.accounts);
@@ -31,6 +39,8 @@ export function CategoriesAccountsPage() {
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showAllTags, setShowAllTags] = useState(false);
   const [showAllAccounts, setShowAllAccounts] = useState(false);
+  const [categoryError, setCategoryError] = useState('');
+  const [accountError, setAccountError] = useState('');
 
   const CATEGORY_COLLAPSE_THRESHOLD = 3;
   const TAG_COLLAPSE_THRESHOLD = 3;
@@ -43,23 +53,33 @@ export function CategoriesAccountsPage() {
 
   function submitCategory(e: FormEvent) {
     e.preventDefault();
-    if (!categoryName.trim()) return;
-    addCategory(categoryName);
+    const normalized = normalizeNameInput(categoryName);
+    if (!isValidName(normalized)) {
+      setCategoryError('分类名称需为 1-24 个字符，且不能包含 < 或 >。');
+      return;
+    }
+    addCategory(normalized);
     setCategoryName('');
+    setCategoryError('');
   }
 
   function submitAccount(e: FormEvent) {
     e.preventDefault();
-    if (!accountName.trim()) return;
+    const normalized = normalizeNameInput(accountName);
+    if (!isValidName(normalized)) {
+      setAccountError('账户名称需为 1-24 个字符，且不能包含 < 或 >。');
+      return;
+    }
     const initialBalance = Number(accountInitialBalance || '0');
     addAccount(
-      accountName,
+      normalized,
       accountType || undefined,
       Number.isFinite(initialBalance) ? initialBalance : 0
     );
     setAccountName('');
     setAccountType('');
     setAccountInitialBalance('0');
+    setAccountError('');
   }
 
   const pendingDeleteLinkedCount = pendingDeleteAccountId
@@ -207,13 +227,18 @@ export function CategoriesAccountsPage() {
           <input
             placeholder="新增分类名称"
             value={categoryName}
-            onChange={(e) => setCategoryName(e.target.value)}
+            onChange={(e) => {
+              setCategoryName(e.target.value);
+              if (categoryError) setCategoryError('');
+            }}
             style={{ flex: 1 }}
+            maxLength={24}
           />
           <button className="primary" type="submit">
             添加
           </button>
         </form>
+        {categoryError ? <small className="error">{categoryError}</small> : null}
         {loading ? (
           <LoadingSkeleton lines={4} />
         ) : categories.length === 0 ? (
@@ -307,7 +332,11 @@ export function CategoriesAccountsPage() {
               <input
                 placeholder="如：招商银行卡 / 零钱 / 花呗"
                 value={accountName}
-                onChange={(e) => setAccountName(e.target.value)}
+                onChange={(e) => {
+                  setAccountName(e.target.value);
+                  if (accountError) setAccountError('');
+                }}
+                maxLength={24}
               />
             </div>
             <div className="field">
@@ -342,6 +371,7 @@ export function CategoriesAccountsPage() {
             </button>
           </div>
         </form>
+        {accountError ? <small className="error">{accountError}</small> : null}
 
         {loading ? (
           <LoadingSkeleton lines={4} />
