@@ -323,7 +323,6 @@ export function DashboardPage() {
       }))
     };
   }, [
-    accounts,
     categories,
     currentMonth,
     currentYear,

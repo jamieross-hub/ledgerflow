@@ -126,6 +126,15 @@ interface ChatHistoryItem {
   usageText?: string;
 }
 
+const QUICK_BILL_TEMPLATES = [
+  { label: '🍜 午饭 18（支付宝）', prompt: '今天午饭18元，用支付宝支付' },
+  { label: '☕ 咖啡 23（微信）', prompt: '今天买咖啡23元，用微信支付' },
+  { label: '🚇 地铁 4（零钱）', prompt: '今天地铁4元，用现金支付' },
+  { label: '💼 工资入账', prompt: '本月工资到账 12000 元，入账银行卡' }
+];
+
+const QUICK_AMOUNT_ACTIONS = [10, 20, 50, 100];
+
 export function AssistantPage() {
   const baseUrl = useAiSettings((s) => s.baseUrl);
   const apiKey = useAiSettings((s) => s.apiKey);
@@ -236,6 +245,12 @@ export function AssistantPage() {
     });
   };
 
+  const todayLabel = new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    weekday: 'short'
+  }).format(new Date());
+
   return (
     <div
       className="chat-fullscreen"
@@ -312,12 +327,34 @@ export function AssistantPage() {
             </section>
           ) : null}
 
+          <section className="chat-kawaii-panel">
+            <div className="chat-kawaii-topline">今天 {todayLabel}</div>
+            <div className="chat-kawaii-amount">¥0.00</div>
+            <div className="chat-kawaii-sub">本轮准备记账 · 一句话也能生成账单 ✨</div>
+            <div className="chat-kawaii-actions">
+              {QUICK_BILL_TEMPLATES.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => wb.applyCommand(item.prompt)}
+                  disabled={wb.status === 'recognizing'}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <div className="chat-kawaii-mascot" aria-hidden>
+              <span>૮₍ ˶•⤙•˶ ₎ა</span>
+              <small>来嘛来嘛，点我就能秒记账～</small>
+            </div>
+          </section>
+
           <article className="chat-msg">
             <div className="chat-msg-avatar">🤖</div>
             <div className="chat-msg-body">
-              <div className="chat-msg-header">助手</div>
+              <div className="chat-msg-header">账单小助手</div>
               <div className="chat-msg-content">
-                <p>可直接输入消费流水，或粘贴账单截图（支持拖拽）进行识别。</p>
+                <p>输入一句话、贴截图，或者点击上方模板，我会帮你快速生成可保存账单。</p>
               </div>
             </div>
           </article>
@@ -405,6 +442,20 @@ export function AssistantPage() {
       </section>
 
       <section className="chat-input-bar">
+        <div className="chat-quick-amount-row">
+          <span>⚡ 快速建单</span>
+          {QUICK_AMOUNT_ACTIONS.map((amount) => (
+            <button
+              key={amount}
+              type="button"
+              onClick={() => wb.applyCommand(`刚刚支出${amount}元，用微信支付`)}
+              disabled={wb.status === 'recognizing'}
+            >
+              -¥{amount}
+            </button>
+          ))}
+        </div>
+
         <div className="chat-smart-command-row">
           {SMART_TRANSACTION_COMMANDS.map((item) => (
             <button
@@ -457,7 +508,7 @@ export function AssistantPage() {
             ref={wb.textareaRef}
             className="chat-input-textarea"
             rows={2}
-            placeholder="输入账单文本，或先上传截图..."
+            placeholder="比如：今天午饭15元，用支付宝（会自动识别分类）"
             value={wb.textInput}
             onChange={(e) => wb.setTextInput(e.target.value)}
             onPaste={(e) => void wb.handlePasteImage(e)}

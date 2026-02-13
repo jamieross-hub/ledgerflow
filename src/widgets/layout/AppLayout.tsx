@@ -4,7 +4,7 @@ import { ThemeSwitcher } from '../../features/theme-switcher/ThemeSwitcher';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 
 /** 当前发布版本号（展示用途，与 package.json 可独立管理） */
-const APP_VERSION = '0.1';
+const APP_VERSION = '0.2';
 
 type NavItem = {
   label: string;
@@ -12,6 +12,13 @@ type NavItem = {
   to?: string;
   end?: boolean;
   disabled?: boolean;
+};
+
+type QuickEntry = {
+  label: string;
+  icon: string;
+  to: string;
+  end?: boolean;
 };
 
 const navSections: Array<{ title: string; items: NavItem[] }> = [
@@ -34,6 +41,7 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
     title: '杂项',
     items: [
       { to: '/exchange', label: '汇率数据', icon: '💱' },
+      { to: '/finance', label: '金融资讯', icon: '📰' },
       { to: '/about', label: '关于', icon: 'ℹ️' }
     ]
   }
@@ -45,9 +53,44 @@ const logoMenuItems = [
   { to: '/database-settings', label: '备份设置', icon: '🗄️' }
 ];
 
+/**
+ * 移动抽屉中的快捷入口：借鉴卡片+宫格的体验，但不复刻原图结构。
+ */
+const mobileQuickGroups: Array<{ title: string; items: QuickEntry[] }> = [
+  {
+    title: '高频入口',
+    items: [
+      { label: '记账助手', icon: '🤖', to: '/assistant' },
+      { label: '交易详情', icon: '📋', to: '/transactions' },
+      { label: '统计分析', icon: '📊', to: '/', end: true },
+      { label: '分类账户', icon: '🗂️', to: '/categories-accounts' },
+      { label: '金融资讯', icon: '📰', to: '/finance' },
+      { label: '汇率数据', icon: '💱', to: '/exchange' }
+    ]
+  },
+  {
+    title: '系统功能',
+    items: [
+      { label: '设置', icon: '⚙️', to: '/settings' },
+      { label: '备份设置', icon: '🗄️', to: '/database-settings' },
+      { label: '关于', icon: 'ℹ️', to: '/about' }
+    ]
+  }
+];
+
 const SIDEBAR_COLLAPSED_WIDTH = 76;
 const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 420;
+
+const monthLabel = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric',
+  month: 'long'
+}).format(new Date());
+
+const todayLabel = new Intl.DateTimeFormat('zh-CN', {
+  month: '2-digit',
+  day: '2-digit'
+}).format(new Date());
 
 export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -143,6 +186,13 @@ export function AppLayout() {
             {collapsed ? '»' : '«'}
           </button>
         </div>
+
+        {collapsed ? null : (
+          <section className="sidebar-overview-card">
+            <h3>{monthLabel}</h3>
+            <p>先记账，再看趋势，账本更清晰。</p>
+          </section>
+        )}
 
         <nav className="sidebar-nav">
           {navSections.map((section) => (
@@ -284,8 +334,11 @@ export function AppLayout() {
             aria-label="功能抽屉"
             onClick={(e) => e.stopPropagation()}
           >
-            <header className="mobile-nav-header">
-              <strong>功能抽屉</strong>
+            <header className="mobile-nav-header mobile-nav-profile">
+              <div>
+                <p className="mobile-nav-name">LedgerFlow 用户</p>
+                <p className="mobile-nav-subtitle">{todayLabel} · 今天也要轻松记一笔</p>
+              </div>
               <button
                 type="button"
                 className="icon-btn"
@@ -295,29 +348,36 @@ export function AppLayout() {
                 ✕
               </button>
             </header>
-            <nav className="mobile-nav-list">
-              {navSections.map((section) => (
-                <div key={section.title} className="mobile-nav-section">
-                  <p className="sidebar-section-title">{section.title}</p>
-                  {section.items
-                    .filter((item) => item.to && !item.disabled)
-                    .map((item) => (
-                      <NavLink
-                        key={`${section.title}-${item.label}`}
-                        to={item.to!}
-                        end={item.end}
-                        className={({ isActive }) =>
-                          isActive ? 'sidebar-link active' : 'sidebar-link'
-                        }
-                        onClick={() => setMobileNavOpen(false)}
-                      >
-                        <span className="sidebar-link-icon">{item.icon}</span>
-                        <span className="sidebar-link-label">{item.label}</span>
-                      </NavLink>
-                    ))}
+
+            <section className="mobile-nav-summary-card">
+              <h3>{monthLabel}</h3>
+              <p>本月坚持打卡、预算追踪和流水回顾都在这里完成。</p>
+            </section>
+
+            <div className="mobile-nav-tip-banner">
+              💡 小提示：先用 AI 助手录入，再去统计页看趋势。
+            </div>
+
+            {mobileQuickGroups.map((group) => (
+              <section key={group.title} className="mobile-nav-grid-card">
+                <h3>{group.title}</h3>
+                <div className="mobile-nav-grid">
+                  {group.items.map((item) => (
+                    <NavLink
+                      key={`${group.title}-${item.label}`}
+                      to={item.to}
+                      end={item.end}
+                      className="mobile-nav-grid-item"
+                      onClick={() => setMobileNavOpen(false)}
+                    >
+                      <span>{item.icon}</span>
+                      <strong>{item.label}</strong>
+                    </NavLink>
+                  ))}
                 </div>
-              ))}
-            </nav>
+              </section>
+            ))}
+
             <div className="mobile-nav-footer">
               <span>主题模式</span>
               <ThemeSwitcher />
