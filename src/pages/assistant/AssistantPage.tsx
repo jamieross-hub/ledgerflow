@@ -233,6 +233,23 @@ export function AssistantPage() {
   const [mode, setMode] = useState<AssistantMode>('assistant');
   const [presetQuestions, setPresetQuestions] = useState<PresetQuestion[]>([]);
   const [loadingPresets, setLoadingPresets] = useState(false);
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(() => {
+    try {
+      const raw = window.sessionStorage.getItem(CHAT_HISTORY_CACHE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as ChatHistoryItem[];
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(
+        (item): item is ChatHistoryItem =>
+          Boolean(item) &&
+          typeof item.id === 'string' &&
+          (item.role === 'user' || item.role === 'assistant') &&
+          typeof item.text === 'string'
+      );
+    } catch {
+      return [];
+    }
+  });
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const lastAssistantRef = useRef('');
   const messageEndRef = useRef<HTMLDivElement | null>(null);
@@ -271,19 +288,23 @@ export function AssistantPage() {
     messageEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [wb.status, wb.rawContent, wb.rawReasoning, wb.entries.length, wb.error]);
 
+  const submitPrompt = (prompt: string) => {
+    const clean = prompt.trim();
+    if (!clean || wb.status === 'recognizing') return;
+    setChatHistory((prev) => [...prev, { id: `${Date.now()}-user`, role: 'user', text: clean }]);
+    void wb.handleRecognizeWithPrompt(clean);
+  };
+
   const onSubmit = (event: FormEvent) => {
-    const prompt = wb.textInput.trim();
-    if (prompt) {
-      setChatHistory((prev) => [...prev, { id: `${Date.now()}-user`, role: 'user', text: prompt }]);
-    }
-    void wb.handleRecognize(event);
+    event.preventDefault();
+    submitPrompt(wb.textInput);
   };
 
   const onInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
     event.preventDefault();
     if (!wb.canRecognize || wb.status === 'recognizing') return;
-    void wb.handleRecognize(event as unknown as FormEvent);
+    submitPrompt(wb.textInput);
   };
 
   // 非记账分析时，模型返回自由文本，解析 JSON 失败属于预期，不展示底部红条。
@@ -312,9 +333,7 @@ export function AssistantPage() {
       .find((item) => item.role === 'user');
     if (!previousUser) return;
     wb.setTextInput(previousUser.text);
-    window.requestAnimationFrame(() => {
-      void wb.handleRecognize({ preventDefault() {} } as FormEvent);
-    });
+    submitPrompt(previousUser.text);
   };
 
   const todayLabel = new Intl.DateTimeFormat('zh-CN', {
@@ -384,6 +403,14 @@ export function AssistantPage() {
   useEffect(() => {
     void loadPersonalizedQuestions();
   }, [loadPersonalizedQuestions]);
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(CHAT_HISTORY_CACHE_KEY, JSON.stringify(chatHistory));
+    } catch {
+      // ignore storage write errors
+    }
+  }, [chatHistory]);
 
   return (
     <div
@@ -551,12 +578,19 @@ export function AssistantPage() {
                 </div>
                 {item.usageText ? <p className="chat-token-usage">{item.usageText}</p> : null}
                 <div className="chat-message-actions">
-                  <button type="button" onClick={() => removeMessage(item.id)}>
-                    删除
+                  <button
+                    type="button"
+                    className="chat-icon-action-btn"
+                    onClick={() => removeMessage(item.id)}
+                    aria-label="删除消息"
+                    title="删除消息"
+                  >
+                    🗑️
                   </button>
                   {item.role === 'assistant' ? (
                     <button
                       type="button"
+                      className="chat-secondary-action-btn"
                       onClick={() => retryMessage(index)}
                       disabled={wb.status === 'recognizing'}
                     >
@@ -721,6 +755,7 @@ export function AssistantPage() {
             className="chat-send-btn"
             title="发送"
             disabled={!wb.canRecognize || wb.status === 'recognizing'}
+            aria-disabled={!wb.canRecognize || wb.status === 'recognizing'}
           >
             ↑
           </button>

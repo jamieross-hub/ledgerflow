@@ -140,7 +140,7 @@ export function TransactionFilters({
           </div>
         </details>
 
-        <details className="transaction-filter-popover">
+        <details className="transaction-filter-popover transaction-filter-popover-actions">
           <summary>更多操作</summary>
           <div className="transaction-filter-popover-panel" role="group" aria-label="更多操作项">
             <div className="transaction-filter-actions-grid">
