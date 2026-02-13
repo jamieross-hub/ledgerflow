@@ -209,7 +209,7 @@ export function AppLayout() {
               aria-expanded={menuOpen}
               aria-label="打开项目菜单"
             >
-              LF
+              👤
             </button>
             {menuOpen ? (
               <div className="logo-menu" role="menu">
@@ -228,7 +228,7 @@ export function AppLayout() {
 
             <div>
               <h1>LedgerFlow</h1>
-              <span>v{APP_VERSION} · 现代化前端记账工作台</span>
+              <span>v{APP_VERSION} · 智能记账工作台</span>
             </div>
           </div>
 

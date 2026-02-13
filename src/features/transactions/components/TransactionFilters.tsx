@@ -18,6 +18,7 @@ interface TransactionFiltersProps {
   onExport: () => void;
   onImportWechat: () => void;
   onImportAlipay: () => void;
+  onCheckDuplicates: () => void;
 }
 
 export function TransactionFilters({
@@ -31,7 +32,8 @@ export function TransactionFilters({
   onClear,
   onExport,
   onImportWechat,
-  onImportAlipay
+  onImportAlipay,
+  onCheckDuplicates
 }: TransactionFiltersProps) {
   return (
     <section className="panel transaction-filters-panel">
@@ -150,6 +152,9 @@ export function TransactionFilters({
               </button>
               <button type="button" onClick={onImportAlipay}>
                 导入支付宝账单
+              </button>
+              <button type="button" onClick={onCheckDuplicates}>
+                检测重复账单
               </button>
             </div>
           </div>

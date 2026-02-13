@@ -119,6 +119,13 @@ function renderMarkdownContent(raw: string): ReactNode[] {
   return nodes;
 }
 
+interface ChatHistoryItem {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  usageText?: string;
+}
+
 export function AssistantPage() {
   const baseUrl = useAiSettings((s) => s.baseUrl);
   const apiKey = useAiSettings((s) => s.apiKey);
@@ -130,6 +137,7 @@ export function AssistantPage() {
   const transactions = useFinanceStore((s) => s.transactions);
   const addCategory = useFinanceStore((s) => s.addCategory);
   const addTransaction = useFinanceStore((s) => s.addTransaction);
+  const updateTransaction = useFinanceStore((s) => s.updateTransaction);
 
   const wb = useAssistantWorkbench({
     baseUrl,
@@ -139,10 +147,13 @@ export function AssistantPage() {
     accounts,
     transactions,
     addCategory,
-    addTransaction
+    addTransaction,
+    updateTransaction
   });
 
   const [modelOpen, setModelOpen] = useState(false);
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
+  const lastAssistantRef = useRef('');
   const messageEndRef = useRef<HTMLDivElement | null>(null);
 
   // 仅保留“被勾选且通过校验”的条目，作为一键保存候选。
@@ -152,6 +163,11 @@ export function AssistantPage() {
   );
 
   // 预览卡片需要的 JSON 结构，避免在渲染阶段重复构造。
+  const duplicateEntriesCount = useMemo(
+    () => wb.entries.filter((item) => item.duplicateTxId).length,
+    [wb.entries]
+  );
+
   const previewPayload = useMemo(
     () => ({
       transactions: selectedValidEntries.map((item) => ({
@@ -175,6 +191,10 @@ export function AssistantPage() {
   }, [wb.status, wb.rawContent, wb.rawReasoning, wb.entries.length, wb.error]);
 
   const onSubmit = (event: FormEvent) => {
+    const prompt = wb.textInput.trim();
+    if (prompt) {
+      setChatHistory((prev) => [...prev, { id: `${Date.now()}-user`, role: 'user', text: prompt }]);
+    }
     void wb.handleRecognize(event);
   };
 
@@ -188,6 +208,33 @@ export function AssistantPage() {
   // 非记账分析时，模型返回自由文本，解析 JSON 失败属于预期，不展示底部红条。
   const shouldShowError =
     Boolean(wb.error) && !/unexpected token|invalid json|json/i.test(wb.error.toLowerCase());
+
+  useEffect(() => {
+    if (!wb.rawContent || wb.rawContent === lastAssistantRef.current) return;
+    lastAssistantRef.current = wb.rawContent;
+    const usageText = wb.lastUsage
+      ? `Token 消耗：输入 ${wb.lastUsage.promptTokens} / 输出 ${wb.lastUsage.completionTokens} / 总计 ${wb.lastUsage.totalTokens}`
+      : undefined;
+    setChatHistory((prev) => [
+      ...prev,
+      { id: `${Date.now()}-assistant`, role: 'assistant', text: wb.rawContent, usageText }
+    ]);
+  }, [wb.lastUsage, wb.rawContent]);
+
+  const removeMessage = (id: string) =>
+    setChatHistory((prev) => prev.filter((item) => item.id !== id));
+
+  const retryMessage = (index: number) => {
+    const previousUser = [...chatHistory]
+      .slice(0, index)
+      .reverse()
+      .find((item) => item.role === 'user');
+    if (!previousUser) return;
+    wb.setTextInput(previousUser.text);
+    window.requestAnimationFrame(() => {
+      void wb.handleRecognize({ preventDefault() {} } as FormEvent);
+    });
+  };
 
   return (
     <div
@@ -275,24 +322,50 @@ export function AssistantPage() {
             </div>
           </article>
 
-          {wb.rawContent ? (
-            <article className="chat-msg">
-              <div className="chat-msg-avatar">🤖</div>
+          {chatHistory.map((item, index) => (
+            <article
+              key={item.id}
+              className={`chat-msg ${item.role === 'user' ? 'chat-msg-user' : ''}`}
+            >
+              <div className="chat-msg-avatar">{item.role === 'user' ? '🙂' : '🤖'}</div>
               <div className="chat-msg-body">
-                <div className="chat-msg-header">识别结果</div>
+                <div className="chat-msg-header">{item.role === 'user' ? '你' : '助手'}</div>
                 <div className="chat-msg-content chat-msg-content-rich">
-                  {renderMarkdownContent(wb.rawContent)}
+                  {renderMarkdownContent(item.text)}
                 </div>
-                {wb.rawReasoning ? (
-                  <details className="chat-thinking-box">
-                    <summary>查看推理摘要</summary>
-                    <div className="chat-thinking-scroll">{wb.rawReasoning}</div>
-                  </details>
-                ) : null}
+                {item.usageText ? <p className="chat-token-usage">{item.usageText}</p> : null}
+                <div className="chat-message-actions">
+                  <button type="button" onClick={() => removeMessage(item.id)}>
+                    删除
+                  </button>
+                  {item.role === 'assistant' ? (
+                    <button
+                      type="button"
+                      onClick={() => retryMessage(index)}
+                      disabled={wb.status === 'recognizing'}
+                    >
+                      重试
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </article>
+          ))}
 
+          {wb.rawReasoning ? (
+            <article className="chat-msg">
+              <div className="chat-msg-avatar">🧠</div>
+              <div className="chat-msg-body">
+                <details className="chat-thinking-box" open>
+                  <summary>查看推理摘要</summary>
+                  <div className="chat-thinking-scroll">{wb.rawReasoning}</div>
+                </details>
                 {selectedValidEntries.length > 0 ? (
                   <BillPreviewCard
                     payload={previewPayload}
+                    entries={wb.entries}
+                    duplicateCount={duplicateEntriesCount}
+                    onCheckDuplicates={wb.checkDuplicates}
                     onSave={wb.saveSelected}
                     onSaved={() => wb.setToastState('账单已写入账本', 'success')}
                   />
@@ -376,6 +449,8 @@ export function AssistantPage() {
             </button>
           </div>
         ) : null}
+
+        <p className="chat-disclaimer">AI 生成内容仅供参考，请结合原始账单核对后再保存。</p>
 
         <form className="chat-input-form" onSubmit={onSubmit}>
           <textarea

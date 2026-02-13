@@ -17,8 +17,10 @@ import {
 import {
   ensureCategoryId,
   inferCategoryFromText,
+  inferSourceFromText,
   inferTags,
   mapAssistantErrorMessage,
+  normalizeMoney,
   resolveAccountId
 } from './workbenchMapping';
 import type { AssistantToastState, DraftBillEntry, WorkbenchStatus } from './workbenchTypes';
@@ -35,6 +37,7 @@ interface UseAssistantWorkbenchInput {
   transactions: TransactionItem[];
   addCategory: (name: string) => string;
   addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
+  updateTransaction: (id: string, payload: Omit<TransactionItem, 'id'>) => void;
 }
 
 /**
@@ -57,6 +60,11 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
   const [error, setError] = useState('');
   const [rawContent, setRawContent] = useState('');
   const [rawReasoning, setRawReasoning] = useState('');
+  const [lastUsage, setLastUsage] = useState<{
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  } | null>(null);
   const [toast, setToast] = useState<AssistantToastState>({
     message: '',
     variant: 'success',
@@ -70,6 +78,44 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     () => buildTransactionPromptContext(input.transactions, input.categories, input.accounts),
     [input.transactions, input.categories, input.accounts]
   );
+
+  const detectDuplicate = (entry: DraftBillEntry) => {
+    if (entry.orderNo) {
+      const found = input.transactions.find(
+        (item) => item.orderNo && item.orderNo === entry.orderNo
+      );
+      if (found) return { id: found.id, reason: 'orderNo' as const };
+    }
+    if (entry.merchantOrderNo) {
+      const found = input.transactions.find(
+        (item) => item.merchantOrderNo && item.merchantOrderNo === entry.merchantOrderNo
+      );
+      if (found) return { id: found.id, reason: 'merchantOrderNo' as const };
+    }
+
+    const day = String(entry.date || '').slice(0, 10);
+    const amount = normalizeMoney(entry.amount);
+    const found = input.transactions.find((item) => {
+      return (
+        String(item.date).slice(0, 10) === day &&
+        normalizeMoney(item.amount) === amount &&
+        item.type === (entry.type === 'unknown' ? 'expense' : entry.type) &&
+        String(item.note || '').trim() === String(entry.note || '').trim()
+      );
+    });
+    if (found) return { id: found.id, reason: 'content' as const };
+    return null;
+  };
+
+  const attachDuplicateMeta = (rows: DraftBillEntry[]) =>
+    rows.map((item) => {
+      const duplicate = detectDuplicate(item);
+      return {
+        ...item,
+        duplicateTxId: duplicate?.id,
+        duplicateReason: duplicate?.reason
+      };
+    });
 
   // 根据当前输入与结果条目，自动维护主状态机。
   useEffect(() => {
@@ -164,6 +210,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       });
       setRawContent(reply.content);
       setRawReasoning(reply.reasoning || '');
+      setLastUsage(reply.usage || null);
 
       // 兼容两类场景：
       // - 记账：返回 JSON 可落库
@@ -179,7 +226,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       setImageDataUrls([]);
 
       if (parsed && parsed.transactions.length > 0) {
-        setEntries(toDraftEntries(parsed));
+        setEntries(attachDuplicateMeta(toDraftEntries(parsed)));
         setStatus('preview');
         addLog({
           action: 'assistant.recognize',
@@ -208,7 +255,13 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       prev.map((item) => {
         if (item.id !== id) return item;
         const next = { ...item, ...patch };
-        return { ...next, issues: validateDraft(next) };
+        const duplicate = detectDuplicate(next);
+        return {
+          ...next,
+          duplicateTxId: duplicate?.id,
+          duplicateReason: duplicate?.reason,
+          issues: validateDraft(next)
+        };
       })
     );
   };
@@ -222,21 +275,42 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       return setToast({ visible: true, variant: 'warning', message: '没有可保存的有效账单' });
     setStatus('saving');
     addLog({ action: 'assistant.save', status: 'pending', message: `准备保存 ${rows.length} 条` });
+    const duplicateRows = rows.filter((item) => item.duplicateTxId);
+    let overwriteDuplicates = false;
+    if (duplicateRows.length > 0) {
+      overwriteDuplicates = window.confirm(
+        `检测到 ${duplicateRows.length} 条疑似重复账单。
+点击“确定”将覆盖旧账单；点击“取消”将保留旧账单并新增。`
+      );
+    }
+
     rows.forEach((item) => {
       const type = item.type === 'unknown' ? 'expense' : item.type;
       const category = item.category.trim() || inferCategoryFromText(type, item.note || '');
-      input.addTransaction({
+      // 来源优先级：模型显式 sourceHint > 文本推断，保证账单账户归属更稳定。
+      const source =
+        item.sourceHint === 'wechat' || item.sourceHint === 'alipay'
+          ? item.sourceHint
+          : inferSourceFromText(`${item.note} ${(item.tags || []).join(' ')}`);
+
+      const payload = {
         type,
-        amount: item.amount,
+        amount: normalizeMoney(item.amount),
         date: item.date || new Date().toISOString(),
         note: item.note || 'AI 导入账单',
         tags: inferTags(type, item.note, category, item.tags || ['AI识别']),
         categoryId: ensureCategoryId(category, input.categories, input.addCategory),
-        accountId: resolveAccountId(item.account, input.accounts),
+        accountId: resolveAccountId(item.account, input.accounts, { source, type }),
         orderNo: item.orderNo?.trim() || undefined,
         merchantOrderNo: item.merchantOrderNo?.trim() || undefined,
-        source: 'ai'
-      });
+        source
+      };
+
+      if (overwriteDuplicates && item.duplicateTxId) {
+        input.updateTransaction(item.duplicateTxId, payload);
+      } else {
+        input.addTransaction(payload);
+      }
     });
     setEntries([]);
     setStatus('saved');
@@ -250,6 +324,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     setEntries([]);
     setRawContent('');
     setRawReasoning('');
+    setLastUsage(null);
     setError('');
     setStatus('idle');
   };
@@ -271,6 +346,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     error,
     rawContent,
     rawReasoning,
+    lastUsage,
     toast,
     hasApiKey,
     canRecognize,
@@ -282,6 +358,17 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     updateEntry,
     removeEntry,
     saveSelected,
+    checkDuplicates: () => {
+      let count = 0;
+      setEntries((prev) =>
+        prev.map((item) => {
+          const duplicate = detectDuplicate(item);
+          if (duplicate) count += 1;
+          return { ...item, duplicateTxId: duplicate?.id, duplicateReason: duplicate?.reason };
+        })
+      );
+      return count;
+    },
     resetWorkbench,
     applyCommand: (prompt: string) => {
       setTextInput(prompt);

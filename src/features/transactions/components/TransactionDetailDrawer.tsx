@@ -1,6 +1,10 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { TransactionItem, TransactionSource, TransactionStatus } from '../../../entities/transaction/types';
+import {
+  TransactionItem,
+  TransactionSource,
+  TransactionStatus
+} from '../../../entities/transaction/types';
 import { formatCurrency, formatDateTime } from '../../../shared/lib/format';
 
 const STATUS_LABELS: Record<TransactionStatus, string> = {
@@ -118,7 +122,13 @@ export function TransactionDetailDrawer({
               <div className="drawer-kv">
                 <span>类型</span>
                 <strong className={transaction.type === 'income' ? 'text-income' : 'text-expense'}>
-                  {transaction.type === 'income' ? '收入' : transaction.type === 'budget' ? '预算' : transaction.type === 'repayment' ? '还款' : '支出'}
+                  {transaction.type === 'income'
+                    ? '收入'
+                    : transaction.type === 'budget'
+                      ? '预算'
+                      : transaction.type === 'repayment'
+                        ? '还款'
+                        : '支出'}
                 </strong>
               </div>
               <div className="drawer-kv">
@@ -132,14 +142,17 @@ export function TransactionDetailDrawer({
               <div className="drawer-kv">
                 <span>金额</span>
                 <strong className={transaction.type === 'income' ? 'text-income' : 'text-expense'}>
-                  {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                  {transaction.type === 'income' ? '+' : '-'}
+                  {formatCurrency(transaction.amount)}
                 </strong>
               </div>
               {transaction.status ? (
                 <div className="drawer-kv">
                   <span>交易状态</span>
                   <strong>
-                    <span className={`badge ${transaction.status === 'completed' ? 'badge-primary' : ''}`}>
+                    <span
+                      className={`badge ${transaction.status === 'completed' ? 'badge-primary' : ''}`}
+                    >
                       {statusLabel(transaction.status)}
                     </span>
                   </strong>
@@ -227,6 +240,9 @@ export function TransactionDetailDrawer({
           <button type="button" className="danger" onClick={onDelete}>
             🗑️ 删除
           </button>
+          <Link to="/transactions/new" className="drawer-add-link" aria-label="新增账目">
+            ＋
+          </Link>
         </footer>
       </aside>
     </div>

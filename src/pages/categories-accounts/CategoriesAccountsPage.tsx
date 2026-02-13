@@ -137,13 +137,16 @@ export function CategoriesAccountsPage() {
     }
     const raw =
       editingBalances[accountId] ??
-      String(accountBalanceMap.get(accountId) ?? current.balance ?? current.initialBalance ?? 0);
+      Number(
+        accountBalanceMap.get(accountId) ?? current.balance ?? current.initialBalance ?? 0
+      ).toFixed(2);
     const parsed = Number(raw || '0');
     if (!Number.isFinite(parsed)) {
       return;
     }
-    updateAccountBalance(accountId, parsed);
-    setEditingBalances((prev) => ({ ...prev, [accountId]: String(parsed) }));
+    const normalized = Math.round(parsed * 100) / 100;
+    updateAccountBalance(accountId, normalized);
+    setEditingBalances((prev) => ({ ...prev, [accountId]: normalized.toFixed(2) }));
   };
 
   const accountCards = useMemo(
@@ -293,39 +296,49 @@ export function CategoriesAccountsPage() {
           </div>
         </header>
 
-        <form onSubmit={submitAccount} style={{ marginBottom: 16 }}>
-          <div className="row account-create-row" style={{ gap: 8, marginBottom: 8 }}>
-            <input
-              placeholder="新增账户名称"
-              value={accountName}
-              onChange={(e) => setAccountName(e.target.value)}
-              style={{ flex: 1 }}
-            />
-            <select
-              aria-label="账户类型"
-              title="账户类型"
-              value={accountType}
-              onChange={(e) => setAccountType(e.target.value as AccountType | '')}
-              style={{ minWidth: 100 }}
-            >
-              <option value="">类型（可选）</option>
-              <option value="cash">💵 现金</option>
-              <option value="debit">💳 借记卡</option>
-              <option value="savings">🏦 储蓄卡</option>
-              <option value="credit">💳 信用卡</option>
-              <option value="virtual">📱 虚拟账户</option>
-              <option value="liability">📄 负债</option>
-              <option value="receivable">📥 应收</option>
-            </select>
-            <input
-              type="number"
-              placeholder="初始余额"
-              value={accountInitialBalance}
-              onChange={(e) => setAccountInitialBalance(e.target.value)}
-              style={{ width: 120 }}
-            />
-            <button className="primary" type="submit">
-              添加
+        <div className="account-toolbar-tip">
+          可在下方快速新增账户、校准余额，并查看每个账户的资金健康状态。
+        </div>
+
+        <form onSubmit={submitAccount} className="account-create-form">
+          <div className="account-create-grid">
+            <div className="field">
+              <label>账户名称</label>
+              <input
+                placeholder="如：招商银行卡 / 零钱 / 花呗"
+                value={accountName}
+                onChange={(e) => setAccountName(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label>账户类型</label>
+              <select
+                aria-label="账户类型"
+                title="账户类型"
+                value={accountType}
+                onChange={(e) => setAccountType(e.target.value as AccountType | '')}
+              >
+                <option value="">类型（可选）</option>
+                <option value="cash">💵 现金</option>
+                <option value="debit">💳 借记卡</option>
+                <option value="savings">🏦 储蓄卡</option>
+                <option value="credit">💳 信用卡</option>
+                <option value="virtual">📱 虚拟账户</option>
+                <option value="liability">📄 负债</option>
+                <option value="receivable">📥 应收</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>初始余额</label>
+              <input
+                type="number"
+                placeholder="0"
+                value={accountInitialBalance}
+                onChange={(e) => setAccountInitialBalance(e.target.value)}
+              />
+            </div>
+            <button className="primary account-create-submit" type="submit">
+              添加账户
             </button>
           </div>
         </form>
@@ -337,55 +350,63 @@ export function CategoriesAccountsPage() {
         ) : (
           <>
             <div className="account-card-grid">
-              {accountCards.map((item) => (
-                <article key={item.id} className="account-card">
-                  <header className="account-card-head">
-                    <span className="account-card-icon" aria-hidden="true">
-                      {getAccountDisplayIcon(item.name, item.type)}
-                    </span>
-                    <div className="account-card-main">
-                      <strong>{item.name}</strong>
-                      {item.type ? (
-                        <span className="account-type-badge">{getAccountTypeLabel(item.type)}</span>
-                      ) : null}
+              {accountCards.map((item) => {
+                const balanceValue =
+                  editingBalances[item.id] ?? Number(item.computedBalance || 0).toFixed(2);
+                return (
+                  <article key={item.id} className="account-card">
+                    <header className="account-card-head">
+                      <span className="account-card-icon" aria-hidden="true">
+                        {getAccountDisplayIcon(item.name, item.type)}
+                      </span>
+                      <div className="account-card-main">
+                        <strong>{item.name}</strong>
+                        {item.type ? (
+                          <span className="account-type-badge">
+                            {getAccountTypeLabel(item.type)}
+                          </span>
+                        ) : null}
+                        <small>初始：{formatCurrencyFixed2(item.initialBalance ?? 0)}</small>
+                      </div>
+                      <div className="account-card-balance-wrap">
+                        <span
+                          className={`mono-inline account-card-balance ${
+                            item.computedBalance < 0
+                              ? 'account-card-balance-negative'
+                              : 'account-card-balance-positive'
+                          }`}
+                        >
+                          {formatCurrencyFixed2(item.computedBalance)}
+                        </span>
+                        <small>按交易自动汇总</small>
+                      </div>
+                    </header>
+
+                    <div className="account-card-actions">
+                      <div className="field account-balance-field">
+                        <label>校准余额</label>
+                        <input
+                          className="account-balance-input"
+                          type="number"
+                          aria-label={`校准余额：${item.name}`}
+                          title={`校准余额：${item.name}`}
+                          placeholder="输入余额"
+                          value={balanceValue}
+                          onChange={(e) =>
+                            setEditingBalances((prev) => ({ ...prev, [item.id]: e.target.value }))
+                          }
+                        />
+                      </div>
+                      <button type="button" onClick={() => applyAccountBalance(item.id)}>
+                        保存校准
+                      </button>
+                      <button className="danger" onClick={() => setPendingDeleteAccountId(item.id)}>
+                        删除
+                      </button>
                     </div>
-                    <span
-                      className={`mono-inline account-card-balance ${
-                        item.computedBalance < 0
-                          ? 'account-card-balance-negative'
-                          : 'account-card-balance-positive'
-                      }`}
-                    >
-                      {formatCurrencyFixed2(item.computedBalance)}
-                    </span>
-                  </header>
-
-                  <div className="account-card-meta">
-                    <span>初始：{formatCurrencyFixed2(item.initialBalance ?? 0)}</span>
-                    <span>按交易自动汇总</span>
-                  </div>
-
-                  <div className="row account-card-actions" style={{ gap: 8 }}>
-                    <input
-                      className="account-balance-input"
-                      type="number"
-                      aria-label={`校准余额：${item.name}`}
-                      title={`校准余额：${item.name}`}
-                      placeholder="输入余额"
-                      value={editingBalances[item.id] ?? String(item.computedBalance)}
-                      onChange={(e) =>
-                        setEditingBalances((prev) => ({ ...prev, [item.id]: e.target.value }))
-                      }
-                    />
-                    <button type="button" onClick={() => applyAccountBalance(item.id)}>
-                      校准余额
-                    </button>
-                    <button className="danger" onClick={() => setPendingDeleteAccountId(item.id)}>
-                      删除
-                    </button>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
 
             {accounts.length > ACCOUNT_COLLAPSE_THRESHOLD ? (
