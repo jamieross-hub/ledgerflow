@@ -716,6 +716,11 @@ button.danger:hover:not(:disabled) {
   justify-content: flex-start;
 }
 
+.transactions-page {
+  display: grid;
+  gap: var(--space-3);
+}
+
 .import-result-banner {
   display: flex;
   align-items: center;
@@ -742,6 +747,12 @@ button.danger:hover:not(:disabled) {
   flex-shrink: 0;
   padding: 4px 10px;
   font-size: var(--font-xs);
+}
+
+@media (max-width: 640px) {
+  .import-result-banner {
+    flex-wrap: wrap;
+  }
 }
 
 .import-result-success {
