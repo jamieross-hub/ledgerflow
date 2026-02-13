@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   TransactionDatePreset,
@@ -5,6 +6,7 @@ import {
   TransactionSourceFilter,
   TransactionTypeFilter
 } from '../hooks/useTransactionFilters';
+import { TransactionColumnKey } from './TransactionTable';
 
 interface TransactionFiltersProps {
   filters: TransactionFilterState;
@@ -19,6 +21,9 @@ interface TransactionFiltersProps {
   onImportWechat: () => void;
   onImportAlipay: () => void;
   onCheckDuplicates: () => void;
+  columnOptions: Array<{ key: TransactionColumnKey; label: string }>;
+  visibleColumns: Record<TransactionColumnKey, boolean>;
+  onToggleColumn: (key: TransactionColumnKey) => void;
 }
 
 export function TransactionFilters({
@@ -33,8 +38,13 @@ export function TransactionFilters({
   onExport,
   onImportWechat,
   onImportAlipay,
-  onCheckDuplicates
+  onCheckDuplicates,
+  columnOptions,
+  visibleColumns,
+  onToggleColumn
 }: TransactionFiltersProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <section className="panel transaction-filters-panel">
       <h2>交易记录</h2>
@@ -114,51 +124,76 @@ export function TransactionFilters({
       ) : null}
 
       <div className="transaction-filters-secondary-row">
-        <details className="transaction-filter-popover">
-          <summary>更多筛选</summary>
-          <div className="transaction-filter-popover-panel" role="group" aria-label="更多筛选项">
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label htmlFor="tx-filter-source">来源</label>
-              <select
-                id="tx-filter-source"
-                aria-label="按来源筛选"
-                value={filters.source}
-                onChange={(event) => onSourceChange(event.target.value as TransactionSourceFilter)}
-              >
-                <option value="all">全部来源</option>
-                <option value="manual">手工录入</option>
-                <option value="wechat">微信导入</option>
-                <option value="alipay">支付宝导入</option>
-                <option value="ai">AI 记账</option>
-              </select>
-            </div>
-            <div className="row" style={{ marginTop: 8, justifyContent: 'flex-end' }}>
-              <button type="button" onClick={onClear}>
-                清空筛选
-              </button>
-            </div>
-          </div>
-        </details>
+        <div className={`transaction-filter-popover ${menuOpen ? 'open' : ''}`}>
+          <button
+            type="button"
+            className="transaction-filter-trigger"
+            onClick={() => setMenuOpen((prev) => !prev)}
+            aria-expanded={menuOpen}
+            aria-haspopup="true"
+          >
+            筛选与操作
+          </button>
+          {menuOpen ? (
+            <div className="transaction-filter-popover-panel" role="group" aria-label="筛选与操作">
+              <p className="transaction-filter-section-title">更多筛选</p>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label htmlFor="tx-filter-source">来源</label>
+                <select
+                  id="tx-filter-source"
+                  aria-label="按来源筛选"
+                  value={filters.source}
+                  onChange={(event) =>
+                    onSourceChange(event.target.value as TransactionSourceFilter)
+                  }
+                >
+                  <option value="all">全部来源</option>
+                  <option value="manual">手工录入</option>
+                  <option value="wechat">微信导入</option>
+                  <option value="alipay">支付宝导入</option>
+                  <option value="ai">AI 记账</option>
+                </select>
+              </div>
+              <div className="row" style={{ marginTop: 8, justifyContent: 'flex-end' }}>
+                <button type="button" onClick={onClear}>
+                  清空筛选
+                </button>
+              </div>
 
-        <details className="transaction-filter-popover transaction-filter-popover-actions">
-          <summary>更多操作</summary>
-          <div className="transaction-filter-popover-panel" role="group" aria-label="更多操作项">
-            <div className="transaction-filter-actions-grid">
-              <button type="button" onClick={onExport}>
-                导出 CSV
-              </button>
-              <button type="button" onClick={onImportWechat}>
-                导入微信账单
-              </button>
-              <button type="button" onClick={onImportAlipay}>
-                导入支付宝账单
-              </button>
-              <button type="button" onClick={onCheckDuplicates}>
-                检测重复账单
-              </button>
+              <div className="transaction-context-divider" />
+              <p className="transaction-filter-section-title">显示列</p>
+              <div className="transaction-column-check-grid">
+                {columnOptions.map((option) => (
+                  <label key={`filter-col-${option.key}`}>
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns[option.key]}
+                      onChange={() => onToggleColumn(option.key)}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="transaction-context-divider" />
+              <p className="transaction-filter-section-title">更多操作</p>
+              <div className="transaction-filter-actions-grid">
+                <button type="button" onClick={onExport}>
+                  导出 CSV
+                </button>
+                <button type="button" onClick={onImportWechat}>
+                  导入微信账单
+                </button>
+                <button type="button" onClick={onImportAlipay}>
+                  导入支付宝账单
+                </button>
+                <button type="button" onClick={onCheckDuplicates}>
+                  检测重复账单
+                </button>
+              </div>
             </div>
-          </div>
-        </details>
+          ) : null}
+        </div>
       </div>
     </section>
   );

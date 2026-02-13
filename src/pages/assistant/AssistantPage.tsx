@@ -153,7 +153,28 @@ const QUICK_BILL_TEMPLATES = [
 ];
 
 const QUICK_AMOUNT_ACTIONS = [10, 20, 50, 100];
-const CHAT_HISTORY_CACHE_KEY = 'ledgerflow.assistant.chatHistory';
+const CHAT_HISTORY_CACHE_KEYS: Record<AssistantMode, string> = {
+  bookkeeping: 'ledgerflow.assistant.chatHistory.bookkeeping',
+  assistant: 'ledgerflow.assistant.chatHistory.assistant'
+};
+
+function readChatHistory(mode: AssistantMode): ChatHistoryItem[] {
+  try {
+    const raw = window.sessionStorage.getItem(CHAT_HISTORY_CACHE_KEYS[mode]);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as ChatHistoryItem[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is ChatHistoryItem =>
+        Boolean(item) &&
+        typeof item.id === 'string' &&
+        (item.role === 'user' || item.role === 'assistant') &&
+        typeof item.text === 'string'
+    );
+  } catch {
+    return [];
+  }
+}
 
 function toMonthKey(date: string) {
   return date.slice(0, 7);
@@ -235,24 +256,11 @@ export function AssistantPage() {
   const [modelOpen, setModelOpen] = useState(false);
   const [presetQuestions, setPresetQuestions] = useState<PresetQuestion[]>([]);
   const [loadingPresets, setLoadingPresets] = useState(false);
-  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(() => {
-    try {
-      const raw = window.sessionStorage.getItem(CHAT_HISTORY_CACHE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw) as ChatHistoryItem[];
-      if (!Array.isArray(parsed)) return [];
-      return parsed.filter(
-        (item): item is ChatHistoryItem =>
-          Boolean(item) &&
-          typeof item.id === 'string' &&
-          (item.role === 'user' || item.role === 'assistant') &&
-          typeof item.text === 'string'
-      );
-    } catch {
-      return [];
-    }
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(() => readChatHistory(mode));
+  const lastAssistantRef = useRef<Record<AssistantMode, string>>({
+    bookkeeping: '',
+    assistant: ''
   });
-  const lastAssistantRef = useRef('');
   const messageEndRef = useRef<HTMLDivElement | null>(null);
 
   // 仅保留“被勾选且通过校验”的条目，作为一键保存候选。
@@ -313,8 +321,8 @@ export function AssistantPage() {
     Boolean(wb.error) && !/unexpected token|invalid json|json/i.test(wb.error.toLowerCase());
 
   useEffect(() => {
-    if (!wb.rawContent || wb.rawContent === lastAssistantRef.current) return;
-    lastAssistantRef.current = wb.rawContent;
+    if (!wb.rawContent || wb.rawContent === lastAssistantRef.current[mode]) return;
+    lastAssistantRef.current[mode] = wb.rawContent;
     const usageText = wb.lastUsage
       ? `Token 消耗：输入 ${wb.lastUsage.promptTokens} / 输出 ${wb.lastUsage.completionTokens} / 总计 ${wb.lastUsage.totalTokens}`
       : undefined;
@@ -322,7 +330,7 @@ export function AssistantPage() {
       ...prev,
       { id: `${Date.now()}-assistant`, role: 'assistant', text: wb.rawContent, usageText }
     ]);
-  }, [wb.lastUsage, wb.rawContent]);
+  }, [mode, wb.lastUsage, wb.rawContent]);
 
   const removeMessage = (id: string) =>
     setChatHistory((prev) => prev.filter((item) => item.id !== id));
@@ -406,12 +414,16 @@ export function AssistantPage() {
   }, [loadPersonalizedQuestions]);
 
   useEffect(() => {
+    setChatHistory(readChatHistory(mode));
+  }, [mode]);
+
+  useEffect(() => {
     try {
-      window.sessionStorage.setItem(CHAT_HISTORY_CACHE_KEY, JSON.stringify(chatHistory));
+      window.sessionStorage.setItem(CHAT_HISTORY_CACHE_KEYS[mode], JSON.stringify(chatHistory));
     } catch {
       // ignore storage write errors
     }
-  }, [chatHistory]);
+  }, [chatHistory, mode]);
 
   return (
     <div
@@ -559,7 +571,9 @@ export function AssistantPage() {
           <article className="chat-msg">
             <div className="chat-msg-avatar">🤖</div>
             <div className="chat-msg-body">
-              <div className="chat-msg-header">账单小助手</div>
+              <div className="chat-msg-header">
+                {mode === 'bookkeeping' ? 'AI 记账助手' : 'AI 问答助手'}
+              </div>
               <div className="chat-msg-content">
                 <p>输入一句话、贴截图，或者点击上方模板，我会帮你快速生成可保存账单。</p>
               </div>

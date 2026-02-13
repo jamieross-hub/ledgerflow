@@ -64,6 +64,17 @@ const DEFAULT_COLUMN_ORDER: TransactionColumnKey[] = [
   'note'
 ];
 
+const COLUMN_OPTIONS: Array<{ key: TransactionColumnKey; label: string }> = [
+  { key: 'date', label: '日期' },
+  { key: 'type', label: '类型' },
+  { key: 'category', label: '分类' },
+  { key: 'account', label: '账户' },
+  { key: 'amount', label: '金额' },
+  { key: 'orderNo', label: '交易订单号' },
+  { key: 'merchantOrderNo', label: '商家订单号' },
+  { key: 'note', label: '备注' }
+];
+
 const DEFAULT_DETAIL_SECTIONS: Record<TransactionDetailSectionKey, boolean> = {
   base: true,
   source: true,
@@ -797,6 +808,9 @@ export function TransactionsPage() {
         onImportWechat={() => openImport('wechat')}
         onImportAlipay={() => openImport('alipay')}
         onCheckDuplicates={handleCheckDuplicates}
+        columnOptions={COLUMN_OPTIONS}
+        visibleColumns={visibleColumns}
+        onToggleColumn={handleToggleColumn}
       />
 
       {importNotice.visible ? (
@@ -861,7 +875,6 @@ export function TransactionsPage() {
         onToggleSelectPage={handleToggleSelectPage}
         visibleColumns={visibleColumns}
         columnOrder={columnOrder}
-        onToggleColumn={handleToggleColumn}
         onColumnReorder={handleColumnReorder}
       />
 

@@ -1,6 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useRef, useState } from 'react';
 import { TransactionItem } from '../../../entities/transaction/types';
 import { formatCurrency, formatDate } from '../../../shared/lib/format';
 import { EmptyState } from '../../../shared/ui/EmptyState';
@@ -101,7 +99,6 @@ interface TransactionTableProps {
   ) => void;
   visibleColumns: Record<TransactionColumnKey, boolean>;
   columnOrder: TransactionColumnKey[];
-  onToggleColumn: (key: TransactionColumnKey) => void;
   onColumnReorder: (fromKey: TransactionColumnKey, toKey: TransactionColumnKey) => void;
 }
 
@@ -138,16 +135,11 @@ export function TransactionTable({
   onQuickFilterChange,
   visibleColumns,
   columnOrder,
-  onToggleColumn,
   onColumnReorder
 }: TransactionTableProps) {
   const [swipedId, setSwipedId] = useState<string | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const touchStartXRef = useRef<number | null>(null);
-  const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const dragColumnRef = useRef<TransactionColumnKey | null>(null);
-
-  const navigate = useNavigate();
 
   const columnOptions: Array<{ key: TransactionColumnKey; label: string }> = [
     { key: 'date', label: '日期' },
@@ -206,38 +198,6 @@ export function TransactionTable({
     merchantOrderNo: 'merchantOrderNo',
     note: 'note'
   };
-
-  useEffect(() => {
-    if (!contextMenu) {
-      return;
-    }
-
-    const onPointerDown = (event: MouseEvent) => {
-      if (!contextMenuRef.current?.contains(event.target as Node)) {
-        setContextMenu(null);
-      }
-    };
-
-    const onEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setContextMenu(null);
-      }
-    };
-
-    const onViewportChange = () => setContextMenu(null);
-
-    window.addEventListener('mousedown', onPointerDown);
-    window.addEventListener('scroll', onViewportChange, true);
-    window.addEventListener('resize', onViewportChange);
-    window.addEventListener('keydown', onEscape);
-
-    return () => {
-      window.removeEventListener('mousedown', onPointerDown);
-      window.removeEventListener('scroll', onViewportChange, true);
-      window.removeEventListener('resize', onViewportChange);
-      window.removeEventListener('keydown', onEscape);
-    };
-  }, [contextMenu]);
 
   return (
     <section className="panel">
@@ -383,22 +343,6 @@ export function TransactionTable({
                       id={`transaction-row-${item.id}`}
                       className={`transaction-row-clickable ${highlightId === item.id ? 'transaction-row-highlight' : ''}`.trim()}
                       onClick={() => onOpenDetail(item.id)}
-                      onContextMenu={(event) => {
-                        event.preventDefault();
-                        const menuWidth = 280;
-                        const menuHeight = 420;
-                        const padding = 8;
-                        const x = Math.min(event.clientX, window.innerWidth - menuWidth - padding);
-                        const y = Math.min(
-                          event.clientY,
-                          window.innerHeight - menuHeight - padding
-                        );
-                        setContextMenu({
-                          x: Math.max(padding, x),
-                          y: Math.max(padding, y),
-                          id: item.id
-                        });
-                      }}
                     >
                       <td
                         className="transaction-select-col"
@@ -563,54 +507,6 @@ export function TransactionTable({
               );
             })}
           </div>
-
-          {contextMenu
-            ? createPortal(
-                <div
-                  ref={contextMenuRef}
-                  className="transaction-context-menu"
-                  style={{ left: contextMenu.x, top: contextMenu.y }}
-                  onClick={(event) => event.stopPropagation()}
-                  aria-label="交易右键菜单"
-                >
-                  <button
-                    type="button"
-                    className="transaction-context-item"
-                    onClick={() => {
-                      navigate(`/transactions/${contextMenu.id}`);
-                      setContextMenu(null);
-                    }}
-                  >
-                    编辑账单
-                  </button>
-                  <button
-                    type="button"
-                    className="transaction-context-item danger"
-                    onClick={() => {
-                      onDelete(contextMenu.id);
-                      setContextMenu(null);
-                    }}
-                  >
-                    删除账单
-                  </button>
-                  <div className="transaction-context-divider" />
-                  <p className="transaction-context-title">列显示设置</p>
-                  <div className="transaction-context-columns">
-                    {columnOptions.map((option) => (
-                      <label key={`ctx-${option.key}`}>
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns[option.key]}
-                          onChange={() => onToggleColumn(option.key)}
-                        />
-                        <span>{option.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>,
-                document.body
-              )
-            : null}
 
           <div
             className="row transaction-pagination"

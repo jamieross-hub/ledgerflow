@@ -13,12 +13,12 @@ export function AboutPage() {
       <section className="about-block">
         <h3>我们为什么做这件事</h3>
         <p>
-          LedgerFlow 的起点，不是“做一个记账页面”，而是解决一个真实问题：
-          很多人知道要记账，却总在忙碌里被打断，最后只剩“钱花哪了”的焦虑。
+          LedgerFlow 想做的，不只是“把账记下来”，而是让你在忙碌里也能快速掌握钱的去向。
+          今天花了什么、哪些消费在悄悄变多、哪里能再省一点，应该是随手可得的信息。
         </p>
         <p>
-          我们希望把记账从“意志力工程”变成“低摩擦习惯”：
-          录入要快、检索要清楚、复盘要有反馈，哪怕只花 30 秒，也能留下今天的财务轨迹。
+          我们希望把记账从“必须坚持”变成“自然发生”：
+          输入要简单，分析要清楚，建议要可执行。哪怕只花几十秒，也能让每一天的财务决策更从容。
         </p>
       </section>
 
@@ -32,22 +32,13 @@ export function AboutPage() {
       </section>
 
       <section className="about-block">
-        <h3>安全与架构说明</h3>
-        <p>浏览器不适合直接安全访问 PostgreSQL / MySQL / Redis，核心原因如下：</p>
-        <ol>
-          <li>数据库凭证会暴露在前端代码和网络请求中，无法真正保密。</li>
-          <li>数据库通常位于内网，不应暴露公网端口给浏览器。</li>
-          <li>缺少后端鉴权、审计、限流，会带来极高安全风险。</li>
-        </ol>
-        <p>推荐做法：前端通过受控 API 网关 / 后端代理访问数据库。</p>
+        <h3>你能获得什么</h3>
+        <ul>
+          <li>AI 记账：一句话或截图即可生成账单草稿，减少手工录入时间。</li>
+          <li>AI 助手：围绕历史交易做问答和复盘，快速定位异常与趋势。</li>
+          <li>交易与统计联动：从明细到趋势一体化查看，帮助你做更稳的预算决策。</li>
+        </ul>
       </section>
-
-      <pre className="about-api-pre">
-        {`POST /api/conn/test
-POST /api/conn/save
-GET  /api/conn/list
-DELETE /api/conn/:id`}
-      </pre>
     </section>
   );
 }
