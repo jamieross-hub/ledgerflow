@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { usePwaInstallPrompt } from '../../shared/hooks/usePwaInstallPrompt';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { Toast } from '../../shared/ui/Toast';
 
@@ -45,6 +44,8 @@ interface ModelSelectorProps {
 }
 
 function ModelSelector({ label, hint, value, presets, onChange }: ModelSelectorProps) {
+  const [presetOpen, setPresetOpen] = useState(false);
+
   return (
     <div className="field settings-model-field">
       <label>{label}</label>
@@ -56,6 +57,27 @@ function ModelSelector({ label, hint, value, presets, onChange }: ModelSelectorP
           onChange={(e) => onChange(e.target.value)}
         />
       </div>
+      <button
+        type="button"
+        className="settings-presets-toggle"
+        onClick={() => setPresetOpen((v) => !v)}
+      >
+        {presetOpen ? '收起预设模型' : '选择预设模型'}
+      </button>
+      {presetOpen ? (
+        <div className="settings-model-chips">
+          {presets.map((item) => (
+            <button
+              key={item}
+              type="button"
+              className={item === value ? 'active' : ''}
+              onClick={() => onChange(item)}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="settings-model-chips">
         {presets.map((item) => (
           <button
@@ -74,7 +96,6 @@ function ModelSelector({ label, hint, value, presets, onChange }: ModelSelectorP
 
 export function SettingsPage() {
   const navigate = useNavigate();
-  const { canInstall, triggerInstall } = usePwaInstallPrompt();
 
   const baseUrl = useAiSettings((s) => s.baseUrl);
   const apiKey = useAiSettings((s) => s.apiKey);
@@ -121,7 +142,7 @@ export function SettingsPage() {
     <div>
       <section className="panel">
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>通用设置</h2>
+          <h2 style={{ margin: 0 }}>AI 渠道设置（OpenAI 兼容）</h2>
           <button type="button" onClick={() => navigate(-1)}>
             ← 返回
           </button>

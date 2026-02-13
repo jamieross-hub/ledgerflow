@@ -37,6 +37,11 @@ function truncateNote(note: string): string {
   return `${note.slice(0, NOTE_MAX_LENGTH)}…`;
 }
 
+function truncateOrderNo(value: string): string {
+  if (value.length <= 16) return value;
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
+}
+
 function sortIndicator(active: boolean, direction: TransactionSortDirection): string {
   if (!active) {
     return '⇅';
@@ -438,6 +443,23 @@ export function TransactionTable({
                             <td key={`${item.id}-${column.key}`}>
                               <span title={note}>
                                 {renderCellValue(column.key, { item, categoryName, accountName })}
+                              </span>
+                            </td>
+                          );
+                        }
+                        if (column.key === 'orderNo' || column.key === 'merchantOrderNo') {
+                          const orderText = renderCellValue(column.key, {
+                            item,
+                            categoryName,
+                            accountName
+                          });
+                          return (
+                            <td key={`${item.id}-${column.key}`}>
+                              <span
+                                className="transaction-order-ellipsis"
+                                title={String(orderText)}
+                              >
+                                {orderText === '-' ? '-' : truncateOrderNo(String(orderText))}
                               </span>
                             </td>
                           );

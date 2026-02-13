@@ -23,6 +23,7 @@ import {
   resolveDateRange,
   useTransactionFilters
 } from '../../features/transactions/hooks/useTransactionFilters';
+import { Category } from '../../entities/category/types';
 import { TransactionSource } from '../../entities/transaction/types';
 
 const PAGE_SIZE = 8;
@@ -68,6 +69,78 @@ const DEFAULT_DETAIL_SECTIONS: Record<TransactionDetailSectionKey, boolean> = {
   tags: true,
   json: false
 };
+
+const TX_VISIBLE_COLUMNS_KEY = 'ledgerflow.transactions.visibleColumns';
+const TX_COLUMN_ORDER_KEY = 'ledgerflow.transactions.columnOrder';
+const TX_DETAIL_SECTIONS_KEY = 'ledgerflow.transactions.detailSections';
+
+const IMPORT_CATEGORY_RULES: Array<{ pattern: RegExp; names: string[] }> = [
+  { pattern: /工资|薪资|salary|payroll|奖金/i, names: ['工资', '收入'] },
+  {
+    pattern: /打车|出租|滴滴|顺风车|地铁|公交|高德|出行|交通|taxi|metro|bus/i,
+    names: ['交通', '出行', '打车']
+  },
+  { pattern: /餐|外卖|奶茶|咖啡|food|meal|restaurant/i, names: ['餐饮', '美食'] }
+];
+
+function restoreRecordState<K extends string>(
+  storageKey: string,
+  defaults: Record<K, boolean>
+): Record<K, boolean> {
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw) as Partial<Record<K, boolean>>;
+    const next = { ...defaults };
+    (Object.keys(defaults) as K[]).forEach((key) => {
+      if (typeof parsed[key] === 'boolean') {
+        next[key] = Boolean(parsed[key]);
+      }
+    });
+    return next;
+  } catch {
+    return defaults;
+  }
+}
+
+function restoreColumnOrder(storageKey: string): TransactionColumnKey[] {
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return DEFAULT_COLUMN_ORDER;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return DEFAULT_COLUMN_ORDER;
+    const valid = parsed.filter((item): item is TransactionColumnKey =>
+      DEFAULT_COLUMN_ORDER.includes(item as TransactionColumnKey)
+    );
+    if (valid.length !== DEFAULT_COLUMN_ORDER.length) return DEFAULT_COLUMN_ORDER;
+    return valid;
+  } catch {
+    return DEFAULT_COLUMN_ORDER;
+  }
+}
+
+/**
+ * 导入账单分类匹配：优先按关键字命中“交通/工资/餐饮”等，失败时回落到默认分类。
+ * 规则顺序很关键：交通在餐饮前，避免“高德打车”被误命中到餐饮。
+ */
+function resolveImportedCategoryId(
+  item: { type: string; note: string; tags?: string[] },
+  categories: Category[],
+  fallbackCategoryId: string
+): string {
+  const text = `${item.note || ''} ${(item.tags || []).join(' ')}`;
+  const typePrefixedText = `${item.type} ${text}`;
+
+  for (const rule of IMPORT_CATEGORY_RULES) {
+    if (!rule.pattern.test(typePrefixedText)) continue;
+    const hit = categories.find((category) =>
+      rule.names.some((name) => category.name.includes(name))
+    );
+    if (hit) return hit.id;
+  }
+
+  return fallbackCategoryId;
+}
 
 /**
  * 兼容账单文件常见编码：
@@ -124,11 +197,26 @@ function buildDuplicateSignature(item: {
   return `${item.date.slice(0, 10)}|${Math.round(Number(item.amount || 0) * 100) / 100}|${item.type}|${String(item.note || '').trim()}`;
 }
 
+/** 将交易按“可判重 key”分组：订单号 > 商家订单号 > 内容指纹。 */
+function buildDuplicateGroups(rows: TransactionRowView[]): string[][] {
+  const groups = new Map<string, string[]>();
+  rows.forEach(({ item }) => {
+    const key = item.orderNo
+      ? `order:${item.orderNo}`
+      : item.merchantOrderNo
+        ? `merchant:${item.merchantOrderNo}`
+        : `content:${buildDuplicateSignature(item)}`;
+    groups.set(key, [...(groups.get(key) || []), item.id]);
+  });
+  return Array.from(groups.values()).filter((ids) => ids.length > 1);
+}
+
 export function TransactionsPage() {
   const transactions = useFinanceStore((s) => s.transactions);
   const categories = useFinanceStore((s) => s.categories);
   const accounts = useFinanceStore((s) => s.accounts);
   const addTransaction = useFinanceStore((s) => s.addTransaction);
+  const updateTransaction = useFinanceStore((s) => s.updateTransaction);
   const removeTransaction = useFinanceStore((s) => s.removeTransaction);
 
   const {
@@ -170,6 +258,17 @@ export function TransactionsPage() {
   const [quickFilters, setQuickFilters] = useState<TransactionQuickFilters>(DEFAULT_QUICK_FILTERS);
   const [sortKey, setSortKey] = useState<TransactionSortKey>('date');
   const [sortDirection, setSortDirection] = useState<TransactionSortDirection>('desc');
+  const [visibleColumns, setVisibleColumns] = useState<Record<TransactionColumnKey, boolean>>(() =>
+    restoreRecordState<TransactionColumnKey>(TX_VISIBLE_COLUMNS_KEY, DEFAULT_VISIBLE_COLUMNS)
+  );
+  const [columnOrder, setColumnOrder] = useState<TransactionColumnKey[]>(() =>
+    restoreColumnOrder(TX_COLUMN_ORDER_KEY)
+  );
+  const [visibleDetailSections, setVisibleDetailSections] = useState<
+    Record<TransactionDetailSectionKey, boolean>
+  >(() =>
+    restoreRecordState<TransactionDetailSectionKey>(TX_DETAIL_SECTIONS_KEY, DEFAULT_DETAIL_SECTIONS)
+  );
   const [visibleColumns, setVisibleColumns] =
     useState<Record<TransactionColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS);
   const [columnOrder, setColumnOrder] = useState<TransactionColumnKey[]>(DEFAULT_COLUMN_ORDER);
@@ -217,6 +316,18 @@ export function TransactionsPage() {
     }, 5200);
     return () => window.clearTimeout(timer);
   }, [importNotice.visible]);
+
+  useEffect(() => {
+    window.localStorage.setItem(TX_VISIBLE_COLUMNS_KEY, JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
+
+  useEffect(() => {
+    window.localStorage.setItem(TX_COLUMN_ORDER_KEY, JSON.stringify(columnOrder));
+  }, [columnOrder]);
+
+  useEffect(() => {
+    window.localStorage.setItem(TX_DETAIL_SECTIONS_KEY, JSON.stringify(visibleDetailSections));
+  }, [visibleDetailSections]);
 
   useEffect(() => {
     const highlight = searchParams.get('highlight') ?? '';
@@ -425,12 +536,17 @@ export function TransactionsPage() {
         return;
       }
 
-      const insertedIds = parsed.map((item) => addTransaction(item));
+      const normalizedParsed = parsed.map((item) => ({
+        ...item,
+        categoryId: resolveImportedCategoryId(item, categories, defaultCategoryId)
+      }));
+
+      const insertedIds = normalizedParsed.map((item) => addTransaction(item));
       const newestId = insertedIds[insertedIds.length - 1];
-      const expectedIndex = Math.max(0, filteredRows.length + parsed.length - 1);
+      const expectedIndex = Math.max(0, filteredRows.length + normalizedParsed.length - 1);
       const expectedPage = Math.floor(expectedIndex / PAGE_SIZE) + 1;
       setPage(expectedPage);
-      const message = `导入成功：新增 ${parsed.length} 条记录。`;
+      const message = `导入成功：新增 ${normalizedParsed.length} 条记录。`;
       showToast(message, 'success');
       showImportNotice(`${message} 已自动定位到最新一条。`, 'success');
 
@@ -542,6 +658,66 @@ export function TransactionsPage() {
   };
 
   const handleCheckDuplicates = () => {
+    // 仅针对当前筛选结果做判重，避免对全量历史误操作。
+    const duplicateGroups = buildDuplicateGroups(sortedRows);
+    const duplicateCount = duplicateGroups.reduce((sum, group) => sum + group.length, 0);
+
+    if (duplicateCount > 0) {
+      const shouldOverwrite = window.confirm(
+        `检测完成：发现 ${duplicateCount} 条疑似重复账单。\n点击“确定”覆盖重复账单（每组保留最新一条）；点击“取消”继续选择删除重复。`
+      );
+
+      if (shouldOverwrite) {
+        // 覆盖策略：每组保留最新一条，并把其他重复条目的补充信息并入后删除。
+        duplicateGroups.forEach((group) => {
+          const txs = group
+            .map((id) => transactions.find((item) => item.id === id))
+            .filter((item): item is NonNullable<typeof item> => Boolean(item))
+            .sort((a, b) => +new Date(b.date) - +new Date(a.date));
+          const keeper = txs[0];
+          const duplicates = txs.slice(1);
+          if (!keeper || duplicates.length === 0) return;
+
+          const merged = duplicates.reduce(
+            (acc, item) => ({
+              ...acc,
+              note: acc.note || item.note,
+              orderNo: acc.orderNo || item.orderNo,
+              merchantOrderNo: acc.merchantOrderNo || item.merchantOrderNo,
+              tags: Array.from(new Set([...(acc.tags || []), ...(item.tags || [])]))
+            }),
+            keeper
+          );
+
+          updateTransaction(keeper.id, {
+            ...merged,
+            amount: Math.round(Number(merged.amount || 0) * 100) / 100
+          });
+          duplicates.forEach((item) => removeTransaction(item.id));
+        });
+
+        showToast('已完成覆盖去重（每组保留最新一条）。', 'success');
+        return;
+      }
+
+      const shouldDelete = window.confirm(
+        '是否删除重复账单？\n点击“确定”删除重复账单（每组保留最早一条）；点击“取消”不处理。'
+      );
+
+      if (shouldDelete) {
+        // 删除策略：每组保留最早一条，删除其余重复条目。
+        duplicateGroups.forEach((group) => {
+          const txs = group
+            .map((id) => transactions.find((item) => item.id === id))
+            .filter((item): item is NonNullable<typeof item> => Boolean(item))
+            .sort((a, b) => +new Date(a.date) - +new Date(b.date));
+          txs.slice(1).forEach((item) => removeTransaction(item.id));
+        });
+        showToast('已删除重复账单（每组保留最早一条）。', 'success');
+        return;
+      }
+
+      showToast('已取消重复账单处理。', 'warning');
     const orderNoMap = new Map<string, number>();
     const merchantOrderNoMap = new Map<string, number>();
     const contentMap = new Map<string, number>();

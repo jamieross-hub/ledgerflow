@@ -206,18 +206,17 @@ function findHeaderIndex(lines: string[], delimiter: ',' | '\t'): number {
   return 0;
 }
 
-function buildNote(row: Record<string, string>, source: BillSource): string {
+function buildNote(row: Record<string, string>): string {
   const counterparty = pickByKeys(row, ['交易对方', '收款方', '商户']);
   const goods = pickByKeys(row, ['商品名称', '商品', '商品说明']);
   const remark = pickByKeys(row, ['备注']);
-  const sourcePrefix = source === 'wechat' ? '微信账单导入' : '支付宝账单导入';
 
   const parts = [counterparty, goods, remark].map((item) => item.trim()).filter(Boolean);
   if (parts.length === 0) {
-    return sourcePrefix;
+    return '导入账单';
   }
 
-  return `${sourcePrefix}：${parts.join(' · ')}`;
+  return parts.join(' · ');
 }
 
 function shouldSkipRow(line: string): boolean {
@@ -297,7 +296,7 @@ export function parseBillCsvToTransactions(input: ParseBillInput): Omit<Transact
       type: parseType(row, amountRaw),
       amount,
       date: parseDate(dateRaw),
-      note: buildNote(row, input.source),
+      note: buildNote(row),
       tags: [input.source === 'wechat' ? '微信导入' : '支付宝导入'],
       categoryId: input.defaultCategoryId,
       accountId: input.defaultAccountId,

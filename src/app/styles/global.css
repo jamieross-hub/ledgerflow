@@ -3336,8 +3336,9 @@ small.mono {
   }
 
   .mobile-nav-footer .theme-switcher {
-    width: 100%;
-    justify-content: space-between;
+    width: auto;
+    justify-content: center;
+    margin-top: var(--space-2);
   }
 
   .sidebar {
@@ -4099,6 +4100,16 @@ small.mono {
   align-items: end;
 }
 
+.account-create-grid > .field {
+  min-width: 0;
+}
+
+.account-create-grid .field input,
+.account-create-grid .field select {
+  width: 100%;
+  min-width: 0;
+}
+
 .account-create-submit {
   white-space: nowrap;
   min-height: 42px;
@@ -4210,6 +4221,7 @@ small.mono {
 
 .account-card-actions {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(112px, auto) minmax(96px, auto);
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: end;
   gap: var(--space-2);
@@ -4225,6 +4237,22 @@ small.mono {
 
 .account-balance-input {
   width: 100%;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.transaction-order-ellipsis {
+  display: inline-block;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.settings-model-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   font-weight: 600;
 }
 
@@ -4262,6 +4290,13 @@ small.mono {
   border-color: var(--color-primary-border);
   color: var(--color-primary);
   background: color-mix(in srgb, var(--color-primary) 10%, var(--color-bg-subtle));
+}
+
+.settings-presets-toggle {
+  margin-top: 8px;
+  align-self: flex-start;
+  font-size: var(--font-xs);
+  padding: 4px 10px;
 }
 
 .settings-ai-summary {
