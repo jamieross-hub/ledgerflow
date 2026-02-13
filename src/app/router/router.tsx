@@ -9,6 +9,7 @@ import { AboutPage } from '../../pages/about/AboutPage';
 import { AssistantPage } from '../../pages/assistant/AssistantPage';
 import { DatabaseSettingsPage } from '../../pages/database-settings/DatabaseSettingsPage';
 import { ExchangePage } from '../../features/exchange/ui/ExchangePage';
+import { FinancePage } from '../../pages/finance/FinancePage';
 
 export const router = createBrowserRouter([
   {
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { path: 'assistant', element: <AssistantPage /> },
       { path: 'database-settings', element: <DatabaseSettingsPage /> },
       { path: 'exchange', element: <ExchangePage /> },
+      { path: 'finance', element: <FinancePage /> },
       { path: 'tags', element: <Navigate to="/categories-accounts" replace /> }
     ]
   }

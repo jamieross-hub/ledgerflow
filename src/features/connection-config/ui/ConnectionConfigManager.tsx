@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ConnectionConfigForm } from './ConnectionConfigForm';
 import {
   deleteConnection,
@@ -10,14 +10,15 @@ import { ConnectionConfigCard } from './ConnectionConfigCard';
 import { ConnectionFormValues } from '../model/connectionFormSchema';
 
 export function ConnectionConfigManager() {
-  const [version, setVersion] = useState(0);
+  const [, setRefreshTick] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(true);
 
-  const rows = useMemo(() => listConnections(), [version]);
+  // 通过刷新 tick 强制重渲染，从而读取最新连接配置。
+  const rows = listConnections();
 
   function refresh() {
-    setVersion((v) => v + 1);
+    setRefreshTick((v) => v + 1);
   }
 
   function handleSave(values: ConnectionFormValues) {
@@ -29,11 +30,21 @@ export function ConnectionConfigManager() {
 
   return (
     <section id="connection-config-manager" className="panel">
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+      <div
+        className="row"
+        style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}
+      >
         <div>
           <h3 style={{ margin: 0 }}>连接配置管理（PG / MySQL / Redis）</h3>
-          <p style={{ margin: '6px 0 0', color: 'var(--color-text-secondary)', fontSize: 'var(--font-sm)' }}>
-            支持直接填写地址、端口、用户名、密码、连接串及 TLS 参数。敏感字段将以加密形式存储到浏览器本地。
+          <p
+            style={{
+              margin: '6px 0 0',
+              color: 'var(--color-text-secondary)',
+              fontSize: 'var(--font-sm)'
+            }}
+          >
+            支持直接填写地址、端口、用户名、密码、连接串及 TLS
+            参数。敏感字段将以加密形式存储到浏览器本地。
           </p>
         </div>
         <button className="primary" onClick={() => setAdding((x) => !x)}>

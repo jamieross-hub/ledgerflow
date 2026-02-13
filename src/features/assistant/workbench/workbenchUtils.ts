@@ -89,6 +89,30 @@ function normalizeType(type: unknown): TransactionType | null {
   return null;
 }
 
+function normalizeAmount(value: unknown): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value !== 'string') return 0;
+  const cleaned = value.replace(/[¥￥,\s]/g, '').trim();
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeDateText(value: unknown): string {
+  if (typeof value !== 'string' || value.trim().length === 0) return new Date().toISOString();
+  const source = value.trim();
+  const chinese = source.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日?$/);
+  if (chinese) {
+    const [, y, m, d] = chinese;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  const slash = source.match(/^(\d{4})[/.](\d{1,2})[/.](\d{1,2})$/);
+  if (slash) {
+    const [, y, m, d] = slash;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  return source;
+}
+
 export function normalizeAiBill(raw: unknown): AiBillResult | null {
   if (
     !raw ||
@@ -101,14 +125,14 @@ export function normalizeAiBill(raw: unknown): AiBillResult | null {
     if (!entry || typeof entry !== 'object') continue;
     const row = entry as Partial<AiBillItem>;
     const type = normalizeType(row.type);
-    const amount = Number(row.amount);
+    const amount = normalizeAmount(row.amount);
     // 录入金额统一保留两位，避免后续 UI 出现浮点展示噪音。
     const normalizedAmount = Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
     if (!type || normalizedAmount <= 0) continue;
     txs.push({
       type,
       amount: normalizedAmount,
-      date: row.date || new Date().toISOString(),
+      date: normalizeDateText(row.date),
       note: String(row.note || 'AI 识别账单'),
       category: String(row.category || ''),
       account: String(row.account || ''),
@@ -133,6 +157,20 @@ export function extractJsonString(text: string): string {
   if (fenced?.[1]) return fenced[1].trim();
   const generic = text.match(/```\s*([\s\S]*?)```/i);
   if (generic?.[1]) return generic[1].trim();
+
+  const transactionMatch = /\{\s*"transactions"/.exec(text);
+  const transactionStart = transactionMatch?.index ?? -1;
+  if (transactionStart >= 0) {
+    let depth = 0;
+    for (let i = transactionStart; i < text.length; i += 1) {
+      const char = text[i];
+      if (char === '{') depth += 1;
+      if (char === '}') depth -= 1;
+      if (depth === 0) {
+        return text.slice(transactionStart, i + 1).trim();
+      }
+    }
+  }
   return text.trim();
 }
 
