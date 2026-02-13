@@ -5,6 +5,7 @@ import type { Category } from '../../../entities/category/types';
 import type { TransactionItem } from '../../../entities/transaction/types';
 import { useDebugLogStore } from '../../../shared/store/useDebugLogStore';
 import {
+  ANALYSIS_AGENT_PROMPT,
   buildTimeContext,
   buildTransactionPromptContext,
   extractJsonString,
@@ -52,6 +53,7 @@ interface UseAssistantWorkbenchInput {
   addCategory: (name: string) => string;
   addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
   updateTransaction: (id: string, payload: Omit<TransactionItem, 'id'>) => void;
+  sceneMode?: 'bookkeeping' | 'assistant';
 }
 
 /**
@@ -223,7 +225,9 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     setError('');
     addLog({ action: 'assistant.recognize', status: 'pending', message: '开始识别请求' });
     try {
-      const prompt = `${JSON_AGENT_PROMPT}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}`;
+      const basePrompt =
+        input.sceneMode === 'assistant' ? ANALYSIS_AGENT_PROMPT : JSON_AGENT_PROMPT;
+      const prompt = `${basePrompt}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}`;
       const reply = await sendAiChat({
         baseUrl: input.baseUrl,
         apiKey: input.apiKey,

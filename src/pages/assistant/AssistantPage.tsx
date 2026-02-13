@@ -205,6 +205,7 @@ function buildLocalPresetQuestions(transactions: TransactionItem[], categories: 
 }
 
 export function AssistantPage() {
+  const [mode, setMode] = useState<AssistantMode>('assistant');
   const baseUrl = useAiSettings((s) => s.baseUrl);
   const apiKey = useAiSettings((s) => s.apiKey);
   const model = useAiSettings((s) => s.model);
@@ -226,7 +227,8 @@ export function AssistantPage() {
     transactions,
     addCategory,
     addTransaction,
-    updateTransaction
+    updateTransaction,
+    sceneMode: mode
   });
 
   const [modelOpen, setModelOpen] = useState(false);
@@ -317,14 +319,20 @@ export function AssistantPage() {
     const usageText = wb.lastUsage
       ? `Token 消耗：输入 ${wb.lastUsage.promptTokens} / 输出 ${wb.lastUsage.completionTokens} / 总计 ${wb.lastUsage.totalTokens}`
       : undefined;
-    setChatHistory((prev) => [
+    setChatHistories((prev) => ({
       ...prev,
-      { id: `${Date.now()}-assistant`, role: 'assistant', text: wb.rawContent, usageText }
-    ]);
-  }, [wb.lastUsage, wb.rawContent]);
+      [mode]: [
+        ...(prev[mode] || []),
+        { id: `${Date.now()}-assistant`, role: 'assistant', text: wb.rawContent, usageText }
+      ]
+    }));
+  }, [mode, wb.lastUsage, wb.rawContent]);
 
   const removeMessage = (id: string) =>
-    setChatHistory((prev) => prev.filter((item) => item.id !== id));
+    setChatHistories((prev) => ({
+      ...prev,
+      [mode]: (prev[mode] || []).filter((item) => item.id !== id)
+    }));
 
   const retryMessage = (index: number) => {
     const previousUser = [...chatHistory]
