@@ -4151,6 +4151,10 @@ small.mono {
   grid-column: span 1;
 }
 
+.exchange-key-zero {
+  grid-column: span 2;
+}
+
 .exchange-calculator-error {
   margin: 0;
   color: var(--color-danger);

@@ -280,6 +280,10 @@ export function DatabaseSettingsPage() {
 
       <section className="panel" style={{ marginTop: 12 }}>
         <h3 style={{ marginTop: 0 }}>WebDAV 同步</h3>
+        <p className="sync-tip" style={{ marginTop: 0 }}>
+          若浏览器提示跨域(CORS)或 Failed to fetch，优先改用同源代理地址（如
+          /api/webdav），再由服务端反向代理到真实 WebDAV。
+        </p>
         <div className="grid grid-2" style={{ gap: 10 }}>
           <div className="field" style={{ marginBottom: 0 }}>
             <label>WebDAV 地址</label>

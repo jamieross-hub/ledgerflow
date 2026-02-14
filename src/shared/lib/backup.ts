@@ -115,15 +115,19 @@ export function loadWebdavConfig(): BackupWebdavConfig {
 }
 
 function joinWebdavPath(endpoint: string, remoteFilePath: string): string {
-  const base = endpoint.replace(/\/+$/, '');
+  // 允许把 endpoint 配成相对路径（如 /api/webdav），以便走同源反向代理绕过浏览器 CORS 限制。
+  const base = endpoint.trim().replace(/\/+$/, '');
   const path = remoteFilePath.replace(/^\/+/, '');
   return `${base}/${path}`;
 }
 
 function normalizeWebdavError(action: '上传' | '下载' | '创建目录', error: unknown): Error {
   if (error instanceof Error) {
-    if (error.message.includes('Failed to fetch')) {
-      return new Error(`WebDAV ${action}失败：网络连接或跨域(CORS)被拦截，请检查地址与服务端配置`);
+    if (error.message.includes('Failed to fetch') || error.name === 'TypeError') {
+      return new Error(
+        `WebDAV ${action}失败：请求被浏览器拦截（常见于跨域 CORS / HTTPS 混合内容）。` +
+          `可尝试将 endpoint 改为同源代理地址（例如 /api/webdav）并在服务端转发到真实 WebDAV。`
+      );
     }
     return error;
   }
