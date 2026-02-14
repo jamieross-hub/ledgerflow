@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { ThemeSwitcher } from '../../features/theme-switcher/ThemeSwitcher';
 import { formatCurrency } from '../../shared/lib/format';
-import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 
 /** 当前发布版本号（展示用途，与 package.json 可独立管理） */
@@ -83,8 +82,6 @@ const mobileQuickGroups: Array<{ title: string; items: QuickEntry[] }> = [
 const SIDEBAR_COLLAPSED_WIDTH = 76;
 const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 420;
-const FLOAT_HELP_POS_KEY = 'ledgerflow.floatingHelp.position';
-
 const monthLabel = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
   month: 'long'
@@ -99,19 +96,10 @@ export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [envOpen, setEnvOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [helpButtonPos, setHelpButtonPos] = useState({ x: 0, y: 0 });
 
   const draggingRef = useRef(false);
-  const floatingDragOffsetRef = useRef({ x: 0, y: 0 });
-  const floatingDraggingRef = useRef(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const envRef = useRef<HTMLDivElement | null>(null);
-
-  const baseUrl = useAiSettings((s) => s.baseUrl);
-  const model = useAiSettings((s) => s.model);
-  const apiKey = useAiSettings((s) => s.apiKey);
   const transactions = useFinanceStore((s) => s.transactions);
 
   const thisMonth = new Date();
@@ -153,60 +141,10 @@ export function AppLayout() {
   }, [collapsed]);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(FLOAT_HELP_POS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as { x?: number; y?: number };
-        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
-          setHelpButtonPos({ x: parsed.x, y: parsed.y });
-          return;
-        }
-      }
-    } catch {
-      // ignore parse errors
-    }
-    setHelpButtonPos({
-      x: Math.max(16, window.innerWidth - 140),
-      y: Math.max(16, window.innerHeight - 84)
-    });
-  }, []);
-
-  useEffect(() => {
-    const onPointerMove = (event: PointerEvent) => {
-      if (!floatingDraggingRef.current) return;
-      const nextX = event.clientX - floatingDragOffsetRef.current.x;
-      const nextY = event.clientY - floatingDragOffsetRef.current.y;
-      const clampedX = Math.max(8, Math.min(nextX, window.innerWidth - 124));
-      const clampedY = Math.max(8, Math.min(nextY, window.innerHeight - 52));
-      setHelpButtonPos({ x: clampedX, y: clampedY });
-    };
-
-    const onPointerUp = () => {
-      if (!floatingDraggingRef.current) return;
-      floatingDraggingRef.current = false;
-      try {
-        window.localStorage.setItem(FLOAT_HELP_POS_KEY, JSON.stringify(helpButtonPos));
-      } catch {
-        // ignore storage errors
-      }
-    };
-
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    return () => {
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-    };
-  }, [helpButtonPos]);
-
-  useEffect(() => {
     const onClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       if (menuRef.current && !menuRef.current.contains(target)) {
         setMenuOpen(false);
-      }
-      if (envRef.current && !envRef.current.contains(target)) {
-        setEnvOpen(false);
       }
     };
 
@@ -224,15 +162,6 @@ export function AppLayout() {
       document.body.style.overflow = '';
     };
   }, [mobileNavOpen]);
-
-  const copyBaseUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(baseUrl || '');
-      setEnvOpen(false);
-    } catch {
-      setEnvOpen(false);
-    }
-  };
 
   return (
     <div
@@ -424,50 +353,6 @@ export function AppLayout() {
           </aside>
         </div>
       ) : null}
-
-      <div
-        className="floating-help-wrap"
-        ref={envRef}
-        style={{ left: `${helpButtonPos.x}px`, top: `${helpButtonPos.y}px` }}
-      >
-        <button
-          type="button"
-          className="floating-help-btn"
-          aria-haspopup="dialog"
-          aria-expanded={envOpen}
-          onClick={() => setEnvOpen((v) => !v)}
-          onPointerDown={(event) => {
-            floatingDraggingRef.current = true;
-            floatingDragOffsetRef.current = {
-              x: event.clientX - helpButtonPos.x,
-              y: event.clientY - helpButtonPos.y
-            };
-          }}
-        >
-          {apiKey ? 'AI 已配置' : 'AI 未配置'}
-        </button>
-        {envOpen ? (
-          <div className="env-popover floating-help-popover" role="dialog" aria-label="环境信息">
-            <h4>环境信息</h4>
-            <p>
-              <strong>模型：</strong>
-              {model || '未设置'}
-            </p>
-            <p>
-              <strong>Base URL：</strong>
-              <span className="mono-inline">{baseUrl || '未设置'}</span>
-            </p>
-            <div className="row" style={{ marginTop: 8 }}>
-              <button type="button" onClick={() => void copyBaseUrl()}>
-                复制 Base URL
-              </button>
-              <Link to="/settings" onClick={() => setEnvOpen(false)}>
-                <button type="button">前往设置</button>
-              </Link>
-            </div>
-          </div>
-        ) : null}
-      </div>
     </div>
   );
 }

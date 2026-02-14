@@ -22,7 +22,7 @@ function statusLabel(status: TransactionStatus): string {
 function sourceLabel(source: TransactionSource): string {
   if (source === 'ai') return 'AI 记账';
   if (source === 'wechat') return '微信导入';
-  if (source === 'alipay') return '支付宝导入';
+  if (source === 'alipay') return '支付宝';
   return '手工录入';
 }
 
@@ -244,7 +244,7 @@ export function TransactionDetailDrawer({
               <strong>
                 {source === 'ai' ? <span className="badge badge-primary">AI 记账</span> : null}
                 {source === 'wechat' ? <span className="badge">微信导入</span> : null}
-                {source === 'alipay' ? <span className="badge">支付宝导入</span> : null}
+                {source === 'alipay' ? <span className="badge">支付宝</span> : null}
                 {source === 'manual' ? <span className="badge">手工录入</span> : null}
               </strong>
             </div>

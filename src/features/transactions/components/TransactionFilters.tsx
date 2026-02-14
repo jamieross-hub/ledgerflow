@@ -150,7 +150,7 @@ export function TransactionFilters({
                   <option value="all">全部来源</option>
                   <option value="manual">手工录入</option>
                   <option value="wechat">微信导入</option>
-                  <option value="alipay">支付宝导入</option>
+                  <option value="alipay">支付宝</option>
                   <option value="ai">AI 记账</option>
                 </select>
               </div>

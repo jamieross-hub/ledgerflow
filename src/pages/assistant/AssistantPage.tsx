@@ -256,6 +256,13 @@ export function AssistantPage() {
   const [presetQuestions, setPresetQuestions] = useState<PresetQuestion[]>([]);
   const [loadingPresets, setLoadingPresets] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(() => readChatHistory(mode));
+  const latestTransaction = useMemo(
+    () =>
+      [...transactions]
+        .sort((a, b) => +new Date(b.date) - +new Date(a.date))
+        .find((item) => item.type !== 'budget') ?? null,
+    [transactions]
+  );
   const lastAssistantRef = useRef<Record<AssistantMode, string>>({
     bookkeeping: '',
     assistant: ''
@@ -693,7 +700,28 @@ export function AssistantPage() {
 
         <p className="chat-disclaimer">AI 生成内容仅供参考，请结合原始账单核对后再保存。</p>
 
+        {latestTransaction ? (
+          <div className="chat-latest-bill" aria-label="最近一笔账单">
+            <span>最近一笔</span>
+            <strong>
+              {latestTransaction.note || '未备注'} ·
+              {latestTransaction.type === 'income' ? ' +' : ' -'}¥
+              {latestTransaction.amount.toFixed(2)}
+            </strong>
+          </div>
+        ) : null}
+
         <form className="chat-input-form" onSubmit={onSubmit}>
+          <button
+            type="button"
+            className="chat-upload-btn"
+            title="上传图片"
+            onClick={() => wb.fileInputRef.current?.click()}
+            disabled={wb.status === 'recognizing'}
+          >
+            ＋
+          </button>
+
           <textarea
             ref={wb.textareaRef}
             className="chat-input-textarea"
@@ -714,16 +742,6 @@ export function AssistantPage() {
             aria-label="上传账单图片"
             onChange={(e) => void wb.handleSetImage(e.target.files?.[0])}
           />
-
-          <button
-            type="button"
-            className="chat-upload-btn"
-            title="上传图片"
-            onClick={() => wb.fileInputRef.current?.click()}
-            disabled={wb.status === 'recognizing'}
-          >
-            ＋
-          </button>
 
           <button
             type="submit"
