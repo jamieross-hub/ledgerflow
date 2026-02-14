@@ -1,5 +1,9 @@
 import { ChangeEvent, useMemo, useRef, useState } from 'react';
-import { parseBillCsvToTransactions } from '../../shared/lib/billImport';
+import {
+  applyBillImportMode,
+  BillImportMode,
+  parseBillCsvToTransactions
+} from '../../shared/lib/billImport';
 import {
   BackupWebdavConfig,
   createFinanceBackupPayload,
@@ -21,6 +25,7 @@ export function DatabaseSettingsPage() {
   const categories = useFinanceStore((s) => s.categories);
   const accounts = useFinanceStore((s) => s.accounts);
   const addTransaction = useFinanceStore((s) => s.addTransaction);
+  const updateTransaction = useFinanceStore((s) => s.updateTransaction);
   const addCategory = useFinanceStore((s) => s.addCategory);
   const addAccount = useFinanceStore((s) => s.addAccount);
   const replaceAllData = useFinanceStore((s) => s.replaceAllData);
@@ -30,6 +35,7 @@ export function DatabaseSettingsPage() {
   const billInputRef = useRef<HTMLInputElement | null>(null);
 
   const [importSource, setImportSource] = useState<BillSource | null>(null);
+  const [importMode, setImportMode] = useState<BillImportMode>('incremental');
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ visible: boolean; variant: ToastVariant; message: string }>({
     visible: false,
@@ -106,9 +112,27 @@ export function DatabaseSettingsPage() {
         return;
       }
 
-      rows.forEach((row) => addTransaction(row));
+      const result = applyBillImportMode({
+        mode: importMode,
+        existing: transactions,
+        incoming: rows
+      });
+
+      if (result.shouldClearBeforeImport) {
+        clearAllAccountBills();
+      }
+
+      result.update.forEach((row) => updateTransaction(row.id, row.payload));
+      result.append.forEach((row) => addTransaction(row));
+
+      const changedCount = result.append.length + result.update.length;
+      if (changedCount === 0) {
+        showToast('导入完成：增量模式下未发现可新增或更新的账单', 'warning');
+        return;
+      }
+
       showToast(
-        `${source === 'wechat' ? '微信' : '支付宝'}账单导入成功：${rows.length} 条`,
+        `${source === 'wechat' ? '微信' : '支付宝'}账单导入成功：新增 ${result.append.length} 条，更新 ${result.update.length} 条${result.skipped ? `，跳过 ${result.skipped} 条` : ''}`,
         'success'
       );
     } catch {
@@ -204,6 +228,18 @@ export function DatabaseSettingsPage() {
         <h3 style={{ marginTop: 0 }}>账单 CSV 导入</h3>
         <p className="sync-tip">支持微信、支付宝官方账单 CSV / TXT（含制表符）格式。</p>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            导入模式
+            <select
+              aria-label="账单导入模式"
+              value={importMode}
+              onChange={(e) => setImportMode(e.target.value as BillImportMode)}
+            >
+              <option value="incremental">增量（跳过重复）</option>
+              <option value="merge">合并（覆盖重复）</option>
+              <option value="overwrite">覆盖（清空后导入）</option>
+            </select>
+          </label>
           <button
             type="button"
             onClick={() => {

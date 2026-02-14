@@ -2,7 +2,11 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { exportTransactionsCsv } from '../../shared/lib/csv';
-import { parseBillCsvToTransactions } from '../../shared/lib/billImport';
+import {
+  applyBillImportMode,
+  BillImportMode,
+  parseBillCsvToTransactions
+} from '../../shared/lib/billImport';
 import { formatDate } from '../../shared/lib/format';
 import { Toast, ToastVariant } from '../../shared/ui/Toast';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
@@ -199,12 +203,12 @@ function decodeBillFileText(file: File): Promise<string> {
 function detectSource(
   source: TransactionSource | undefined,
   note: string,
-  tags: string[]
+  tags: string[] | undefined
 ): TransactionSource {
   if (source) {
     return source;
   }
-  const combined = `${note} ${tags.join(' ')}`;
+  const combined = `${note} ${(tags || []).join(' ')}`;
   if (/微信|wechat/i.test(combined)) {
     return 'wechat';
   }
@@ -275,6 +279,7 @@ export function TransactionsPage() {
   const addTransaction = useFinanceStore((s) => s.addTransaction);
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
   const removeTransaction = useFinanceStore((s) => s.removeTransaction);
+  const clearAllAccountBills = useFinanceStore((s) => s.clearAllAccountBills);
 
   const {
     filters,
@@ -293,6 +298,7 @@ export function TransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [importSource, setImportSource] = useState<BillSource | null>(null);
+  const [importMode, setImportMode] = useState<BillImportMode>('incremental');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -420,7 +426,7 @@ export function TransactionsPage() {
       const byKeyword =
         filters.keyword.trim().length === 0 ||
         item.note.toLowerCase().includes(filters.keyword.toLowerCase()) ||
-        item.tags.join(',').toLowerCase().includes(filters.keyword.toLowerCase());
+        (item.tags || []).join(',').toLowerCase().includes(filters.keyword.toLowerCase());
 
       let byDate = true;
       if (dateRange.from && dateRange.to) {
@@ -465,7 +471,8 @@ export function TransactionsPage() {
       const merchantOrderNoPass =
         !merchantOrderNoFilter ||
         (row.item.merchantOrderNo || '').toLowerCase().includes(merchantOrderNoFilter);
-      const tagsPass = !tagsFilter || row.item.tags.join(',').toLowerCase().includes(tagsFilter);
+      const tagsPass =
+        !tagsFilter || (row.item.tags || []).join(',').toLowerCase().includes(tagsFilter);
       const merchantPass =
         !merchantFilter ||
         (row.item.note || '').toLowerCase().includes(merchantFilter) ||
@@ -610,18 +617,42 @@ export function TransactionsPage() {
         categoryId: resolveImportedCategoryId(item, categories, defaultCategoryId)
       }));
 
-      const insertedIds = normalizedParsed.map((item) => addTransaction(item));
+      const result = applyBillImportMode({
+        mode: importMode,
+        existing: transactions,
+        incoming: normalizedParsed
+      });
+
+      if (result.shouldClearBeforeImport) {
+        clearAllAccountBills();
+      }
+
+      result.update.forEach((row) => updateTransaction(row.id, row.payload));
+      const insertedIds = result.append.map((item) => addTransaction(item));
       const newestId = insertedIds[insertedIds.length - 1];
-      const expectedIndex = Math.max(0, filteredRows.length + normalizedParsed.length - 1);
+      const changedCount = result.append.length + result.update.length;
+      const expectedIndex = Math.max(0, filteredRows.length + result.append.length - 1);
       const expectedPage = Math.floor(expectedIndex / pageSize) + 1;
       setPage(expectedPage);
-      const message = `导入成功：新增 ${normalizedParsed.length} 条记录。`;
+
+      if (changedCount === 0) {
+        const message = `导入完成：${result.skipped} 条重复记录已跳过（增量模式）。`;
+        showToast(message, 'warning');
+        showImportNotice(message, 'warning');
+        return;
+      }
+
+      const actionLabel =
+        importMode === 'overwrite' ? '覆盖' : importMode === 'merge' ? '合并' : '增量导入';
+      const message = `导入成功（${actionLabel}）：新增 ${result.append.length} 条，更新 ${result.update.length} 条${result.skipped ? `，跳过 ${result.skipped} 条` : ''}。`;
       showToast(message, 'success');
       showImportNotice(`${message} 已自动定位到最新一条。`, 'success');
 
-      const next = new URLSearchParams(searchParams);
-      next.set('highlight', newestId);
-      setSearchParams(next, { replace: true });
+      if (newestId) {
+        const next = new URLSearchParams(searchParams);
+        next.set('highlight', newestId);
+        setSearchParams(next, { replace: true });
+      }
     } catch {
       const message = '导入失败：文件解析异常。';
       showToast(message, 'error');
@@ -852,6 +883,8 @@ export function TransactionsPage() {
         onExport={() => exportTransactionsCsv(filteredRows)}
         onImportWechat={() => openImport('wechat')}
         onImportAlipay={() => openImport('alipay')}
+        importMode={importMode}
+        onImportModeChange={setImportMode}
         onCheckDuplicates={handleCheckDuplicates}
         columnOptions={COLUMN_OPTIONS}
         visibleColumns={visibleColumns}
