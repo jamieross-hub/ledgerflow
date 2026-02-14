@@ -141,12 +141,18 @@ async function ensureWebdavDirectories(config: BackupWebdavConfig): Promise<void
   let current = '';
   for (const segment of folders) {
     current = current ? `${current}/${segment}` : segment;
-    const response = await fetch(`${base}/${current}`, {
-      method: 'MKCOL',
-      headers: {
-        Authorization: buildBasicAuth(config.username, config.password)
-      }
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${base}/${current}`, {
+        method: 'MKCOL',
+        headers: {
+          Authorization: buildBasicAuth(config.username, config.password)
+        }
+      });
+    } catch {
+      // 某些 WebDAV 服务不允许跨域 MKCOL（但允许 PUT），目录创建失败时交给后续 PUT 决定。
+      continue;
+    }
 
     if (![200, 201, 204, 301, 302, 405].includes(response.status)) {
       throw new Error(`WebDAV 目录创建失败（${current}，HTTP ${response.status}）`);
