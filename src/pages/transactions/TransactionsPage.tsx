@@ -10,6 +10,7 @@ import {
   parseBillFileToTransactions
 } from '../../shared/lib/billImport';
 import { formatDate } from '../../shared/lib/format';
+import { resolveImportDefaultAccountId } from '../../shared/lib/importAccount';
 import { Toast, ToastVariant } from '../../shared/ui/Toast';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
 import {
@@ -615,7 +616,12 @@ export function TransactionsPage() {
 
     try {
       const defaultCategoryId = categories[0]?.id;
-      const defaultAccountId = accounts[0]?.id;
+      const fallbackAccountId = accounts[0]?.id;
+      const defaultAccountId = resolveImportDefaultAccountId(
+        accounts,
+        activeSource,
+        fallbackAccountId
+      );
 
       if (!defaultCategoryId || !defaultAccountId) {
         const message = '导入失败：请先创建分类和账户。';
@@ -749,6 +755,46 @@ export function TransactionsPage() {
       return;
     }
     setPendingDeleteIds(selectedIds);
+  };
+
+  const applyBulkUpdate = (payload: { categoryId?: string; accountId?: string }) => {
+    if (selectedIds.length === 0) {
+      return;
+    }
+
+    let changed = 0;
+    selectedIds.forEach((id) => {
+      const tx = transactions.find((item) => item.id === id);
+      if (!tx) return;
+
+      const nextCategoryId = payload.categoryId ?? tx.categoryId;
+      const nextAccountId = payload.accountId ?? tx.accountId;
+      if (nextCategoryId === tx.categoryId && nextAccountId === tx.accountId) {
+        return;
+      }
+
+      updateTransaction(id, {
+        ...tx,
+        categoryId: nextCategoryId,
+        accountId: nextAccountId
+      });
+      changed += 1;
+    });
+
+    if (changed > 0) {
+      const changedLabel = [payload.categoryId ? '分类' : '', payload.accountId ? '账户' : '']
+        .filter(Boolean)
+        .join('和');
+      showToast(`已批量更新 ${changed} 条交易的${changedLabel}。`, 'success');
+    }
+  };
+
+  const handleBulkEditCategory = (categoryId: string) => {
+    applyBulkUpdate({ categoryId });
+  };
+
+  const handleBulkEditAccount = (accountId: string) => {
+    applyBulkUpdate({ accountId });
   };
 
   const hasQuickFilters =
@@ -978,6 +1024,10 @@ export function TransactionsPage() {
         allPageSelected={allPageSelected}
         onDelete={(id) => setPendingDeleteIds([id])}
         onDeleteSelected={handleDeleteSelected}
+        onBulkEditCategory={handleBulkEditCategory}
+        onBulkEditAccount={handleBulkEditAccount}
+        categoryOptions={categories.map((item) => ({ id: item.id, name: item.name }))}
+        accountOptions={accounts.map((item) => ({ id: item.id, name: item.name }))}
         onClearSelection={() => setSelectedIds([])}
         onToggleSelect={handleToggleSelect}
         onToggleSelectPage={handleToggleSelectPage}
