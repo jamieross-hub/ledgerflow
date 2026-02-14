@@ -120,6 +120,40 @@ function joinWebdavPath(endpoint: string, remoteFilePath: string): string {
   return `${base}/${path}`;
 }
 
+function normalizeWebdavError(action: '上传' | '下载' | '创建目录', error: unknown): Error {
+  if (error instanceof Error) {
+    if (error.message.includes('Failed to fetch')) {
+      return new Error(`WebDAV ${action}失败：网络连接或跨域(CORS)被拦截，请检查地址与服务端配置`);
+    }
+    return error;
+  }
+  return new Error(`WebDAV ${action}失败，请稍后重试`);
+}
+
+async function ensureWebdavDirectories(config: BackupWebdavConfig): Promise<void> {
+  const normalizedPath = config.remoteFilePath.replace(/^\/+/, '').split('/').filter(Boolean);
+  if (normalizedPath.length <= 1) {
+    return;
+  }
+
+  const folders = normalizedPath.slice(0, -1);
+  const base = config.endpoint.replace(/\/+$/, '');
+  let current = '';
+  for (const segment of folders) {
+    current = current ? `${current}/${segment}` : segment;
+    const response = await fetch(`${base}/${current}`, {
+      method: 'MKCOL',
+      headers: {
+        Authorization: buildBasicAuth(config.username, config.password)
+      }
+    });
+
+    if (![200, 201, 204, 301, 302, 405].includes(response.status)) {
+      throw new Error(`WebDAV 目录创建失败（${current}，HTTP ${response.status}）`);
+    }
+  }
+}
+
 function buildBasicAuth(username: string, password: string): string {
   const raw = `${username}:${password}`;
   const bytes = new TextEncoder().encode(raw);
@@ -134,36 +168,45 @@ export async function webdavUploadBackup(
   config: BackupWebdavConfig,
   payload: FinanceBackupPayload
 ): Promise<void> {
-  const url = joinWebdavPath(config.endpoint, config.remoteFilePath);
-  const response = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      Authorization: buildBasicAuth(config.username, config.password),
-      'Content-Type': 'application/json;charset=utf-8'
-    },
-    body: JSON.stringify(payload, null, 2)
-  });
+  try {
+    await ensureWebdavDirectories(config);
+    const url = joinWebdavPath(config.endpoint, config.remoteFilePath);
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        Authorization: buildBasicAuth(config.username, config.password),
+        'Content-Type': 'application/json;charset=utf-8'
+      },
+      body: JSON.stringify(payload, null, 2)
+    });
 
-  if (!response.ok) {
-    throw new Error(`WebDAV 上传失败（HTTP ${response.status}）`);
+    if (!response.ok) {
+      throw new Error(`WebDAV 上传失败（HTTP ${response.status}）`);
+    }
+  } catch (error) {
+    throw normalizeWebdavError('上传', error);
   }
 }
 
 export async function webdavDownloadBackup(
   config: BackupWebdavConfig
 ): Promise<FinanceBackupPayload> {
-  const url = joinWebdavPath(config.endpoint, config.remoteFilePath);
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Authorization: buildBasicAuth(config.username, config.password)
+  try {
+    const url = joinWebdavPath(config.endpoint, config.remoteFilePath);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: buildBasicAuth(config.username, config.password)
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`WebDAV 下载失败（HTTP ${response.status}）`);
     }
-  });
 
-  if (!response.ok) {
-    throw new Error(`WebDAV 下载失败（HTTP ${response.status}）`);
+    const text = await response.text();
+    return parseFinanceBackupPayload(text);
+  } catch (error) {
+    throw normalizeWebdavError('下载', error);
   }
-
-  const text = await response.text();
-  return parseFinanceBackupPayload(text);
 }

@@ -297,7 +297,7 @@ export function parseBillCsvToTransactions(input: ParseBillInput): Omit<Transact
       amount,
       date: parseDate(dateRaw),
       note: buildNote(row),
-      tags: [input.source === 'wechat' ? '微信导入' : '支付宝导入'],
+      tags: [input.source === 'wechat' ? '微信导入' : '支付宝'],
       categoryId: input.defaultCategoryId,
       accountId: input.defaultAccountId,
       source: input.source,

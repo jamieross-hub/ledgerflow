@@ -641,26 +641,45 @@ export function DashboardPage() {
       <section className="panel">
         <h2>核心资产仪表盘</h2>
         <div className="grid grid-3">
-          <div className="stat-card stat-balance">
+          <div className="stat-card stat-balance stat-card-gradient">
             <span className="stat-icon">🧭</span>
             <div>
               <h3>净资产</h3>
               <strong className="stat-value">{formatCurrency(netAssets)}</strong>
             </div>
           </div>
-          <div className="stat-card stat-income">
+          <div className="stat-card stat-income stat-card-gradient">
             <span className="stat-icon">💎</span>
             <div>
               <h3>本月结余</h3>
               <strong className="stat-value">{formatCurrency(monthlyBalance)}</strong>
             </div>
           </div>
-          <div className="stat-card stat-expense">
+          <div className="stat-card stat-expense stat-card-gradient">
             <span className="stat-icon">📄</span>
             <div>
               <h3>欠款负债</h3>
               <strong className="stat-value">{formatCurrency(liabilities)}</strong>
             </div>
+          </div>
+        </div>
+        <div className="dashboard-core-top-list">
+          <div className="dashboard-section-header">
+            <h4>重点账目</h4>
+            <span>金额 TOP {displayTopTransactions.length}</span>
+          </div>
+          <div className="dashboard-top-list">
+            {displayTopTransactions.map((item, index) => (
+              <article key={`${item.date}-${index}`} className="dashboard-top-item">
+                <div>
+                  <p className="dashboard-top-title">
+                    {item.category || '未分类'} · {item.date}
+                  </p>
+                  <p className="dashboard-top-note">{item.note || '无备注'}</p>
+                </div>
+                <strong>{formatCurrency(item.amount)}</strong>
+              </article>
+            ))}
           </div>
         </div>
       </section>
@@ -798,26 +817,6 @@ export function DashboardPage() {
                       </article>
                     );
                   })}
-                </div>
-              </section>
-
-              <section>
-                <div className="dashboard-section-header">
-                  <h4>重点账目</h4>
-                  <span>金额 TOP {displayTopTransactions.length}</span>
-                </div>
-                <div className="dashboard-top-list">
-                  {displayTopTransactions.map((item, index) => (
-                    <article key={`${item.date}-${index}`} className="dashboard-top-item">
-                      <div>
-                        <p className="dashboard-top-title">
-                          {item.category || '未分类'} · {item.date}
-                        </p>
-                        <p className="dashboard-top-note">{item.note || '无备注'}</p>
-                      </div>
-                      <strong>{formatCurrency(item.amount)}</strong>
-                    </article>
-                  ))}
                 </div>
               </section>
             </div>

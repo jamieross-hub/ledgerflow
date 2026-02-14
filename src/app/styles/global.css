@@ -1344,6 +1344,27 @@ small.mono {
   min-width: 0;
 }
 
+.stat-card-gradient {
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card-gradient::after {
+  content: '';
+  position: absolute;
+  width: 160px;
+  height: 160px;
+  right: -70px;
+  top: -80px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-primary) 22%, transparent),
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
 .stat-card:hover {
   box-shadow: var(--shadow-sm);
 }
@@ -1756,6 +1777,10 @@ small.mono {
 .dashboard-top-list {
   display: grid;
   gap: var(--space-2);
+}
+
+.dashboard-core-top-list {
+  margin-top: var(--space-4);
 }
 
 .dashboard-top-item {
@@ -3008,12 +3033,13 @@ small.mono {
 
 .chat-input-form {
   display: flex;
-  align-items: flex-end;
+  align-items: stretch;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-5);
   max-width: 780px;
   margin: 0 auto;
   width: 100%;
+  justify-content: space-between;
 }
 
 .chat-input-textarea {
@@ -3054,13 +3080,13 @@ small.mono {
 }
 
 .chat-upload-btn {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 22px;
   padding: 0;
   flex-shrink: 0;
   background: var(--color-bg-elevated);
@@ -3083,13 +3109,13 @@ small.mono {
 }
 
 .chat-send-btn {
-  width: 40px;
-  height: 40px;
+  width: 52px;
+  height: 48px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 20px;
   padding: 0;
   flex-shrink: 0;
   border: 1px solid var(--color-primary-border);
@@ -3108,6 +3134,26 @@ small.mono {
   background: var(--color-bg-subtle);
   color: var(--color-text-placeholder);
   cursor: not-allowed;
+}
+
+.chat-latest-bill {
+  max-width: 780px;
+  width: 100%;
+  margin: 4px auto 0;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-subtle);
+}
+
+.chat-latest-bill strong {
+  color: var(--color-text);
+  font-size: var(--font-sm);
 }
 
 /* ============================================================
@@ -3199,15 +3245,22 @@ small.mono {
   }
 
   .chat-upload-btn {
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
   }
 
   .chat-send-btn {
-    width: 32px;
-    height: 32px;
-    font-size: 12px;
+    width: 44px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  .chat-latest-bill {
+    margin: 4px var(--space-3) 0;
+    width: auto;
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .chat-msg-image {
@@ -4581,6 +4634,8 @@ small.mono {
   flex-direction: column;
   align-items: flex-end;
   gap: 4px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .account-card-balance-wrap small {
@@ -4589,7 +4644,7 @@ small.mono {
 }
 
 .account-card-balance {
-  font-size: clamp(18px, 2.2vw, 44px);
+  font-size: clamp(18px, 1.8vw, 34px);
   font-weight: 800;
   letter-spacing: 0.01em;
   line-height: 1;
@@ -5306,6 +5361,9 @@ small.mono {
   position: relative;
   margin-bottom: var(--space-3);
   padding-left: var(--space-2);
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+  padding-right: var(--space-1);
 }
 
 .drawer-timeline::before {

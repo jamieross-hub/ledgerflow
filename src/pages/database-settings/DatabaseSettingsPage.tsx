@@ -11,6 +11,7 @@ import {
   webdavUploadBackup
 } from '../../shared/lib/backup';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
+import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
 import { Toast, ToastVariant } from '../../shared/ui/Toast';
 
 type BillSource = 'wechat' | 'alipay';
@@ -23,6 +24,7 @@ export function DatabaseSettingsPage() {
   const addCategory = useFinanceStore((s) => s.addCategory);
   const addAccount = useFinanceStore((s) => s.addAccount);
   const replaceAllData = useFinanceStore((s) => s.replaceAllData);
+  const clearAllAccountBills = useFinanceStore((s) => s.clearAllAccountBills);
 
   const backupInputRef = useRef<HTMLInputElement | null>(null);
   const billInputRef = useRef<HTMLInputElement | null>(null);
@@ -36,6 +38,7 @@ export function DatabaseSettingsPage() {
   });
 
   const [webdav, setWebdav] = useState<BackupWebdavConfig>(() => loadWebdavConfig());
+  const [clearBillsOpen, setClearBillsOpen] = useState(false);
 
   const totalRows = useMemo(
     () => transactions.length + categories.length + accounts.length,
@@ -232,6 +235,14 @@ export function DatabaseSettingsPage() {
       </section>
 
       <section className="panel" style={{ marginTop: 12 }}>
+        <h3 style={{ marginTop: 0 }}>数据重制</h3>
+        <p className="sync-tip">清空所有账户账单（交易记录），保留账户与分类。</p>
+        <button type="button" className="danger" onClick={() => setClearBillsOpen(true)}>
+          一键清空所有账户账单
+        </button>
+      </section>
+
+      <section className="panel" style={{ marginTop: 12 }}>
         <h3 style={{ marginTop: 0 }}>WebDAV 同步</h3>
         <div className="grid grid-2" style={{ gap: 10 }}>
           <div className="field" style={{ marginBottom: 0 }}>
@@ -296,6 +307,21 @@ export function DatabaseSettingsPage() {
         variant={toast.variant}
         message={toast.message}
         onClose={() => setToast((prev) => ({ ...prev, visible: false }))}
+      />
+
+      <ConfirmDialog
+        open={clearBillsOpen}
+        title="确认清空账单"
+        description={`将清空全部 ${transactions.length} 条交易，账户余额会按初始值重算。此操作不可恢复。`}
+        confirmText="确认清空"
+        cancelText="取消"
+        danger
+        onCancel={() => setClearBillsOpen(false)}
+        onConfirm={() => {
+          clearAllAccountBills();
+          setClearBillsOpen(false);
+          showToast('已清空所有账户账单', 'success');
+        }}
       />
     </div>
   );
