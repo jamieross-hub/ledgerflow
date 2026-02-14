@@ -112,23 +112,64 @@ export function ensureCategoryId(
   return addCategory(normalized) || categories[0]?.id || 'cat-unknown';
 }
 
-/**
- * 严谨账户匹配策略：
- * 1) 先做名称精确匹配；
- * 2) 若失败，按来源关键字（微信/支付宝）在账户名中匹配；
- * 3) 还款类优先落到信用卡/负债类账户；
- * 4) 再兜底到首账户。
- */
-export function resolveAccountId(
+function toLooseAccountKey(raw: string): string {
+  return raw
+    .replace(/[\u00A0\u3000]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[\s_\-·•、，,。.!！?？/\\]+/g, '')
+    .toLocaleLowerCase('zh-CN');
+}
+
+function findAccountByName(name: string | undefined, accounts: Account[]): Account | undefined {
+  const normalized = (name || '').trim();
+  if (!normalized) return undefined;
+  const normalizedLower = normalized.toLocaleLowerCase('zh-CN');
+  const exact = accounts.find(
+    (item) => item.name.trim().toLocaleLowerCase('zh-CN') === normalizedLower
+  );
+  if (exact) return exact;
+
+  const looseKey = toLooseAccountKey(normalized);
+  if (!looseKey) return undefined;
+  return accounts.find((item) => {
+    const itemLoose = toLooseAccountKey(item.name);
+    if (!itemLoose) return false;
+    if (itemLoose === looseKey) return true;
+    if (looseKey.length < 2 || itemLoose.length < 2) return false;
+    return itemLoose.includes(looseKey) || looseKey.includes(itemLoose);
+  });
+}
+
+function inferDefaultAccountName(options?: { source?: TransactionSource; type?: TransactionType }): string {
+  if (options?.source === 'wechat') return '微信钱包';
+  if (options?.source === 'alipay') return '支付宝';
+  if (options?.type === 'repayment') return '信用卡';
+  return '现金';
+}
+
+function inferAccountType(
+  name: string,
+  options?: { source?: TransactionSource; type?: TransactionType }
+): Account['type'] {
+  const normalized = name.toLocaleLowerCase('zh-CN');
+  if (options?.source === 'wechat' || options?.source === 'alipay') return 'virtual';
+  if (/微信|wechat|支付宝|alipay|余额宝|零钱/.test(normalized)) return 'virtual';
+  if (/信用卡|花呗|白条/.test(normalized)) return 'credit';
+  if (/借款|贷款|负债/.test(normalized)) return 'liability';
+  if (/银行卡|银行|储蓄|借记/.test(normalized)) return 'debit';
+  if (/现金/.test(normalized)) return 'cash';
+  if (options?.type === 'repayment') return 'credit';
+  return undefined;
+}
+
+function resolveMatchedAccountId(
   name: string | undefined,
   accounts: Account[],
   options?: { source?: TransactionSource; type?: TransactionType }
-): string {
-  const normalized = (name || '').trim().toLowerCase();
-  if (normalized) {
-    const exact = accounts.find((item) => item.name.trim().toLowerCase() === normalized);
-    if (exact) return exact.id;
-  }
+): string | null {
+  const named = findAccountByName(name, accounts);
+  if (named) return named.id;
 
   const source = options?.source;
   if (source === 'wechat') {
@@ -145,7 +186,48 @@ export function resolveAccountId(
     if (liability) return liability.id;
   }
 
+  return null;
+}
+
+/**
+ * 严谨账户匹配策略：
+ * 1) 先做名称精确/模糊匹配；
+ * 2) 若失败，按来源关键字（微信/支付宝）在账户名中匹配；
+ * 3) 还款类优先落到信用卡/负债类账户；
+ * 4) 再兜底到首账户。
+ */
+export function resolveAccountId(
+  name: string | undefined,
+  accounts: Account[],
+  options?: { source?: TransactionSource; type?: TransactionType }
+): string {
+  const matchedId = resolveMatchedAccountId(name, accounts, options);
+  if (matchedId) return matchedId;
   return accounts[0]?.id || 'acc-unknown';
+}
+
+/**
+ * 账户保障策略：
+ * - 优先复用已有账户；
+ * - 未命中时，根据来源/语义自动新建账户并返回新账户 id。
+ */
+export function ensureAccountId(
+  name: string | undefined,
+  accounts: Account[],
+  addAccount: (name: string, type?: Account['type']) => string,
+  options?: { source?: TransactionSource; type?: TransactionType }
+): string {
+  const matchedId = resolveMatchedAccountId(name, accounts, options);
+  if (matchedId) {
+    return matchedId;
+  }
+
+  const targetName = ((name || '').trim() || inferDefaultAccountName(options)).trim();
+  const existing = findAccountByName(targetName, accounts);
+  if (existing) return existing.id;
+
+  const createdId = addAccount(targetName, inferAccountType(targetName, options));
+  return createdId || accounts[0]?.id || 'acc-unknown';
 }
 
 export function mapAssistantErrorMessage(raw: string): string {

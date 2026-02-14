@@ -273,6 +273,7 @@ export function AssistantPage() {
   const accounts = useFinanceStore((s) => s.accounts);
   const transactions = useFinanceStore((s) => s.transactions);
   const addCategory = useFinanceStore((s) => s.addCategory);
+  const addAccount = useFinanceStore((s) => s.addAccount);
   const addTransaction = useFinanceStore((s) => s.addTransaction);
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
 
@@ -284,6 +285,7 @@ export function AssistantPage() {
     accounts,
     transactions,
     addCategory,
+    addAccount,
     addTransaction,
     updateTransaction,
     sceneMode: mode

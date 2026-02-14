@@ -16,13 +16,13 @@ import {
   validateDraft
 } from './workbenchUtils';
 import {
+  ensureAccountId,
   ensureCategoryId,
   inferCategoryFromText,
   inferSourceFromText,
   inferTags,
   mapAssistantErrorMessage,
-  normalizeMoney,
-  resolveAccountId
+  normalizeMoney
 } from './workbenchMapping';
 import type { AssistantToastState, DraftBillEntry, WorkbenchStatus } from './workbenchTypes';
 
@@ -51,6 +51,7 @@ interface UseAssistantWorkbenchInput {
   accounts: Account[];
   transactions: TransactionItem[];
   addCategory: (name: string) => string;
+  addAccount: (name: string, type?: Account['type'], initialBalance?: number) => string;
   addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
   updateTransaction: (id: string, payload: Omit<TransactionItem, 'id'>) => void;
   sceneMode?: 'bookkeeping' | 'assistant';
@@ -325,6 +326,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       }
 
       const categoryCache = [...input.categories];
+      const accountCache = [...input.accounts];
       rows.forEach((item) => {
         const type = item.type === 'unknown' ? 'expense' : item.type;
         const category = item.category.trim() || inferCategoryFromText(type, item.note || '');
@@ -349,7 +351,13 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
           note: item.note || 'AI 导入账单',
           tags: inferTags(type, item.note, category, item.tags || ['AI识别']),
           categoryId,
-          accountId: resolveAccountId(item.account, input.accounts, { source, type }),
+          accountId: ensureAccountId(item.account, accountCache, (nextName, nextType) => {
+            const createdId = input.addAccount(nextName, nextType, 0);
+            if (createdId && !accountCache.some((entry) => entry.id === createdId)) {
+              accountCache.push({ id: createdId, name: nextName.trim(), type: nextType });
+            }
+            return createdId;
+          }, { source, type }),
           orderNo: item.orderNo?.trim() || undefined,
           merchantOrderNo: item.merchantOrderNo?.trim() || undefined,
           source

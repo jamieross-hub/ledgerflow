@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import type { Account } from '../../../entities/account/types';
+import { ensureAccountId } from './workbenchMapping';
 import { extractJsonString, normalizeAiBill } from './workbenchUtils';
 
 describe('workbenchUtils', () => {
@@ -29,5 +31,22 @@ describe('workbenchUtils', () => {
 
     expect(result?.transactions[0].amount).toBe(1299.5);
     expect(result?.transactions[0].date).toBe('2025-01-02');
+  });
+  it('应能在找不到账户时自动创建账户并复用（支付宝示例）', () => {
+    const accounts: Account[] = [{ id: 'acc-cash', name: '现金', type: 'cash' }];
+    let createdCount = 0;
+    const addAccount = (name: string, type?: Account['type']) => {
+      createdCount += 1;
+      accounts.push({ id: `acc-${createdCount}`, name, type: type || 'virtual' });
+      return `acc-${createdCount}`;
+    };
+
+    const id1 = ensureAccountId('支付宝', accounts, addAccount, { source: 'alipay', type: 'expense' });
+    expect(id1).toBe('acc-1');
+    expect(createdCount).toBe(1);
+
+    const id2 = ensureAccountId('支付宝', accounts, addAccount, { source: 'alipay', type: 'expense' });
+    expect(id2).toBe('acc-1');
+    expect(createdCount).toBe(1);
   });
 });
