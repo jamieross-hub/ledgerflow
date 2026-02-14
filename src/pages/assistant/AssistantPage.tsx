@@ -145,7 +145,7 @@ interface PresetQuestion {
   text: string;
 }
 
-const QUICK_BILL_TEMPLATES = [
+const DEFAULT_QUICK_BILL_TEMPLATES = [
   { label: '🍜 午饭 18（支付宝）', prompt: '今天午饭18元，用支付宝支付' },
   { label: '☕ 咖啡 23（微信）', prompt: '今天买咖啡23元，用微信支付' },
   { label: '🚇 地铁 4（零钱）', prompt: '今天地铁4元，用现金支付' },
@@ -177,6 +177,43 @@ function readChatHistory(mode: AssistantMode): ChatHistoryItem[] {
 
 function toMonthKey(date: string) {
   return date.slice(0, 7);
+}
+
+function buildSmartQuickTemplates(transactions: TransactionItem[], categories: Category[]) {
+  const categoryMap = new Map(categories.map((item) => [item.id, item.name]));
+  const expenseRows = transactions
+    .filter((item) => item.type === 'expense')
+    .sort((a, b) => +new Date(b.date) - +new Date(a.date));
+  const grouped = Object.values(
+    expenseRows.reduce<
+      Record<
+        string,
+        { note: string; amount: number; account: string; count: number; category: string }
+      >
+    >((acc, item) => {
+      const note = (item.note || '').trim() || '日常消费';
+      const amount = Math.round(Number(item.amount || 0) * 100) / 100;
+      const sourceText = `${item.note || ''} ${(item.tags || []).join(' ')}`;
+      const account = /微信/i.test(sourceText)
+        ? '微信'
+        : /支付宝|alipay/i.test(sourceText)
+          ? '支付宝'
+          : '账户';
+      const category = categoryMap.get(item.categoryId) || '其他';
+      const key = `${note}|${amount}|${account}`;
+      if (!acc[key]) acc[key] = { note, amount, account, count: 0, category };
+      acc[key].count += 1;
+      return acc;
+    }, {})
+  )
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 4)
+    .map((item) => ({
+      label: `⚡ ${item.note} ${item.amount}（${item.account}）`,
+      prompt: `今天${item.note}${item.amount}元，用${item.account}支付，分类记为${item.category}`
+    }));
+
+  return grouped.length >= 2 ? grouped : DEFAULT_QUICK_BILL_TEMPLATES;
 }
 
 function buildLocalPresetQuestions(transactions: TransactionItem[], categories: Category[]) {
@@ -256,6 +293,7 @@ export function AssistantPage() {
   const [presetQuestions, setPresetQuestions] = useState<PresetQuestion[]>([]);
   const [loadingPresets, setLoadingPresets] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(() => readChatHistory(mode));
+  const [quickTemplates, setQuickTemplates] = useState(DEFAULT_QUICK_BILL_TEMPLATES);
   const latestTransaction = useMemo(
     () =>
       [...transactions]
@@ -267,6 +305,7 @@ export function AssistantPage() {
     bookkeeping: '',
     assistant: ''
   });
+  const pendingRequestModeRef = useRef<AssistantMode>('assistant');
   const messageEndRef = useRef<HTMLDivElement | null>(null);
 
   // 仅保留“被勾选且通过校验”的条目，作为一键保存候选。
@@ -286,9 +325,23 @@ export function AssistantPage() {
     messageEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [wb.status, wb.rawContent, wb.rawReasoning, wb.entries.length, wb.error]);
 
+  const appendMessageToMode = (targetMode: AssistantMode, message: ChatHistoryItem) => {
+    if (targetMode === mode) {
+      setChatHistory((prev) => [...prev, message]);
+      return;
+    }
+    const next = [...readChatHistory(targetMode), message];
+    try {
+      window.sessionStorage.setItem(CHAT_HISTORY_CACHE_KEYS[targetMode], JSON.stringify(next));
+    } catch {
+      // ignore storage write errors
+    }
+  };
+
   const submitPrompt = (prompt: string) => {
     const clean = prompt.trim();
     if (!clean || wb.status === 'recognizing') return;
+    pendingRequestModeRef.current = mode;
     setChatHistory((prev) => [...prev, { id: `${Date.now()}-user`, role: 'user', text: clean }]);
     void wb.handleRecognizeWithPrompt(clean);
   };
@@ -310,15 +363,18 @@ export function AssistantPage() {
     Boolean(wb.error) && !/unexpected token|invalid json|json/i.test(wb.error.toLowerCase());
 
   useEffect(() => {
-    if (!wb.rawContent || wb.rawContent === lastAssistantRef.current[mode]) return;
-    lastAssistantRef.current[mode] = wb.rawContent;
+    const responseMode = pendingRequestModeRef.current;
+    if (!wb.rawContent || wb.rawContent === lastAssistantRef.current[responseMode]) return;
+    lastAssistantRef.current[responseMode] = wb.rawContent;
     const usageText = wb.lastUsage
       ? `Token 消耗：输入 ${wb.lastUsage.promptTokens} / 输出 ${wb.lastUsage.completionTokens} / 总计 ${wb.lastUsage.totalTokens}`
       : undefined;
-    setChatHistory((prev) => [
-      ...prev,
-      { id: `${Date.now()}-assistant`, role: 'assistant', text: wb.rawContent, usageText }
-    ]);
+    appendMessageToMode(responseMode, {
+      id: `${Date.now()}-assistant`,
+      role: 'assistant',
+      text: wb.rawContent,
+      usageText
+    });
   }, [mode, wb.lastUsage, wb.rawContent]);
 
   const removeMessage = (id: string) =>
@@ -401,6 +457,10 @@ export function AssistantPage() {
   useEffect(() => {
     void loadPersonalizedQuestions();
   }, [loadPersonalizedQuestions]);
+
+  useEffect(() => {
+    setQuickTemplates(buildSmartQuickTemplates(transactions, categories));
+  }, [categories, transactions]);
 
   useEffect(() => {
     setChatHistory(readChatHistory(mode));
@@ -490,6 +550,22 @@ export function AssistantPage() {
         </div>
 
         <div className="chat-topbar-right">
+          <button
+            type="button"
+            className="chat-clear-btn"
+            onClick={() => {
+              setChatHistory([]);
+              wb.resetWorkbench();
+              try {
+                window.sessionStorage.removeItem(CHAT_HISTORY_CACHE_KEYS[mode]);
+              } catch {
+                // ignore storage write errors
+              }
+            }}
+            disabled={chatHistory.length === 0}
+          >
+            清空上下文
+          </button>
           <span className="chat-topbar-provider">{baseUrl || '默认服务地址'}</span>
         </div>
       </header>
@@ -512,7 +588,7 @@ export function AssistantPage() {
               <div className="chat-kawaii-amount">¥0.00</div>
               <div className="chat-kawaii-sub">本轮准备记账 · 一句话也能生成账单 ✨</div>
               <div className="chat-kawaii-actions">
-                {QUICK_BILL_TEMPLATES.map((item) => (
+                {quickTemplates.map((item) => (
                   <button
                     key={item.label}
                     type="button"

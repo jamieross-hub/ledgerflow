@@ -626,6 +626,50 @@ export function DashboardPage() {
   );
 
   const tipIndex = new Date().getDate() % TIPS.length;
+  const timePreference = useMemo(() => {
+    const buckets = { 早晨: 0, 午间: 0, 晚间: 0, 深夜: 0 };
+    monthly.forEach((item) => {
+      const hour = new Date(item.date).getHours();
+      if (hour < 6) buckets.深夜 += 1;
+      else if (hour < 12) buckets.早晨 += 1;
+      else if (hour < 18) buckets.午间 += 1;
+      else buckets.晚间 += 1;
+    });
+    return Object.entries(buckets).sort((a, b) => b[1] - a[1])[0]?.[0] || '暂无';
+  }, [monthly]);
+  const topMerchant = useMemo(() => {
+    const counts = new Map<string, number>();
+    monthly.forEach((item) => {
+      const key = (item.note || '').trim().slice(0, 12) || '未知商家';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || '暂无';
+  }, [monthly]);
+  const personalityTag = expense > income ? '冲动型消费者' : '稳健规划型';
+  const crowdCompare = monthlyBalance >= 0 ? '高于同类人群中位线' : '低于同类人群中位线';
+
+  const quarterExpense = useMemo(
+    () =>
+      transactions
+        .filter((item) => {
+          const d = new Date(item.date);
+          return (
+            d.getFullYear() === currentYear &&
+            Math.floor(d.getMonth() / 3) === Math.floor(currentMonth / 3)
+          );
+        })
+        .filter((item) => item.type !== 'income')
+        .reduce((sum, item) => sum + item.amount, 0),
+    [currentMonth, currentYear, transactions]
+  );
+  const yearlyExpense = useMemo(
+    () =>
+      transactions
+        .filter((item) => new Date(item.date).getFullYear() === currentYear)
+        .filter((item) => item.type !== 'income')
+        .reduce((sum, item) => sum + item.amount, 0),
+    [currentYear, transactions]
+  );
 
   return (
     <div>
@@ -681,6 +725,21 @@ export function DashboardPage() {
               </article>
             ))}
           </div>
+        </div>
+        <div className="grid grid-2" style={{ marginTop: 12 }}>
+          <article className="panel" style={{ margin: 0 }}>
+            <h3>消费行为画像</h3>
+            <p>时段偏好：{timePreference}</p>
+            <p>高频商家：{topMerchant}</p>
+            <p>消费人格：{personalityTag}</p>
+            <p>同类人群对比：{crowdCompare}</p>
+          </article>
+          <article className="panel" style={{ margin: 0 }}>
+            <h3>历史对比维度</h3>
+            <p>上月支出：{formatCurrency(recentMonths[recentMonths.length - 2]?.expense || 0)}</p>
+            <p>本季度支出：{formatCurrency(quarterExpense)}</p>
+            <p>本年度支出：{formatCurrency(yearlyExpense)}</p>
+          </article>
         </div>
       </section>
 

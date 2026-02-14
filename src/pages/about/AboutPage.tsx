@@ -39,6 +39,15 @@ export function AboutPage() {
           <li>交易与统计联动：从明细到趋势一体化查看，帮助你做更稳的预算决策。</li>
         </ul>
       </section>
+
+      <section className="about-block">
+        <h3>隐私与安全策略</h3>
+        <ul>
+          <li>数据加密存储：本地账本数据在浏览器侧加密持久化，降低泄露风险。</li>
+          <li>本地优先：默认优先在本地完成统计与筛选，仅在你主动调用 AI 时发送必要上下文。</li>
+          <li>敏感信息脱敏：订单号、商家号等字段在分析链路中按需脱敏展示。</li>
+        </ul>
+      </section>
     </section>
   );
 }

@@ -106,6 +106,7 @@ export function TransactionFilters({
               id="tx-filter-date-from"
               aria-label="筛选开始日期"
               type="date"
+              onFocus={(event) => event.currentTarget.showPicker?.()}
               value={filters.dateFrom}
               onChange={(event) => onDateFromChange(event.target.value)}
             />
@@ -116,6 +117,7 @@ export function TransactionFilters({
               id="tx-filter-date-to"
               aria-label="筛选结束日期"
               type="date"
+              onFocus={(event) => event.currentTarget.showPicker?.()}
               value={filters.dateTo}
               onChange={(event) => onDateToChange(event.target.value)}
             />
