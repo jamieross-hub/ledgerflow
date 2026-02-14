@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { exportTransactionsCsv } from '../../shared/lib/csv';
 import { parseBillCsvToTransactions } from '../../shared/lib/billImport';
-import { formatCurrency, formatDate } from '../../shared/lib/format';
+import { formatDate } from '../../shared/lib/format';
 import { Toast, ToastVariant } from '../../shared/ui/Toast';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
 import {
@@ -36,7 +36,10 @@ const DEFAULT_QUICK_FILTERS: TransactionQuickFilters = {
   type: 'all',
   category: '',
   account: '',
-  amount: '',
+  amountMin: '',
+  amountMax: '',
+  tags: '',
+  merchant: '',
   orderNo: '',
   merchantOrderNo: '',
   note: ''
@@ -221,6 +224,34 @@ function buildDuplicateSignature(item: {
   note: string;
 }) {
   return `${item.date.slice(0, 10)}|${Math.round(Number(item.amount || 0) * 100) / 100}|${item.type}|${String(item.note || '').trim()}`;
+}
+
+function inferCategoryIdByTransaction(
+  transaction: { note: string; tags: string[]; type: string },
+  categories: Category[],
+  fallbackCategoryId?: string
+) {
+  const text = `${transaction.note || ''} ${(transaction.tags || []).join(' ')}`.toLowerCase();
+  const rules: Array<{ pattern: RegExp; names: string[] }> = [
+    { pattern: /餐|外卖|奶茶|咖啡|food|meal|restaurant/, names: ['餐饮', '美食'] },
+    { pattern: /地铁|公交|打车|滴滴|交通|taxi|metro|bus/, names: ['交通', '出行', '打车'] },
+    { pattern: /电影|影院|演出|娱乐|movie|cinema/, names: ['电影', '娱乐'] }
+  ];
+
+  for (const rule of rules) {
+    if (!rule.pattern.test(text)) continue;
+    const matched = categories.find((item) =>
+      rule.names.some((name) => item.name.toLowerCase().includes(name.toLowerCase()))
+    );
+    if (matched) return matched.id;
+  }
+
+  if (transaction.type === 'income') {
+    const income = categories.find((item) => /收入|工资/.test(item.name));
+    if (income) return income.id;
+  }
+
+  return fallbackCategoryId || categories[0]?.id || '';
 }
 
 /** 将交易按“可判重 key”分组：订单号 > 商家订单号 > 内容指纹。 */
@@ -413,7 +444,12 @@ export function TransactionsPage() {
     const dateFilter = quickFilters.date.trim().toLowerCase();
     const categoryFilter = quickFilters.category.trim().toLowerCase();
     const accountFilter = quickFilters.account.trim().toLowerCase();
-    const amountFilter = quickFilters.amount.trim().toLowerCase();
+    const amountMin = Number(quickFilters.amountMin || '');
+    const amountMax = Number(quickFilters.amountMax || '');
+    const hasAmountMin = Number.isFinite(amountMin);
+    const hasAmountMax = Number.isFinite(amountMax);
+    const tagsFilter = quickFilters.tags.trim().toLowerCase();
+    const merchantFilter = quickFilters.merchant.trim().toLowerCase();
     const orderNoFilter = quickFilters.orderNo.trim().toLowerCase();
     const merchantOrderNoFilter = quickFilters.merchantOrderNo.trim().toLowerCase();
     const noteFilter = quickFilters.note.trim().toLowerCase();
@@ -429,11 +465,15 @@ export function TransactionsPage() {
       const merchantOrderNoPass =
         !merchantOrderNoFilter ||
         (row.item.merchantOrderNo || '').toLowerCase().includes(merchantOrderNoFilter);
+      const tagsPass = !tagsFilter || row.item.tags.join(',').toLowerCase().includes(tagsFilter);
+      const merchantPass =
+        !merchantFilter ||
+        (row.item.note || '').toLowerCase().includes(merchantFilter) ||
+        (row.item.merchantOrderNo || '').toLowerCase().includes(merchantFilter);
       const notePass = !noteFilter || (row.item.note || '').toLowerCase().includes(noteFilter);
       const amountPass =
-        !amountFilter ||
-        String(row.item.amount).toLowerCase().includes(amountFilter) ||
-        formatCurrency(row.item.amount).toLowerCase().includes(amountFilter);
+        (!hasAmountMin || row.item.amount >= amountMin) &&
+        (!hasAmountMax || row.item.amount <= amountMax);
 
       return (
         (!dateFilter || dateText.includes(dateFilter)) &&
@@ -441,6 +481,8 @@ export function TransactionsPage() {
         categoryPass &&
         accountPass &&
         amountPass &&
+        tagsPass &&
+        merchantPass &&
         orderNoPass &&
         merchantOrderNoPass &&
         notePass
@@ -657,7 +699,10 @@ export function TransactionsPage() {
     quickFilters.type !== 'all' ||
     quickFilters.category.trim().length > 0 ||
     quickFilters.account.trim().length > 0 ||
-    quickFilters.amount.trim().length > 0 ||
+    quickFilters.amountMin.trim().length > 0 ||
+    quickFilters.amountMax.trim().length > 0 ||
+    quickFilters.tags.trim().length > 0 ||
+    quickFilters.merchant.trim().length > 0 ||
     quickFilters.orderNo.trim().length > 0 ||
     quickFilters.merchantOrderNo.trim().length > 0 ||
     quickFilters.note.trim().length > 0;
@@ -892,6 +937,20 @@ export function TransactionsPage() {
             return;
           }
           setPendingDeleteIds([selected.id]);
+        }}
+        onAiRecategorize={() => {
+          if (!selected) return;
+          const nextCategoryId = inferCategoryIdByTransaction(
+            selected,
+            categories,
+            selected.categoryId
+          );
+          if (!nextCategoryId || nextCategoryId === selected.categoryId) {
+            showToast('AI 分类建议未变化，无需替换。', 'warning');
+            return;
+          }
+          updateTransaction(selected.id, { ...selected, categoryId: nextCategoryId });
+          showToast('已按账单信息完成 AI 重分类。', 'success');
         }}
         visibleSections={visibleDetailSections}
         onToggleSection={handleToggleDetailSection}

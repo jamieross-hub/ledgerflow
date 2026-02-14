@@ -22,7 +22,10 @@ export interface TransactionQuickFilters {
   type: 'all' | 'income' | 'expense' | 'budget' | 'repayment';
   category: string;
   account: string;
-  amount: string;
+  amountMin: string;
+  amountMax: string;
+  tags: string;
+  merchant: string;
   orderNo: string;
   merchantOrderNo: string;
   note: string;
@@ -138,6 +141,7 @@ export function TransactionTable({
   onColumnReorder
 }: TransactionTableProps) {
   const [swipedId, setSwipedId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const dragColumnRef = useRef<TransactionColumnKey | null>(null);
 
@@ -193,7 +197,7 @@ export function TransactionTable({
     date: 'date',
     category: 'category',
     account: 'account',
-    amount: 'amount',
+    amount: 'amountMin',
     orderNo: 'orderNo',
     merchantOrderNo: 'merchantOrderNo',
     note: 'note'
@@ -315,19 +319,52 @@ export function TransactionTable({
                     }
                     return (
                       <th key={`filter-${column.key}`}>
-                        <input
-                          value={
-                            quickFilters[
-                              textFilterKeyMap[column.key as Exclude<TransactionColumnKey, 'type'>]
-                            ]
-                          }
-                          onChange={(event) => {
-                            const filterKey =
-                              textFilterKeyMap[column.key as Exclude<TransactionColumnKey, 'type'>];
-                            onQuickFilterChange(filterKey, event.target.value);
-                          }}
-                          placeholder={`筛选${column.label}`}
-                        />
+                        {column.key === 'date' ? (
+                          <input
+                            type="date"
+                            value={quickFilters.date}
+                            onChange={(event) => onQuickFilterChange('date', event.target.value)}
+                            placeholder="筛选日期"
+                          />
+                        ) : column.key === 'amount' ? (
+                          <div className="transaction-amount-range-inputs">
+                            <input
+                              type="number"
+                              value={quickFilters.amountMin}
+                              onChange={(event) =>
+                                onQuickFilterChange('amountMin', event.target.value)
+                              }
+                              placeholder="最小"
+                            />
+                            <span>~</span>
+                            <input
+                              type="number"
+                              value={quickFilters.amountMax}
+                              onChange={(event) =>
+                                onQuickFilterChange('amountMax', event.target.value)
+                              }
+                              placeholder="最大"
+                            />
+                          </div>
+                        ) : (
+                          <input
+                            value={
+                              quickFilters[
+                                textFilterKeyMap[
+                                  column.key as Exclude<TransactionColumnKey, 'type'>
+                                ]
+                              ]
+                            }
+                            onChange={(event) => {
+                              const filterKey =
+                                textFilterKeyMap[
+                                  column.key as Exclude<TransactionColumnKey, 'type'>
+                                ];
+                              onQuickFilterChange(filterKey, event.target.value);
+                            }}
+                            placeholder={`筛选${column.label}`}
+                          />
+                        )}
                       </th>
                     );
                   })}
@@ -343,6 +380,10 @@ export function TransactionTable({
                       id={`transaction-row-${item.id}`}
                       className={`transaction-row-clickable ${highlightId === item.id ? 'transaction-row-highlight' : ''}`.trim()}
                       onClick={() => onOpenDetail(item.id)}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        setContextMenu({ x: event.clientX, y: event.clientY, id: item.id });
+                      }}
                     >
                       <td
                         className="transaction-select-col"
@@ -541,6 +582,35 @@ export function TransactionTable({
               </button>
             </div>
           </div>
+          {contextMenu ? (
+            <div
+              className="transaction-context-menu"
+              style={{ left: contextMenu.x, top: contextMenu.y }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenDetail(contextMenu.id);
+                  setContextMenu(null);
+                }}
+              >
+                查看详情
+              </button>
+              <button
+                type="button"
+                className="danger"
+                onClick={() => {
+                  onDelete(contextMenu.id);
+                  setContextMenu(null);
+                }}
+              >
+                删除账单
+              </button>
+              <button type="button" onClick={() => setContextMenu(null)}>
+                取消
+              </button>
+            </div>
+          ) : null}
         </>
       )}
     </section>

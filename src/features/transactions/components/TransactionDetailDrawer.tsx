@@ -40,6 +40,7 @@ interface TransactionDetailDrawerProps {
   onCopyNote: () => void;
   onCopyJson: () => void;
   onDelete: () => void;
+  onAiRecategorize: () => void;
   visibleSections: Record<TransactionDetailSectionKey, boolean>;
   onToggleSection: (key: TransactionDetailSectionKey) => void;
 }
@@ -54,6 +55,7 @@ export function TransactionDetailDrawer({
   onCopyNote,
   onCopyJson,
   onDelete,
+  onAiRecategorize,
   visibleSections,
   onToggleSection
 }: TransactionDetailDrawerProps) {
@@ -302,6 +304,9 @@ export function TransactionDetailDrawer({
           <Link to={`/transactions/${transaction.id}`} style={{ textDecoration: 'none' }}>
             <button type="button">✏️ 编辑</button>
           </Link>
+          <button type="button" onClick={onAiRecategorize}>
+            🤖 AI 重分类
+          </button>
           <button type="button" className="danger" onClick={onDelete}>
             🗑️ 删除
           </button>

@@ -70,12 +70,12 @@ export function CategoriesAccountsPage() {
       setAccountError('账户名称需为 1-24 个字符，且不能包含 < 或 >。');
       return;
     }
+    if (!accountType) {
+      setAccountError('请选择账户类型，账户类型为必填项。');
+      return;
+    }
     const initialBalance = Number(accountInitialBalance || '0');
-    addAccount(
-      normalized,
-      accountType || undefined,
-      Number.isFinite(initialBalance) ? initialBalance : 0
-    );
+    addAccount(normalized, accountType, Number.isFinite(initialBalance) ? initialBalance : 0);
     setAccountName('');
     setAccountType('');
     setAccountInitialBalance('0');
@@ -347,7 +347,7 @@ export function CategoriesAccountsPage() {
                 value={accountType}
                 onChange={(e) => setAccountType(e.target.value as AccountType | '')}
               >
-                <option value="">类型（可选）</option>
+                <option value="">请选择类型（必选）</option>
                 <option value="cash">💵 现金</option>
                 <option value="debit">💳 借记卡</option>
                 <option value="savings">🏦 储蓄卡</option>

@@ -30,6 +30,7 @@ describe('TransactionDetailDrawer', () => {
           onCopyNote={() => undefined}
           onCopyJson={onCopyJson}
           onDelete={() => undefined}
+          onAiRecategorize={() => undefined}
           visibleSections={{
             base: true,
             source: true,
