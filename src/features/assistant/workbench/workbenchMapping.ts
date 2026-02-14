@@ -75,6 +75,15 @@ export function resolveCategoryId(name: string | undefined, categories: Category
   return matched?.id || categories[0]?.id || 'cat-unknown';
 }
 
+function toLooseCategoryKey(raw: string): string {
+  return raw
+    .replace(/[\u00A0\u3000]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[\s_\-·•、，,。.!！?？/\\]+/g, '')
+    .toLocaleLowerCase('zh-CN');
+}
+
 export function ensureCategoryId(
   name: string | undefined,
   categories: Category[],
@@ -82,10 +91,24 @@ export function ensureCategoryId(
 ): string {
   const normalized = (name || '').trim();
   if (!normalized) return resolveCategoryId(normalized, categories);
-  const matched = categories.find(
-    (item) => item.name.trim().toLowerCase() === normalized.toLowerCase()
+
+  const exactMatched = categories.find(
+    (item) => item.name.trim().toLocaleLowerCase('zh-CN') === normalized.toLocaleLowerCase('zh-CN')
   );
-  if (matched) return matched.id;
+  if (exactMatched) return exactMatched.id;
+
+  const normalizedLoose = toLooseCategoryKey(normalized);
+  if (!normalizedLoose) return resolveCategoryId(undefined, categories);
+
+  const nearMatched = categories.find((item) => {
+    const itemLoose = toLooseCategoryKey(item.name);
+    if (!itemLoose) return false;
+    if (itemLoose === normalizedLoose) return true;
+    if (normalizedLoose.length < 2 || itemLoose.length < 2) return false;
+    return itemLoose.includes(normalizedLoose) || normalizedLoose.includes(itemLoose);
+  });
+  if (nearMatched) return nearMatched.id;
+
   return addCategory(normalized) || categories[0]?.id || 'cat-unknown';
 }
 

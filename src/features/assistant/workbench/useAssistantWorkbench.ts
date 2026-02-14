@@ -324,6 +324,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
         );
       }
 
+      const categoryCache = [...input.categories];
       rows.forEach((item) => {
         const type = item.type === 'unknown' ? 'expense' : item.type;
         const category = item.category.trim() || inferCategoryFromText(type, item.note || '');
@@ -333,13 +334,21 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
             ? item.sourceHint
             : inferSourceFromText(`${item.note} ${(item.tags || []).join(' ')}`);
 
+        const categoryId = ensureCategoryId(category, categoryCache, (nextName) => {
+          const createdId = input.addCategory(nextName);
+          if (createdId && !categoryCache.some((entry) => entry.id === createdId)) {
+            categoryCache.push({ id: createdId, name: nextName.trim() });
+          }
+          return createdId;
+        });
+
         const payload = {
           type,
           amount: normalizeMoney(item.amount),
           date: normalizeEntryDate(item.date),
           note: item.note || 'AI 导入账单',
           tags: inferTags(type, item.note, category, item.tags || ['AI识别']),
-          categoryId: ensureCategoryId(category, input.categories, input.addCategory),
+          categoryId,
           accountId: resolveAccountId(item.account, input.accounts, { source, type }),
           orderNo: item.orderNo?.trim() || undefined,
           merchantOrderNo: item.merchantOrderNo?.trim() || undefined,

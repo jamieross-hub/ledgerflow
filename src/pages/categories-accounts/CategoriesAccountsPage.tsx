@@ -71,7 +71,7 @@ export function CategoriesAccountsPage() {
       return;
     }
     if (!accountType) {
-      setAccountError('请选择账户类型，账户类型为必填项。');
+      setAccountError('请选择账户类型后再添加账户。');
       return;
     }
     const initialBalance = Number(accountInitialBalance || '0');
@@ -347,7 +347,7 @@ export function CategoriesAccountsPage() {
                 value={accountType}
                 onChange={(e) => setAccountType(e.target.value as AccountType | '')}
               >
-                <option value="">请选择类型（必选）</option>
+                <option value="">请选择类型</option>
                 <option value="cash">💵 现金</option>
                 <option value="debit">💳 借记卡</option>
                 <option value="savings">🏦 储蓄卡</option>
