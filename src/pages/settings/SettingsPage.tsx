@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { fetchAiModels } from '../../features/assistant/api/openaiCompatibleClient';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { Toast } from '../../shared/ui/Toast';
-import { usePwaInstallPrompt } from '../../shared/hooks/usePwaInstallPrompt';
 
 const MODEL_PRESETS = [
   'gemini-2.5-flash-lite',
@@ -41,63 +41,72 @@ interface ModelSelectorProps {
   hint: string;
   value: string;
   presets: string[];
+  remoteModels: string[];
+  loading: boolean;
+  onRefresh: () => void;
   onChange: (value: string) => void;
 }
 
-function ModelSelector({ label, hint, value, presets, onChange }: ModelSelectorProps) {
-  const [presetOpen, setPresetOpen] = useState(false);
+function mergeModelOptions(value: string, presets: string[], remoteModels: string[]): string[] {
+  const uniq = new Set<string>();
+  const options = [value, ...remoteModels, ...presets]
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => {
+      if (uniq.has(item)) return false;
+      uniq.add(item);
+      return true;
+    });
+  return options;
+}
+
+function ModelSelector({
+  label,
+  hint,
+  value,
+  presets,
+  remoteModels,
+  loading,
+  onRefresh,
+  onChange
+}: ModelSelectorProps) {
+  const options = useMemo(
+    () => mergeModelOptions(value, presets, remoteModels),
+    [value, presets, remoteModels]
+  );
 
   return (
     <div className="field settings-model-field">
       <label>{label}</label>
       <small>{hint}</small>
-      <div className="row settings-model-input-row">
-        <input
-          value={value}
-          placeholder="输入模型名称"
-          onChange={(e) => onChange(e.target.value)}
-        />
-      </div>
-      <button
-        type="button"
-        className="settings-presets-toggle"
-        onClick={() => setPresetOpen((v) => !v)}
-      >
-        {presetOpen ? '收起预设模型' : '选择预设模型'}
-      </button>
-      {presetOpen ? (
-        <div className="settings-model-chips">
-          {presets.map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={item === value ? 'active' : ''}
-              onClick={() => onChange(item)}
-            >
+      <div className="settings-model-select-row">
+        <select value={value} onChange={(e) => onChange(e.target.value)}>
+          {options.map((item) => (
+            <option key={item} value={item}>
               {item}
-            </button>
+            </option>
           ))}
-        </div>
-      ) : null}
-      <div className="settings-model-chips">
-        {presets.map((item) => (
-          <button
-            key={item}
-            type="button"
-            className={item === value ? 'active' : ''}
-            onClick={() => onChange(item)}
-          >
-            {item}
-          </button>
-        ))}
+        </select>
+        <button
+          type="button"
+          className="settings-model-refresh"
+          onClick={onRefresh}
+          disabled={loading}
+        >
+          {loading ? '拉取中…' : '刷新模型'}
+        </button>
       </div>
+      <input
+        value={value}
+        placeholder="可手动输入模型名称"
+        onChange={(e) => onChange(e.target.value)}
+      />
     </div>
   );
 }
 
 export function SettingsPage() {
   const navigate = useNavigate();
-  const { canInstall, triggerInstall } = usePwaInstallPrompt();
 
   const baseUrl = useAiSettings((s) => s.baseUrl);
   const apiKey = useAiSettings((s) => s.apiKey);
@@ -116,6 +125,9 @@ export function SettingsPage() {
 
   const [masked, setMasked] = useState(true);
   const [toastVisible, setToastVisible] = useState(false);
+  const [modelOptions, setModelOptions] = useState<string[]>([]);
+  const [modelLoading, setModelLoading] = useState(false);
+  const [modelLoadError, setModelLoadError] = useState('');
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showSaveToast = useCallback(() => {
@@ -135,6 +147,27 @@ export function SettingsPage() {
     };
   }, []);
 
+  const refreshModels = useCallback(async () => {
+    if (!baseUrl) {
+      setModelLoadError('请先填写 Base URL，再拉取模型列表。');
+      return;
+    }
+    setModelLoading(true);
+    setModelLoadError('');
+    try {
+      const remote = await fetchAiModels(baseUrl, apiKey);
+      setModelOptions(remote);
+      if (remote.length === 0) {
+        setModelLoadError('模型列表为空，已回退到本地预设。');
+      }
+    } catch (error) {
+      setModelLoadError(error instanceof Error ? error.message : '模型列表拉取失败');
+      setModelOptions([]);
+    } finally {
+      setModelLoading(false);
+    }
+  }, [apiKey, baseUrl]);
+
   const handleSelectModel = (setter: (value: string) => void, value: string) => {
     setter(value.trim());
     showSaveToast();
@@ -149,20 +182,7 @@ export function SettingsPage() {
             ← 返回
           </button>
         </div>
-        <div className="field" style={{ marginTop: 16 }}>
-          <label>界面语言</label>
-          <div className="row">
-            <span>简体中文</span>
-            <button disabled={!canInstall} onClick={() => void triggerInstall()}>
-              {canInstall ? '安装 PWA' : '当前不可安装'}
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section className="panel">
-        <h2>AI 渠道设置（OpenAI 兼容）</h2>
-        <p>
+        <p style={{ marginTop: 16 }}>
           同一套 Base URL + API Key 可复用于对话、嵌入、重排序，便于账单检索与趋势分析场景统一接入。
         </p>
 
@@ -204,6 +224,9 @@ export function SettingsPage() {
             hint="用于 AI 助手、趋势洞察等主流程。"
             value={model}
             presets={MODEL_PRESETS}
+            remoteModels={modelOptions}
+            loading={modelLoading}
+            onRefresh={() => void refreshModels()}
             onChange={(value) => handleSelectModel(setModel, value)}
           />
           <ModelSelector
@@ -211,6 +234,9 @@ export function SettingsPage() {
             hint="用于账单向量化检索与语义召回。"
             value={embeddingModel}
             presets={EMBEDDING_MODEL_PRESETS}
+            remoteModels={modelOptions}
+            loading={modelLoading}
+            onRefresh={() => void refreshModels()}
             onChange={(value) => handleSelectModel(setEmbeddingModel, value)}
           />
           <ModelSelector
@@ -218,9 +244,13 @@ export function SettingsPage() {
             hint="用于检索结果重排，提高命中准确度。"
             value={rerankModel}
             presets={RERANK_MODEL_PRESETS}
+            remoteModels={modelOptions}
+            loading={modelLoading}
+            onRefresh={() => void refreshModels()}
             onChange={(value) => handleSelectModel(setRerankModel, value)}
           />
         </div>
+        {modelLoadError ? <p className="settings-model-error">{modelLoadError}</p> : null}
 
         <div className="field">
           <label>助手记忆时长（天）</label>
@@ -249,16 +279,6 @@ export function SettingsPage() {
             <option value="local">本地（默认）</option>
             <option value="redis">Redis（占位，待后端接入）</option>
           </select>
-        </div>
-
-        <div className="settings-ai-summary">
-          <strong>当前配置</strong>
-          <p>对话模型：{model || '未设置'}</p>
-          <p>嵌入模型：{embeddingModel || '未设置'}</p>
-          <p>重排序模型：{rerankModel || '未设置'}</p>
-          <p>
-            记忆配置：{memoryDays} 天 · {memoryBackend === 'redis' ? 'Redis（占位）' : '本地'}
-          </p>
         </div>
       </section>
 
