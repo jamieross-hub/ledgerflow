@@ -92,6 +92,10 @@ interface TransactionTableProps {
   onOpenDetail: (id: string) => void;
   onDelete: (id: string) => void;
   onDeleteSelected: () => void;
+  onBulkEditCategory: (categoryId: string) => void;
+  onBulkEditAccount: (accountId: string) => void;
+  categoryOptions: Array<{ id: string; name: string }>;
+  accountOptions: Array<{ id: string; name: string }>;
   onClearSelection: () => void;
   onToggleSelect: (id: string, selected: boolean) => void;
   onToggleSelectPage: (selected: boolean) => void;
@@ -133,6 +137,10 @@ export function TransactionTable({
   onOpenDetail,
   onDelete,
   onDeleteSelected,
+  onBulkEditCategory,
+  onBulkEditAccount,
+  categoryOptions,
+  accountOptions,
   onClearSelection,
   onToggleSelect,
   onToggleSelectPage,
@@ -267,7 +275,43 @@ export function TransactionTable({
           {selectedIds.length > 0 ? (
             <div className="transaction-bulk-bar">
               <strong>已选中 {selectedIds.length} 条</strong>
-              <div className="row">
+              <div className="row transaction-bulk-actions">
+                <label className="transaction-bulk-select">
+                  <span>批量分类</span>
+                  <select
+                    defaultValue=""
+                    onChange={(event) => {
+                      if (!event.target.value) return;
+                      onBulkEditCategory(event.target.value);
+                      event.target.value = '';
+                    }}
+                  >
+                    <option value="">选择分类</option>
+                    {categoryOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="transaction-bulk-select">
+                  <span>批量账户</span>
+                  <select
+                    defaultValue=""
+                    onChange={(event) => {
+                      if (!event.target.value) return;
+                      onBulkEditAccount(event.target.value);
+                      event.target.value = '';
+                    }}
+                  >
+                    <option value="">选择账户</option>
+                    {accountOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <button type="button" onClick={onDeleteSelected} className="danger">
                   批量删除
                 </button>

@@ -4,6 +4,7 @@ import {
   BillImportMode,
   parseBillFileToTransactions
 } from '../../shared/lib/billImport';
+import { resolveImportDefaultAccountId } from '../../shared/lib/importAccount';
 import {
   BackupWebdavConfig,
   createFinanceBackupPayload,
@@ -55,9 +56,12 @@ export function DatabaseSettingsPage() {
     setToast({ visible: true, message, variant });
   };
 
-  const ensureDefaultRefs = () => {
+  const ensureDefaultRefs = (source?: BillSource) => {
     const categoryId = categories[0]?.id || addCategory('默认分类');
-    const accountId = accounts[0]?.id || addAccount('默认账户', undefined, 0);
+    const fallbackAccountId = accounts[0]?.id || addAccount('默认账户', undefined, 0);
+    const accountId = source
+      ? resolveImportDefaultAccountId(accounts, source, fallbackAccountId)
+      : fallbackAccountId;
     return { categoryId, accountId };
   };
 
@@ -98,7 +102,7 @@ export function DatabaseSettingsPage() {
     }
 
     try {
-      const refs = ensureDefaultRefs();
+      const refs = ensureDefaultRefs(source);
       const rows = await parseBillFileToTransactions({
         file,
         source,
