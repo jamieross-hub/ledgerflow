@@ -2,7 +2,7 @@ import { ChangeEvent, useMemo, useRef, useState } from 'react';
 import {
   applyBillImportMode,
   BillImportMode,
-  parseBillCsvToTransactions
+  parseBillFileToTransactions
 } from '../../shared/lib/billImport';
 import {
   BackupWebdavConfig,
@@ -98,10 +98,9 @@ export function DatabaseSettingsPage() {
     }
 
     try {
-      const csvText = await file.text();
       const refs = ensureDefaultRefs();
-      const rows = parseBillCsvToTransactions({
-        csvText,
+      const rows = await parseBillFileToTransactions({
+        file,
         source,
         defaultCategoryId: refs.categoryId,
         defaultAccountId: refs.accountId
@@ -136,7 +135,7 @@ export function DatabaseSettingsPage() {
         'success'
       );
     } catch {
-      showToast('账单导入失败：CSV 解析异常', 'error');
+      showToast('账单导入失败：文件解析异常', 'error');
     }
   };
 
@@ -197,7 +196,7 @@ export function DatabaseSettingsPage() {
         <p>已移除 MySQL / PostgreSQL / Redis 连接配置，当前统一使用备份与恢复方案。</p>
         <ul style={{ marginTop: 10, color: 'var(--color-text-secondary)', lineHeight: 1.7 }}>
           <li>支持本地 JSON 一键导出与导入。</li>
-          <li>支持导入微信 / 支付宝账单 CSV。</li>
+          <li>支持导入微信 / 支付宝账单 CSV / XLSX。</li>
           <li>支持 WebDAV 远程同步（上传与下载恢复）。</li>
         </ul>
       </section>
@@ -225,8 +224,8 @@ export function DatabaseSettingsPage() {
       </section>
 
       <section className="panel" style={{ marginTop: 12 }}>
-        <h3 style={{ marginTop: 0 }}>账单 CSV 导入</h3>
-        <p className="sync-tip">支持微信、支付宝官方账单 CSV / TXT（含制表符）格式。</p>
+        <h3 style={{ marginTop: 0 }}>账单导入</h3>
+        <p className="sync-tip">支持微信、支付宝官方账单 CSV / TXT（含制表符）与微信 XLSX 格式。</p>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             导入模式
@@ -261,9 +260,9 @@ export function DatabaseSettingsPage() {
           <input
             ref={billInputRef}
             type="file"
-            title="导入账单 CSV"
-            aria-label="导入账单 CSV"
-            accept=".csv,text/csv,.txt,text/plain"
+            title="导入账单文件"
+            aria-label="导入账单文件"
+            accept=".csv,text/csv,.txt,text/plain,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             style={{ display: 'none' }}
             onChange={handleImportBillFile}
           />
