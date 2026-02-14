@@ -3614,6 +3614,8 @@ small.mono {
 .drawer-panel {
   width: min(1200px, 100vw);
   height: min(56vh, 560px);
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-bottom: none;
@@ -3622,6 +3624,7 @@ small.mono {
   box-shadow: var(--shadow-xl);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .drawer-header {
@@ -3642,6 +3645,8 @@ small.mono {
   padding: var(--space-4);
   display: grid;
   gap: var(--space-3);
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .drawer-kv {
@@ -3741,10 +3746,12 @@ small.mono {
 
 .drawer-footer {
   padding: var(--space-3) var(--space-4);
+  padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--color-divider);
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  flex-shrink: 0;
 }
 
 /* ============================================================
@@ -3789,7 +3796,10 @@ small.mono {
   .drawer-panel {
     width: 100vw;
     max-width: 100vw;
-    height: 60vh;
+    height: min(78vh, 760px);
+    height: min(78dvh, 760px);
+    max-height: calc(100vh - 8px);
+    max-height: calc(100dvh - 8px);
     border-left: 1px solid var(--color-border);
     border-right: 1px solid var(--color-border);
     border-bottom: none;
@@ -3950,8 +3960,8 @@ small.mono {
 
   .drawer-footer {
     padding: var(--space-3);
-    position: sticky;
-    bottom: 0;
+    padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+    position: static;
     background: var(--color-bg-elevated);
   }
 
