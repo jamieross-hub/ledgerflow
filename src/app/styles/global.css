@@ -937,6 +937,34 @@ tr:hover td {
   background: var(--color-bg-elevated);
 }
 
+.transaction-amount-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.transaction-amount-range-inputs input {
+  min-width: 0;
+}
+
+.transaction-context-menu {
+  position: fixed;
+  z-index: 240;
+  min-width: 140px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  display: grid;
+  gap: 4px;
+}
+
+.transaction-context-menu button {
+  width: 100%;
+  text-align: left;
+}
+
 .transaction-select-col {
   width: 40px;
   min-width: 40px;
@@ -1363,6 +1391,27 @@ small.mono {
   min-width: 0;
 }
 
+.stat-card-gradient {
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card-gradient::after {
+  content: '';
+  position: absolute;
+  width: 160px;
+  height: 160px;
+  right: -70px;
+  top: -80px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-primary) 22%, transparent),
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
 .stat-card:hover {
   box-shadow: var(--shadow-sm);
 }
@@ -1775,6 +1824,10 @@ small.mono {
 .dashboard-top-list {
   display: grid;
   gap: var(--space-2);
+}
+
+.dashboard-core-top-list {
+  margin-top: var(--space-4);
 }
 
 .dashboard-top-item {
@@ -3027,12 +3080,13 @@ small.mono {
 
 .chat-input-form {
   display: flex;
-  align-items: flex-end;
+  align-items: stretch;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-5);
   max-width: 780px;
   margin: 0 auto;
   width: 100%;
+  justify-content: space-between;
 }
 
 .chat-input-textarea {
@@ -3073,13 +3127,13 @@ small.mono {
 }
 
 .chat-upload-btn {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 22px;
   padding: 0;
   flex-shrink: 0;
   background: var(--color-bg-elevated);
@@ -3102,13 +3156,13 @@ small.mono {
 }
 
 .chat-send-btn {
-  width: 40px;
-  height: 40px;
+  width: 52px;
+  height: 48px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 20px;
   padding: 0;
   flex-shrink: 0;
   border: 1px solid var(--color-primary-border);
@@ -3127,6 +3181,26 @@ small.mono {
   background: var(--color-bg-subtle);
   color: var(--color-text-placeholder);
   cursor: not-allowed;
+}
+
+.chat-latest-bill {
+  max-width: 780px;
+  width: 100%;
+  margin: 4px auto 0;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-subtle);
+}
+
+.chat-latest-bill strong {
+  color: var(--color-text);
+  font-size: var(--font-sm);
 }
 
 /* ============================================================
@@ -3224,15 +3298,22 @@ small.mono {
   }
 
   .chat-upload-btn {
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
   }
 
   .chat-send-btn {
-    width: 32px;
-    height: 32px;
-    font-size: 12px;
+    width: 44px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  .chat-latest-bill {
+    margin: 4px var(--space-3) 0;
+    width: auto;
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .chat-msg-image {
@@ -3518,15 +3599,19 @@ small.mono {
   inset: 0;
   background: rgba(15, 23, 42, 0.35);
   display: flex;
-  justify-content: flex-end;
+  align-items: flex-end;
+  justify-content: center;
   z-index: 170;
 }
 
 .drawer-panel {
-  width: min(520px, 100vw);
-  height: 100vh;
+  width: min(1200px, 100vw);
+  height: min(56vh, 560px);
   background: var(--color-bg-elevated);
-  border-left: 1px solid var(--color-border);
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
   box-shadow: var(--shadow-xl);
   display: flex;
   flex-direction: column;
@@ -3697,7 +3782,10 @@ small.mono {
   .drawer-panel {
     width: 100vw;
     max-width: 100vw;
-    border-left: none;
+    height: 60vh;
+    border-left: 1px solid var(--color-border);
+    border-right: 1px solid var(--color-border);
+    border-bottom: none;
   }
 
   .mobile-nav-toggle {
@@ -4085,6 +4173,10 @@ small.mono {
 }
 
 .exchange-key-equal,
+.exchange-key-zero {
+  grid-column: span 2;
+}
+
 .exchange-key-zero {
   grid-column: span 2;
 }
@@ -4607,6 +4699,8 @@ small.mono {
   flex-direction: column;
   align-items: flex-end;
   gap: 4px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .account-card-balance-wrap small {
@@ -4615,7 +4709,7 @@ small.mono {
 }
 
 .account-card-balance {
-  font-size: clamp(18px, 2.2vw, 44px);
+  font-size: clamp(18px, 1.8vw, 34px);
   font-weight: 800;
   letter-spacing: 0.01em;
   line-height: 1;
@@ -5244,4 +5338,174 @@ small.mono {
   border-radius: var(--radius-full);
   padding: 1px 8px;
   font-size: 11px;
+}
+
+/* --- 2026-02 UI refresh patches --- */
+.topbar-left {
+  min-width: 0;
+  width: min(100%, 760px);
+}
+
+.topbar-brand-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.topbar-brand-copy h1 {
+  max-width: 100%;
+}
+
+.topbar-brand-copy span {
+  max-width: 100%;
+}
+
+.dashboard-insight-progress {
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background: var(--color-bg-subtle);
+}
+
+.dashboard-insight-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: var(--font-sm);
+}
+
+.dashboard-insight-progress-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-border-light);
+  overflow: hidden;
+}
+
+.dashboard-insight-progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--color-primary),
+    color-mix(in srgb, var(--color-primary) 70%, white)
+  );
+  transition: width 0.35s ease;
+}
+
+.dashboard-insight-progress p {
+  margin: 8px 0 0;
+  font-size: var(--font-xs);
+}
+
+.drawer-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 2px;
+  margin-left: auto;
+  margin-right: var(--space-2);
+  background: var(--color-bg-subtle);
+}
+
+.drawer-mode-switch button {
+  border: none;
+  background: transparent;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: var(--font-xs);
+}
+
+.drawer-mode-switch button.active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.drawer-timeline {
+  position: relative;
+  margin-bottom: var(--space-3);
+  padding-left: var(--space-2);
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+
+.drawer-timeline::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: var(--color-border-light);
+}
+
+.drawer-timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: flex-start;
+  margin-bottom: var(--space-3);
+}
+
+.drawer-timeline-icon {
+  position: relative;
+  z-index: 1;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-elevated);
+  font-size: 12px;
+}
+
+.drawer-timeline-item p {
+  margin: 0 0 4px;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-xs);
+}
+
+.drawer-timeline-item strong {
+  display: block;
+  font-size: var(--font-sm);
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.settings-model-select-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.settings-model-refresh {
+  white-space: nowrap;
+}
+
+.settings-model-error {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-xs);
+  color: var(--color-expense);
+}
+
+@media (max-width: 720px) {
+  .drawer-mode-switch {
+    margin-left: 0;
+    margin-right: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .drawer-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
 }

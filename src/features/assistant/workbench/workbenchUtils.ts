@@ -3,7 +3,7 @@ import type { Category } from '../../../entities/category/types';
 import type { TransactionItem, TransactionType } from '../../../entities/transaction/types';
 import type { AiBillItem, AiBillResult, DraftBillEntry, ValidationIssue } from './workbenchTypes';
 
-const MAX_PROMPT_TRANSACTIONS = 240;
+const MAX_PROMPT_TRANSACTIONS = 1200;
 const CHINA_NETWORK_TIME_API = 'https://api.m.taobao.com/rest/api3.do?api=mtop.common.getTimestamp';
 
 export const JSON_AGENT_PROMPT = `你是 LedgerFlow 个人记账助手，专门处理用户账本中的“记账录入 + 交易分析”。
@@ -55,7 +55,7 @@ export function buildTransactionPromptContext(
 ): string {
   const categoryMap = new Map(categories.map((item) => [item.id, item.name]));
   const accountMap = new Map(accounts.map((item) => [item.id, item.name]));
-  const rows = transactions
+  const normalizedAll = transactions
     .map((item) => ({
       date: toDateKey(item.date),
       type: item.type,
@@ -65,8 +65,16 @@ export function buildTransactionPromptContext(
       tags: (item.tags || []).slice(0, 6),
       note: String(item.note || '').slice(0, 80)
     }))
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, MAX_PROMPT_TRANSACTIONS);
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  const rows = normalizedAll.slice(0, MAX_PROMPT_TRANSACTIONS);
+
+  const allDates = normalizedAll
+    .map((item) => item.date)
+    .filter(Boolean)
+    .sort();
+  const coveredFrom = allDates[0] || '';
+  const coveredTo = allDates[allDates.length - 1] || '';
 
   const totals = rows.reduce(
     (acc, item) => {
@@ -83,6 +91,10 @@ export function buildTransactionPromptContext(
       generatedAt: new Date().toISOString(),
       totalTransactions: transactions.length,
       includedTransactions: rows.length,
+      dateCoverage: {
+        from: coveredFrom,
+        to: coveredTo
+      },
       summary: {
         totalIncome: Number(totals.income.toFixed(2)),
         totalExpense: Number(totals.expense.toFixed(2)),

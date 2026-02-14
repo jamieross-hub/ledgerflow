@@ -18,6 +18,7 @@ interface FinanceState {
   addAccount: (name: string, type?: Account['type'], initialBalance?: number) => string;
   updateAccountBalance: (id: string, balance: number) => void;
   removeAccount: (id: string) => void;
+  clearAllAccountBills: () => void;
   replaceAllData: (payload: {
     transactions: TransactionItem[];
     categories: Category[];
@@ -253,6 +254,12 @@ export const useFinanceStore = create<FinanceState>()(
       removeAccount: (id) => {
         set((s) => ({ accounts: s.accounts.filter((item) => item.id !== id) }));
         void syncChangeIfNeeded({ entity: 'accounts', action: 'delete', id });
+      },
+      clearAllAccountBills: () => {
+        set((s) => ({
+          transactions: [],
+          accounts: computeAccountBalances(s.accounts, [])
+        }));
       },
       replaceAllData: (payload) => {
         const incomingCategories = Array.isArray(payload.categories) ? payload.categories : [];

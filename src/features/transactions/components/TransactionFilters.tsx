@@ -7,6 +7,7 @@ import {
   TransactionTypeFilter
 } from '../hooks/useTransactionFilters';
 import { TransactionColumnKey } from './TransactionTable';
+import { BillImportMode } from '../../../shared/lib/billImport';
 
 interface TransactionFiltersProps {
   filters: TransactionFilterState;
@@ -20,6 +21,8 @@ interface TransactionFiltersProps {
   onExport: () => void;
   onImportWechat: () => void;
   onImportAlipay: () => void;
+  importMode: BillImportMode;
+  onImportModeChange: (mode: BillImportMode) => void;
   onCheckDuplicates: () => void;
   columnOptions: Array<{ key: TransactionColumnKey; label: string }>;
   visibleColumns: Record<TransactionColumnKey, boolean>;
@@ -38,6 +41,8 @@ export function TransactionFilters({
   onExport,
   onImportWechat,
   onImportAlipay,
+  importMode,
+  onImportModeChange,
   onCheckDuplicates,
   columnOptions,
   visibleColumns,
@@ -107,6 +112,7 @@ export function TransactionFilters({
               id="tx-filter-date-from"
               aria-label="筛选开始日期"
               type="date"
+              onFocus={(event) => event.currentTarget.showPicker?.()}
               value={filters.dateFrom}
               onChange={(event) => onDateFromChange(event.target.value)}
             />
@@ -130,6 +136,7 @@ export function TransactionFilters({
               id="tx-filter-date-to"
               aria-label="筛选结束日期"
               type="date"
+              onFocus={(event) => event.currentTarget.showPicker?.()}
               value={filters.dateTo}
               onChange={(event) => onDateToChange(event.target.value)}
             />
@@ -176,7 +183,7 @@ export function TransactionFilters({
                   <option value="all">全部来源</option>
                   <option value="manual">手工录入</option>
                   <option value="wechat">微信导入</option>
-                  <option value="alipay">支付宝导入</option>
+                  <option value="alipay">支付宝</option>
                   <option value="ai">AI 记账</option>
                 </select>
               </div>
@@ -203,6 +210,19 @@ export function TransactionFilters({
 
               <div className="transaction-context-divider" />
               <p className="transaction-filter-section-title">更多操作</p>
+              <div className="field" style={{ marginBottom: 8 }}>
+                <label htmlFor="tx-import-mode">账单导入模式</label>
+                <select
+                  id="tx-import-mode"
+                  aria-label="账单导入模式"
+                  value={importMode}
+                  onChange={(event) => onImportModeChange(event.target.value as BillImportMode)}
+                >
+                  <option value="incremental">增量（跳过重复）</option>
+                  <option value="merge">合并（覆盖重复）</option>
+                  <option value="overwrite">覆盖（清空后导入）</option>
+                </select>
+              </div>
               <div className="transaction-filter-actions-grid">
                 <button type="button" onClick={onExport}>
                   导出 CSV

@@ -192,12 +192,13 @@ export function ExchangeConverter({ rates, base }: ExchangeConverterProps) {
             const isNum = /^\d$/.test(key) || key === '.';
             const isOperator = ['÷', '×', '-', '+', '='].includes(key);
             const isDanger = key === 'C' || key === '⌫';
+            const isZero = key === '0';
 
             return (
               <button
                 key={key}
                 type="button"
-                className={`exchange-key ${isNum ? 'exchange-key-num' : ''} ${isOperator ? 'exchange-key-op' : ''} ${isDanger ? 'exchange-key-danger' : ''} ${key === '=' ? 'exchange-key-equal primary' : ''} ${key === '0' ? 'exchange-key-zero' : ''}`.trim()}
+                className={`exchange-key ${isNum ? 'exchange-key-num' : ''} ${isOperator ? 'exchange-key-op' : ''} ${isDanger ? 'exchange-key-danger' : ''} ${isZero ? 'exchange-key-zero' : ''} ${key === '=' ? 'exchange-key-equal primary' : ''}`.trim()}
                 onClick={() => applyKey(key)}
               >
                 {key}

@@ -143,6 +143,7 @@ export function DashboardPage() {
   >('idle');
   const [monthlyInsightError, setMonthlyInsightError] = useState('');
   const [monthlyInsightRequestToken, setMonthlyInsightRequestToken] = useState(0);
+  const [monthlyInsightProgress, setMonthlyInsightProgress] = useState(0);
 
   const now = new Date();
   const currentMonth = now.getMonth();
@@ -412,6 +413,23 @@ export function DashboardPage() {
   }, [aiInput, apiKey, baseUrl, forecastRequestToken, model, monthlyBalance, transactions.length]);
 
   useEffect(() => {
+    if (monthlyInsightStatus !== 'loading' && monthlyInsightStatus !== 'streaming') {
+      setMonthlyInsightProgress(monthlyInsightStatus === 'done' ? 100 : 0);
+      return;
+    }
+
+    setMonthlyInsightProgress((prev) => (prev > 8 ? prev : 8));
+    const timer = window.setInterval(() => {
+      setMonthlyInsightProgress((prev) => {
+        const cap = monthlyInsightStatus === 'streaming' ? 94 : 86;
+        return Math.min(cap, prev + Math.max(1, Math.round((100 - prev) * 0.08)));
+      });
+    }, 380);
+
+    return () => window.clearInterval(timer);
+  }, [monthlyInsightStatus]);
+
+  useEffect(() => {
     if (transactions.length === 0) return;
     if (monthlyInsightRequestToken <= 0) return;
 
@@ -470,9 +488,11 @@ export function DashboardPage() {
           highlights
         };
         setMonthlyInsight(next);
+        setMonthlyInsightProgress(100);
         setMonthlyInsightStatus('done');
       } catch (error) {
         if (!canceled) {
+          setMonthlyInsightProgress(0);
           setMonthlyInsightStatus('error');
           setMonthlyInsightError(error instanceof Error ? error.message : '本月趋势分析失败');
         }
@@ -598,6 +618,50 @@ export function DashboardPage() {
   );
 
   const tipIndex = new Date().getDate() % TIPS.length;
+  const timePreference = useMemo(() => {
+    const buckets = { 早晨: 0, 午间: 0, 晚间: 0, 深夜: 0 };
+    monthly.forEach((item) => {
+      const hour = new Date(item.date).getHours();
+      if (hour < 6) buckets.深夜 += 1;
+      else if (hour < 12) buckets.早晨 += 1;
+      else if (hour < 18) buckets.午间 += 1;
+      else buckets.晚间 += 1;
+    });
+    return Object.entries(buckets).sort((a, b) => b[1] - a[1])[0]?.[0] || '暂无';
+  }, [monthly]);
+  const topMerchant = useMemo(() => {
+    const counts = new Map<string, number>();
+    monthly.forEach((item) => {
+      const key = (item.note || '').trim().slice(0, 12) || '未知商家';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || '暂无';
+  }, [monthly]);
+  const personalityTag = expense > income ? '冲动型消费者' : '稳健规划型';
+  const crowdCompare = monthlyBalance >= 0 ? '高于同类人群中位线' : '低于同类人群中位线';
+
+  const quarterExpense = useMemo(
+    () =>
+      transactions
+        .filter((item) => {
+          const d = new Date(item.date);
+          return (
+            d.getFullYear() === currentYear &&
+            Math.floor(d.getMonth() / 3) === Math.floor(currentMonth / 3)
+          );
+        })
+        .filter((item) => item.type !== 'income')
+        .reduce((sum, item) => sum + item.amount, 0),
+    [currentMonth, currentYear, transactions]
+  );
+  const yearlyExpense = useMemo(
+    () =>
+      transactions
+        .filter((item) => new Date(item.date).getFullYear() === currentYear)
+        .filter((item) => item.type !== 'income')
+        .reduce((sum, item) => sum + item.amount, 0),
+    [currentYear, transactions]
+  );
 
   return (
     <div>
@@ -613,27 +677,61 @@ export function DashboardPage() {
       <section className="panel">
         <h2>核心资产仪表盘</h2>
         <div className="grid grid-3">
-          <div className="stat-card stat-balance">
+          <div className="stat-card stat-balance stat-card-gradient">
             <span className="stat-icon">🧭</span>
             <div>
               <h3>净资产</h3>
               <strong className="stat-value">{formatCurrency(netAssets)}</strong>
             </div>
           </div>
-          <div className="stat-card stat-income">
+          <div className="stat-card stat-income stat-card-gradient">
             <span className="stat-icon">💎</span>
             <div>
               <h3>本月结余</h3>
               <strong className="stat-value">{formatCurrency(monthlyBalance)}</strong>
             </div>
           </div>
-          <div className="stat-card stat-expense">
+          <div className="stat-card stat-expense stat-card-gradient">
             <span className="stat-icon">📄</span>
             <div>
               <h3>欠款负债</h3>
               <strong className="stat-value">{formatCurrency(liabilities)}</strong>
             </div>
           </div>
+        </div>
+        <div className="dashboard-core-top-list">
+          <div className="dashboard-section-header">
+            <h4>重点账目</h4>
+            <span>金额 TOP {displayTopTransactions.length}</span>
+          </div>
+          <div className="dashboard-top-list">
+            {displayTopTransactions.map((item, index) => (
+              <article key={`${item.date}-${index}`} className="dashboard-top-item">
+                <div>
+                  <p className="dashboard-top-title">
+                    {item.category || '未分类'} · {item.date}
+                  </p>
+                  <p className="dashboard-top-note">{item.note || '无备注'}</p>
+                </div>
+                <strong>{formatCurrency(item.amount)}</strong>
+              </article>
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-2" style={{ marginTop: 12 }}>
+          <article className="panel" style={{ margin: 0 }}>
+            <h3>消费行为画像</h3>
+            <p>时段偏好：{timePreference}</p>
+            <p>高频商家：{topMerchant}</p>
+            <p>消费人格：{personalityTag}</p>
+            <p>同类人群对比：{crowdCompare}</p>
+          </article>
+          <article className="panel" style={{ margin: 0 }}>
+            <h3>历史对比维度</h3>
+            <p>上月支出：{formatCurrency(recentMonths[recentMonths.length - 2]?.expense || 0)}</p>
+            <p>本季度支出：{formatCurrency(quarterExpense)}</p>
+            <p>本年度支出：{formatCurrency(yearlyExpense)}</p>
+          </article>
         </div>
       </section>
 
@@ -712,11 +810,42 @@ export function DashboardPage() {
               <div className="dashboard-summary-chip">AI 分析聚焦于本月分类结构与异常波动</div>
             </div>
 
-            {monthlyInsightError ? (
-              <div className="dashboard-ai-actions" style={{ marginBottom: 'var(--space-3)' }}>
-                <p className="dashboard-ai-error">{monthlyInsightError}</p>
+            <div className="dashboard-insight-progress" aria-live="polite">
+              <div className="dashboard-insight-progress-head">
+                <span>AI 洞察进度</span>
+                <strong>{monthlyInsightProgress}%</strong>
               </div>
-            ) : null}
+              <div className="dashboard-insight-progress-track">
+                <span style={{ width: `${monthlyInsightProgress}%` }} />
+              </div>
+              <p>
+                {monthlyInsightStatus === 'loading'
+                  ? '正在整理本月账目结构…'
+                  : monthlyInsightStatus === 'streaming'
+                    ? '正在生成重点结论，请稍候。'
+                    : monthlyInsightStatus === 'done'
+                      ? '分析完成，可查看分类与重点账目。'
+                      : '点击“重新分析”开始生成。'}
+              </p>
+            </div>
+
+            <div className="dashboard-ai-actions" style={{ marginBottom: 'var(--space-3)' }}>
+              <button
+                type="button"
+                className="dashboard-forecast-refresh"
+                onClick={handleRefreshMonthlyInsight}
+                disabled={
+                  monthlyInsightStatus === 'loading' ||
+                  monthlyInsightStatus === 'streaming' ||
+                  transactions.length === 0
+                }
+              >
+                重新分析
+              </button>
+              {monthlyInsightError ? (
+                <p className="dashboard-ai-error">{monthlyInsightError}</p>
+              ) : null}
+            </div>
 
             <div className="dashboard-trend-sections">
               <section>
@@ -748,26 +877,6 @@ export function DashboardPage() {
                       </article>
                     );
                   })}
-                </div>
-              </section>
-
-              <section>
-                <div className="dashboard-section-header">
-                  <h4>重点账目</h4>
-                  <span>金额 TOP {displayTopTransactions.length}</span>
-                </div>
-                <div className="dashboard-top-list">
-                  {displayTopTransactions.map((item, index) => (
-                    <article key={`${item.date}-${index}`} className="dashboard-top-item">
-                      <div>
-                        <p className="dashboard-top-title">
-                          {item.category || '未分类'} · {item.date}
-                        </p>
-                        <p className="dashboard-top-note">{item.note || '无备注'}</p>
-                      </div>
-                      <strong>{formatCurrency(item.amount)}</strong>
-                    </article>
-                  ))}
                 </div>
               </section>
             </div>

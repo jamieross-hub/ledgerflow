@@ -9,6 +9,21 @@ interface ParseBillInput {
   defaultAccountId: string;
 }
 
+export type BillImportMode = 'incremental' | 'merge' | 'overwrite';
+
+interface ApplyBillImportModeInput {
+  mode: BillImportMode;
+  existing: TransactionItem[];
+  incoming: Omit<TransactionItem, 'id'>[];
+}
+
+interface ApplyBillImportModeResult {
+  append: Omit<TransactionItem, 'id'>[];
+  update: Array<{ id: string; payload: Omit<TransactionItem, 'id'> }>;
+  skipped: number;
+  shouldClearBeforeImport: boolean;
+}
+
 const DATE_KEYS = [
   '交易时间',
   '入账时间',
@@ -102,6 +117,71 @@ function parseAmount(raw: string): number {
   if (!Number.isFinite(value)) return 0;
   // 统一两位小数，避免浮点误差导致金额展示异常。
   return Math.round(Math.abs(value) * 100) / 100;
+}
+
+function buildBillIdentity(item: {
+  date: string;
+  amount: number;
+  type: string;
+  note: string;
+  orderNo?: string;
+  merchantOrderNo?: string;
+}): string {
+  const orderNo = String(item.orderNo || '').trim();
+  if (orderNo) {
+    return `order:${orderNo}`;
+  }
+
+  const merchantOrderNo = String(item.merchantOrderNo || '').trim();
+  if (merchantOrderNo) {
+    return `merchant:${merchantOrderNo}`;
+  }
+
+  const amount = Math.round(Math.abs(Number(item.amount || 0)) * 100) / 100;
+  return `content:${String(item.date || '').slice(0, 10)}|${amount}|${String(item.type || '')}|${String(item.note || '').trim()}`;
+}
+
+export function applyBillImportMode(input: ApplyBillImportModeInput): ApplyBillImportModeResult {
+  const existingByIdentity = new Map<string, TransactionItem>();
+  input.existing.forEach((item) => {
+    existingByIdentity.set(buildBillIdentity(item), item);
+  });
+
+  if (input.mode === 'overwrite') {
+    return {
+      append: input.incoming,
+      update: [],
+      skipped: 0,
+      shouldClearBeforeImport: true
+    };
+  }
+
+  const append: Omit<TransactionItem, 'id'>[] = [];
+  const update: Array<{ id: string; payload: Omit<TransactionItem, 'id'> }> = [];
+  let skipped = 0;
+
+  input.incoming.forEach((item) => {
+    const identity = buildBillIdentity(item);
+    const existing = existingByIdentity.get(identity);
+    if (!existing) {
+      append.push(item);
+      return;
+    }
+
+    if (input.mode === 'merge') {
+      update.push({ id: existing.id, payload: item });
+      return;
+    }
+
+    skipped += 1;
+  });
+
+  return {
+    append,
+    update,
+    skipped,
+    shouldClearBeforeImport: false
+  };
 }
 
 function parseType(row: Record<string, string>, amountRaw: string): 'income' | 'expense' {
@@ -297,7 +377,7 @@ export function parseBillCsvToTransactions(input: ParseBillInput): Omit<Transact
       amount,
       date: parseDate(dateRaw),
       note: buildNote(row),
-      tags: [input.source === 'wechat' ? '微信导入' : '支付宝导入'],
+      tags: [input.source === 'wechat' ? '微信导入' : '支付宝'],
       categoryId: input.defaultCategoryId,
       accountId: input.defaultAccountId,
       source: input.source,
