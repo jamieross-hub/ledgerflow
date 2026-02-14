@@ -143,6 +143,7 @@ export function DashboardPage() {
   >('idle');
   const [monthlyInsightError, setMonthlyInsightError] = useState('');
   const [monthlyInsightRequestToken, setMonthlyInsightRequestToken] = useState(0);
+  const [monthlyInsightProgress, setMonthlyInsightProgress] = useState(0);
 
   const now = new Date();
   const currentMonth = now.getMonth();
@@ -415,6 +416,23 @@ export function DashboardPage() {
   }, [aiInput, apiKey, baseUrl, forecastRequestToken, model, monthlyBalance, transactions.length]);
 
   useEffect(() => {
+    if (monthlyInsightStatus !== 'loading' && monthlyInsightStatus !== 'streaming') {
+      setMonthlyInsightProgress(monthlyInsightStatus === 'done' ? 100 : 0);
+      return;
+    }
+
+    setMonthlyInsightProgress((prev) => (prev > 8 ? prev : 8));
+    const timer = window.setInterval(() => {
+      setMonthlyInsightProgress((prev) => {
+        const cap = monthlyInsightStatus === 'streaming' ? 94 : 86;
+        return Math.min(cap, prev + Math.max(1, Math.round((100 - prev) * 0.08)));
+      });
+    }, 380);
+
+    return () => window.clearInterval(timer);
+  }, [monthlyInsightStatus]);
+
+  useEffect(() => {
     if (transactions.length === 0) return;
     if (monthlyInsightRequestToken <= 0) return;
 
@@ -473,9 +491,11 @@ export function DashboardPage() {
           highlights
         };
         setMonthlyInsight(next);
+        setMonthlyInsightProgress(100);
         setMonthlyInsightStatus('done');
       } catch (error) {
         if (!canceled) {
+          setMonthlyInsightProgress(0);
           setMonthlyInsightStatus('error');
           setMonthlyInsightError(error instanceof Error ? error.message : '本月趋势分析失败');
         }
@@ -709,6 +729,25 @@ export function DashboardPage() {
                 </p>
               </div>
               <div className="dashboard-summary-chip">AI 分析聚焦于本月分类结构与异常波动</div>
+            </div>
+
+            <div className="dashboard-insight-progress" aria-live="polite">
+              <div className="dashboard-insight-progress-head">
+                <span>AI 洞察进度</span>
+                <strong>{monthlyInsightProgress}%</strong>
+              </div>
+              <div className="dashboard-insight-progress-track">
+                <span style={{ width: `${monthlyInsightProgress}%` }} />
+              </div>
+              <p>
+                {monthlyInsightStatus === 'loading'
+                  ? '正在整理本月账目结构…'
+                  : monthlyInsightStatus === 'streaming'
+                    ? '正在生成重点结论，请稍候。'
+                    : monthlyInsightStatus === 'done'
+                      ? '分析完成，可查看分类与重点账目。'
+                      : '点击“重新分析”开始生成。'}
+              </p>
             </div>
 
             <div className="dashboard-ai-actions" style={{ marginBottom: 'var(--space-3)' }}>

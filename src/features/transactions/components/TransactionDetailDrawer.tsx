@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   TransactionItem,
@@ -19,7 +19,16 @@ function statusLabel(status: TransactionStatus): string {
   return STATUS_LABELS[status] || status;
 }
 
+function sourceLabel(source: TransactionSource): string {
+  if (source === 'ai') return 'AI 记账';
+  if (source === 'wechat') return '微信导入';
+  if (source === 'alipay') return '支付宝导入';
+  return '手工录入';
+}
+
 export type TransactionDetailSectionKey = 'base' | 'source' | 'note' | 'tags' | 'json';
+type DetailMode = 'professional' | 'timeline';
+const DETAIL_MODE_STORAGE_KEY = 'ledgerflow.transactions.detailMode';
 
 interface TransactionDetailDrawerProps {
   open: boolean;
@@ -48,6 +57,16 @@ export function TransactionDetailDrawer({
   visibleSections,
   onToggleSection
 }: TransactionDetailDrawerProps) {
+  const [mode, setMode] = useState<DetailMode>(() => {
+    const saved = window.localStorage.getItem(DETAIL_MODE_STORAGE_KEY);
+    return saved === 'timeline' ? 'timeline' : 'professional';
+  });
+
+  const setDetailMode = (next: DetailMode) => {
+    setMode(next);
+    window.localStorage.setItem(DETAIL_MODE_STORAGE_KEY, next);
+  };
+
   // 打开时禁止 body 滚动
   useEffect(() => {
     if (open) {
@@ -85,35 +104,81 @@ export function TransactionDetailDrawer({
             <h3>交易详情</h3>
             <small className="drawer-subtitle">支持模块化显示</small>
           </div>
+          <div className="drawer-mode-switch" role="tablist" aria-label="交易详情显示模式">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'professional'}
+              className={mode === 'professional' ? 'active' : ''}
+              onClick={() => setDetailMode('professional')}
+            >
+              专业模式
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'timeline'}
+              className={mode === 'timeline' ? 'active' : ''}
+              onClick={() => setDetailMode('timeline')}
+            >
+              时间轴模式
+            </button>
+          </div>
           <button type="button" className="icon-btn" onClick={onClose} aria-label="关闭详情">
             ✕
           </button>
         </header>
 
         <div className="drawer-body">
-          <details className="drawer-modules" open>
-            <summary>详情标题模块</summary>
-            <div className="drawer-modules-grid">
+          {mode === 'timeline' ? (
+            <section className="drawer-timeline" aria-label="交易时间轴">
               {[
-                { key: 'base' as const, label: '基础信息' },
-                { key: 'source' as const, label: '来源' },
-                { key: 'note' as const, label: '备注' },
-                { key: 'tags' as const, label: '标签' },
-                { key: 'json' as const, label: '原始 JSON' }
+                { label: '交易创建', value: formatDateTime(transaction.date), icon: '🧾' },
+                { label: '分类与账户', value: `${categoryName} · ${accountName}`, icon: '🗂️' },
+                {
+                  label: '交易金额',
+                  value: `${transaction.type === 'income' ? '+' : '-'}${formatCurrency(transaction.amount)}`,
+                  icon: transaction.type === 'income' ? '🟢' : '🔴'
+                },
+                { label: '记录来源', value: sourceLabel(source), icon: '🤖' },
+                { label: '备注', value: transaction.note || '（无）', icon: '📝' }
               ].map((item) => (
-                <label key={item.key}>
-                  <input
-                    type="checkbox"
-                    checked={visibleSections[item.key]}
-                    onChange={() => onToggleSection(item.key)}
-                  />
-                  <span>{item.label}</span>
-                </label>
+                <article key={item.label} className="drawer-timeline-item">
+                  <span className="drawer-timeline-icon">{item.icon}</span>
+                  <div>
+                    <p>{item.label}</p>
+                    <strong>{item.value}</strong>
+                  </div>
+                </article>
               ))}
-            </div>
-          </details>
+            </section>
+          ) : null}
 
-          {visibleSections.base ? (
+          {mode === 'professional' ? (
+            <details className="drawer-modules" open>
+              <summary>详情标题模块</summary>
+              <div className="drawer-modules-grid">
+                {[
+                  { key: 'base' as const, label: '基础信息' },
+                  { key: 'source' as const, label: '来源' },
+                  { key: 'note' as const, label: '备注' },
+                  { key: 'tags' as const, label: '标签' },
+                  { key: 'json' as const, label: '原始 JSON' }
+                ].map((item) => (
+                  <label key={item.key}>
+                    <input
+                      type="checkbox"
+                      checked={visibleSections[item.key]}
+                      onChange={() => onToggleSection(item.key)}
+                    />
+                    <span>{item.label}</span>
+                  </label>
+                ))}
+              </div>
+            </details>
+          ) : null}
+
+          {mode === 'professional' && visibleSections.base ? (
             <>
               <div className="drawer-kv">
                 <span>日期时间</span>
@@ -173,7 +238,7 @@ export function TransactionDetailDrawer({
             </>
           ) : null}
 
-          {visibleSections.source ? (
+          {mode === 'professional' && visibleSections.source ? (
             <div className="drawer-kv">
               <span>来源</span>
               <strong>
@@ -185,14 +250,14 @@ export function TransactionDetailDrawer({
             </div>
           ) : null}
 
-          {visibleSections.note ? (
+          {mode === 'professional' && visibleSections.note ? (
             <section className="drawer-section">
               <h4>备注</h4>
               <p>{transaction.note || '（无）'}</p>
             </section>
           ) : null}
 
-          {visibleSections.tags ? (
+          {mode === 'professional' && visibleSections.tags ? (
             <section className="drawer-section">
               <h4>标签</h4>
               <div className="drawer-tags">
@@ -219,7 +284,7 @@ export function TransactionDetailDrawer({
             </section>
           ) : null}
 
-          {visibleSections.json ? (
+          {mode === 'professional' && visibleSections.json ? (
             <section className="drawer-section">
               <h4>原始 JSON</h4>
               <pre>{JSON.stringify(transaction, null, 2)}</pre>

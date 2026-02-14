@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { ThemeSwitcher } from '../../features/theme-switcher/ThemeSwitcher';
+import { formatCurrency } from '../../shared/lib/format';
 import { useAiSettings } from '../../shared/store/useAiSettings';
+import { useFinanceStore } from '../../shared/store/useFinanceStore';
 
 /** 当前发布版本号（展示用途，与 package.json 可独立管理） */
 const APP_VERSION = '0.2';
@@ -110,6 +112,22 @@ export function AppLayout() {
   const baseUrl = useAiSettings((s) => s.baseUrl);
   const model = useAiSettings((s) => s.model);
   const apiKey = useAiSettings((s) => s.apiKey);
+  const transactions = useFinanceStore((s) => s.transactions);
+
+  const thisMonth = new Date();
+  const monthTransactions = transactions.filter((item) => {
+    const date = new Date(item.date);
+    return (
+      date.getMonth() === thisMonth.getMonth() && date.getFullYear() === thisMonth.getFullYear()
+    );
+  });
+  const monthIncome = monthTransactions
+    .filter((item) => item.type === 'income')
+    .reduce((sum, item) => sum + item.amount, 0);
+  const monthExpense = monthTransactions
+    .filter((item) => item.type !== 'income')
+    .reduce((sum, item) => sum + item.amount, 0);
+  const monthBalance = monthIncome - monthExpense;
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
@@ -369,7 +387,10 @@ export function AppLayout() {
 
             <section className="mobile-nav-summary-card">
               <h3>{monthLabel}</h3>
-              <p>本月坚持打卡、预算追踪和流水回顾都在这里完成。</p>
+              <p>结余 {formatCurrency(monthBalance)}</p>
+              <p>
+                收入 {formatCurrency(monthIncome)} · 支出 {formatCurrency(monthExpense)}
+              </p>
             </section>
 
             <div className="mobile-nav-tip-banner">
