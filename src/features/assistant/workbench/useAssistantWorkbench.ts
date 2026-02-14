@@ -18,12 +18,15 @@ import {
 import {
   ensureAccountId,
   ensureCategoryId,
+  inferAccountNameFromText,
   inferCategoryFromText,
   inferSourceFromText,
   inferTags,
   mapAssistantErrorMessage,
-  normalizeMoney
+  normalizeMoney,
+  resolveAccountId
 } from './workbenchMapping';
+import type { AccountResolveSource } from './workbenchMapping';
 import type { AssistantToastState, DraftBillEntry, WorkbenchStatus } from './workbenchTypes';
 
 /** 模型列表本地缓存 key：用于启动时秒开下拉列表。 */
@@ -330,11 +333,55 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       rows.forEach((item) => {
         const type = item.type === 'unknown' ? 'expense' : item.type;
         const category = item.category.trim() || inferCategoryFromText(type, item.note || '');
-        // 来源优先级：模型显式 sourceHint > 文本推断，保证账单账户归属更稳定。
+        const noteAndTagsText = `${item.note} ${(item.tags || []).join(' ')}`;
+
+        // 交易来源（写入 TransactionItem）仅使用现有枚举；银行/现金在账户解析层单独处理。
         const source =
           item.sourceHint === 'wechat' || item.sourceHint === 'alipay'
             ? item.sourceHint
-            : inferSourceFromText(`${item.note} ${(item.tags || []).join(' ')}`);
+            : inferSourceFromText(noteAndTagsText);
+
+        // 账户来源用于 ensureAccountId，可承载 bank/cash/unknown 细粒度语义。
+        let accountSource: AccountResolveSource =
+          item.sourceHint === 'wechat' ||
+          item.sourceHint === 'alipay' ||
+          item.sourceHint === 'bank' ||
+          item.sourceHint === 'cash' ||
+          item.sourceHint === 'unknown'
+            ? item.sourceHint
+            : inferSourceFromText(noteAndTagsText);
+
+        if (accountSource === 'unknown' || accountSource === 'ai') {
+          if (/(现金|cash|现付|纸币|硬币)/i.test(noteAndTagsText)) {
+            accountSource = 'cash';
+          } else if (/(银行|银行卡|储蓄卡|借记卡|bank)/i.test(noteAndTagsText)) {
+            accountSource = 'bank';
+          }
+        }
+
+        const accountHintForInference =
+          accountSource === 'wechat' ||
+          accountSource === 'alipay' ||
+          accountSource === 'bank' ||
+          accountSource === 'cash' ||
+          accountSource === 'unknown'
+            ? accountSource
+            : undefined;
+
+        // 账户决策优先级：
+        // 1) 优先采用模型明确给出的具体账户名（模型主导是否新建）；
+        // 2) 若模型未给或仅给泛化名，再用本地规则兜底推断；
+        // 3) 仍无法确定时只复用，不触发新建。
+        const trimmedAccount = String(item.account || '').trim();
+        const hasGenericAccountName = /^(银行卡|银行账户|储蓄卡|借记卡|bank|bank\s*card|account)$/i.test(
+          trimmedAccount
+        );
+        const llmAccountName = trimmedAccount && !hasGenericAccountName ? trimmedAccount : '';
+        const fallbackAccountName = llmAccountName
+          ? ''
+          : inferAccountNameFromText(noteAndTagsText, accountHintForInference, {
+              type
+            });
 
         const categoryId = ensureCategoryId(category, categoryCache, (nextName) => {
           const createdId = input.addCategory(nextName);
@@ -344,6 +391,25 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
           return createdId;
         });
 
+        const accountOptions = { source: accountSource, type };
+        const accountId = llmAccountName
+          ? ensureAccountId(llmAccountName, accountCache, (nextName, nextType) => {
+              const createdId = input.addAccount(nextName, nextType, 0);
+              if (createdId && !accountCache.some((entry) => entry.id === createdId)) {
+                accountCache.push({ id: createdId, name: nextName.trim(), type: nextType });
+              }
+              return createdId;
+            }, accountOptions)
+          : fallbackAccountName
+            ? ensureAccountId(fallbackAccountName, accountCache, (nextName, nextType) => {
+                const createdId = input.addAccount(nextName, nextType, 0);
+                if (createdId && !accountCache.some((entry) => entry.id === createdId)) {
+                  accountCache.push({ id: createdId, name: nextName.trim(), type: nextType });
+                }
+                return createdId;
+              }, accountOptions)
+            : resolveAccountId(undefined, accountCache, accountOptions);
+
         const payload = {
           type,
           amount: normalizeMoney(item.amount),
@@ -351,13 +417,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
           note: item.note || 'AI 导入账单',
           tags: inferTags(type, item.note, category, item.tags || ['AI识别']),
           categoryId,
-          accountId: ensureAccountId(item.account, accountCache, (nextName, nextType) => {
-            const createdId = input.addAccount(nextName, nextType, 0);
-            if (createdId && !accountCache.some((entry) => entry.id === createdId)) {
-              accountCache.push({ id: createdId, name: nextName.trim(), type: nextType });
-            }
-            return createdId;
-          }, { source, type }),
+          accountId,
           orderNo: item.orderNo?.trim() || undefined,
           merchantOrderNo: item.merchantOrderNo?.trim() || undefined,
           source

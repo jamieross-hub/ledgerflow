@@ -27,6 +27,9 @@ export function inferCategoryFromText(type: TransactionType, text: string): stri
     if (/兼职|副业|part[-\s]?time|freelance/.test(normalized)) return '兼职';
     return '收入';
   }
+  if (type === 'repayment' || /还款|贷款|房贷|车贷|按揭|月供|花呗|白条|信用卡还款/.test(normalized)) {
+    return '还款';
+  }
   if (/餐|外卖|奶茶|咖啡|food|meal|restaurant/.test(normalized)) return '餐饮';
   if (/地铁|公交|打车|出租|滴滴|交通|taxi|metro|bus/.test(normalized)) return '交通';
   if (/京东|淘宝|拼多多|购物|网购|shop|mall/.test(normalized)) return '购物';
@@ -63,6 +66,8 @@ export function inferTags(
   if (/微信|wechat/.test(normalized)) pushTag('微信');
   if (/京东|淘宝|拼多多|shop/.test(normalized)) pushTag('网购');
   if (/工资|salary|payroll/.test(normalized)) pushTag('工资');
+  if (/贷款|房贷|车贷|按揭|月供/.test(normalized)) pushTag('贷款');
+  if (/信用卡|花呗|白条/.test(normalized)) pushTag('信用账户');
   return tags;
 }
 
@@ -141,32 +146,78 @@ function findAccountByName(name: string | undefined, accounts: Account[]): Accou
   });
 }
 
-function inferDefaultAccountName(options?: { source?: TransactionSource; type?: TransactionType }): string {
+const BANK_ACCOUNT_PATTERNS = [
+  /(中国银行|工商银行|建设银行|农业银行|交通银行|邮储银行|招商银行|平安银行|中信银行|光大银行|华夏银行|浦发银行|民生银行|兴业银行|广发银行|北京银行|上海银行|宁波银行|杭州银行|江苏银行|南京银行)/i,
+  /([\u4e00-\u9fa5]{2,12}银行)/,
+  /([A-Za-z]{2,20}\s*Bank)/i
+];
+
+export function inferAccountNameFromText(
+  text: string,
+  sourceHint?: 'wechat' | 'alipay' | 'bank' | 'cash' | 'unknown',
+  options?: { type?: TransactionType }
+): string {
+  const normalized = String(text || '').trim();
+  if (sourceHint === 'wechat') return '微信钱包';
+  if (sourceHint === 'alipay') return '支付宝';
+  if (sourceHint === 'cash') return '现金';
+
+  // 还款账单：更优先落到“负债/信用账户”而不是扣款银行卡。
+  // 例如“平安银行房贷月供扣款”应更倾向于“房贷账户”，避免误创建“平安银行”借记卡账户。
+  if (options?.type === 'repayment') {
+    if (/房贷|按揭/.test(normalized)) return '房贷账户';
+    if (/车贷/.test(normalized)) return '车贷账户';
+    if (/贷款|借款|消费贷/.test(normalized)) return '贷款账户';
+    if (/信用卡|花呗|白条/.test(normalized)) return '信用卡';
+    return '信用卡';
+  }
+
+  for (const pattern of BANK_ACCOUNT_PATTERNS) {
+    const matched = normalized.match(pattern);
+    if (matched?.[1]) return matched[1].replace(/\s+/g, ' ').trim();
+    if (matched?.[0]) return matched[0].replace(/\s+/g, ' ').trim();
+  }
+
+  if (/(银行卡|储蓄卡|借记卡|卡里|卡内|银行入账|银行到账|对公账户)/i.test(normalized)) {
+    return '银行卡';
+  }
+
+  return '';
+}
+
+export type AccountResolveSource = TransactionSource | 'bank' | 'cash' | 'unknown';
+
+function inferDefaultAccountName(options?: { source?: AccountResolveSource; type?: TransactionType }): string {
   if (options?.source === 'wechat') return '微信钱包';
   if (options?.source === 'alipay') return '支付宝';
+  if (options?.source === 'cash') return '现金';
+  if (options?.source === 'bank') return '银行卡';
   if (options?.type === 'repayment') return '信用卡';
   return '现金';
 }
 
 function inferAccountType(
   name: string,
-  options?: { source?: TransactionSource; type?: TransactionType }
+  options?: { source?: AccountResolveSource; type?: TransactionType }
 ): Account['type'] {
   const normalized = name.toLocaleLowerCase('zh-CN');
   if (options?.source === 'wechat' || options?.source === 'alipay') return 'virtual';
   if (/微信|wechat|支付宝|alipay|余额宝|零钱/.test(normalized)) return 'virtual';
   if (/信用卡|花呗|白条/.test(normalized)) return 'credit';
-  if (/借款|贷款|负债/.test(normalized)) return 'liability';
+  if (/借款|贷款|房贷|车贷|按揭|负债/.test(normalized)) return 'liability';
+  if (options?.type === 'repayment') {
+    if (/借款|贷款|房贷|车贷|按揭|负债/.test(normalized)) return 'liability';
+    return 'credit';
+  }
   if (/银行卡|银行|储蓄|借记/.test(normalized)) return 'debit';
   if (/现金/.test(normalized)) return 'cash';
-  if (options?.type === 'repayment') return 'credit';
   return undefined;
 }
 
 function resolveMatchedAccountId(
   name: string | undefined,
   accounts: Account[],
-  options?: { source?: TransactionSource; type?: TransactionType }
+  options?: { source?: AccountResolveSource; type?: TransactionType }
 ): string | null {
   const named = findAccountByName(name, accounts);
   if (named) return named.id;
@@ -199,7 +250,7 @@ function resolveMatchedAccountId(
 export function resolveAccountId(
   name: string | undefined,
   accounts: Account[],
-  options?: { source?: TransactionSource; type?: TransactionType }
+  options?: { source?: AccountResolveSource; type?: TransactionType }
 ): string {
   const matchedId = resolveMatchedAccountId(name, accounts, options);
   if (matchedId) return matchedId;
@@ -215,7 +266,7 @@ export function ensureAccountId(
   name: string | undefined,
   accounts: Account[],
   addAccount: (name: string, type?: Account['type']) => string,
-  options?: { source?: TransactionSource; type?: TransactionType }
+  options?: { source?: AccountResolveSource; type?: TransactionType }
 ): string {
   const matchedId = resolveMatchedAccountId(name, accounts, options);
   if (matchedId) {

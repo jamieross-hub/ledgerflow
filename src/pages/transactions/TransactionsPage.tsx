@@ -1,5 +1,7 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
+import { extractJsonString } from '../../features/assistant/workbench/workbenchUtils';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { exportTransactionsCsv } from '../../shared/lib/csv';
 import {
@@ -29,6 +31,7 @@ import {
 } from '../../features/transactions/hooks/useTransactionFilters';
 import { Category } from '../../entities/category/types';
 import { TransactionSource } from '../../entities/transaction/types';
+import { useAiSettings } from '../../shared/store/useAiSettings';
 
 const DEFAULT_PAGE_SIZE = 8;
 const PAGE_SIZE_OPTIONS = [8, 20, 50, 100] as const;
@@ -277,6 +280,18 @@ function inferCategoryIdByTransaction(
   return fallbackCategoryId || categories[0]?.id || '';
 }
 
+function parseAiCategoryName(raw: string): string {
+  try {
+    const parsed = JSON.parse(extractJsonString(raw)) as { category?: unknown };
+    if (typeof parsed?.category === 'string') {
+      return parsed.category.trim();
+    }
+  } catch {
+    // ignore
+  }
+  return '';
+}
+
 /** 将交易按“可判重 key”分组：订单号 > 商家订单号 > 内容指纹。 */
 function buildDuplicateGroups(rows: TransactionRowView[]): string[][] {
   const groups = new Map<string, string[]>();
@@ -299,6 +314,10 @@ export function TransactionsPage() {
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
   const removeTransaction = useFinanceStore((s) => s.removeTransaction);
   const clearAllAccountBills = useFinanceStore((s) => s.clearAllAccountBills);
+
+  const aiBaseUrl = useAiSettings((s) => s.baseUrl);
+  const aiApiKey = useAiSettings((s) => s.apiKey);
+  const aiModel = useAiSettings((s) => s.model);
 
   const {
     filters,
@@ -1012,17 +1031,70 @@ export function TransactionsPage() {
         }}
         onAiRecategorize={() => {
           if (!selected) return;
-          const nextCategoryId = inferCategoryIdByTransaction(
-            selected,
-            categories,
-            selected.categoryId
-          );
-          if (!nextCategoryId || nextCategoryId === selected.categoryId) {
-            showToast('AI 分类建议未变化，无需替换。', 'warning');
+
+          const fallbackRecategorize = () => {
+            const nextCategoryId = inferCategoryIdByTransaction(
+              selected,
+              categories,
+              selected.categoryId
+            );
+            if (!nextCategoryId || nextCategoryId === selected.categoryId) {
+              showToast('AI 分类建议未变化，无需替换。', 'warning');
+              return;
+            }
+            updateTransaction(selected.id, { ...selected, categoryId: nextCategoryId });
+            showToast('已按账单信息完成 AI 重分类。', 'success');
+          };
+
+          const hasAiConfig =
+            Boolean(aiApiKey.trim()) && Boolean(aiModel.trim()) && Boolean(aiBaseUrl.trim());
+          if (!hasAiConfig) {
+            fallbackRecategorize();
             return;
           }
-          updateTransaction(selected.id, { ...selected, categoryId: nextCategoryId });
-          showToast('已按账单信息完成 AI 重分类。', 'success');
+
+          const txTypeLabel =
+            selected.type === 'income'
+              ? '收入'
+              : selected.type === 'budget'
+                ? '预算'
+                : selected.type === 'repayment'
+                  ? '还款'
+                  : '支出';
+          const availableCategories = categories.map((item) => item.name);
+          const currentCategoryName =
+            categories.find((item) => item.id === selected.categoryId)?.name || '未分类';
+
+          void sendAiChat({
+            baseUrl: aiBaseUrl,
+            apiKey: aiApiKey,
+            model: aiModel,
+            systemPrompt:
+              '你是交易重分类助手。请根据交易信息，从给定分类列表中选择最匹配的一项。仅返回 JSON：{"category":"分类名"}。禁止输出解释。若不确定，返回当前分类。',
+            messages: [
+              {
+                role: 'user',
+                text: `交易信息：\n- 类型: ${txTypeLabel}\n- 金额: ${selected.amount}\n- 备注: ${selected.note || '无'}\n- 标签: ${(selected.tags || []).join(',') || '无'}\n- 当前分类: ${currentCategoryName}\n可选分类：${JSON.stringify(availableCategories)}`
+              }
+            ]
+          })
+            .then((reply) => {
+              const suggestedName = parseAiCategoryName(reply.content);
+              if (!suggestedName) {
+                fallbackRecategorize();
+                return;
+              }
+              const matched = categories.find((item) => item.name.trim() === suggestedName);
+              if (!matched || matched.id === selected.categoryId) {
+                fallbackRecategorize();
+                return;
+              }
+              updateTransaction(selected.id, { ...selected, categoryId: matched.id });
+              showToast('已按大模型建议完成重分类。', 'success');
+            })
+            .catch(() => {
+              fallbackRecategorize();
+            });
         }}
         visibleSections={visibleDetailSections}
         onToggleSection={handleToggleDetailSection}
