@@ -9,6 +9,13 @@ interface ParseBillInput {
   defaultAccountId: string;
 }
 
+interface ParseBillFileInput {
+  file: File;
+  source: BillSource;
+  defaultCategoryId: string;
+  defaultAccountId: string;
+}
+
 export type BillImportMode = 'incremental' | 'merge' | 'overwrite';
 
 interface ApplyBillImportModeInput {
@@ -37,8 +44,8 @@ const AMOUNT_KEYS = ['金额', '金额(元)', '金额（元）', '订单金额',
 const TYPE_KEYS = ['收/支', '收支类型', '交易类型', '资金类型', '类型'];
 const NOTE_KEYS = ['商品名称', '商品', '商品说明', '交易对方', '备注', '商户', '收款方'];
 const STATUS_KEYS = ['交易状态', '当前状态', '状态'];
-const ORDER_NO_KEYS = ['交易号', '交易订单号', '订单号'];
-const MERCHANT_ORDER_NO_KEYS = ['商家订单号', '商户订单号'];
+const ORDER_NO_KEYS = ['交易号', '交易订单号', '订单号', '交易单号'];
+const MERCHANT_ORDER_NO_KEYS = ['商家订单号', '商户订单号', '商户单号'];
 
 const HEADER_HINT_KEYS = [
   ...DATE_KEYS,
@@ -109,6 +116,25 @@ function pickByKeys(row: Record<string, string>, keys: string[]): string {
     }
   }
   return '';
+}
+
+function mergeRowCell(row: Record<string, string>, key: string, value: string): void {
+  if (!key) return;
+  if (!(key in row)) {
+    row[key] = value;
+    return;
+  }
+
+  const prev = row[key].trim();
+  const next = value.trim();
+  if (!prev && next) {
+    row[key] = value;
+    return;
+  }
+
+  if (prev && next && prev !== next) {
+    row[key] = `${prev} ${next}`;
+  }
 }
 
 function parseAmount(raw: string): number {
@@ -352,9 +378,7 @@ export function parseBillCsvToTransactions(input: ParseBillInput): Omit<Transact
 
     const row: Record<string, string> = {};
     headers.forEach((h, idx) => {
-      if (h) {
-        row[h] = cols[idx] ?? '';
-      }
+      mergeRowCell(row, h, cols[idx] ?? '');
     });
 
     if (shouldSkipByStatus(row)) {
@@ -388,4 +412,171 @@ export function parseBillCsvToTransactions(input: ParseBillInput): Omit<Transact
   }
 
   return result;
+}
+
+function cellRefToColIndex(cellRef: string): number {
+  const letters = cellRef.replace(/[0-9]/g, '').toUpperCase();
+  let result = 0;
+  for (let i = 0; i < letters.length; i++) {
+    result = result * 26 + (letters.charCodeAt(i) - 64);
+  }
+  return Math.max(0, result - 1);
+}
+
+async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
+  if (typeof DecompressionStream === 'undefined') {
+    throw new Error('当前环境不支持 XLSX 解压');
+  }
+
+  const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  const buffer = await new Response(stream).arrayBuffer();
+  return new Uint8Array(buffer);
+}
+
+async function unzipXlsxEntries(buffer: ArrayBuffer): Promise<Map<string, Uint8Array>> {
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  const files = new Map<string, Uint8Array>();
+
+  let eocdOffset = -1;
+  for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65536); i--) {
+    if (view.getUint32(i, true) === 0x06054b50) {
+      eocdOffset = i;
+      break;
+    }
+  }
+
+  if (eocdOffset < 0) {
+    throw new Error('无效的 XLSX 文件');
+  }
+
+  const centralOffset = view.getUint32(eocdOffset + 16, true);
+  const totalEntries = view.getUint16(eocdOffset + 10, true);
+  const decoder = new TextDecoder();
+
+  let ptr = centralOffset;
+  for (let i = 0; i < totalEntries; i++) {
+    if (view.getUint32(ptr, true) !== 0x02014b50) {
+      throw new Error('XLSX 中央目录损坏');
+    }
+
+    const compression = view.getUint16(ptr + 10, true);
+    const compressedSize = view.getUint32(ptr + 20, true);
+    const fileNameLen = view.getUint16(ptr + 28, true);
+    const extraLen = view.getUint16(ptr + 30, true);
+    const commentLen = view.getUint16(ptr + 32, true);
+    const localHeaderOffset = view.getUint32(ptr + 42, true);
+    const fileName = decoder.decode(bytes.slice(ptr + 46, ptr + 46 + fileNameLen));
+
+    const localSig = view.getUint32(localHeaderOffset, true);
+    if (localSig !== 0x04034b50) {
+      throw new Error('XLSX 本地文件头损坏');
+    }
+
+    const localNameLen = view.getUint16(localHeaderOffset + 26, true);
+    const localExtraLen = view.getUint16(localHeaderOffset + 28, true);
+    const dataStart = localHeaderOffset + 30 + localNameLen + localExtraLen;
+    const compressed = bytes.slice(dataStart, dataStart + compressedSize);
+
+    if (compression === 0) {
+      files.set(fileName, compressed);
+    } else if (compression === 8) {
+      files.set(fileName, await inflateRaw(compressed));
+    }
+
+    ptr += 46 + fileNameLen + extraLen + commentLen;
+  }
+
+  return files;
+}
+
+function extractSharedStrings(sharedXml: string): string[] {
+  const doc = new DOMParser().parseFromString(sharedXml, 'application/xml');
+  return Array.from(doc.getElementsByTagName('si')).map((node) => {
+    const richTexts = Array.from(node.getElementsByTagName('t')).map((t) => t.textContent || '');
+    return richTexts.join('');
+  });
+}
+
+function extractSheetRows(sheetXml: string, sharedStrings: string[]): string[][] {
+  const doc = new DOMParser().parseFromString(sheetXml, 'application/xml');
+  const rows = Array.from(doc.getElementsByTagName('row'));
+  return rows.map((row) => {
+    const cells = Array.from(row.getElementsByTagName('c'));
+    const values: string[] = [];
+
+    cells.forEach((cell) => {
+      const ref = cell.getAttribute('r') || '';
+      const idx = ref ? cellRefToColIndex(ref) : values.length;
+      const cellType = cell.getAttribute('t');
+      const v = cell.getElementsByTagName('v')[0]?.textContent || '';
+      const inline = cell.getElementsByTagName('is')[0]?.textContent || '';
+      let text = inline || v;
+      if (cellType === 's') {
+        text = sharedStrings[Number.parseInt(v, 10)] || '';
+      }
+      values[idx] = String(text).trim();
+    });
+
+    return values.map((v) => v || '');
+  });
+}
+
+async function xlsxToDelimitedText(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const entries = await unzipXlsxEntries(buffer);
+  const decoder = new TextDecoder('utf-8');
+
+  const sharedXml = entries.get('xl/sharedStrings.xml');
+  const sharedStrings = sharedXml ? extractSharedStrings(decoder.decode(sharedXml)) : [];
+
+  const sheetEntry =
+    entries.get('xl/worksheets/sheet1.xml') ||
+    Array.from(entries.entries()).find(([name]) =>
+      /^xl\/worksheets\/sheet\d+\.xml$/.test(name)
+    )?.[1];
+
+  if (!sheetEntry) {
+    throw new Error('XLSX 未找到工作表');
+  }
+
+  const rows = extractSheetRows(decoder.decode(sheetEntry), sharedStrings);
+  return rows
+    .map((row) => row.map((cell) => String(cell || '').replace(/\r?\n/g, ' ')).join('\t'))
+    .join('\n');
+}
+
+async function decodeBillFileText(file: File): Promise<string> {
+  if (/\.xlsx$/i.test(file.name)) {
+    return xlsxToDelimitedText(file);
+  }
+
+  const buffer = await file.arrayBuffer();
+  const utf8 = new TextDecoder('utf-8').decode(buffer);
+  if (/交易|金额|收\/支|交易时间|交易创建时间/.test(utf8) && !utf8.includes('�')) {
+    return utf8;
+  }
+
+  try {
+    const gbText = new TextDecoder('gb18030').decode(buffer);
+    if (/交易|金额|收\/支|交易时间|交易创建时间/.test(gbText)) {
+      return gbText;
+    }
+  } catch {
+    // ignore unsupported encoding
+  }
+
+  return utf8;
+}
+
+export async function parseBillFileToTransactions(
+  input: ParseBillFileInput
+): Promise<Omit<TransactionItem, 'id'>[]> {
+  const csvText = await decodeBillFileText(input.file);
+  return parseBillCsvToTransactions({
+    csvText,
+    source: input.source,
+    defaultCategoryId: input.defaultCategoryId,
+    defaultAccountId: input.defaultAccountId
+  });
 }

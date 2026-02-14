@@ -7,7 +7,7 @@ import { exportTransactionsCsv } from '../../shared/lib/csv';
 import {
   applyBillImportMode,
   BillImportMode,
-  parseBillCsvToTransactions
+  parseBillFileToTransactions
 } from '../../shared/lib/billImport';
 import { formatDate } from '../../shared/lib/format';
 import { Toast, ToastVariant } from '../../shared/ui/Toast';
@@ -195,31 +195,6 @@ function resolveImportedCategoryId(
   }
 
   return fallbackCategoryId;
-}
-
-/**
- * 兼容账单文件常见编码：
- * - 优先 UTF-8
- * - 若出现乱码，再尝试 GB18030（覆盖 GBK/GB2312）
- */
-function decodeBillFileText(file: File): Promise<string> {
-  return file.arrayBuffer().then((buffer) => {
-    const utf8 = new TextDecoder('utf-8').decode(buffer);
-    if (/交易|金额|收\/支|交易时间|交易创建时间/.test(utf8) && !utf8.includes('�')) {
-      return utf8;
-    }
-
-    try {
-      const gbText = new TextDecoder('gb18030').decode(buffer);
-      if (/交易|金额|收\/支|交易时间|交易创建时间/.test(gbText)) {
-        return gbText;
-      }
-    } catch {
-      // ignore unsupported encoding
-    }
-
-    return utf8;
-  });
 }
 
 function detectSource(
@@ -639,7 +614,6 @@ export function TransactionsPage() {
     }
 
     try {
-      const csvText = await decodeBillFileText(file);
       const defaultCategoryId = categories[0]?.id;
       const defaultAccountId = accounts[0]?.id;
 
@@ -650,8 +624,8 @@ export function TransactionsPage() {
         return;
       }
 
-      const parsed = parseBillCsvToTransactions({
-        csvText,
+      const parsed = await parseBillFileToTransactions({
+        file,
         source: activeSource,
         defaultCategoryId,
         defaultAccountId
@@ -967,7 +941,7 @@ export function TransactionsPage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".csv,text/csv"
+        accept=".csv,text/csv,.txt,text/plain,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         style={{ display: 'none' }}
         onChange={(event) => void handleImportFile(event)}
       />

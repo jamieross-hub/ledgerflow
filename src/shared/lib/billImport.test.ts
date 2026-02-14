@@ -46,4 +46,26 @@ describe('parseBillCsvToTransactions', () => {
     expect(rows[0].merchantOrderNo).toBe('M20260210');
     expect(rows[0].amount).toBe(9.99);
   });
+
+  it('应合并重复标题栏字段并保留完整信息', () => {
+    const csvText = [
+      '微信支付账单明细',
+      '交易时间,交易类型,交易类型,交易对方,商品,收/支,金额(元),当前状态,交易单号,商户单号,备注',
+      '2026-02-14 18:46:47,转账,微信零钱转账,666,转账备注:微信转账,支出,¥65.00,对方已收钱,53010002489226202602144159140074,1000050001202602140030491809117,/'
+    ].join('\n');
+
+    const rows = parseBillCsvToTransactions({
+      csvText,
+      source: 'wechat',
+      defaultCategoryId: 'cat-default',
+      defaultAccountId: 'acc-default'
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].type).toBe('expense');
+    expect(rows[0].amount).toBe(65);
+    expect(rows[0].note).toContain('666');
+    expect(rows[0].orderNo).toBe('53010002489226202602144159140074');
+    expect(rows[0].merchantOrderNo).toBe('1000050001202602140030491809117');
+  });
 });
