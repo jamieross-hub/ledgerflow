@@ -183,6 +183,9 @@ export function TransactionTable({
   const orderedColumns = columnOrder
     .map((key) => columnOptions.find((item) => item.key === key))
     .filter((item): item is { key: TransactionColumnKey; label: string } => Boolean(item));
+  const visibleColumnCount =
+    orderedColumns.filter((column) => visibleColumns[column.key]).length +
+    (bulkSelectionEnabled ? 1 : 0);
 
   const renderCellValue = (columnKey: TransactionColumnKey, row: TransactionRowView) => {
     const { item, categoryName, accountName } = row;
@@ -297,7 +300,7 @@ export function TransactionTable({
           secondaryAction={{ label: '清空筛选', onClick: onClearFilters }}
           primaryAction={{ label: '重试', onClick: onRetry, variant: 'primary' }}
         />
-      ) : rows.length === 0 ? (
+      ) : rows.length === 0 && !hasFilters ? (
         <EmptyState
           icon="📋"
           title={hasFilters ? '没有符合条件的交易' : '暂无交易记录'}
@@ -523,101 +526,114 @@ export function TransactionTable({
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ item, categoryName, accountName }) => {
-                  const note = item.note || '-';
-                  const checked = selectedIds.includes(item.id);
-                  return (
-                    <tr
-                      key={item.id}
-                      id={`transaction-row-${item.id}`}
-                      className={`transaction-row-clickable ${highlightId === item.id ? 'transaction-row-highlight' : ''}`.trim()}
-                      onClick={() => onOpenDetail(item.id)}
-                      onContextMenu={(event) => {
-                        event.preventDefault();
-                        setContextMenu({ x: event.clientX, y: event.clientY, id: item.id });
-                      }}
-                    >
-                      {bulkSelectionEnabled ? (
-                        <td
-                          className="transaction-select-col"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(event) => onToggleSelect(item.id, event.target.checked)}
-                            aria-label={`选择交易 ${formatDate(item.date)} ${item.note || ''}`}
-                          />
-                        </td>
-                      ) : null}
-                      {orderedColumns.map((column) => {
-                        if (!visibleColumns[column.key]) return null;
-                        if (column.key === 'type') {
-                          return (
-                            <td key={`${item.id}-${column.key}`}>
-                              <span
-                                className={
-                                  item.type === 'income'
-                                    ? 'badge badge-success'
-                                    : 'badge badge-danger'
-                                }
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={visibleColumnCount} className="transaction-empty-cell">
+                      <div className="transaction-empty-inline">
+                        <span>没有符合条件的交易，调整筛选条件后重试。</span>
+                        <button type="button" onClick={onClearFilters}>
+                          清空筛选
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map(({ item, categoryName, accountName }) => {
+                    const note = item.note || '-';
+                    const checked = selectedIds.includes(item.id);
+                    return (
+                      <tr
+                        key={item.id}
+                        id={`transaction-row-${item.id}`}
+                        className={`transaction-row-clickable ${highlightId === item.id ? 'transaction-row-highlight' : ''}`.trim()}
+                        onClick={() => onOpenDetail(item.id)}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          setContextMenu({ x: event.clientX, y: event.clientY, id: item.id });
+                        }}
+                      >
+                        {bulkSelectionEnabled ? (
+                          <td
+                            className="transaction-select-col"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(event) => onToggleSelect(item.id, event.target.checked)}
+                              aria-label={`选择交易 ${formatDate(item.date)} ${item.note || ''}`}
+                            />
+                          </td>
+                        ) : null}
+                        {orderedColumns.map((column) => {
+                          if (!visibleColumns[column.key]) return null;
+                          if (column.key === 'type') {
+                            return (
+                              <td key={`${item.id}-${column.key}`}>
+                                <span
+                                  className={
+                                    item.type === 'income'
+                                      ? 'badge badge-success'
+                                      : 'badge badge-danger'
+                                  }
+                                >
+                                  {renderCellValue(column.key, { item, categoryName, accountName })}
+                                </span>
+                              </td>
+                            );
+                          }
+                          if (column.key === 'amount') {
+                            return (
+                              <td
+                                key={`${item.id}-${column.key}`}
+                                style={{
+                                  fontWeight: 600,
+                                  color:
+                                    item.type === 'income'
+                                      ? 'var(--color-income)'
+                                      : 'var(--color-expense)'
+                                }}
                               >
                                 {renderCellValue(column.key, { item, categoryName, accountName })}
-                              </span>
-                            </td>
-                          );
-                        }
-                        if (column.key === 'amount') {
+                              </td>
+                            );
+                          }
+                          if (column.key === 'note') {
+                            return (
+                              <td key={`${item.id}-${column.key}`}>
+                                <span title={note}>
+                                  {renderCellValue(column.key, { item, categoryName, accountName })}
+                                </span>
+                              </td>
+                            );
+                          }
+                          if (column.key === 'orderNo' || column.key === 'merchantOrderNo') {
+                            const orderText = renderCellValue(column.key, {
+                              item,
+                              categoryName,
+                              accountName
+                            });
+                            return (
+                              <td key={`${item.id}-${column.key}`}>
+                                <span
+                                  className="transaction-order-ellipsis"
+                                  title={String(orderText)}
+                                >
+                                  {orderText === '-' ? '-' : truncateOrderNo(String(orderText))}
+                                </span>
+                              </td>
+                            );
+                          }
                           return (
-                            <td
-                              key={`${item.id}-${column.key}`}
-                              style={{
-                                fontWeight: 600,
-                                color:
-                                  item.type === 'income'
-                                    ? 'var(--color-income)'
-                                    : 'var(--color-expense)'
-                              }}
-                            >
+                            <td key={`${item.id}-${column.key}`}>
                               {renderCellValue(column.key, { item, categoryName, accountName })}
                             </td>
                           );
-                        }
-                        if (column.key === 'note') {
-                          return (
-                            <td key={`${item.id}-${column.key}`}>
-                              <span title={note}>
-                                {renderCellValue(column.key, { item, categoryName, accountName })}
-                              </span>
-                            </td>
-                          );
-                        }
-                        if (column.key === 'orderNo' || column.key === 'merchantOrderNo') {
-                          const orderText = renderCellValue(column.key, {
-                            item,
-                            categoryName,
-                            accountName
-                          });
-                          return (
-                            <td key={`${item.id}-${column.key}`}>
-                              <span
-                                className="transaction-order-ellipsis"
-                                title={String(orderText)}
-                              >
-                                {orderText === '-' ? '-' : truncateOrderNo(String(orderText))}
-                              </span>
-                            </td>
-                          );
-                        }
-                        return (
-                          <td key={`${item.id}-${column.key}`}>
-                            {renderCellValue(column.key, { item, categoryName, accountName })}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
+                        })}
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
