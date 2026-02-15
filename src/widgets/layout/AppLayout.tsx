@@ -58,7 +58,9 @@ const logoMenuItems = [
 ];
 
 /**
- * 移动抽屉中的快捷入口：借鉴卡片+宫格的体验，但不复刻原图结构。
+ * 移动抽屉中的快捷入口分组。
+ *
+ * 目标是把高频功能放在首屏，降低小屏设备的操作路径。
  */
 const mobileQuickGroups: Array<{ title: string; items: QuickEntry[] }> = [
   {

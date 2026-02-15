@@ -53,6 +53,26 @@ npm run dev
 
 ---
 
+## 当前架构说明（v0.3）
+
+项目采用前端分层组织，核心目录与职责如下：
+
+- `src/app`：应用启动、路由与全局样式（`App.tsx`、`router.tsx`、tokens/global CSS）。
+- `src/pages`：按路由聚合页面级功能（仪表盘、交易、AI 助手、设置等）。
+- `src/features`：可复用业务功能模块（连接配置、汇率、智能预算、助手工作台等）。
+- `src/entities`：领域模型与类型定义（交易、账户、分类、连接信息）。
+- `src/shared`：跨模块共享能力（状态管理、API 客户端、通用工具函数与 UI 组件）。
+- `src/widgets`：跨页面布局组件（当前主要是 `AppLayout`）。
+
+### 数据流与运行方式
+
+- **状态管理**：以 Zustand 为主，页面通过 store 获取交易、偏好、调试日志等状态。
+- **数据持久化**：浏览器本地存储优先（localStorage/sessionStorage），支持导入导出与备份。
+- **外部能力接入**：通过 `shared/api` 与 `features/*/api` 访问同步服务、汇率与 AI 兼容接口。
+- **构建与运行**：Vite + React + TypeScript；可通过 Nginx 容器部署静态产物。
+
+> 说明：当前仓库为前端项目，后端能力通过可配置接口接入。
+
 ## Docker 一把梭
 
 ### 直接拉镜像运行
