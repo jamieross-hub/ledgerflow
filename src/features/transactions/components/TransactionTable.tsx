@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { TransactionItem } from '../../../entities/transaction/types';
 import { formatCurrency, formatDate } from '../../../shared/lib/format';
 import { EmptyState } from '../../../shared/ui/EmptyState';
@@ -156,6 +157,10 @@ export function TransactionTable({
 }: TransactionTableProps) {
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(
+    null
+  );
+  const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const dragColumnRef = useRef<TransactionColumnKey | null>(null);
   const resizeStateRef = useRef<{
@@ -241,6 +246,44 @@ export function TransactionTable({
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [onColumnResize]);
+
+  useEffect(() => {
+    if (!contextMenu) {
+      setContextMenuPosition(null);
+      return;
+    }
+
+    const menuNode = contextMenuRef.current;
+    if (!menuNode) {
+      setContextMenuPosition({ x: contextMenu.x, y: contextMenu.y });
+      return;
+    }
+
+    const margin = 8;
+    const rect = menuNode.getBoundingClientRect();
+    const maxX = window.innerWidth - rect.width - margin;
+    const maxY = window.innerHeight - rect.height - margin;
+
+    setContextMenuPosition({
+      x: Math.max(margin, Math.min(contextMenu.x, maxX)),
+      y: Math.max(margin, Math.min(contextMenu.y, maxY))
+    });
+  }, [contextMenu]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+
+    const dismiss = () => setContextMenu(null);
+    window.addEventListener('click', dismiss);
+    window.addEventListener('scroll', dismiss, true);
+    window.addEventListener('resize', dismiss);
+
+    return () => {
+      window.removeEventListener('click', dismiss);
+      window.removeEventListener('scroll', dismiss, true);
+      window.removeEventListener('resize', dismiss);
+    };
+  }, [contextMenu]);
 
   return (
     <section className="panel">
@@ -693,35 +736,43 @@ export function TransactionTable({
               </button>
             </div>
           </div>
-          {contextMenu ? (
-            <div
-              className="transaction-context-menu"
-              style={{ left: contextMenu.x, top: contextMenu.y }}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  onOpenDetail(contextMenu.id);
-                  setContextMenu(null);
-                }}
-              >
-                查看详情
-              </button>
-              <button
-                type="button"
-                className="danger"
-                onClick={() => {
-                  onDelete(contextMenu.id);
-                  setContextMenu(null);
-                }}
-              >
-                删除账单
-              </button>
-              <button type="button" onClick={() => setContextMenu(null)}>
-                取消
-              </button>
-            </div>
-          ) : null}
+          {contextMenu
+            ? createPortal(
+                <div
+                  ref={contextMenuRef}
+                  className="transaction-context-menu"
+                  style={{
+                    left: contextMenuPosition?.x ?? contextMenu.x,
+                    top: contextMenuPosition?.y ?? contextMenu.y
+                  }}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenDetail(contextMenu.id);
+                      setContextMenu(null);
+                    }}
+                  >
+                    查看详情
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => {
+                      onDelete(contextMenu.id);
+                      setContextMenu(null);
+                    }}
+                  >
+                    删除账单
+                  </button>
+                  <button type="button" onClick={() => setContextMenu(null)}>
+                    取消
+                  </button>
+                </div>,
+                document.body
+              )
+            : null}
         </>
       )}
     </section>
