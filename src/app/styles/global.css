@@ -5612,6 +5612,108 @@ small.mono {
   margin: var(--space-2) 0 0;
 }
 
+.smart-budget-mode-switch {
+  display: inline-flex;
+  gap: var(--space-2);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-light);
+}
+
+.smart-budget-mode-switch button.active {
+  color: #fff;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+.smart-budget-management {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-3);
+  background: var(--color-bg-subtle);
+}
+
+.smart-budget-management-topbar {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.smart-budget-filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.smart-budget-filter-group button.active {
+  color: #fff;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+.smart-budget-progress-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+
+.smart-budget-progress-card {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background: var(--color-bg-elevated);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.smart-budget-progress-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.smart-budget-progress-card h4,
+.smart-budget-progress-card p {
+  margin: 0;
+}
+
+.smart-budget-progress-card .warn {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.smart-budget-progress-card .safe {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.smart-budget-progress-track {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-border-light);
+  overflow: hidden;
+}
+
+.smart-budget-progress-track span {
+  display: block;
+  height: 100%;
+  background: var(--color-success);
+}
+
+.smart-budget-progress-track span.warn {
+  background: var(--color-danger);
+}
+
+.smart-budget-empty {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
 .smart-budget-stepper {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
