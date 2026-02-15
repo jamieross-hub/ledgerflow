@@ -478,6 +478,21 @@ export function TransactionTable({
                             onChange={(event) => onQuickFilterChange('date', event.target.value)}
                             placeholder="筛选日期"
                           />
+                        ) : column.key === 'category' ? (
+                          <select
+                            aria-label="按分类筛选"
+                            value={quickFilters.category}
+                            onChange={(event) =>
+                              onQuickFilterChange('category', event.target.value)
+                            }
+                          >
+                            <option value="">全部分类</option>
+                            {categoryOptions.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.name}
+                              </option>
+                            ))}
+                          </select>
                         ) : column.key === 'amount' ? (
                           <div className="transaction-amount-range-inputs">
                             <input
