@@ -327,6 +327,13 @@ export function AssistantPage() {
     messageEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [wb.status, wb.rawContent, wb.rawReasoning, wb.entries.length, wb.error]);
 
+  // 当 AI 助手/AI 记账收到新的助手回复时，始终自动滚到底部。
+  useEffect(() => {
+    const latestMessage = chatHistory[chatHistory.length - 1];
+    if (!latestMessage || latestMessage.role !== 'assistant') return;
+    messageEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [chatHistory, mode]);
+
   const appendMessageToMode = useCallback(
     (targetMode: AssistantMode, message: ChatHistoryItem) => {
       if (targetMode === mode) {
