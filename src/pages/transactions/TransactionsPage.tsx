@@ -316,6 +316,7 @@ export function TransactionsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [aiRecategorizingId, setAiRecategorizingId] = useState<string | null>(null);
   const [bulkSelectionEnabled, setBulkSelectionEnabled] = useState(false);
   const [highlightId, setHighlightId] = useState<string>('');
   const [importNotice, setImportNotice] = useState<{
@@ -1083,6 +1084,8 @@ export function TransactionsPage() {
         onAiRecategorize={() => {
           if (!selected) return;
 
+          setAiRecategorizingId(selected.id);
+
           const fallbackRecategorize = () => {
             const nextCategoryId = inferCategoryIdByTransaction(
               selected,
@@ -1091,10 +1094,12 @@ export function TransactionsPage() {
             );
             if (!nextCategoryId || nextCategoryId === selected.categoryId) {
               showToast('AI 分类建议未变化，无需替换。', 'warning');
+              setAiRecategorizingId(null);
               return;
             }
             updateTransaction(selected.id, { ...selected, categoryId: nextCategoryId });
             showToast('已按账单信息完成 AI 重分类。', 'success');
+            setAiRecategorizingId(null);
           };
 
           const hasAiConfig =
@@ -1142,11 +1147,13 @@ export function TransactionsPage() {
               }
               updateTransaction(selected.id, { ...selected, categoryId: matched.id });
               showToast('已按大模型建议完成重分类。', 'success');
+              setAiRecategorizingId(null);
             })
             .catch(() => {
               fallbackRecategorize();
             });
         }}
+        aiRecategorizing={selected ? aiRecategorizingId === selected.id : false}
         visibleSections={visibleDetailSections}
         onToggleSection={handleToggleDetailSection}
       />
