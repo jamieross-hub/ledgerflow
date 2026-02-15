@@ -1382,6 +1382,7 @@ small.mono {
    Dashboard — Welcome Banner
    ============================================================ */
 .welcome-banner {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1393,6 +1394,18 @@ small.mono {
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-xs);
   animation: panel-fade 0.3s ease both;
+}
+
+.welcome-version-tag {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-3);
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  background: color-mix(in srgb, var(--color-bg-subtle) 90%, transparent);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-full);
+  padding: 1px 6px;
 }
 
 .welcome-content {
