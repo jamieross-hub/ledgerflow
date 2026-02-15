@@ -19,27 +19,29 @@ import { Toast } from '../../shared/ui/Toast';
 import type { TransactionItem } from '../../entities/transaction/types';
 import type { Category } from '../../entities/category/types';
 
-/**
- * 将内部状态机状态映射为顶部可读文案。
- */
-function statusText(status: ReturnType<typeof useAssistantWorkbench>['status']): string {
+function inputPlaceholder(
+  status: ReturnType<typeof useAssistantWorkbench>['status'],
+  hasApiKey: boolean
+): string {
+  if (!hasApiKey) return '请先在设置中配置 API Key';
+
   switch (status) {
     case 'idle':
-      return '等待输入内容';
+      return '等待输入内容 · 比如：今天午饭15元，用支付宝（会自动识别分类）';
     case 'ready':
-      return '可开始识别';
+      return '可开始识别 · 按 Enter 发送，Shift + Enter 换行';
     case 'recognizing':
-      return '模型识别中';
+      return '模型识别中，请稍候…';
     case 'preview':
-      return '识别完成，可保存到账本';
+      return '识别完成，可继续补充描述或直接保存到账本';
     case 'saving':
-      return '正在保存';
+      return '正在保存账单，请稍候…';
     case 'saved':
-      return '保存成功';
+      return '保存成功，可继续输入下一笔';
     case 'error':
-      return '识别失败';
+      return '识别失败，请调整描述后重试';
     default:
-      return '';
+      return '比如：今天午饭15元，用支付宝（会自动识别分类）';
   }
 }
 
@@ -495,8 +497,6 @@ export function AssistantPage() {
       <header className="chat-topbar">
         <div className="chat-topbar-left">
           <span className="chat-topbar-title">AI 记账助手</span>
-          <span className="chat-topbar-sep">·</span>
-          <span>{statusText(wb.status)}</span>
           <div className="chat-mode-switch" role="tablist" aria-label="模式切换">
             <button
               type="button"
@@ -814,7 +814,7 @@ export function AssistantPage() {
             ref={wb.textareaRef}
             className="chat-input-textarea"
             rows={2}
-            placeholder="比如：今天午饭15元，用支付宝（会自动识别分类）"
+            placeholder={inputPlaceholder(wb.status, wb.hasApiKey)}
             value={wb.textInput}
             onChange={(e) => wb.setTextInput(e.target.value)}
             onPaste={(e) => void wb.handlePasteImage(e)}
