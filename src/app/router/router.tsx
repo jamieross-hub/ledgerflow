@@ -10,6 +10,7 @@ import { AssistantPage } from '../../pages/assistant/AssistantPage';
 import { DatabaseSettingsPage } from '../../pages/database-settings/DatabaseSettingsPage';
 import { ExchangePage } from '../../features/exchange/ui/ExchangePage';
 import { FinancePage } from '../../pages/finance/FinancePage';
+import { SmartBudgetPage } from '../../pages/smart-budget/SmartBudgetPage';
 
 export const router = createBrowserRouter([
   {
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
       { path: 'database-settings', element: <DatabaseSettingsPage /> },
       { path: 'exchange', element: <ExchangePage /> },
       { path: 'finance', element: <FinancePage /> },
+      { path: 'smart-budget', element: <SmartBudgetPage /> },
       { path: 'tags', element: <Navigate to="/categories-accounts" replace /> }
     ]
   }

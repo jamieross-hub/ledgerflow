@@ -25,7 +25,10 @@ type QuickEntry = {
 const navSections: Array<{ title: string; items: NavItem[] }> = [
   {
     title: 'AI 助手',
-    items: [{ to: '/assistant', label: '记账助手', icon: '🤖' }]
+    items: [
+      { to: '/assistant', label: '记账助手', icon: '🤖' },
+      { to: '/smart-budget', label: '智能预算', icon: '🧠' }
+    ]
   },
   {
     title: '交易数据',
@@ -62,6 +65,7 @@ const mobileQuickGroups: Array<{ title: string; items: QuickEntry[] }> = [
     title: '高频入口',
     items: [
       { label: '记账助手', icon: '🤖', to: '/assistant' },
+      { label: '智能预算', icon: '🧠', to: '/smart-budget' },
       { label: '交易详情', icon: '📋', to: '/transactions' },
       { label: '统计分析', icon: '📊', to: '/', end: true },
       { label: '分类账户', icon: '🗂️', to: '/categories-accounts' },
