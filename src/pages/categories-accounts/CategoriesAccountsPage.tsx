@@ -37,6 +37,8 @@ export function CategoriesAccountsPage() {
   const [accountInitialBalance, setAccountInitialBalance] = useState('0');
   const [loading, setLoading] = useState(true);
   const [pendingDeleteAccountId, setPendingDeleteAccountId] = useState<string | null>(null);
+  const [pendingDeleteCategoryId, setPendingDeleteCategoryId] = useState<string | null>(null);
+  const [pendingRemoveTagLabel, setPendingRemoveTagLabel] = useState<string | null>(null);
   const [editingBalances, setEditingBalances] = useState<Record<string, string>>({});
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showAllTags, setShowAllTags] = useState(false);
@@ -86,6 +88,19 @@ export function CategoriesAccountsPage() {
 
   const pendingDeleteLinkedCount = pendingDeleteAccountId
     ? transactions.filter((item) => item.accountId === pendingDeleteAccountId).length
+    : 0;
+
+  const pendingDeleteCategoryUsageCount = pendingDeleteCategoryId
+    ? transactions.filter((item) => item.categoryId === pendingDeleteCategoryId).length
+    : 0;
+
+  const pendingRemoveTagUsageCount = pendingRemoveTagLabel
+    ? transactions.reduce((count, tx) => {
+        const exists = tx.tags.some(
+          (tag) => tag.trim().toLowerCase() === pendingRemoveTagLabel.trim().toLowerCase()
+        );
+        return exists ? count + 1 : count;
+      }, 0)
     : 0;
 
   const tagGroups = useMemo(() => {
@@ -272,7 +287,11 @@ export function CategoriesAccountsPage() {
                       {categoryUsageMap.get(item.id) || 0} 条
                     </button>
                   </span>
-                  <button type="button" className="danger" onClick={() => removeCategory(item.id)}>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => setPendingDeleteCategoryId(item.id)}
+                  >
                     删除
                   </button>
                 </li>
@@ -319,7 +338,7 @@ export function CategoriesAccountsPage() {
                   <button
                     type="button"
                     className="danger"
-                    onClick={() => removeTagFromAllTransactions(tag.label)}
+                    onClick={() => setPendingRemoveTagLabel(tag.label)}
                   >
                     全部移除
                   </button>
@@ -484,6 +503,44 @@ export function CategoriesAccountsPage() {
           </>
         )}
       </section>
+
+      <ConfirmDialog
+        open={Boolean(pendingDeleteCategoryId)}
+        title="确认删除分类"
+        description={
+          pendingDeleteCategoryUsageCount > 0
+            ? `该分类下存在 ${pendingDeleteCategoryUsageCount} 条交易记录，删除后交易会归入“未分类”。是否继续？`
+            : '删除分类后将无法恢复，是否继续？'
+        }
+        confirmText="确认删除"
+        cancelText="取消"
+        danger
+        onConfirm={() => {
+          if (!pendingDeleteCategoryId) return;
+          removeCategory(pendingDeleteCategoryId);
+          setPendingDeleteCategoryId(null);
+        }}
+        onCancel={() => setPendingDeleteCategoryId(null)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(pendingRemoveTagLabel)}
+        title="确认移除标签"
+        description={
+          pendingRemoveTagUsageCount > 0
+            ? `该标签已用于 ${pendingRemoveTagUsageCount} 条交易，移除后将从这些交易中清除。是否继续？`
+            : '移除后将无法恢复，是否继续？'
+        }
+        confirmText="确认移除"
+        cancelText="取消"
+        danger
+        onConfirm={() => {
+          if (!pendingRemoveTagLabel) return;
+          removeTagFromAllTransactions(pendingRemoveTagLabel);
+          setPendingRemoveTagLabel(null);
+        }}
+        onCancel={() => setPendingRemoveTagLabel(null)}
+      />
 
       <ConfirmDialog
         open={Boolean(pendingDeleteAccountId)}
