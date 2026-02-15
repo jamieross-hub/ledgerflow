@@ -67,6 +67,26 @@ function buildSmoothPath(points: Array<{ x: number; y: number }>): string {
   return cmds.join(' ');
 }
 
+function getConstellationLabel(month: number, day: number): string {
+  const edgeDays = [20, 19, 21, 21, 21, 22, 23, 23, 23, 24, 23, 22];
+  const names = [
+    '摩羯座',
+    '水瓶座',
+    '双鱼座',
+    '白羊座',
+    '金牛座',
+    '双子座',
+    '巨蟹座',
+    '狮子座',
+    '处女座',
+    '天秤座',
+    '天蝎座',
+    '射手座',
+    '摩羯座'
+  ];
+  return day < edgeDays[month - 1] ? names[month - 1] : names[month];
+}
+
 const FORECAST_CACHE_KEY = 'dashboard_forecast_cache_v1';
 
 function normalizeForecastPayload(raw: unknown, fallback: number): ForecastPayload | null {
@@ -619,6 +639,10 @@ export function DashboardPage() {
   );
 
   const tipIndex = new Date().getDate() % TIPS.length;
+  const categoryNameMap = useMemo(
+    () => new Map(categories.map((item) => [item.id, item.name])),
+    [categories]
+  );
   const timePreference = useMemo(() => {
     const buckets = { 早晨: 0, 午间: 0, 晚间: 0, 深夜: 0 };
     monthly.forEach((item) => {
@@ -640,6 +664,76 @@ export function DashboardPage() {
   }, [monthly]);
   const personalityTag = expense > income ? '冲动型消费者' : '稳健规划型';
   const crowdCompare = monthlyBalance >= 0 ? '高于同类人群中位线' : '低于同类人群中位线';
+
+  const mysticInsight = useMemo(() => {
+    const expenseRows = monthly.filter((item) => item.type !== 'income');
+    if (expenseRows.length === 0) {
+      return {
+        title: '消费玄学分析',
+        lines: ['本月还没有支出账目，玄学老师掐指一算：你先记一笔再开卦。'],
+        disclaimer: '玄学仅供娱乐，理性消费才是王道。'
+      };
+    }
+
+    const totalExpense = expenseRows.reduce((sum, item) => sum + item.amount, 0);
+    const weekdayTotal = Array.from({ length: 7 }, () => 0);
+    expenseRows.forEach((item) => {
+      weekdayTotal[new Date(item.date).getDay()] += item.amount;
+    });
+    const weekdayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    const topWeekdayEntry = weekdayTotal
+      .map((amount, day) => ({ day, amount }))
+      .sort((a, b) => b.amount - a.amount)[0];
+    const topWeekdayPercent = totalExpense
+      ? Math.round((topWeekdayEntry.amount / totalExpense) * 100)
+      : 0;
+
+    const drinkPattern = /奶茶|咖啡|饮品|茶饮|果茶|coffee|tea/i;
+    const spendOn8Days = expenseRows.filter((item) => {
+      const day = new Date(item.date).getDate();
+      return day % 10 === 8;
+    });
+    const drinkCountOn8Days = spendOn8Days.filter((item) => {
+      const category = categoryNameMap.get(item.categoryId) || '';
+      return drinkPattern.test(`${item.note} ${category}`);
+    }).length;
+    const unique8Dates = Array.from(new Set(spendOn8Days.map((item) => item.date.slice(8, 10))));
+
+    const colorRules = [
+      { color: '蓝色', pattern: /电子|数码|学习|办公|网课|科技/i },
+      { color: '红色', pattern: /餐|外卖|奶茶|咖啡|美食/i },
+      { color: '绿色', pattern: /交通|地铁|公交|骑行|出行/i },
+      { color: '紫色', pattern: /娱乐|社交|游戏|电影|聚会/i }
+    ];
+    const colorCount = new Map<string, number>(colorRules.map((item) => [item.color, 0]));
+    expenseRows.forEach((item) => {
+      const category = categoryNameMap.get(item.categoryId) || '';
+      const text = `${category} ${item.note}`;
+      const matched = colorRules.find((rule) => rule.pattern.test(text));
+      if (matched) {
+        colorCount.set(matched.color, (colorCount.get(matched.color) || 0) + 1);
+      }
+    });
+    const luckyColor =
+      Array.from(colorCount.entries()).sort((a, b) => a[1] - b[1])[0]?.[0] || '蓝色';
+
+    const nowDate = new Date();
+    const constellation = getConstellationLabel(nowDate.getMonth() + 1, nowDate.getDate());
+    const zodiacAnimals = ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪'];
+    const zodiac = zodiacAnimals[(nowDate.getFullYear() - 4) % 12];
+
+    return {
+      title: '消费玄学分析',
+      lines: [
+        `你是${constellation}＋生肖${zodiac}，但本月${weekdayNames[topWeekdayEntry.day]}贡献了支出 ${topWeekdayPercent}%：看似水逆，其实是周中摸鱼手滑。`,
+        unique8Dates.length
+          ? `逢 8 日（${unique8Dates.join('/')}）你一共消费 ${spendOn8Days.length} 笔，其中奶茶/咖啡 ${drinkCountOn8Days} 杯，建议把外卖券藏起来。`
+          : '本月暂未触发“逢 8 必买”Buff，恭喜你避开了数字玄学消费陷阱。',
+        `你的消费幸运色是${luckyColor}：本月相关消费出现次数最少，建议把“理性消费”设成今日主色调。`
+      ],
+      disclaimer: '玄学仅供娱乐，理性消费才是王道。'
+    };
+  }, [categoryNameMap, monthly]);
 
   const quarterExpense = useMemo(
     () =>
@@ -735,6 +829,15 @@ export function DashboardPage() {
             <p>上月支出：{formatCurrency(recentMonths[recentMonths.length - 2]?.expense || 0)}</p>
             <p>本季度支出：{formatCurrency(quarterExpense)}</p>
             <p>本年度支出：{formatCurrency(yearlyExpense)}</p>
+          </article>
+          <article className="panel" style={{ margin: 0 }}>
+            <h3>{mysticInsight.title}</h3>
+            {mysticInsight.lines.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+            <p>
+              <strong>{mysticInsight.disclaimer}</strong>
+            </p>
           </article>
         </div>
       </section>
