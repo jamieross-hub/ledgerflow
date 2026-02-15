@@ -243,7 +243,7 @@ export function FinancePage() {
 
   return (
     <div className="page-stack">
-      <section className="card">
+      <section id="debt-management" className="card">
         <h2 style={{ marginTop: 0 }}>💳 负债管理</h2>
         <p className="muted">支持信用卡、花呗、贷款，自动计算每月最低还款额与总负债压力。</p>
 
