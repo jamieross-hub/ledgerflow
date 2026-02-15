@@ -10,32 +10,7 @@ type FinanceNewsItem = {
   summary?: string;
 };
 
-const FALLBACK_NEWS: FinanceNewsItem[] = [
-  {
-    id: 'fallback-1',
-    title: '央行公开市场操作保持流动性合理充裕，短端利率维持平稳',
-    source: '宏观观察',
-    link: 'https://www.gov.cn/',
-    publishedAt: '今日',
-    summary: '关注流动性投放节奏与短端利率变化，利于理解市场风险偏好。'
-  },
-  {
-    id: 'fallback-2',
-    title: '多家机构上调全年 GDP 增速预测，消费修复成为核心变量',
-    source: '机构研报摘要',
-    link: 'https://www.stats.gov.cn/',
-    publishedAt: '今日',
-    summary: '观察社零、就业与居民信心等指标是否持续共振，避免只看单一数据。'
-  },
-  {
-    id: 'fallback-3',
-    title: '黄金与原油波动加剧，资产配置更强调分散化与现金流质量',
-    source: '资产配置周报',
-    link: 'https://www.safe.gov.cn/',
-    publishedAt: '本周',
-    summary: '在高波动阶段保持仓位纪律与流动性缓冲，优先保证家庭现金流稳定。'
-  }
-];
+const FINANCE_NEWS_CACHE_KEY = 'ledgerflow.finance.news-cache.v1';
 
 const FINANCE_IDEAS = [
   '📌 每周固定 10 分钟复盘：本周最值得关注的 3 条财经事件是什么？',
@@ -126,7 +101,18 @@ async function fetchRssFeed(feedUrl: string, signal: AbortSignal): Promise<Finan
 export function FinancePage() {
   const { rssSubscriptions, addRssSubscription, removeRssSubscription, toggleRssSubscription } =
     useAppPreferences();
-  const [news, setNews] = useState<FinanceNewsItem[]>(FALLBACK_NEWS);
+  const [news, setNews] = useState<FinanceNewsItem[]>(() => {
+    if (typeof window === 'undefined') return [];
+    const cachedRaw = window.localStorage.getItem(FINANCE_NEWS_CACHE_KEY);
+    if (!cachedRaw) return [];
+
+    try {
+      const parsed = JSON.parse(cachedRaw) as FinanceNewsItem[];
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [feedTitle, setFeedTitle] = useState('');
@@ -146,7 +132,6 @@ export function FinancePage() {
       setError('');
 
       if (enabledFeeds.length === 0) {
-        setNews(FALLBACK_NEWS);
         setLoading(false);
         return;
       }
@@ -168,19 +153,18 @@ export function FinancePage() {
 
         if (sorted.length > 0) {
           setNews(sorted);
+          window.localStorage.setItem(FINANCE_NEWS_CACHE_KEY, JSON.stringify(sorted));
           setActiveNewsId((current) => current || sorted[0].id);
         } else {
-          setNews(FALLBACK_NEWS);
-          setError('订阅源暂无可读内容，已展示内置财经资讯。');
+          setError('订阅源暂无可读内容，已展示上次缓存资讯。');
         }
 
         if (loadedLists.every((result) => result.status === 'rejected')) {
-          setError('RSS 订阅源暂不可用，已切换到内置财经内容。');
+          setError('RSS 订阅源暂不可用，已展示上次缓存资讯。');
         }
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
-          setError('RSS 订阅源暂不可用，已切换到内置财经内容。');
-          setNews(FALLBACK_NEWS);
+          setError('RSS 订阅源暂不可用，已展示上次缓存资讯。');
         }
       } finally {
         setLoading(false);
@@ -246,7 +230,15 @@ export function FinancePage() {
               <button type="submit">新增</button>
             </form>
 
-            <div style={{ maxHeight: 210, overflowY: 'auto', display: 'grid', gap: 8, paddingRight: 4 }}>
+            <div
+              style={{
+                maxHeight: 210,
+                overflowY: 'auto',
+                display: 'grid',
+                gap: 8,
+                paddingRight: 4
+              }}
+            >
               {rssSubscriptions.map((item) => (
                 <div
                   key={item.id}
@@ -264,7 +256,13 @@ export function FinancePage() {
                     <strong>{item.title}</strong>
                     <p
                       className="muted"
-                      style={{ margin: 0, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                      style={{
+                        margin: 0,
+                        fontSize: 12,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
                       title={item.url}
                     >
                       {item.url}
@@ -287,30 +285,34 @@ export function FinancePage() {
         {loading ? <p className="muted">正在加载 RSS 资讯...</p> : null}
         {error ? <p className="muted">{error}</p> : null}
 
-        <div style={{ display: 'grid', gap: 10 }}>
-          {news.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className="card"
-              onClick={() => setActiveNewsId(item.id)}
-              style={{
-                padding: 12,
-                textAlign: 'left',
-                border:
-                  activeNews?.id === item.id
-                    ? '1px solid var(--color-primary, #2563eb)'
-                    : '1px solid var(--color-border)',
-                background: 'transparent'
-              }}
-            >
-              <strong>{item.title}</strong>
-              <p className="muted" style={{ marginBottom: 0 }}>
-                {item.source} · {item.publishedAt}
-              </p>
-            </button>
-          ))}
-        </div>
+        {news.length === 0 ? (
+          <p className="muted">暂无可展示的 RSS 缓存资讯，请检查订阅源后重试。</p>
+        ) : (
+          <div style={{ display: 'grid', gap: 10 }}>
+            {news.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="card"
+                onClick={() => setActiveNewsId(item.id)}
+                style={{
+                  padding: 12,
+                  textAlign: 'left',
+                  border:
+                    activeNews?.id === item.id
+                      ? '1px solid var(--color-primary, #2563eb)'
+                      : '1px solid var(--color-border)',
+                  background: 'transparent'
+                }}
+              >
+                <strong>{item.title}</strong>
+                <p className="muted" style={{ marginBottom: 0 }}>
+                  {item.source} · {item.publishedAt}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {activeNews ? (
