@@ -27,6 +27,8 @@ interface TransactionFiltersProps {
   columnOptions: Array<{ key: TransactionColumnKey; label: string }>;
   visibleColumns: Record<TransactionColumnKey, boolean>;
   onToggleColumn: (key: TransactionColumnKey) => void;
+  bulkSelectionEnabled: boolean;
+  onToggleBulkSelection: () => void;
 }
 
 export function TransactionFilters({
@@ -46,7 +48,9 @@ export function TransactionFilters({
   onCheckDuplicates,
   columnOptions,
   visibleColumns,
-  onToggleColumn
+  onToggleColumn,
+  bulkSelectionEnabled,
+  onToggleBulkSelection
 }: TransactionFiltersProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -158,6 +162,13 @@ export function TransactionFilters({
       ) : null}
 
       <div className="transaction-filters-secondary-row">
+        <button
+          type="button"
+          className={`transaction-filter-trigger ${bulkSelectionEnabled ? 'active' : ''}`}
+          onClick={onToggleBulkSelection}
+        >
+          批量操作
+        </button>
         <div className={`transaction-filter-popover ${menuOpen ? 'open' : ''}`}>
           <button
             type="button"
@@ -194,49 +205,53 @@ export function TransactionFilters({
               </div>
 
               <div className="transaction-context-divider" />
-              <p className="transaction-filter-section-title">显示列</p>
-              <div className="transaction-column-check-grid">
-                {columnOptions.map((option) => (
-                  <label key={`filter-col-${option.key}`}>
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns[option.key]}
-                      onChange={() => onToggleColumn(option.key)}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
-              </div>
+              <details className="transaction-popover-section" open>
+                <summary className="transaction-filter-section-title">显示列</summary>
+                <div className="transaction-column-check-grid">
+                  {columnOptions.map((option) => (
+                    <label key={`filter-col-${option.key}`}>
+                      <input
+                        type="checkbox"
+                        checked={visibleColumns[option.key]}
+                        onChange={() => onToggleColumn(option.key)}
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </details>
 
               <div className="transaction-context-divider" />
-              <p className="transaction-filter-section-title">更多操作</p>
-              <div className="field" style={{ marginBottom: 8 }}>
-                <label htmlFor="tx-import-mode">账单导入模式</label>
-                <select
-                  id="tx-import-mode"
-                  aria-label="账单导入模式"
-                  value={importMode}
-                  onChange={(event) => onImportModeChange(event.target.value as BillImportMode)}
-                >
-                  <option value="incremental">增量（跳过重复）</option>
-                  <option value="merge">合并（覆盖重复）</option>
-                  <option value="overwrite">覆盖（清空后导入）</option>
-                </select>
-              </div>
-              <div className="transaction-filter-actions-grid">
-                <button type="button" onClick={onExport}>
-                  导出 CSV
-                </button>
-                <button type="button" onClick={onImportWechat}>
-                  导入微信账单
-                </button>
-                <button type="button" onClick={onImportAlipay}>
-                  导入支付宝账单
-                </button>
-                <button type="button" onClick={onCheckDuplicates}>
-                  检测重复账单
-                </button>
-              </div>
+              <details className="transaction-popover-section">
+                <summary className="transaction-filter-section-title">更多操作</summary>
+                <div className="field" style={{ marginBottom: 8 }}>
+                  <label htmlFor="tx-import-mode">账单导入模式</label>
+                  <select
+                    id="tx-import-mode"
+                    aria-label="账单导入模式"
+                    value={importMode}
+                    onChange={(event) => onImportModeChange(event.target.value as BillImportMode)}
+                  >
+                    <option value="incremental">增量（跳过重复）</option>
+                    <option value="merge">合并（覆盖重复）</option>
+                    <option value="overwrite">覆盖（清空后导入）</option>
+                  </select>
+                </div>
+                <div className="transaction-filter-actions-grid">
+                  <button type="button" onClick={onExport}>
+                    导出 CSV
+                  </button>
+                  <button type="button" onClick={onImportWechat}>
+                    导入微信账单
+                  </button>
+                  <button type="button" onClick={onImportAlipay}>
+                    导入支付宝账单
+                  </button>
+                  <button type="button" onClick={onCheckDuplicates}>
+                    检测重复账单
+                  </button>
+                </div>
+              </details>
             </div>
           ) : null}
         </div>
