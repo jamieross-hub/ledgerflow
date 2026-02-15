@@ -218,54 +218,71 @@ export function FinancePage() {
         <h2 style={{ marginTop: 0 }}>📰 金融资讯</h2>
         <p className="muted">支持 RSS 订阅与阅读，便于按自己的信息源持续跟踪财经动态。</p>
 
-        <div className="card" style={{ padding: 12, marginBottom: 12 }}>
-          <h3 style={{ marginTop: 0 }}>RSS 订阅管理</h3>
-          <form onSubmit={onAddFeed} style={{ display: 'grid', gap: 8 }}>
-            <input
-              value={feedTitle}
-              onChange={(event) => setFeedTitle(event.target.value)}
-              placeholder="订阅名称（可选）"
-            />
-            <input
-              value={feedUrl}
-              onChange={(event) => setFeedUrl(event.target.value)}
-              placeholder="https://example.com/feed.xml"
-            />
-            <button type="submit">新增订阅</button>
-          </form>
+        <details className="card" style={{ padding: 12, marginBottom: 12 }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+            RSS 订阅管理（{rssSubscriptions.length}）
+          </summary>
 
           <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
-            {rssSubscriptions.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 8,
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 8,
-                  padding: 8
-                }}
-              >
-                <div>
-                  <strong>{item.title}</strong>
-                  <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-                    {item.url}
-                  </p>
+            <form
+              onSubmit={onAddFeed}
+              style={{
+                display: 'grid',
+                gap: 8,
+                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.4fr) auto',
+                alignItems: 'center'
+              }}
+            >
+              <input
+                value={feedTitle}
+                onChange={(event) => setFeedTitle(event.target.value)}
+                placeholder="订阅名称（可选）"
+              />
+              <input
+                value={feedUrl}
+                onChange={(event) => setFeedUrl(event.target.value)}
+                placeholder="https://example.com/feed.xml"
+              />
+              <button type="submit">新增</button>
+            </form>
+
+            <div style={{ maxHeight: 210, overflowY: 'auto', display: 'grid', gap: 8, paddingRight: 4 }}>
+              {rssSubscriptions.map((item) => (
+                <div
+                  key={item.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 8,
+                    padding: 8
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <strong>{item.title}</strong>
+                    <p
+                      className="muted"
+                      style={{ margin: 0, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                      title={item.url}
+                    >
+                      {item.url}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    <button type="button" onClick={() => toggleRssSubscription(item.id)}>
+                      {item.enabled ? '停用' : '启用'}
+                    </button>
+                    <button type="button" onClick={() => removeRssSubscription(item.id)}>
+                      删除
+                    </button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" onClick={() => toggleRssSubscription(item.id)}>
-                    {item.enabled ? '停用' : '启用'}
-                  </button>
-                  <button type="button" onClick={() => removeRssSubscription(item.id)}>
-                    删除
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        </details>
 
         {loading ? <p className="muted">正在加载 RSS 资讯...</p> : null}
         {error ? <p className="muted">{error}</p> : null}
@@ -297,7 +314,10 @@ export function FinancePage() {
       </section>
 
       {activeNews ? (
-        <section className="card">
+        <section
+          className="card"
+          style={{ border: '2px solid var(--color-primary-border)', boxShadow: 'var(--shadow-sm)' }}
+        >
           <h3 style={{ marginTop: 0 }}>🧾 RSS 阅读器</h3>
           <h4>{activeNews.title}</h4>
           <p className="muted" style={{ marginTop: 0 }}>

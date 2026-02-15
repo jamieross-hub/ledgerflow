@@ -27,9 +27,33 @@ interface FinanceState {
 }
 
 const defaultCategories: Category[] = [
+  // 生活大类（衣食住行）
   { id: 'cat-food', name: '餐饮' },
+  { id: 'cat-clothing', name: '衣物穿搭' },
+  { id: 'cat-housing', name: '住房' },
+  { id: 'cat-utilities', name: '水电燃气' },
+  { id: 'cat-transport', name: '交通' },
+
+  // 高频日常
+  { id: 'cat-shopping', name: '购物日用' },
+  { id: 'cat-communication', name: '通讯网络' },
+  { id: 'cat-health', name: '医疗健康' },
+  { id: 'cat-education', name: '教育学习' },
+  { id: 'cat-entertainment', name: '娱乐社交' },
+  { id: 'cat-travel', name: '旅行' },
+  { id: 'cat-gift', name: '人情往来' },
+
+  // 金融/收入
   { id: 'cat-salary', name: '工资' },
-  { id: 'cat-transport', name: '交通' }
+  { id: 'cat-bonus', name: '奖金' },
+  { id: 'cat-invest-income', name: '理财收益' },
+  { id: 'cat-refund', name: '退款返现' },
+  { id: 'cat-insurance', name: '保险' },
+  { id: 'cat-tax', name: '税费' },
+  { id: 'cat-loan', name: '还款' },
+
+  // 兜底
+  { id: 'cat-other', name: '其他' }
 ];
 
 const defaultAccounts: Account[] = [

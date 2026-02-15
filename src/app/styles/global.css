@@ -5714,6 +5714,15 @@ small.mono {
   color: var(--color-text-secondary);
 }
 
+.smart-budget-inline-btn {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-primary);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+  font-size: var(--font-xs);
+}
+
 .smart-budget-stepper {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -5836,6 +5845,54 @@ small.mono {
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-top: var(--space-3);
+}
+
+.smart-budget-ai-card {
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, var(--color-border-light));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-primary-bg) 40%, var(--color-bg-elevated));
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.smart-budget-ai-summary {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.smart-budget-ai-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--color-text-secondary);
+}
+
+.smart-budget-ai-list li + li {
+  margin-top: 4px;
+}
+
+.smart-budget-ai-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.smart-budget-ai-tags .ai-tag {
+  font-size: var(--font-xs);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: var(--color-bg-elevated);
+}
+
+.smart-budget-ai-tags .ai-tag.decrease {
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 35%, var(--color-border));
+}
+
+.smart-budget-ai-tags .ai-tag.increase {
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 35%, var(--color-border));
 }
 
 .smart-budget-footer {

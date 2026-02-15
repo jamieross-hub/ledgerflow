@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { formatCurrency } from '../../shared/lib/format';
+import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
+import { useAiSettings } from '../../shared/store/useAiSettings';
 import {
   BudgetAnswers,
   BudgetRecommendation,
@@ -30,19 +32,77 @@ const initialAnswers: BudgetAnswers = {
   savingsRatio: 0.3
 };
 
+function extractFirstJsonObject(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) {
+    return fenced[1].trim();
+  }
+
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start >= 0 && end > start) {
+    return text.slice(start, end + 1).trim();
+  }
+
+  throw new Error('AI 返回内容不是有效 JSON');
+}
+
+const COMMON_CATEGORY_PRESETS = [
+  '餐饮',
+  '衣物穿搭',
+  '住房',
+  '水电燃气',
+  '交通',
+  '购物日用',
+  '通讯网络',
+  '医疗健康',
+  '教育学习',
+  '娱乐社交',
+  '旅行',
+  '人情往来',
+  '工资',
+  '奖金',
+  '理财收益',
+  '退款返现',
+  '保险',
+  '税费',
+  '还款',
+  '其他'
+];
+
 export function SmartBudgetPage() {
-  const [mode, setMode] = useState<'setup' | 'management'>('setup');
+  const confirmedPlan = useSmartBudgetStore((s) => s.confirmedPlan);
+  const confirmPlan = useSmartBudgetStore((s) => s.confirmPlan);
+  const clearPlan = useSmartBudgetStore((s) => s.clearPlan);
+
+  const transactions = useFinanceStore((s) => s.transactions);
+  const categories = useFinanceStore((s) => s.categories);
+  const addCategory = useFinanceStore((s) => s.addCategory);
+
+  const { baseUrl, apiKey, model } = useAiSettings();
+  const hasAiConfig = Boolean(baseUrl.trim()) && Boolean(apiKey.trim()) && Boolean(model.trim());
+
+  const [mode, setMode] = useState<'setup' | 'management'>(() =>
+    confirmedPlan ? 'management' : 'setup'
+  );
+  const [setupOpen, setSetupOpen] = useState(() => !confirmedPlan);
   const [step, setStep] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'overspent' | 'safe'>('all');
   const [answers, setAnswers] = useState<BudgetAnswers>(initialAnswers);
   const [draftRecommendation, setDraftRecommendation] = useState<BudgetRecommendation | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState('');
-  const confirmedPlan = useSmartBudgetStore((s) => s.confirmedPlan);
-  const confirmPlan = useSmartBudgetStore((s) => s.confirmPlan);
-  const clearPlan = useSmartBudgetStore((s) => s.clearPlan);
-  const transactions = useFinanceStore((s) => s.transactions);
-  const categories = useFinanceStore((s) => s.categories);
+
+  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [aiError, setAiError] = useState('');
+  const [aiAdvice, setAiAdvice] = useState<
+    | null
+    | {
+        summary: string;
+        suggestions: string[];
+        focusCategories?: Array<{ category: string; action: 'increase' | 'decrease' | 'keep'; reason: string }>;
+      }
+  >(null);
 
   const monthOptions = useMemo(() => getRecentMonthOptions(transactions), [transactions]);
 
@@ -78,6 +138,142 @@ export function SmartBudgetPage() {
       `身份：${getIdentityLabel(answers.identity)} · 月收入：${answers.monthlyIncomeK} 千 · 固定支出：${answers.monthlyFixedExpenseK} 千 · 储蓄比例：${Math.round(answers.savingsRatio * 100)}%`,
     [answers]
   );
+
+  useEffect(() => {
+    if (!confirmedPlan) {
+      setMode('setup');
+      setSetupOpen(true);
+      return;
+    }
+    setMode('management');
+    setSetupOpen(false);
+  }, [confirmedPlan]);
+
+  useEffect(() => {
+    if (transactions.length > 0) return;
+    const existing = new Set(categories.map((item) => item.name.trim().toLocaleLowerCase('zh-CN')));
+    COMMON_CATEGORY_PRESETS.forEach((name) => {
+      if (!existing.has(name.toLocaleLowerCase('zh-CN'))) {
+        addCategory(name);
+      }
+    });
+  }, [transactions.length, categories, addCategory]);
+
+  useEffect(() => {
+    if (!confirmedPlan || !activeMonthKey || trackingRows.length === 0) {
+      setAiStatus('idle');
+      setAiError('');
+      setAiAdvice(null);
+      return;
+    }
+
+    if (!hasAiConfig) {
+      setAiStatus('error');
+      setAiError('未配置 AI 模型，请先在设置页完成模型地址、密钥与模型名称。');
+      setAiAdvice(null);
+      return;
+    }
+
+    let canceled = false;
+    setAiStatus('loading');
+    setAiError('');
+
+    void (async () => {
+      try {
+        const response = await sendAiChat({
+          baseUrl,
+          apiKey,
+          model,
+          systemPrompt:
+            '你是预算优化助手。仅输出 JSON：{"summary":"一句话总结","suggestions":["建议1","建议2"],"focusCategories":[{"category":"分类名","action":"increase|decrease|keep","reason":"原因"}] }。focusCategories 最多 6 项。',
+          messages: [
+            {
+              role: 'user',
+              text: `请基于以下预算执行数据给出可执行建议：\n${JSON.stringify(
+                {
+                  monthKey: activeMonthKey,
+                  profile: {
+                    identity: getIdentityLabel(confirmedPlan.answers.identity),
+                    income: confirmedPlan.recommendation.monthlyIncome,
+                    fixedExpense: confirmedPlan.recommendation.monthlyFixedExpense,
+                    savingsAmount: confirmedPlan.recommendation.savingsAmount
+                  },
+                  availableCategories: categories.map((item) => item.name),
+                  rows: trackingRows.map((item) => ({
+                    category: item.category,
+                    budgetAmount: item.budgetAmount,
+                    spentAmount: item.spentAmount,
+                    ratio: Number(item.ratio.toFixed(3)),
+                    overspent: item.isOverspent
+                  }))
+                },
+                null,
+                2
+              )}`
+            }
+          ]
+        });
+
+        if (canceled) return;
+
+        const parsed = JSON.parse(extractFirstJsonObject(response.content)) as {
+          summary?: unknown;
+          suggestions?: unknown;
+          focusCategories?: unknown;
+        };
+
+        const suggestions = Array.isArray(parsed.suggestions)
+          ? parsed.suggestions.map((item) => String(item)).filter(Boolean).slice(0, 6)
+          : [];
+        const focusCategories = Array.isArray(parsed.focusCategories)
+          ? parsed.focusCategories
+              .map((item) => {
+                if (!item || typeof item !== 'object') return null;
+                const row = item as { category?: unknown; action?: unknown; reason?: unknown };
+                const action =
+                  row.action === 'increase' || row.action === 'decrease' || row.action === 'keep'
+                    ? row.action
+                    : 'keep';
+                return {
+                  category: String(row.category || ''),
+                  action,
+                  reason: String(row.reason || '')
+                };
+              })
+              .filter(
+                (item): item is { category: string; action: 'increase' | 'decrease' | 'keep'; reason: string } =>
+                  Boolean(item?.category)
+              )
+              .slice(0, 6)
+          : [];
+
+        setAiAdvice({
+          summary: String(parsed.summary || '预算执行总体平稳，可持续跟踪超支项。'),
+          suggestions,
+          focusCategories
+        });
+        setAiStatus('done');
+      } catch (err) {
+        if (canceled) return;
+        setAiStatus('error');
+        setAiAdvice(null);
+        setAiError(err instanceof Error ? err.message : 'AI 建议生成失败');
+      }
+    })();
+
+    return () => {
+      canceled = true;
+    };
+  }, [
+    confirmedPlan,
+    activeMonthKey,
+    trackingRows,
+    hasAiConfig,
+    baseUrl,
+    apiKey,
+    model,
+    categories
+  ]);
 
   const goNext = () => {
     setError(null);
@@ -121,6 +317,7 @@ export function SmartBudgetPage() {
       return;
     }
     confirmPlan({ answers, recommendation: draftRecommendation });
+    setSetupOpen(false);
     setMode('management');
   };
 
@@ -144,7 +341,10 @@ export function SmartBudgetPage() {
           role="tab"
           aria-selected={mode === 'setup'}
           className={mode === 'setup' ? 'active' : ''}
-          onClick={() => setMode('setup')}
+          onClick={() => {
+            setMode('setup');
+            setSetupOpen(true);
+          }}
         >
           预算设置
         </button>
@@ -153,12 +353,31 @@ export function SmartBudgetPage() {
           role="tab"
           aria-selected={mode === 'management'}
           className={mode === 'management' ? 'active' : ''}
-          onClick={() => setMode('management')}
+          onClick={() => {
+            setMode('management');
+            setSetupOpen(false);
+          }}
           disabled={!confirmedPlan}
         >
           智能预算管理
         </button>
       </div>
+
+      {confirmedPlan && mode === 'management' && !setupOpen ? (
+        <p className="smart-budget-empty">
+          预算设置已折叠。{' '}
+          <button
+            type="button"
+            className="smart-budget-inline-btn"
+            onClick={() => {
+              setMode('setup');
+              setSetupOpen(true);
+            }}
+          >
+            展开预算设置
+          </button>
+        </p>
+      ) : null}
 
       {mode === 'management' ? (
         confirmedPlan ? (
@@ -203,6 +422,38 @@ export function SmartBudgetPage() {
               </div>
             </div>
 
+            <section className="smart-budget-ai-card" aria-live="polite">
+              <h4 style={{ margin: 0 }}>🤖 AI 预算建议</h4>
+              {aiStatus === 'loading' ? <p className="smart-budget-empty">正在生成预算优化建议...</p> : null}
+              {aiStatus === 'error' ? <p className="smart-budget-error">{aiError}</p> : null}
+              {aiStatus === 'done' && aiAdvice ? (
+                <>
+                  <p className="smart-budget-ai-summary">{aiAdvice.summary}</p>
+                  {aiAdvice.suggestions.length ? (
+                    <ul className="smart-budget-ai-list">
+                      {aiAdvice.suggestions.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {aiAdvice.focusCategories?.length ? (
+                    <div className="smart-budget-ai-tags">
+                      {aiAdvice.focusCategories.map((item) => (
+                        <span key={`${item.category}-${item.action}`} className={`ai-tag ${item.action}`}>
+                          {item.category}：
+                          {item.action === 'decrease'
+                            ? '建议收紧'
+                            : item.action === 'increase'
+                              ? '可适度加配'
+                              : '保持'}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+            </section>
+
             {visibleRows.length ? (
               <div className="smart-budget-progress-list">
                 {visibleRows.map((item) => (
@@ -235,7 +486,7 @@ export function SmartBudgetPage() {
         )
       ) : null}
 
-      {mode === 'setup' ? (
+      {mode === 'setup' && setupOpen ? (
         <>
           <div className="smart-budget-stepper" aria-label="预算问答步骤">
             {[1, 2, 3, 4, 5].map((value) => (
@@ -436,7 +687,17 @@ export function SmartBudgetPage() {
                 身份：{getIdentityLabel(confirmedPlan.answers.identity)}，储蓄比例：
                 {Math.round(confirmedPlan.answers.savingsRatio * 100)}%
               </p>
-              <button type="button" onClick={clearPlan}>
+              <button
+                type="button"
+                onClick={() => {
+                  clearPlan();
+                  setSetupOpen(true);
+                  setMode('setup');
+                  setAiStatus('idle');
+                  setAiAdvice(null);
+                  setAiError('');
+                }}
+              >
                 清除已确认预算
               </button>
             </section>
