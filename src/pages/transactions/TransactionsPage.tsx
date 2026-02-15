@@ -488,7 +488,7 @@ export function TransactionsPage() {
 
   const quickFilteredRows = useMemo(() => {
     const dateFilter = quickFilters.date.trim().toLowerCase();
-    const categoryFilter = quickFilters.category.trim().toLowerCase();
+    const categoryFilter = quickFilters.category.trim();
     const accountFilter = quickFilters.account.trim().toLowerCase();
     const amountMinRaw = quickFilters.amountMin.trim();
     const amountMaxRaw = quickFilters.amountMax.trim();
@@ -510,8 +510,7 @@ export function TransactionsPage() {
     return mappedRows.filter((row) => {
       const dateText = formatDate(row.item.date).toLowerCase();
       const typePass = quickFilters.type === 'all' ? true : row.item.type === quickFilters.type;
-      const categoryPass =
-        !categoryFilter || row.categoryName.toLowerCase().includes(categoryFilter);
+      const categoryPass = !categoryFilter || row.item.categoryId === categoryFilter;
       const accountPass = !accountFilter || row.accountName.toLowerCase().includes(accountFilter);
       const orderNoPass =
         !orderNoFilter || (row.item.orderNo || '').toLowerCase().includes(orderNoFilter);
