@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { AppTheme } from '../types/app';
+import { DebtItem, DebtType } from '../../features/debt/model/debtMetrics';
 
 export type SyncTargetDbPreference = 'postgresql' | 'mysql';
 
@@ -30,11 +31,21 @@ interface AppPreferencesState {
   theme: AppTheme;
   syncTargetDb: SyncTargetDbPreference;
   rssSubscriptions: RssSubscription[];
+  debts: DebtItem[];
+  monthlyIncome: number;
   setTheme: (theme: AppTheme) => void;
   setSyncTargetDb: (target: SyncTargetDbPreference) => void;
   addRssSubscription: (payload: { title: string; url: string }) => { ok: boolean; reason?: string };
   removeRssSubscription: (id: string) => void;
   toggleRssSubscription: (id: string) => void;
+  setMonthlyIncome: (income: number) => void;
+  addDebt: (payload: Omit<DebtItem, 'id'>) => void;
+  updateDebt: (id: string, payload: Omit<DebtItem, 'id'>) => void;
+  removeDebt: (id: string) => void;
+}
+
+function createDebtId(type: DebtType): string {
+  return `debt-${type}-${Date.now()}`;
 }
 
 function normalizeFeedUrl(rawUrl: string): string {
@@ -56,8 +67,11 @@ export const useAppPreferences = create<AppPreferencesState>()(
       theme: 'system',
       syncTargetDb: 'postgresql',
       rssSubscriptions: DEFAULT_RSS_SUBSCRIPTIONS,
+      debts: [],
+      monthlyIncome: 0,
       setTheme: (theme) => set({ theme }),
       setSyncTargetDb: (target) => set({ syncTargetDb: target }),
+      setMonthlyIncome: (income) => set({ monthlyIncome: Number.isFinite(income) ? income : 0 }),
       addRssSubscription: ({ title, url }) => {
         const normalizedUrl = normalizeFeedUrl(url);
         if (!normalizedUrl) return { ok: false, reason: '请输入 RSS 地址。' };
@@ -103,6 +117,21 @@ export const useAppPreferences = create<AppPreferencesState>()(
           rssSubscriptions: state.rssSubscriptions.map((item) =>
             item.id === id ? { ...item, enabled: !item.enabled } : item
           )
+        }));
+      },
+      addDebt: (payload) => {
+        set((state) => ({
+          debts: [{ ...payload, id: createDebtId(payload.type) }, ...state.debts]
+        }));
+      },
+      updateDebt: (id, payload) => {
+        set((state) => ({
+          debts: state.debts.map((item) => (item.id === id ? { ...payload, id } : item))
+        }));
+      },
+      removeDebt: (id) => {
+        set((state) => ({
+          debts: state.debts.filter((item) => item.id !== id)
         }));
       }
     }),
