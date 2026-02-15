@@ -415,6 +415,23 @@ export function TransactionsPage() {
   }, [columnWidths]);
 
   useEffect(() => {
+    const categoryId = searchParams.get('categoryId') ?? '';
+    if (!categoryId) {
+      return;
+    }
+
+    const matchedCategory = categories.find((item) => item.id === categoryId);
+    if (!matchedCategory) {
+      return;
+    }
+
+    setQuickFilters((prev) =>
+      prev.category === matchedCategory.name ? prev : { ...prev, category: matchedCategory.name }
+    );
+    setPage(1);
+  }, [categories, searchParams, setPage]);
+
+  useEffect(() => {
     const highlight = searchParams.get('highlight') ?? '';
     if (!highlight) {
       return;
