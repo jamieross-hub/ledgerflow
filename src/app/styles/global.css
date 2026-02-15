@@ -4125,6 +4125,24 @@ small.mono {
   line-height: 1;
 }
 
+.exchange-rate-trend {
+  margin-left: var(--space-2);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.exchange-rate-trend-up {
+  color: var(--color-success);
+}
+
+.exchange-rate-trend-down {
+  color: var(--color-danger);
+}
+
+.exchange-rate-trend-flat {
+  color: var(--color-text-secondary);
+}
+
 .exchange-pagination {
   display: flex;
   align-items: center;

@@ -23,9 +23,23 @@ interface UseExchangeRatesReturn {
   refresh: () => void;
 }
 
-function toSortedRates(ratesMap: Record<string, number>): ExchangeRate[] {
+function toSortedRates(
+  ratesMap: Record<string, number>,
+  previousMap?: Record<string, number>
+): ExchangeRate[] {
   return Object.entries(ratesMap)
-    .map(([code, rate]) => ({ code, name: getCurrencyName(code), rate }))
+    .map(([code, rate]) => {
+      const previousRate = previousMap?.[code];
+      const trend: ExchangeRate['trend'] =
+        typeof previousRate !== 'number'
+          ? undefined
+          : rate > previousRate
+            ? 'up'
+            : rate < previousRate
+              ? 'down'
+              : 'flat';
+      return { code, name: getCurrencyName(code), rate, trend };
+    })
     .sort((a, b) => a.code.localeCompare(b.code));
 }
 
@@ -37,6 +51,7 @@ export function useExchangeRates(initialBase = 'CNY'): UseExchangeRatesReturn {
   const [error, setError] = useState<string | null>(null);
   const [fromCache, setFromCache] = useState(false);
   const mountedRef = useRef(true);
+  const latestRatesMapRef = useRef<Record<string, number>>({});
 
   const load = useCallback(
     async (forceRefresh = false) => {
@@ -47,6 +62,7 @@ export function useExchangeRates(initialBase = 'CNY'): UseExchangeRatesReturn {
       if (!forceRefresh) {
         const cached = readCache(base);
         if (cached) {
+          latestRatesMapRef.current = cached.rates;
           setRates(toSortedRates(cached.rates));
           setDate(cached.date);
           setFromCache(true);
@@ -60,7 +76,8 @@ export function useExchangeRates(initialBase = 'CNY'): UseExchangeRatesReturn {
         const data = await fetchLatestRates(base);
         if (!mountedRef.current) return;
         writeCache(base, data.date, data.rates);
-        setRates(toSortedRates(data.rates));
+        setRates(toSortedRates(data.rates, latestRatesMapRef.current));
+        latestRatesMapRef.current = data.rates;
         setDate(data.date);
         setFromCache(false);
       } catch (err) {
@@ -68,6 +85,7 @@ export function useExchangeRates(initialBase = 'CNY'): UseExchangeRatesReturn {
         // 3. 离线回退：尝试过期缓存
         const stale = readCache(base);
         if (stale) {
+          latestRatesMapRef.current = stale.rates;
           setRates(toSortedRates(stale.rates));
           setDate(stale.date);
           setFromCache(true);
@@ -83,6 +101,7 @@ export function useExchangeRates(initialBase = 'CNY'): UseExchangeRatesReturn {
 
   useEffect(() => {
     mountedRef.current = true;
+    latestRatesMapRef.current = {};
     void load();
     return () => {
       mountedRef.current = false;

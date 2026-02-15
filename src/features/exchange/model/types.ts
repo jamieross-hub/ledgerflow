@@ -8,6 +8,8 @@ export interface ExchangeRate {
   name: string;
   /** 相对于基准货币的汇率 */
   rate: number;
+  /** 相比上一次数据的变动方向 */
+  trend?: 'up' | 'down' | 'flat';
 }
 
 /** API 返回的原始数据结构（frankfurter.app 格式） */
