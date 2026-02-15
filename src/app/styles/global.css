@@ -1156,6 +1156,19 @@ tr:hover td {
   cursor: pointer;
 }
 
+.transaction-empty-cell {
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.transaction-empty-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--color-text-secondary);
+}
+
 .transaction-row-actions {
   white-space: nowrap;
 }
