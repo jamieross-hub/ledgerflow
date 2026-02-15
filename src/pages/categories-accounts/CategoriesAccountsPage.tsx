@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { formatCurrencyFixed2 } from '../../shared/lib/format';
 import { EmptyState } from '../../shared/ui/EmptyState';
@@ -19,6 +20,7 @@ function isValidName(name: string) {
 }
 
 export function CategoriesAccountsPage() {
+  const navigate = useNavigate();
   const categories = useFinanceStore((s) => s.categories);
   const accounts = useFinanceStore((s) => s.accounts);
   const transactions = useFinanceStore((s) => s.transactions);
@@ -115,6 +117,15 @@ export function CategoriesAccountsPage() {
     () => (showAllCategories ? categories : categories.slice(0, CATEGORY_COLLAPSE_THRESHOLD)),
     [categories, showAllCategories]
   );
+
+  const categoryUsageMap = useMemo(() => {
+    const map = new Map<string, number>();
+    transactions.forEach((tx) => {
+      const prev = map.get(tx.categoryId) || 0;
+      map.set(tx.categoryId, prev + 1);
+    });
+    return map;
+  }, [transactions]);
 
   const displayTags = useMemo(
     () => (showAllTags ? tagGroups : tagGroups.slice(0, TAG_COLLAPSE_THRESHOLD)),
@@ -248,8 +259,21 @@ export function CategoriesAccountsPage() {
             <ul className="categories-list">
               {displayCategories.map((item) => (
                 <li key={item.id} className="row categories-row">
-                  <span style={{ flex: 1 }}>{item.name}</span>
-                  <button className="danger" onClick={() => removeCategory(item.id)}>
+                  <span style={{ flex: 1 }}>
+                    {item.name}
+                    <small className="tag-count-chip">
+                      {categoryUsageMap.get(item.id) || 0} 条
+                    </small>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(`/transactions?categoryId=${encodeURIComponent(item.id)}`)
+                    }
+                  >
+                    快捷查看
+                  </button>
+                  <button type="button" className="danger" onClick={() => removeCategory(item.id)}>
                     删除
                   </button>
                 </li>
