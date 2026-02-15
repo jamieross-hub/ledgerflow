@@ -4719,6 +4719,16 @@ small.mono {
   background: var(--color-bg-subtle);
 }
 
+.tag-count-chip-link {
+  cursor: pointer;
+}
+
+.tag-count-chip-link:hover {
+  color: var(--color-primary-700);
+  border-color: color-mix(in srgb, var(--color-primary-500) 40%, var(--color-border-light));
+  background: color-mix(in srgb, var(--color-primary-50) 70%, var(--color-bg-subtle));
+}
+
 .account-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
