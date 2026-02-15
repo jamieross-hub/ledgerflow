@@ -144,8 +144,30 @@ type AssistantMode = 'bookkeeping' | 'assistant';
 
 interface PresetQuestion {
   id: string;
-  text: string;
+  label: string;
+  prompt: string;
 }
+
+const ANALYSIS_SHORTCUT_SEEDS = [
+  {
+    label: '最近1个月消费分析',
+    prompt:
+      '请结合我近30天账单，从总额、主要分类、异常波动和可优化动作四个角度做一份简洁分析，并给出3条可执行建议。'
+  },
+  {
+    label: '下个月还款预算',
+    prompt:
+      '基于我最近账单的固定支出和消费节奏，帮我制定下个月还款与现金流预算方案，包含保守/常规两档。'
+  },
+  {
+    label: '近3个月收支趋势',
+    prompt: '请按月对比我最近3个月的收入、支出和结余变化，指出趋势拐点，并说明最可能的影响因素。'
+  },
+  {
+    label: '高频标签花费洞察',
+    prompt: '请识别我消费中出现频率最高的标签或场景，评估其累计成本和节省空间，并给出优先级排序。'
+  }
+];
 
 const DEFAULT_QUICK_BILL_TEMPLATES = [
   { label: '🍜 午饭 18（支付宝）', prompt: '今天午饭18元，用支付宝支付' },
@@ -244,24 +266,41 @@ function buildLocalPresetQuestions(transactions: TransactionItem[], categories: 
   ).sort((a, b) => b.amount - a.amount)[0];
 
   const latest = expenseRows[0];
-  const questions = [
-    currentTotal > 0
-      ? `本月已支出 ¥${currentTotal.toFixed(2)}，相比上月${deltaPct >= 0 ? '增加' : '减少'} ${Math.abs(deltaPct).toFixed(1)}%，要不要拆解一下波动来源？`
-      : '你这个月还没形成完整支出曲线，要不要我先帮你建立一套“首月预算模板”？',
-    topCategory
-      ? `${topCategory.name} 目前累计 ¥${topCategory.amount.toFixed(2)}，是最近最大头支出，要不要看看哪些商户最容易超预算？`
-      : '最近消费分类还比较少，要不要先按“餐饮/交通/日用”自动补齐分类建议？',
-    latest
-      ? `最近一笔是 ${latest.note || '未备注消费'}（¥${latest.amount.toFixed(2)}），要不要顺便检查是否有可合并的重复记账？`
-      : '最近还没有消费记录，要不要先试试“午饭 18 元支付宝”快速建一笔？',
-    '过去 7 天有哪些“高频小额支出”正在悄悄累加？要不要我按场景给你做一个缩减清单？',
-    '如果把本月非必要支出压缩 10%，预计能多结余多少？要不要我给你一个可执行版本？'
+  const generated = [
+    {
+      label: '本月波动拆解',
+      prompt:
+        currentTotal > 0
+          ? `请围绕本月支出¥${currentTotal.toFixed(2)}（较上月${deltaPct >= 0 ? '增加' : '减少'}${Math.abs(deltaPct).toFixed(1)}%）分析波动来源，并给出具体控费动作。`
+          : '我当前月度消费数据不完整，请先给我一套适用于首月记账的预算框架和执行步骤。'
+    },
+    {
+      label: '大头分类诊断',
+      prompt: topCategory
+        ? `请重点分析“${topCategory.name}”累计¥${topCategory.amount.toFixed(2)}的构成，识别高风险场景并给我可落地的替代方案。`
+        : '请先帮我补齐常用消费分类，并设计一套方便执行的分类记账规范。'
+    },
+    {
+      label: '最近消费复盘',
+      prompt: latest
+        ? `请基于我最近一笔“${latest.note || '未备注消费'}（¥${latest.amount.toFixed(2)}）”，检查是否存在重复记账、误分类或可优化开销。`
+        : '我还没有最新消费记录，请先给我一份从零开始的消费复盘清单。'
+    },
+    {
+      label: '7天小额拦截',
+      prompt:
+        '请统计我过去7天高频小额支出，按“可砍/可替代/保留”分类，并给出一周内可执行的缩减方案。'
+    },
+    {
+      label: '10%节流测算',
+      prompt: '如果本月非必要支出降低10%，请测算预计结余提升，并给我3条最值得优先执行的行动建议。'
+    }
   ];
 
-  return questions
+  return [...ANALYSIS_SHORTCUT_SEEDS, ...generated]
     .sort(() => Math.random() - 0.5)
-    .slice(0, 5)
-    .map((text, index) => ({ id: `fallback-${index}`, text }));
+    .slice(0, 8)
+    .map((item, index) => ({ id: `fallback-${index}`, ...item }));
 }
 
 export function AssistantPage() {
@@ -436,7 +475,7 @@ export function AssistantPage() {
         apiKey,
         model,
         systemPrompt:
-          '你是记账系统中的数据分析助手。请基于用户账单快照一次性生成 3-5 条“可直接点击提问”的问题。必须具体、包含数字或日期锚点、语气轻松有梗但专业。仅返回 JSON 数组，格式：["问题1","问题2"]，不要输出其他文本。',
+          '你是记账系统中的数据分析助手。请基于用户账单快照一次性生成 4 条快捷提问。每条都要返回 label 和 prompt：label 供 UI 展示（8-16字，像按钮标题），prompt 是实际发送给模型的完整指令（更宽泛、包含分析目标与输出要求，不能与 label 相同）。仅返回 JSON 数组，格式：[{"label":"...","prompt":"..."}]，不要输出其他文本。',
         messages: [
           {
             role: 'user',
@@ -450,16 +489,30 @@ export function AssistantPage() {
         .replace(/^```json\s*/i, '')
         .replace(/```$/, '');
       const parsed = JSON.parse(normalized) as unknown;
-      if (!Array.isArray(parsed) || parsed.length < 3) {
+      if (!Array.isArray(parsed) || parsed.length < 2) {
         fallback();
         return;
       }
       const list = parsed
-        .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-        .slice(0, 5)
-        .map((text, index) => ({ id: `preset-${index}-${Date.now()}`, text: text.trim() }));
+        .filter(
+          (item): item is { label: string; prompt: string } =>
+            Boolean(item) &&
+            typeof item === 'object' &&
+            typeof (item as { label?: string }).label === 'string' &&
+            typeof (item as { prompt?: string }).prompt === 'string'
+        )
+        .map((item) => ({ label: item.label.trim(), prompt: item.prompt.trim() }))
+        .filter((item) => item.label && item.prompt && item.label !== item.prompt)
+        .slice(0, 4)
+        .map((item, index) => ({ id: `preset-${index}-${Date.now()}`, ...item }));
       setPresetQuestions(
-        list.length >= 3 ? list : buildLocalPresetQuestions(transactions, categories)
+        list.length >= 2
+          ? [...ANALYSIS_SHORTCUT_SEEDS, ...list].map((item, index) => ({
+              id: `seed-${index}-${Date.now()}`,
+              label: item.label,
+              prompt: item.prompt
+            }))
+          : buildLocalPresetQuestions(transactions, categories)
       );
     } catch {
       fallback();
@@ -626,18 +679,7 @@ export function AssistantPage() {
                   {loadingPresets ? '生成中...' : '换一批'}
                 </button>
               </div>
-              <div className="chat-preset-list">
-                {presetQuestions.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="chat-preset-item"
-                    onClick={() => wb.applyCommand(item.text)}
-                  >
-                    {item.text}
-                  </button>
-                ))}
-              </div>
+              <p className="chat-kawaii-sub">快捷提问已移动到输入框上方按钮区，可直接点击发送。</p>
               <div className="chat-kawaii-mascot" aria-hidden>
                 <span>🧾</span>
                 <small>数据会说话，我负责翻译成能执行的建议。</small>
@@ -742,17 +784,29 @@ export function AssistantPage() {
 
       <section className="chat-input-bar">
         <div className="chat-smart-command-row">
-          {SMART_TRANSACTION_COMMANDS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className="chat-smart-command-chip"
-              onClick={() => wb.applyCommand(item.prompt)}
-              disabled={wb.status === 'recognizing'}
-            >
-              {item.label}
-            </button>
-          ))}
+          {mode === 'assistant'
+            ? presetQuestions.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="chat-smart-command-chip"
+                  onClick={() => wb.applyCommand(item.prompt)}
+                  disabled={wb.status === 'recognizing'}
+                >
+                  {item.label}
+                </button>
+              ))
+            : SMART_TRANSACTION_COMMANDS.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className="chat-smart-command-chip"
+                  onClick={() => wb.applyCommand(item.prompt)}
+                  disabled={wb.status === 'recognizing'}
+                >
+                  {item.label}
+                </button>
+              ))}
         </div>
 
         {shouldShowError ? (
