@@ -14,6 +14,18 @@ interface ExchangeRateTableProps {
 
 const PAGE_SIZE = 20;
 
+const TREND_ICON: Record<NonNullable<ExchangeRate['trend']>, string> = {
+  up: '⬆️',
+  down: '⬇️',
+  flat: '⟷'
+};
+
+const TREND_LABEL: Record<NonNullable<ExchangeRate['trend']>, string> = {
+  up: '上涨',
+  down: '下跌',
+  flat: '持平'
+};
+
 export function ExchangeRateTable({
   rates,
   base,
@@ -127,7 +139,12 @@ export function ExchangeRateTable({
                 </td>
                 <td>{r.name}</td>
                 <td style={{ textAlign: 'right' }} className="mono-inline">
-                  {r.rate.toFixed(r.rate < 1 ? 6 : 4)}
+                  <span>{r.rate.toFixed(r.rate < 1 ? 6 : 4)}</span>
+                  {r.trend ? (
+                    <span className={`exchange-rate-trend exchange-rate-trend-${r.trend}`}>
+                      {TREND_ICON[r.trend]} {TREND_LABEL[r.trend]}
+                    </span>
+                  ) : null}
                 </td>
               </tr>
             ))
