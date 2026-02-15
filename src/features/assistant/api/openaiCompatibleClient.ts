@@ -1,10 +1,12 @@
 import { ENV } from '../../../shared/config/env';
 
 /**
- * OpenAI 兼容客户端：
- * - 支持 GET /models
- * - 支持 POST /chat/completions（含可选图片）
- * - 默认读取前端 ENV，也可被页面输入覆盖
+ * OpenAI 兼容客户端。
+ *
+ * 能力：
+ * 1) 获取模型列表（GET /models）
+ * 2) 发起对话（POST /chat/completions），支持纯文本与图文输入
+ * 3) 优先使用页面传入配置，缺省回退到 ENV
  */
 
 interface OpenAiModel {
@@ -158,8 +160,24 @@ interface ChatRequestInput {
 }
 
 function normalizeBaseUrl(baseUrl?: string) {
-  // 统一去除尾部 /，避免出现 //models
-  return (baseUrl || ENV.aiBaseUrl).replace(/\/$/, '');
+  const raw = (baseUrl || ENV.aiBaseUrl).trim();
+
+  if (!raw) {
+    throw new Error('AI 服务地址不能为空');
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error('AI 服务地址格式无效，请使用完整 URL（如 https://api.example.com/v1）');
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('AI 服务地址仅支持 http 或 https 协议');
+  }
+
+  return parsed.toString().replace(/\/$/, '');
 }
 
 function buildHeaders(apiKey?: string) {
