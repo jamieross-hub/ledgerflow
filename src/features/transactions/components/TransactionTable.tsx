@@ -79,6 +79,7 @@ interface TransactionTableProps {
   hasFilters: boolean;
   highlightId?: string;
   selectedIds: string[];
+  bulkSelectionEnabled: boolean;
   canSelectAllOnPage: boolean;
   allPageSelected: boolean;
   sortKey: TransactionSortKey;
@@ -124,6 +125,7 @@ export function TransactionTable({
   hasFilters,
   highlightId,
   selectedIds,
+  bulkSelectionEnabled,
   canSelectAllOnPage,
   allPageSelected,
   sortKey,
@@ -272,7 +274,7 @@ export function TransactionTable({
         />
       ) : (
         <>
-          {selectedIds.length > 0 ? (
+          {bulkSelectionEnabled && selectedIds.length > 0 ? (
             <div className="transaction-bulk-bar">
               <strong>已选中 {selectedIds.length} 条</strong>
               <div className="row transaction-bulk-actions">
@@ -325,7 +327,7 @@ export function TransactionTable({
           <div className="transaction-table-wrap">
             <table>
               <colgroup>
-                <col style={{ width: 40 }} />
+                {bulkSelectionEnabled ? <col style={{ width: 40 }} /> : null}
                 {orderedColumns.map((column) => {
                   if (!visibleColumns[column.key]) return null;
                   const width = columnWidths[column.key];
@@ -334,15 +336,17 @@ export function TransactionTable({
               </colgroup>
               <thead>
                 <tr>
-                  <th className="transaction-select-col">
-                    <input
-                      type="checkbox"
-                      checked={allPageSelected}
-                      onChange={(event) => onToggleSelectPage(event.target.checked)}
-                      disabled={!canSelectAllOnPage}
-                      aria-label="全选当前页"
-                    />
-                  </th>
+                  {bulkSelectionEnabled ? (
+                    <th className="transaction-select-col">
+                      <input
+                        type="checkbox"
+                        checked={allPageSelected}
+                        onChange={(event) => onToggleSelectPage(event.target.checked)}
+                        disabled={!canSelectAllOnPage}
+                        aria-label="全选当前页"
+                      />
+                    </th>
+                  ) : null}
                   {orderedColumns.map((column) => {
                     if (!visibleColumns[column.key]) return null;
                     return (
@@ -397,7 +401,7 @@ export function TransactionTable({
                   })}
                 </tr>
                 <tr className="transaction-filter-row">
-                  <th className="transaction-select-col" />
+                  {bulkSelectionEnabled ? <th className="transaction-select-col" /> : null}
                   {orderedColumns.map((column) => {
                     if (!visibleColumns[column.key]) return null;
                     if (column.key === 'type') {
@@ -490,17 +494,19 @@ export function TransactionTable({
                         setContextMenu({ x: event.clientX, y: event.clientY, id: item.id });
                       }}
                     >
-                      <td
-                        className="transaction-select-col"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(event) => onToggleSelect(item.id, event.target.checked)}
-                          aria-label={`选择交易 ${formatDate(item.date)} ${item.note || ''}`}
-                        />
-                      </td>
+                      {bulkSelectionEnabled ? (
+                        <td
+                          className="transaction-select-col"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) => onToggleSelect(item.id, event.target.checked)}
+                            aria-label={`选择交易 ${formatDate(item.date)} ${item.note || ''}`}
+                          />
+                        </td>
+                      ) : null}
                       {orderedColumns.map((column) => {
                         if (!visibleColumns[column.key]) return null;
                         if (column.key === 'type') {

@@ -316,6 +316,7 @@ export function TransactionsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkSelectionEnabled, setBulkSelectionEnabled] = useState(false);
   const [highlightId, setHighlightId] = useState<string>('');
   const [importNotice, setImportNotice] = useState<{
     visible: boolean;
@@ -745,8 +746,14 @@ export function TransactionsPage() {
     setSelectedIds((prev) => prev.filter((id) => transactions.some((item) => item.id === id)));
   }, [transactions]);
 
+  useEffect(() => {
+    if (!bulkSelectionEnabled) {
+      setSelectedIds([]);
+    }
+  }, [bulkSelectionEnabled]);
+
   const pageRowIds = viewRows.map((row) => row.item.id);
-  const canSelectAllOnPage = pageRowIds.length > 0;
+  const canSelectAllOnPage = bulkSelectionEnabled && pageRowIds.length > 0;
   const allPageSelected = canSelectAllOnPage && pageRowIds.every((id) => selectedIds.includes(id));
 
   const handleToggleSelect = (id: string, selected: boolean) => {
@@ -982,6 +989,8 @@ export function TransactionsPage() {
         columnOptions={COLUMN_OPTIONS}
         visibleColumns={visibleColumns}
         onToggleColumn={handleToggleColumn}
+        bulkSelectionEnabled={bulkSelectionEnabled}
+        onToggleBulkSelection={() => setBulkSelectionEnabled((prev) => !prev)}
       />
 
       {importNotice.visible ? (
@@ -1037,6 +1046,7 @@ export function TransactionsPage() {
         }}
         onOpenDetail={setSelectedId}
         selectedIds={selectedIds}
+        bulkSelectionEnabled={bulkSelectionEnabled}
         canSelectAllOnPage={canSelectAllOnPage}
         allPageSelected={allPageSelected}
         onDelete={(id) => setPendingDeleteIds([id])}

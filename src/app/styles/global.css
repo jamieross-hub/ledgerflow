@@ -733,6 +733,12 @@ button.danger:hover:not(:disabled) {
   background: var(--color-bg-hover);
 }
 
+.transaction-filter-trigger.active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-bg);
+}
+
 .transaction-filter-popover.open {
   z-index: 50;
 }
@@ -754,12 +760,45 @@ button.danger:hover:not(:disabled) {
   border-radius: var(--radius-md);
   background: var(--color-bg-elevated);
   box-shadow: var(--shadow-md);
+  max-height: min(72vh, 640px);
+  overflow: auto;
 }
 
 .transaction-filter-section-title {
   margin: 0 0 var(--space-2) 0;
   font-size: var(--font-sm);
   font-weight: 600;
+}
+
+.transaction-popover-section {
+  margin: 0;
+}
+
+.transaction-popover-section .transaction-filter-section-title {
+  margin: 0;
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.transaction-popover-section .transaction-filter-section-title::-webkit-details-marker {
+  display: none;
+}
+
+.transaction-popover-section .transaction-filter-section-title::after {
+  content: '▾';
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.transaction-popover-section:not([open]) .transaction-filter-section-title::after {
+  transform: rotate(-90deg);
+}
+
+.transaction-popover-section > :not(summary) {
+  margin-top: var(--space-2);
 }
 
 .transaction-column-check-grid {
@@ -1155,6 +1194,8 @@ tr:hover td {
   border: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
   box-shadow: var(--shadow-md);
+  max-height: min(72vh, 640px);
+  overflow: auto;
 }
 
 .transaction-actions-item {
@@ -4438,6 +4479,8 @@ small.mono {
   color: #fff;
   font-size: var(--font-sm);
   box-shadow: var(--shadow-md);
+  max-height: min(72vh, 640px);
+  overflow: auto;
 }
 
 .debug-log-floating {
