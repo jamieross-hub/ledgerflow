@@ -261,18 +261,17 @@ export function CategoriesAccountsPage() {
                 <li key={item.id} className="row categories-row">
                   <span style={{ flex: 1 }}>
                     {item.name}
-                    <small className="tag-count-chip">
+                    <button
+                      type="button"
+                      className="tag-count-chip tag-count-chip-link"
+                      onClick={() =>
+                        navigate(`/transactions?categoryId=${encodeURIComponent(item.id)}`)
+                      }
+                      aria-label={`查看分类 ${item.name} 的 ${categoryUsageMap.get(item.id) || 0} 条交易`}
+                    >
                       {categoryUsageMap.get(item.id) || 0} 条
-                    </small>
+                    </button>
                   </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate(`/transactions?categoryId=${encodeURIComponent(item.id)}`)
-                    }
-                  >
-                    快捷查看
-                  </button>
                   <button type="button" className="danger" onClick={() => removeCategory(item.id)}>
                     删除
                   </button>
@@ -306,7 +305,16 @@ export function CategoriesAccountsPage() {
                 <li key={tag.key} className="row categories-row">
                   <span style={{ flex: 1 }}>
                     #{tag.label}
-                    <small className="tag-count-chip">{tag.count} 条</small>
+                    <button
+                      type="button"
+                      className="tag-count-chip tag-count-chip-link"
+                      onClick={() =>
+                        navigate(`/transactions?keyword=${encodeURIComponent(tag.label)}`)
+                      }
+                      aria-label={`查看标签 ${tag.label} 的 ${tag.count} 条交易`}
+                    >
+                      {tag.count} 条
+                    </button>
                   </span>
                   <button
                     type="button"
