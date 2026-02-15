@@ -28,6 +28,7 @@ export const router = createBrowserRouter([
       { path: 'database-settings', element: <DatabaseSettingsPage /> },
       { path: 'exchange', element: <ExchangePage /> },
       { path: 'finance', element: <FinancePage /> },
+      { path: 'repayment-management', element: <Navigate to="/finance#debt-management" replace /> },
       { path: 'smart-budget', element: <SmartBudgetPage /> },
       { path: 'tags', element: <Navigate to="/categories-accounts" replace /> }
     ]

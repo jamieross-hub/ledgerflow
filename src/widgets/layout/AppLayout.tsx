@@ -36,7 +36,10 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
   },
   {
     title: '基础数据',
-    items: [{ to: '/categories-accounts', label: '账户/分类/标签', icon: '🗂️' }]
+    items: [
+      { to: '/categories-accounts', label: '账户/分类/标签', icon: '🗂️' },
+      { to: '/repayment-management', label: '还款管理', icon: '💳' }
+    ]
   },
   {
     title: '杂项',
@@ -66,6 +69,7 @@ const mobileQuickGroups: Array<{ title: string; items: QuickEntry[] }> = [
       { label: '交易详情', icon: '📋', to: '/transactions' },
       { label: '统计分析', icon: '📊', to: '/', end: true },
       { label: '分类账户', icon: '🗂️', to: '/categories-accounts' },
+      { label: '还款管理', icon: '💳', to: '/repayment-management' },
       { label: '金融资讯', icon: '📰', to: '/finance' },
       { label: '汇率数据', icon: '💱', to: '/exchange' }
     ]
