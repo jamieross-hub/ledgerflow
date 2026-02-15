@@ -397,6 +397,7 @@ export function AssistantPage() {
     if (!clean || wb.status === 'recognizing') return;
     pendingRequestModeRef.current = mode;
     setChatHistory((prev) => [...prev, { id: `${Date.now()}-user`, role: 'user', text: clean }]);
+    wb.setTextInput('');
     void wb.handleRecognizeWithPrompt(clean);
   };
 
