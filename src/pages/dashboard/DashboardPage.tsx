@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { DebugLogPanel } from '../../features/debug-log/ui/DebugLogPanel';
+import { APP_VERSION } from '../../shared/config/app';
 import { formatCurrency } from '../../shared/lib/format';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
@@ -666,6 +667,9 @@ export function DashboardPage() {
   return (
     <div>
       <section className="welcome-banner">
+        <span className="welcome-version-tag" aria-label="当前版本">
+          v{APP_VERSION}
+        </span>
         <div className="welcome-content">
           <h2 className="welcome-greeting">{getGreeting()}，欢迎使用 LedgerFlow</h2>
           <p className="welcome-subtitle">你的智能记账工作台已就绪，轻松管理每一笔收支。</p>

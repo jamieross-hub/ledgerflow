@@ -4,9 +4,6 @@ import { ThemeSwitcher } from '../../features/theme-switcher/ThemeSwitcher';
 import { formatCurrency } from '../../shared/lib/format';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 
-/** 当前发布版本号（展示用途，与 package.json 可独立管理） */
-const APP_VERSION = '0.2';
-
 type NavItem = {
   label: string;
   icon: string;
@@ -280,7 +277,7 @@ export function AppLayout() {
 
             <div className={`topbar-brand-copy ${collapsed ? 'compact' : ''}`.trim()}>
               <h1>LedgerFlow</h1>
-              <span>v{APP_VERSION} · 智能记账工作台</span>
+              <span>智能记账工作台</span>
             </div>
           </div>
         </header>

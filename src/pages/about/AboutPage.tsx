@@ -1,14 +1,21 @@
-const APP_VERSION = '0.1';
+import { APP_GITHUB_URL } from '../../shared/config/app';
 
 export function AboutPage() {
   return (
     <section className="panel about-page">
       <header className="about-header">
         <h2>关于 LedgerFlow</h2>
-        <p>
-          <strong>当前版本：</strong> v{APP_VERSION}
-        </p>
       </header>
+
+      <section className="about-block">
+        <h3>项目主页</h3>
+        <p>
+          GitHub：
+          <a href={APP_GITHUB_URL} target="_blank" rel="noreferrer">
+            {APP_GITHUB_URL}
+          </a>
+        </p>
+      </section>
 
       <section className="about-block">
         <h3>我们为什么做这件事</h3>
