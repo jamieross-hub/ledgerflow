@@ -138,6 +138,7 @@ interface ChatHistoryItem {
   role: 'user' | 'assistant';
   text: string;
   usageText?: string;
+  reasoningText?: string;
 }
 
 type AssistantMode = 'bookkeeping' | 'assistant';
@@ -426,9 +427,10 @@ export function AssistantPage() {
       id: `${Date.now()}-assistant`,
       role: 'assistant',
       text: wb.rawContent,
-      usageText
+      usageText,
+      reasoningText: wb.rawReasoning || undefined
     });
-  }, [appendMessageToMode, wb.lastUsage, wb.rawContent]);
+  }, [appendMessageToMode, wb.lastUsage, wb.rawContent, wb.rawReasoning]);
 
   const removeMessage = (id: string) =>
     setChatHistory((prev) => prev.filter((item) => item.id !== id));
@@ -710,6 +712,12 @@ export function AssistantPage() {
                 <div className="chat-msg-content chat-msg-content-rich">
                   {renderMarkdownContent(item.text)}
                 </div>
+                {item.role === 'assistant' && item.reasoningText ? (
+                  <details className="chat-reasoning-collapse">
+                    <summary>模型思考过程（点击展开）</summary>
+                    <pre>{item.reasoningText}</pre>
+                  </details>
+                ) : null}
                 {item.usageText ? <p className="chat-token-usage">{item.usageText}</p> : null}
                 <div className="chat-message-actions">
                   <button
