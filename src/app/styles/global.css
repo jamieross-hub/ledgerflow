@@ -5992,3 +5992,55 @@ small.mono {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.page-stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-elevated);
+  padding: var(--space-4);
+}
+
+.finance-page {
+  align-content: start;
+}
+
+.finance-debt-form-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr)) auto;
+}
+
+.finance-feed-form-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  align-items: center;
+}
+
+.finance-ai-result {
+  margin: 10px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: 10px;
+}
+
+@media (max-width: 1120px) {
+  .finance-debt-form-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .finance-debt-form-grid,
+  .finance-feed-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
