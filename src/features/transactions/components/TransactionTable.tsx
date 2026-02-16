@@ -14,6 +14,10 @@ function getMinColumnWidth(key: TransactionColumnKey): number {
   return key === 'amount' ? AMOUNT_COLUMN_MIN_WIDTH : DEFAULT_MIN_COLUMN_WIDTH;
 }
 
+function isLongTextColumn(key: TransactionColumnKey): boolean {
+  return key === 'orderNo' || key === 'merchantOrderNo' || key === 'note';
+}
+
 export type TransactionSortKey =
   | 'date'
   | 'type'
@@ -459,7 +463,11 @@ export function TransactionTable({
                     return (
                       <th
                         key={`head-${column.key}`}
-                        className={`transaction-col-${column.key}`}
+                        className={`transaction-col-${column.key} ${
+                          isLongTextColumn(column.key)
+                            ? 'transaction-col-long-text'
+                            : 'transaction-col-compact'
+                        }`}
                         draggable
                         onDragStart={() => {
                           dragColumnRef.current = column.key;
@@ -474,7 +482,11 @@ export function TransactionTable({
                       >
                         <button
                           type="button"
-                          className={`transaction-sort-btn ${sortKey === column.key ? 'active' : ''}`}
+                          className={`transaction-sort-btn ${
+                            isLongTextColumn(column.key)
+                              ? 'transaction-sort-btn-left'
+                              : 'transaction-sort-btn-center'
+                          } ${sortKey === column.key ? 'active' : ''}`}
                           onClick={() => onSortChange(column.key)}
                         >
                           {column.label}{' '}
