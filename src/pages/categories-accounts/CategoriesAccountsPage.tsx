@@ -19,6 +19,8 @@ function isValidName(name: string) {
   return name.length >= 1 && name.length <= 24;
 }
 
+const GENERAL_ACCOUNT_TYPES: AccountType[] = ['cash', 'debit', 'savings', 'virtual'];
+
 export function CategoriesAccountsPage() {
   const navigate = useNavigate();
   const categories = useFinanceStore((s) => s.categories);
@@ -86,6 +88,11 @@ export function CategoriesAccountsPage() {
     setAccountError('');
   }
 
+  const managedAccounts = useMemo(
+    () => accounts.filter((item) => !item.type || GENERAL_ACCOUNT_TYPES.includes(item.type)),
+    [accounts]
+  );
+
   const pendingDeleteLinkedCount = pendingDeleteAccountId
     ? transactions.filter((item) => item.accountId === pendingDeleteAccountId).length
     : 0;
@@ -148,13 +155,14 @@ export function CategoriesAccountsPage() {
   );
 
   const displayAccounts = useMemo(
-    () => (showAllAccounts ? accounts : accounts.slice(0, ACCOUNT_COLLAPSE_THRESHOLD)),
-    [accounts, showAllAccounts]
+    () =>
+      showAllAccounts ? managedAccounts : managedAccounts.slice(0, ACCOUNT_COLLAPSE_THRESHOLD),
+    [managedAccounts, showAllAccounts]
   );
 
   const hiddenCategoryCount = Math.max(0, categories.length - displayCategories.length);
   const hiddenTagCount = Math.max(0, tagGroups.length - displayTags.length);
-  const hiddenAccountCount = Math.max(0, accounts.length - displayAccounts.length);
+  const hiddenAccountCount = Math.max(0, managedAccounts.length - displayAccounts.length);
 
   const accountBalanceMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -402,10 +410,7 @@ export function CategoriesAccountsPage() {
                 <option value="cash">💵 现金</option>
                 <option value="debit">💳 借记卡</option>
                 <option value="savings">🏦 储蓄卡</option>
-                <option value="credit">💳 信用卡</option>
                 <option value="virtual">📱 虚拟账户</option>
-                <option value="liability">📄 负债</option>
-                <option value="receivable">📥 应收</option>
               </select>
             </div>
             <div className="field">
@@ -426,7 +431,7 @@ export function CategoriesAccountsPage() {
 
         {loading ? (
           <LoadingSkeleton lines={4} />
-        ) : accounts.length === 0 ? (
+        ) : managedAccounts.length === 0 ? (
           <EmptyState title="暂无账户" description="请添加第一个资金账户。" icon="💳" />
         ) : (
           <>
@@ -490,10 +495,10 @@ export function CategoriesAccountsPage() {
               })}
             </div>
 
-            {accounts.length > ACCOUNT_COLLAPSE_THRESHOLD ? (
+            {managedAccounts.length > ACCOUNT_COLLAPSE_THRESHOLD ? (
               <div className="row" style={{ justifyContent: 'space-between', marginTop: 10 }}>
                 <small style={{ color: 'var(--color-text-secondary)' }}>
-                  已显示 {displayAccounts.length}/{accounts.length}
+                  已显示 {displayAccounts.length}/{managedAccounts.length}
                 </small>
                 <button type="button" onClick={() => setShowAllAccounts((prev) => !prev)}>
                   {showAllAccounts ? '收起' : `展开剩余 ${hiddenAccountCount} 项`}
