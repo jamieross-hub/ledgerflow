@@ -44,6 +44,7 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
   {
     title: '杂项',
     items: [
+      { to: '/settings', label: '设置', icon: '⚙️' },
       { to: '/exchange', label: '汇率数据', icon: '💱' },
       { to: '/finance', label: '金融资讯', icon: '📰' },
       { to: '/about', label: '关于', icon: 'ℹ️' }
@@ -160,6 +161,12 @@ export function AppLayout() {
   }, []);
 
   useEffect(() => {
+    if (!collapsed && menuOpen) {
+      setMenuOpen(false);
+    }
+  }, [collapsed, menuOpen]);
+
+  useEffect(() => {
     if (mobileNavOpen) {
       document.body.style.overflow = 'hidden';
     } else {
@@ -256,35 +263,39 @@ export function AppLayout() {
             >
               ☰
             </button>
-            <button
-              type="button"
-              className="logo-circle"
-              onClick={() => setMenuOpen((v) => !v)}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-label="打开项目菜单"
-            >
-              👤
-            </button>
-            {menuOpen ? (
-              <div className="logo-menu" role="menu">
-                {logoMenuItems.map((item) => (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className="logo-menu-item"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <span className="logo-menu-icon">{item.icon}</span> {item.label}
-                  </Link>
-                ))}
-              </div>
-            ) : null}
+            {collapsed ? (
+              <>
+                <button
+                  type="button"
+                  className="logo-circle"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  aria-label="打开项目菜单"
+                >
+                  👤
+                </button>
+                {menuOpen ? (
+                  <div className="logo-menu" role="menu">
+                    {logoMenuItems.map((item) => (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        className="logo-menu-item"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        <span className="logo-menu-icon">{item.icon}</span> {item.label}
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
 
-            <div className={`topbar-brand-copy ${collapsed ? 'compact' : ''}`.trim()}>
-              <h1>LedgerFlow</h1>
-              <span>智能记账工作台</span>
-            </div>
+                <div className="topbar-brand-copy compact">
+                  <h1>LedgerFlow</h1>
+                  <span>智能记账工作台</span>
+                </div>
+              </>
+            ) : null}
           </div>
         </header>
 
