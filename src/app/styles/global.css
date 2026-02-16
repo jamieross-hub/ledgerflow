@@ -1156,6 +1156,52 @@ tr:hover td {
   cursor: pointer;
 }
 
+.transaction-row-clickable:hover td {
+  background: #f5f6f8;
+}
+
+.transaction-table-wrap tbody td {
+  height: 56px;
+  padding-top: 0;
+  padding-bottom: 0;
+  vertical-align: middle;
+}
+
+.transaction-type-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.transaction-type-dot-income {
+  background: #1f7a3f;
+}
+
+.transaction-type-dot-expense {
+  background: #9f2b2b;
+}
+
+.transaction-type-text {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.transaction-amount-cell {
+  text-align: right;
+  font-size: var(--font-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.transaction-amount-income {
+  color: #1f7a3f;
+}
+
+.transaction-amount-expense {
+  color: #9f2b2b;
+}
+
 .transaction-empty-cell {
   text-align: center;
   padding: 24px 16px;
@@ -1250,6 +1296,11 @@ tr:hover td {
   border-radius: var(--radius-md);
   background: var(--color-bg-elevated);
   overflow: hidden;
+  cursor: pointer;
+}
+
+.transaction-mobile-item:hover {
+  background: #f5f6f8;
 }
 
 .transaction-mobile-swipe {
