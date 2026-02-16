@@ -40,6 +40,7 @@ interface AppPreferencesState {
   toggleRssSubscription: (id: string) => void;
   setMonthlyIncome: (income: number) => void;
   addDebt: (payload: Omit<DebtItem, 'id'>) => void;
+  replaceDebts: (payload: Omit<DebtItem, 'id'>[]) => void;
   updateDebt: (id: string, payload: Omit<DebtItem, 'id'>) => void;
   removeDebt: (id: string) => void;
 }
@@ -123,6 +124,14 @@ export const useAppPreferences = create<AppPreferencesState>()(
         set((state) => ({
           debts: [{ ...payload, id: createDebtId(payload.type) }, ...state.debts]
         }));
+      },
+      replaceDebts: (payload) => {
+        set({
+          debts: payload.map((item) => ({
+            ...item,
+            id: createDebtId(item.type)
+          }))
+        });
       },
       updateDebt: (id, payload) => {
         set((state) => ({
