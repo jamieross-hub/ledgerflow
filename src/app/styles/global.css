@@ -1157,7 +1157,7 @@ tr:hover td {
 }
 
 .transaction-row-clickable:hover td {
-  background: #f5f6f8;
+  background: var(--color-bg-subtle);
 }
 
 .transaction-table-wrap tbody td {
