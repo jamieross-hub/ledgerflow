@@ -229,6 +229,20 @@ const CHAT_HISTORY_CACHE_KEYS: Record<AssistantMode, string> = {
   assistant: 'ledgerflow.assistant.chatHistory.assistant'
 };
 
+const PRESET_QUESTIONS_CACHE_KEY = 'ledgerflow.assistant.personalizedPresets.v1';
+const PRESET_QUESTIONS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
+
+interface CachedPresetQuestion {
+  label: string;
+  prompt: string;
+}
+
+interface PresetQuestionsCachePayload {
+  signature: string;
+  updatedAt: number;
+  questions: CachedPresetQuestion[];
+}
+
 function readChatHistory(mode: AssistantMode): ChatHistoryItem[] {
   try {
     const raw = window.sessionStorage.getItem(CHAT_HISTORY_CACHE_KEYS[mode]);
@@ -461,77 +475,112 @@ export function AssistantPage() {
     weekday: 'short'
   }).format(new Date());
 
-  const loadPersonalizedQuestions = useCallback(async () => {
-    const fallback = () => setPresetQuestions(buildLocalPresetQuestions(transactions, categories));
-    if (!apiKey || !model) {
-      fallback();
-      return;
-    }
+  const aiRequestContextRef = useRef({ baseUrl, apiKey, model });
 
-    setLoadingPresets(true);
-    try {
-      const snapshot = transactions
-        .slice(-120)
-        .map((item) => ({
-          type: item.type,
-          amount: item.amount,
-          date: item.date,
-          note: item.note,
-          categoryId: item.categoryId
-        }))
-        .sort((a, b) => +new Date(b.date) - +new Date(a.date));
-      const categoryMap = categories.map((item) => ({ id: item.id, name: item.name }));
-      const randomSeed = `${Date.now()}-${Math.round(Math.random() * 1000)}`;
-      const reply = await sendAiChat({
-        baseUrl,
-        apiKey,
-        model,
-        systemPrompt:
-          '你是记账系统中的数据分析助手。请基于用户账单快照一次性生成 4 条快捷提问。每条都要返回 label 和 prompt：label 供 UI 展示（8-16字，像按钮标题），prompt 是实际发送给模型的完整指令（更宽泛、包含分析目标与输出要求，不能与 label 相同）。仅返回 JSON 数组，格式：[{"label":"...","prompt":"..."}]，不要输出其他文本。',
-        messages: [
-          {
-            role: 'user',
-            text: `随机种子: ${randomSeed}\n分类映射: ${JSON.stringify(categoryMap)}\n最近账单: ${JSON.stringify(snapshot)}`
-          }
-        ]
-      });
+  useEffect(() => {
+    aiRequestContextRef.current = { baseUrl, apiKey, model };
+  }, [apiKey, baseUrl, model]);
 
-      const normalized = reply.content
-        .trim()
-        .replace(/^```json\s*/i, '')
-        .replace(/```$/, '');
-      const parsed = JSON.parse(normalized) as unknown;
-      if (!Array.isArray(parsed) || parsed.length < 2) {
+  const loadPersonalizedQuestions = useCallback(
+    async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
+      const signature = buildPresetQuestionsSignature(transactions, categories);
+      const fallback = () => {
+        const local = buildLocalPresetQuestions(transactions, categories);
+        setPresetQuestions(local);
+        writePresetQuestionsCache(
+          signature,
+          local.map((item) => ({ label: item.label, prompt: item.prompt }))
+        );
+      };
+
+      if (!forceRefresh) {
+        const cached = readPresetQuestionsCache(signature);
+        if (cached) {
+          setPresetQuestions(withPresetIds(cached, 'preset-cache'));
+          return;
+        }
+      }
+
+      const {
+        baseUrl: currentBaseUrl,
+        apiKey: currentApiKey,
+        model: currentModel
+      } = aiRequestContextRef.current;
+
+      if (!currentApiKey || !currentModel) {
         fallback();
         return;
       }
-      const list = parsed
-        .filter(
-          (item): item is { label: string; prompt: string } =>
-            Boolean(item) &&
-            typeof item === 'object' &&
-            typeof (item as { label?: string }).label === 'string' &&
-            typeof (item as { prompt?: string }).prompt === 'string'
-        )
-        .map((item) => ({ label: item.label.trim(), prompt: item.prompt.trim() }))
-        .filter((item) => item.label && item.prompt && item.label !== item.prompt)
-        .slice(0, 4)
-        .map((item, index) => ({ id: `preset-${index}-${Date.now()}`, ...item }));
-      setPresetQuestions(
-        list.length >= 2
-          ? [...ANALYSIS_SHORTCUT_SEEDS, ...list].map((item, index) => ({
-              id: `seed-${index}-${Date.now()}`,
-              label: item.label,
-              prompt: item.prompt
-            }))
-          : buildLocalPresetQuestions(transactions, categories)
-      );
-    } catch {
-      fallback();
-    } finally {
-      setLoadingPresets(false);
-    }
-  }, [apiKey, baseUrl, categories, model, transactions]);
+
+      setLoadingPresets(true);
+      try {
+        const snapshot = transactions
+          .slice(-120)
+          .map((item) => ({
+            type: item.type,
+            amount: item.amount,
+            date: item.date,
+            note: item.note,
+            categoryId: item.categoryId
+          }))
+          .sort((a, b) => +new Date(b.date) - +new Date(a.date));
+        const categoryMap = categories.map((item) => ({ id: item.id, name: item.name }));
+        const randomSeed = `${Date.now()}-${Math.round(Math.random() * 1000)}`;
+        const reply = await sendAiChat({
+          baseUrl: currentBaseUrl,
+          apiKey: currentApiKey,
+          model: currentModel,
+          systemPrompt:
+            '你是记账系统中的数据分析助手。请基于用户账单快照一次性生成 4 条快捷提问。每条都要返回 label 和 prompt：label 供 UI 展示（8-16字，像按钮标题），prompt 是实际发送给模型的完整指令（更宽泛、包含分析目标与输出要求，不能与 label 相同）。仅返回 JSON 数组，格式：[{"label":"...","prompt":"..."}]，不要输出其他文本。',
+          messages: [
+            {
+              role: 'user',
+              text: `随机种子: ${randomSeed}
+分类映射: ${JSON.stringify(categoryMap)}
+最近账单: ${JSON.stringify(snapshot)}`
+            }
+          ]
+        });
+
+        const normalized = reply.content
+          .trim()
+          .replace(/^```json\s*/i, '')
+          .replace(/```$/, '');
+        const parsed = JSON.parse(normalized) as unknown;
+        if (!Array.isArray(parsed) || parsed.length < 2) {
+          fallback();
+          return;
+        }
+        const list = parsed
+          .filter(
+            (item): item is { label: string; prompt: string } =>
+              Boolean(item) &&
+              typeof item === 'object' &&
+              typeof (item as { label?: string }).label === 'string' &&
+              typeof (item as { prompt?: string }).prompt === 'string'
+          )
+          .map((item) => ({ label: item.label.trim(), prompt: item.prompt.trim() }))
+          .filter((item) => item.label && item.prompt && item.label !== item.prompt)
+          .slice(0, 4);
+
+        const nextQuestions =
+          list.length >= 2
+            ? [...ANALYSIS_SHORTCUT_SEEDS, ...list]
+            : buildLocalPresetQuestions(transactions, categories).map((item) => ({
+                label: item.label,
+                prompt: item.prompt
+              }));
+
+        setPresetQuestions(withPresetIds(nextQuestions, 'preset'));
+        writePresetQuestionsCache(signature, nextQuestions);
+      } catch {
+        fallback();
+      } finally {
+        setLoadingPresets(false);
+      }
+    },
+    [categories, transactions]
+  );
 
   useEffect(() => {
     void loadPersonalizedQuestions();
@@ -671,7 +720,10 @@ export function AssistantPage() {
               <div className="chat-kawaii-sub">先看数据，再发问，一次就问到重点。</div>
               <div className="chat-preset-head">
                 <strong>个性化预设问题</strong>
-                <button type="button" onClick={() => void loadPersonalizedQuestions()}>
+                <button
+                  type="button"
+                  onClick={() => void loadPersonalizedQuestions({ forceRefresh: true })}
+                >
                   {loadingPresets ? '生成中...' : '换一批'}
                 </button>
               </div>
