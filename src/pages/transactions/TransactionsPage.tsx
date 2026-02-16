@@ -425,13 +425,13 @@ export function TransactionsPage() {
       return;
     }
 
-    const matchedCategory = categories.find((item) => item.id === categoryId);
-    if (!matchedCategory) {
+    const hasCategory = categories.some((item) => item.id === categoryId);
+    if (!hasCategory) {
       return;
     }
 
     setQuickFilters((prev) =>
-      prev.category === matchedCategory.name ? prev : { ...prev, category: matchedCategory.name }
+      prev.category === categoryId ? prev : { ...prev, category: categoryId }
     );
     setPage(1);
   }, [categories, searchParams, setPage]);
