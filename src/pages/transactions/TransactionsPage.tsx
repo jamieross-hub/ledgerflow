@@ -103,6 +103,20 @@ const TX_VISIBLE_COLUMNS_KEY = 'ledgerflow.transactions.visibleColumns';
 const TX_COLUMN_ORDER_KEY = 'ledgerflow.transactions.columnOrder';
 const TX_COLUMN_WIDTHS_KEY = 'ledgerflow.transactions.columnWidths';
 const TX_DETAIL_SECTIONS_KEY = 'ledgerflow.transactions.detailSections';
+
+const COLUMN_MIN_WIDTHS: Record<TransactionColumnKey, number> = {
+  date: 90,
+  type: 90,
+  status: 90,
+  category: 90,
+  account: 90,
+  amount: 72,
+  orderNo: 90,
+  merchantOrderNo: 90,
+  note: 90
+};
+const COLUMN_MAX_WIDTH = 640;
+
 const BULK_AI_RECATEGORIZE_CONCURRENCY = 4;
 
 const IMPORT_CATEGORY_RULES: Array<{ pattern: RegExp; names: string[] }> = [
@@ -171,7 +185,7 @@ function restoreColumnWidths(storageKey: string): Partial<Record<TransactionColu
     const next: Partial<Record<TransactionColumnKey, number>> = {};
     DEFAULT_COLUMN_ORDER.forEach((key) => {
       const value = Number(parsed[key]);
-      if (Number.isFinite(value) && value >= 90 && value <= 640) {
+      if (Number.isFinite(value) && value >= COLUMN_MIN_WIDTHS[key] && value <= COLUMN_MAX_WIDTH) {
         next[key] = Math.round(value);
       }
     });
@@ -1118,7 +1132,10 @@ export function TransactionsPage() {
   };
 
   const handleColumnResize = (key: TransactionColumnKey, width: number) => {
-    setColumnWidths((prev) => ({ ...prev, [key]: Math.max(90, Math.round(width)) }));
+    setColumnWidths((prev) => ({
+      ...prev,
+      [key]: Math.max(COLUMN_MIN_WIDTHS[key], Math.min(COLUMN_MAX_WIDTH, Math.round(width)))
+    }));
   };
 
   const handleToggleDetailSection = (key: TransactionDetailSectionKey) => {

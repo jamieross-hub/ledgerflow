@@ -7,6 +7,12 @@ import { EmptyState } from '../../../shared/ui/EmptyState';
 import { TableSkeleton } from '../../../shared/ui/TableSkeleton';
 
 const NOTE_MAX_LENGTH = 22;
+const DEFAULT_MIN_COLUMN_WIDTH = 90;
+const AMOUNT_COLUMN_MIN_WIDTH = 72;
+
+function getMinColumnWidth(key: TransactionColumnKey): number {
+  return key === 'amount' ? AMOUNT_COLUMN_MIN_WIDTH : DEFAULT_MIN_COLUMN_WIDTH;
+}
 
 export type TransactionSortKey =
   | 'date'
@@ -283,7 +289,10 @@ export function TransactionTable({
     const handleMouseMove = (event: MouseEvent) => {
       if (!resizeStateRef.current) return;
       const { key, startX, startWidth } = resizeStateRef.current;
-      const next = Math.max(90, Math.round(startWidth + (event.clientX - startX)));
+      const next = Math.max(
+        getMinColumnWidth(key),
+        Math.round(startWidth + (event.clientX - startX))
+      );
       onColumnResize(key, next);
     };
 
@@ -450,6 +459,7 @@ export function TransactionTable({
                     return (
                       <th
                         key={`head-${column.key}`}
+                        className={`transaction-col-${column.key}`}
                         draggable
                         onDragStart={() => {
                           dragColumnRef.current = column.key;
@@ -482,7 +492,7 @@ export function TransactionTable({
                                 event.currentTarget.parentElement as HTMLElement | null
                               )?.getBoundingClientRect().width ||
                               columnWidths[column.key] ||
-                              140;
+                              getMinColumnWidth(column.key);
                             resizeStateRef.current = {
                               key: column.key,
                               startX: event.clientX,
@@ -504,7 +514,10 @@ export function TransactionTable({
                     if (!visibleColumns[column.key]) return null;
                     if (column.key === 'type' || column.key === 'status') {
                       return (
-                        <th key={`filter-${column.key}`}>
+                        <th
+                          key={`filter-${column.key}`}
+                          className={`transaction-col-${column.key}`}
+                        >
                           <select
                             aria-label={column.key === 'type' ? '按类型筛选' : '按交易状态筛选'}
                             value={column.key === 'type' ? quickFilters.type : quickFilters.status}
@@ -543,7 +556,7 @@ export function TransactionTable({
                       );
                     }
                     return (
-                      <th key={`filter-${column.key}`}>
+                      <th key={`filter-${column.key}`} className={`transaction-col-${column.key}`}>
                         {column.key === 'date' ? (
                           <input
                             type="date"
