@@ -22,6 +22,7 @@ import { Toast, ToastVariant } from '../../shared/ui/Toast';
 type BillSource = 'wechat' | 'alipay';
 
 export function DatabaseSettingsPage() {
+  const hasHydrated = useFinanceStore((s) => s.hasHydrated);
   const transactions = useFinanceStore((s) => s.transactions);
   const categories = useFinanceStore((s) => s.categories);
   const accounts = useFinanceStore((s) => s.accounts);
@@ -79,6 +80,7 @@ export function DatabaseSettingsPage() {
     }
 
     try {
+      ensureHydrated();
       const text = await file.text();
       const payload = parseFinanceBackupPayload(text);
       replaceAllData(payload.data);
@@ -175,8 +177,15 @@ export function DatabaseSettingsPage() {
     }
   };
 
+  const ensureHydrated = () => {
+    if (!hasHydrated) {
+      throw new Error('本地数据仍在加载中，请稍后重试');
+    }
+  };
+
   const handleWebdavUpload = async () => {
     try {
+      ensureHydrated();
       validateWebdav();
       setBusy(true);
       const payload = createFinanceBackupPayload({ transactions, categories, accounts });
@@ -192,6 +201,7 @@ export function DatabaseSettingsPage() {
 
   const handleWebdavDownload = async () => {
     try {
+      ensureHydrated();
       validateWebdav();
       setBusy(true);
       const payload = await webdavDownloadBackup(webdav);

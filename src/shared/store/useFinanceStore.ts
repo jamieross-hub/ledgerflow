@@ -7,6 +7,7 @@ import { syncChangeIfNeeded } from '../lib/dataSync';
 import { generateId } from '../lib/id';
 
 interface FinanceState {
+  hasHydrated: boolean;
   transactions: TransactionItem[];
   categories: Category[];
   accounts: Account[];
@@ -147,6 +148,7 @@ function computeAccountBalances(accounts: Account[], transactions: TransactionIt
 export const useFinanceStore = create<FinanceState>()(
   persist(
     (set) => ({
+      hasHydrated: false,
       transactions: defaultTransactions,
       categories: defaultCategories,
       accounts: defaultAccounts,
@@ -305,6 +307,9 @@ export const useFinanceStore = create<FinanceState>()(
     {
       name: 'ledgerflow-finance',
       version: 2,
+      onRehydrateStorage: () => () => {
+        useFinanceStore.setState({ hasHydrated: true });
+      },
       merge: (persistedState, currentState) => {
         const incoming = (persistedState as Partial<FinanceState>) || {};
         const categories = Array.isArray(incoming.categories)
@@ -318,6 +323,7 @@ export const useFinanceStore = create<FinanceState>()(
         return {
           ...currentState,
           ...incoming,
+          hasHydrated: true,
           categories: compacted.categories,
           transactions: compacted.transactions,
           accounts: computeAccountBalances(
