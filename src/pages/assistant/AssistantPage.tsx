@@ -529,6 +529,12 @@ export function AssistantPage() {
     weekday: 'short'
   }).format(new Date());
 
+  const aiRequestContextRef = useRef({ baseUrl, apiKey, model });
+
+  useEffect(() => {
+    aiRequestContextRef.current = { baseUrl, apiKey, model };
+  }, [apiKey, baseUrl, model]);
+
   const loadPersonalizedQuestions = useCallback(
     async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
       const signature = buildPresetQuestionsSignature(transactions, categories);
@@ -549,7 +555,13 @@ export function AssistantPage() {
         }
       }
 
-      if (!apiKey || !model) {
+      const {
+        baseUrl: currentBaseUrl,
+        apiKey: currentApiKey,
+        model: currentModel
+      } = aiRequestContextRef.current;
+
+      if (!currentApiKey || !currentModel) {
         fallback();
         return;
       }
@@ -569,9 +581,9 @@ export function AssistantPage() {
         const categoryMap = categories.map((item) => ({ id: item.id, name: item.name }));
         const randomSeed = `${Date.now()}-${Math.round(Math.random() * 1000)}`;
         const reply = await sendAiChat({
-          baseUrl,
-          apiKey,
-          model,
+          baseUrl: currentBaseUrl,
+          apiKey: currentApiKey,
+          model: currentModel,
           systemPrompt:
             '你是记账系统中的数据分析助手。请基于用户账单快照一次性生成 4 条快捷提问。每条都要返回 label 和 prompt：label 供 UI 展示（8-16字，像按钮标题），prompt 是实际发送给模型的完整指令（更宽泛、包含分析目标与输出要求，不能与 label 相同）。仅返回 JSON 数组，格式：[{"label":"...","prompt":"..."}]，不要输出其他文本。',
           messages: [
@@ -621,7 +633,7 @@ export function AssistantPage() {
         setLoadingPresets(false);
       }
     },
-    [apiKey, baseUrl, categories, model, transactions]
+    [categories, transactions]
   );
 
   useEffect(() => {
