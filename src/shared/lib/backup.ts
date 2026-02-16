@@ -5,10 +5,15 @@ import { TransactionItem } from '../../entities/transaction/types';
 const BACKUP_KEY = 'ledgerflow-backup-webdav-v1';
 
 export interface BackupWebdavConfig {
+  /** 真实 WebDAV 服务地址，例如：https://dav.example.com/remote.php/dav/files/user */
   endpoint: string;
   username: string;
   password: string;
   remoteFilePath: string;
+  /** 是否通过同源代理请求（用于规避浏览器跨域限制） */
+  proxyEnabled: boolean;
+  /** 同源代理入口路径，例如：/api/webdav */
+  proxyBasePath: string;
 }
 
 export interface FinanceBackupPayload {
@@ -94,7 +99,9 @@ export function loadWebdavConfig(): BackupWebdavConfig {
         endpoint: '',
         username: '',
         password: '',
-        remoteFilePath: 'ledgerflow/backup.json'
+        remoteFilePath: 'ledgerflow/backup.json',
+        proxyEnabled: true,
+        proxyBasePath: '/api/webdav'
       };
     }
     const parsed = JSON.parse(raw) as Partial<BackupWebdavConfig>;
@@ -102,23 +109,47 @@ export function loadWebdavConfig(): BackupWebdavConfig {
       endpoint: String(parsed.endpoint || ''),
       username: String(parsed.username || ''),
       password: String(parsed.password || ''),
-      remoteFilePath: String(parsed.remoteFilePath || 'ledgerflow/backup.json')
+      remoteFilePath: String(parsed.remoteFilePath || 'ledgerflow/backup.json'),
+      proxyEnabled: parsed.proxyEnabled !== false,
+      proxyBasePath: String(parsed.proxyBasePath || '/api/webdav')
     };
   } catch {
     return {
       endpoint: '',
       username: '',
       password: '',
-      remoteFilePath: 'ledgerflow/backup.json'
+      remoteFilePath: 'ledgerflow/backup.json',
+      proxyEnabled: true,
+      proxyBasePath: '/api/webdav'
     };
   }
 }
 
-function joinWebdavPath(endpoint: string, remoteFilePath: string): string {
-  // 允许把 endpoint 配成相对路径（如 /api/webdav），以便走同源反向代理绕过浏览器 CORS 限制。
-  const base = endpoint.trim().replace(/\/+$/, '');
+function joinWebdavPath(config: BackupWebdavConfig, remoteFilePath: string): string {
   const path = remoteFilePath.replace(/^\/+/, '');
+  if (config.proxyEnabled) {
+    const proxyBase = config.proxyBasePath.trim().replace(/\/+$/, '') || '/api/webdav';
+    return `${proxyBase}/${path}`;
+  }
+
+  const base = config.endpoint.trim().replace(/\/+$/, '');
   return `${base}/${path}`;
+}
+
+function buildWebdavHeaders(
+  config: BackupWebdavConfig,
+  extra?: Record<string, string>
+): Record<string, string> {
+  const headers: Record<string, string> = {
+    Authorization: buildBasicAuth(config.username, config.password),
+    ...extra
+  };
+
+  if (config.proxyEnabled) {
+    headers['X-WebDAV-Endpoint'] = config.endpoint.trim();
+  }
+
+  return headers;
 }
 
 function normalizeWebdavError(action: '上传' | '下载' | '创建目录', error: unknown): Error {
@@ -141,17 +172,14 @@ async function ensureWebdavDirectories(config: BackupWebdavConfig): Promise<void
   }
 
   const folders = normalizedPath.slice(0, -1);
-  const base = config.endpoint.replace(/\/+$/, '');
   let current = '';
   for (const segment of folders) {
     current = current ? `${current}/${segment}` : segment;
     let response: Response;
     try {
-      response = await fetch(`${base}/${current}`, {
+      response = await fetch(joinWebdavPath(config, current), {
         method: 'MKCOL',
-        headers: {
-          Authorization: buildBasicAuth(config.username, config.password)
-        }
+        headers: buildWebdavHeaders(config)
       });
     } catch {
       // 某些 WebDAV 服务不允许跨域 MKCOL（但允许 PUT），目录创建失败时交给后续 PUT 决定。
@@ -180,13 +208,12 @@ export async function webdavUploadBackup(
 ): Promise<void> {
   try {
     await ensureWebdavDirectories(config);
-    const url = joinWebdavPath(config.endpoint, config.remoteFilePath);
+    const url = joinWebdavPath(config, config.remoteFilePath);
     const response = await fetch(url, {
       method: 'PUT',
-      headers: {
-        Authorization: buildBasicAuth(config.username, config.password),
+      headers: buildWebdavHeaders(config, {
         'Content-Type': 'application/json;charset=utf-8'
-      },
+      }),
       body: JSON.stringify(payload, null, 2)
     });
 
@@ -202,12 +229,10 @@ export async function webdavDownloadBackup(
   config: BackupWebdavConfig
 ): Promise<FinanceBackupPayload> {
   try {
-    const url = joinWebdavPath(config.endpoint, config.remoteFilePath);
+    const url = joinWebdavPath(config, config.remoteFilePath);
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        Authorization: buildBasicAuth(config.username, config.password)
-      }
+      headers: buildWebdavHeaders(config)
     });
 
     if (!response.ok) {

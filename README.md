@@ -91,6 +91,27 @@ docker compose up -d
 
 ---
 
+## WebDAV 跨域（CORS）与同源代理
+
+浏览器直连 WebDAV 常见报错：`Failed to fetch` / CORS 拦截。LedgerFlow 已支持“前端同源路径 + 服务端反向代理”模式。
+
+### 前端设置
+
+在“数据库设置 -> WebDAV 同步”中：
+
+- 勾选 **启用同源代理（推荐）**
+- 真实 WebDAV 地址：例如 `https://dav.example.com/remote.php/dav/files/user`
+- 代理入口路径：例如 `/api/webdav`
+
+### Nginx 反向代理示例
+
+仓库内置 [`nginx.conf`](nginx.conf) 已包含 `/api/webdav/<remote-path>` 转发逻辑。
+请求会携带 `X-WebDAV-Endpoint` 头作为目标 WebDAV 基地址。
+
+> 注意：请仅在受信任网络/服务端环境中使用该转发，并确保 WebDAV 账号权限最小化。
+
+---
+
 ## 截图识别 / AI 功能说明（简版）
 
 如果你配置了兼容 OpenAI 的接口，就可以体验：

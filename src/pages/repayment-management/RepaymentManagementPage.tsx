@@ -504,23 +504,23 @@ export function RepaymentManagementPage() {
     event.preventDefault();
 
     if (!trimmedDebtName || !debtBalance.trim()) {
-      setDebtFormError('请填写完整的负债名称和剩余本金。');
+      setDebtFormError('请先填写“负债名称”和“剩余本金(¥)”。');
       return;
     }
     if (!Number.isFinite(balance) || balance <= 0) {
-      setDebtFormError('剩余本金需为大于 0 的数字。');
+      setDebtFormError('“剩余本金(¥)”必须是大于 0 的数字。');
       return;
     }
     if (isLoanType && !annualRateRaw) {
-      setDebtFormError('请填写年利率。');
+      setDebtFormError('当前类型为贷款，请填写“年化利率(%)”。');
       return;
     }
     if (isLoanType && !isAnnualRateNumeric) {
-      setDebtFormError('年利率只能输入数字。');
+      setDebtFormError('“年化利率(%)”只能输入数字。');
       return;
     }
     if (isLoanType && (!debtMonths.trim() || !Number.isInteger(months) || months <= 0)) {
-      setDebtFormError('剩余期数需为大于 0 的整数。');
+      setDebtFormError('“剩余期数(月)”需为大于 0 的整数。');
       return;
     }
 
@@ -776,7 +776,7 @@ export function RepaymentManagementPage() {
             <div>
               <h3 style={{ margin: 0 }}>添加负债</h3>
               <p className="muted" style={{ margin: '4px 0 0 0' }}>
-                双入口：账单识别 + 手动添加
+                两种方式：上传截图自动识别，或手动逐项填写。
               </p>
             </div>
             <span className="finance-debt-entry-icon" aria-hidden>
@@ -796,6 +796,8 @@ export function RepaymentManagementPage() {
             <input
               ref={fileInputRef}
               type="file"
+              title="上传负债截图"
+              aria-label="上传负债截图"
               accept="image/*"
               style={{ display: 'none' }}
               onChange={onExtractDebtFromScreenshot}
@@ -818,7 +820,8 @@ export function RepaymentManagementPage() {
           ) : null}
 
           <p className="muted" style={{ margin: '12px 0 8px 0' }}>
-            或手动添加：用于补充识别失败或新增账单，贷款支持年化利率与期数输入。
+            手动添加（推荐按顺序填写）：负债名称 → 负债类型 →
+            剩余本金；如为贷款，再补全年化利率与剩余期数。
           </p>
           <form onSubmit={onAddDebt} className="finance-debt-form-grid">
             <div className="finance-debt-form-row finance-debt-form-row-primary">
@@ -829,16 +832,18 @@ export function RepaymentManagementPage() {
                   setDebtName(event.target.value);
                   setDebtFormError('');
                 }}
-                placeholder="如 招商银行信用卡"
+                placeholder="负债名称（如：招商银行信用卡）"
+                aria-label="负债名称"
               />
               <select
                 className="finance-debt-form-control"
                 value={debtType}
                 onChange={(event) => setDebtType(event.target.value as DebtType)}
+                aria-label="负债类型"
               >
-                <option value="credit-card">信用卡</option>
-                <option value="consumer-loan">消费贷</option>
-                <option value="loan">贷款</option>
+                <option value="credit-card">负债类型：信用卡</option>
+                <option value="consumer-loan">负债类型：消费贷</option>
+                <option value="loan">负债类型：贷款</option>
               </select>
             </div>
             <div className="finance-debt-form-row finance-debt-form-row-detail">
@@ -852,7 +857,8 @@ export function RepaymentManagementPage() {
                   setDebtBalance(event.target.value);
                   setDebtFormError('');
                 }}
-                placeholder="如 12000"
+                placeholder="剩余本金（¥，如：12000）"
+                aria-label="剩余本金"
               />
               <input
                 className="finance-debt-form-control"
@@ -865,8 +871,9 @@ export function RepaymentManagementPage() {
                   setDebtFormError('');
                 }}
                 inputMode="decimal"
-                placeholder="如 15"
+                placeholder={isLoanType ? '年化利率（%，如：4.35）' : '年化利率（贷款类型可填）'}
                 disabled={!isLoanType}
+                aria-label="年化利率"
               />
               <input
                 className="finance-debt-form-control"
@@ -877,12 +884,15 @@ export function RepaymentManagementPage() {
                   setDebtMonths(event.target.value);
                   setDebtFormError('');
                 }}
-                placeholder="如 12"
+                placeholder={isLoanType ? '剩余期数（月，如：24）' : '剩余期数（贷款类型可填）'}
                 disabled={!isLoanType}
+                aria-label="剩余期数"
               />
             </div>
             <p className="muted finance-debt-form-helper">
-              示例：信用卡通常不填利率和期数；贷款请补全年化利率与剩余期数，便于还款模拟更准确。
+              {isLoanType
+                ? '当前为“贷款”类型：请填写年化利率(%)与剩余期数(月)，系统会更准确计算最低还款与压力。'
+                : '当前为“非贷款”类型：可先只填名称、类型、剩余本金；利率与期数可留空。'}
             </p>
             {debtFormError ? (
               <p className="muted finance-debt-form-error">{debtFormError}</p>
@@ -893,7 +903,7 @@ export function RepaymentManagementPage() {
                 className="primary finance-debt-submit"
                 disabled={!canSubmitDebt}
               >
-                {addDebtSuccess ? '✔ 负债已添加' : '+ 手动添加'}
+                {addDebtSuccess ? '✔ 负债已添加' : '+ 添加这笔负债'}
               </button>
             </div>
           </form>

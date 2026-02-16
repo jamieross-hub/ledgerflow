@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseBillCsvToTransactions } from './billImport';
+import { parseBillCsvToTransactions, parseBillCsvToTransactionsAsync } from './billImport';
 
 describe('parseBillCsvToTransactions', () => {
   it('应支持支付宝带说明头的账单并自动识别表头', () => {
@@ -67,5 +67,26 @@ describe('parseBillCsvToTransactions', () => {
     expect(rows[0].note).toContain('666');
     expect(rows[0].orderNo).toBe('53010002489226202602144159140074');
     expect(rows[0].merchantOrderNo).toBe('1000050001202602140030491809117');
+  });
+  it('异步解析在大体量账单下与同步解析结果一致', async () => {
+    const header = '交易号,商家订单号,交易创建时间,金额（元）,收/支,交易状态,交易对方,商品名称';
+    const body = Array.from({ length: 1200 }, (_, index) => {
+      const seq = String(index + 1).padStart(6, '0');
+      return `T${seq},M${seq},2026/2/10 08:00,9.99,支出,交易成功,淘宝,订阅服务`;
+    });
+
+    const csvText = ['支付宝交易记录明细查询', header, ...body].join('\n');
+    const input = {
+      csvText,
+      source: 'alipay' as const,
+      defaultCategoryId: 'cat-food',
+      defaultAccountId: 'acc-card'
+    };
+
+    const syncRows = parseBillCsvToTransactions(input);
+    const asyncRows = await parseBillCsvToTransactionsAsync(input);
+
+    expect(asyncRows).toHaveLength(1200);
+    expect(asyncRows).toEqual(syncRows);
   });
 });

@@ -57,11 +57,19 @@ const HEADER_HINT_KEYS = [
   ...MERCHANT_ORDER_NO_KEYS
 ];
 
+const IMPORT_PARSE_YIELD_INTERVAL = 300;
+
 function normalizeText(text: string): string {
   return text
     .replace(/^\uFEFF/, '')
     .replace(/\r/g, '')
     .trim();
+}
+
+async function yieldToMainThread(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
 }
 
 function parseDelimitedLine(line: string, delimiter: ',' | '\t'): string[] {
@@ -345,10 +353,64 @@ function shouldSkipRow(line: string): boolean {
   return false;
 }
 
-export function parseBillCsvToTransactions(input: ParseBillInput): Omit<TransactionItem, 'id'>[] {
+function buildTransactionFromLine(
+  line: string,
+  headers: string[],
+  delimiter: ',' | '\t',
+  input: ParseBillInput
+): Omit<TransactionItem, 'id'> | null {
+  if (shouldSkipRow(line)) {
+    return null;
+  }
+
+  const cols = parseDelimitedLine(line, delimiter);
+  if (cols.length < 2) {
+    return null;
+  }
+
+  const row: Record<string, string> = {};
+  headers.forEach((h, idx) => {
+    mergeRowCell(row, h, cols[idx] ?? '');
+  });
+
+  if (shouldSkipByStatus(row)) {
+    return null;
+  }
+
+  const amountRaw = pickByKeys(row, AMOUNT_KEYS);
+  const amount = parseAmount(amountRaw);
+  if (amount <= 0) {
+    return null;
+  }
+
+  const dateRaw = pickByKeys(row, DATE_KEYS);
+  const orderNo = pickByKeys(row, ORDER_NO_KEYS) || undefined;
+  const merchantOrderNo = pickByKeys(row, MERCHANT_ORDER_NO_KEYS) || undefined;
+  const status = parseStatus(row);
+
+  return {
+    type: parseType(row, amountRaw),
+    amount,
+    date: parseDate(dateRaw),
+    note: buildNote(row),
+    tags: [input.source === 'wechat' ? '微信导入' : '支付宝'],
+    categoryId: input.defaultCategoryId,
+    accountId: input.defaultAccountId,
+    source: input.source,
+    orderNo,
+    merchantOrderNo,
+    status
+  };
+}
+
+function parseBillCsvLines(input: ParseBillInput): {
+  lines: string[];
+  headers: string[];
+  delimiter: ',' | '\t';
+} | null {
   const text = normalizeText(input.csvText);
   if (!text) {
-    return [];
+    return null;
   }
 
   const lines = text
@@ -357,58 +419,56 @@ export function parseBillCsvToTransactions(input: ParseBillInput): Omit<Transact
     .filter(Boolean);
 
   if (lines.length < 2) {
-    return [];
+    return null;
   }
 
   const delimiter = detectDelimiter(lines);
   const headerIndex = findHeaderIndex(lines, delimiter);
   const headers = parseDelimitedLine(lines[headerIndex], delimiter);
-  const rows = lines.slice(headerIndex + 1);
+
+  return {
+    lines: lines.slice(headerIndex + 1),
+    headers,
+    delimiter
+  };
+}
+
+export function parseBillCsvToTransactions(input: ParseBillInput): Omit<TransactionItem, 'id'>[] {
+  const parsed = parseBillCsvLines(input);
+  if (!parsed) {
+    return [];
+  }
+
+  const result: Omit<TransactionItem, 'id'>[] = [];
+  for (const line of parsed.lines) {
+    const item = buildTransactionFromLine(line, parsed.headers, parsed.delimiter, input);
+    if (item) {
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+
+export async function parseBillCsvToTransactionsAsync(
+  input: ParseBillInput
+): Promise<Omit<TransactionItem, 'id'>[]> {
+  const parsed = parseBillCsvLines(input);
+  if (!parsed) {
+    return [];
+  }
+
   const result: Omit<TransactionItem, 'id'>[] = [];
 
-  for (const line of rows) {
-    if (shouldSkipRow(line)) {
-      continue;
+  for (let i = 0; i < parsed.lines.length; i++) {
+    const item = buildTransactionFromLine(parsed.lines[i], parsed.headers, parsed.delimiter, input);
+    if (item) {
+      result.push(item);
     }
 
-    const cols = parseDelimitedLine(line, delimiter);
-    if (cols.length < 2) {
-      continue;
+    if (i > 0 && i % IMPORT_PARSE_YIELD_INTERVAL === 0) {
+      await yieldToMainThread();
     }
-
-    const row: Record<string, string> = {};
-    headers.forEach((h, idx) => {
-      mergeRowCell(row, h, cols[idx] ?? '');
-    });
-
-    if (shouldSkipByStatus(row)) {
-      continue;
-    }
-
-    const amountRaw = pickByKeys(row, AMOUNT_KEYS);
-    const amount = parseAmount(amountRaw);
-    if (amount <= 0) {
-      continue;
-    }
-
-    const dateRaw = pickByKeys(row, DATE_KEYS);
-    const orderNo = pickByKeys(row, ORDER_NO_KEYS) || undefined;
-    const merchantOrderNo = pickByKeys(row, MERCHANT_ORDER_NO_KEYS) || undefined;
-    const status = parseStatus(row);
-
-    result.push({
-      type: parseType(row, amountRaw),
-      amount,
-      date: parseDate(dateRaw),
-      note: buildNote(row),
-      tags: [input.source === 'wechat' ? '微信导入' : '支付宝'],
-      categoryId: input.defaultCategoryId,
-      accountId: input.defaultAccountId,
-      source: input.source,
-      orderNo,
-      merchantOrderNo,
-      status
-    });
   }
 
   return result;
@@ -573,7 +633,7 @@ export async function parseBillFileToTransactions(
   input: ParseBillFileInput
 ): Promise<Omit<TransactionItem, 'id'>[]> {
   const csvText = await decodeBillFileText(input.file);
-  return parseBillCsvToTransactions({
+  return parseBillCsvToTransactionsAsync({
     csvText,
     source: input.source,
     defaultCategoryId: input.defaultCategoryId,

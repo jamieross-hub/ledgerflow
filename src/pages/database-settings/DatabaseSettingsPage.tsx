@@ -150,7 +150,9 @@ export function DatabaseSettingsPage() {
 
   const validateWebdav = () => {
     if (!webdav.endpoint.trim()) {
-      throw new Error('请填写 WebDAV 地址');
+      throw new Error(
+        webdav.proxyEnabled ? '请填写真实 WebDAV 地址（用于代理转发）' : '请填写 WebDAV 地址'
+      );
     }
     if (!webdav.username.trim()) {
       throw new Error('请填写 WebDAV 用户名');
@@ -160,6 +162,16 @@ export function DatabaseSettingsPage() {
     }
     if (!webdav.remoteFilePath.trim()) {
       throw new Error('请填写远程文件路径');
+    }
+
+    if (webdav.proxyEnabled) {
+      const basePath = webdav.proxyBasePath.trim();
+      if (!basePath) {
+        throw new Error('已启用同源代理，请填写代理入口路径');
+      }
+      if (!basePath.startsWith('/')) {
+        throw new Error('代理入口路径必须以 / 开头，例如 /api/webdav');
+      }
     }
   };
 
@@ -284,14 +296,25 @@ export function DatabaseSettingsPage() {
       <section className="panel" style={{ marginTop: 12 }}>
         <h3 style={{ marginTop: 0 }}>WebDAV 同步</h3>
         <p className="sync-tip" style={{ marginTop: 0 }}>
-          若浏览器提示跨域(CORS)或 Failed to fetch，优先改用同源代理地址（如
-          /api/webdav），再由服务端反向代理到真实 WebDAV。
+          浏览器直连 WebDAV 常因 CORS 失败。默认开启同源代理：前端请求本站路径（如 /api/webdav），
+          再由服务端反向代理到真实 WebDAV。
         </p>
+        <div className="field" style={{ marginBottom: 10 }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={webdav.proxyEnabled}
+              onChange={(e) => setWebdav((prev) => ({ ...prev, proxyEnabled: e.target.checked }))}
+            />
+            启用同源代理（推荐）
+          </label>
+        </div>
+
         <div className="grid grid-2" style={{ gap: 10 }}>
           <div className="field" style={{ marginBottom: 0 }}>
-            <label>WebDAV 地址</label>
+            <label>{webdav.proxyEnabled ? '真实 WebDAV 地址（代理目标）' : 'WebDAV 地址'}</label>
             <input
-              title="WebDAV 地址"
+              title={webdav.proxyEnabled ? '真实 WebDAV 地址（代理目标）' : 'WebDAV 地址'}
               placeholder="https://dav.example.com/remote.php/dav/files/user"
               value={webdav.endpoint}
               onChange={(e) => setWebdav((prev) => ({ ...prev, endpoint: e.target.value }))}
@@ -325,7 +348,23 @@ export function DatabaseSettingsPage() {
               onChange={(e) => setWebdav((prev) => ({ ...prev, password: e.target.value }))}
             />
           </div>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>代理入口路径（同源）</label>
+            <input
+              title="代理入口路径"
+              placeholder="/api/webdav"
+              value={webdav.proxyBasePath}
+              onChange={(e) => setWebdav((prev) => ({ ...prev, proxyBasePath: e.target.value }))}
+              disabled={!webdav.proxyEnabled}
+            />
+          </div>
         </div>
+
+        <p className="sync-tip" style={{ margin: '10px 0 0 0' }}>
+          {webdav.proxyEnabled
+            ? '当前已启用代理：浏览器请求代理入口路径，代理服务再转发到上方“真实 WebDAV 地址”。'
+            : '当前为浏览器直连 WebDAV：目标服务必须允许当前站点跨域访问。'}
+        </p>
 
         <div className="row" style={{ gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
           <button type="button" onClick={handleSaveWebdavConfig} disabled={busy}>
