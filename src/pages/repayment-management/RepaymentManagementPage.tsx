@@ -1,6 +1,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import {
+  calculateDebtHealthScore,
   calculateDebtMinimumPayment,
   calculateDebtSummary,
   DebtType
@@ -218,6 +219,85 @@ function getPressureLevel(ratio: number): {
   return { tone: 'danger', label: '偏高' };
 }
 
+function getDebtAssumedAnnualRate(type: DebtType, annualRate?: number): number {
+  if (type === 'loan') {
+    return Math.max(0, Number(annualRate || 0));
+  }
+  return type === 'credit-card' ? 18 : 12;
+}
+
+function simulateRepaymentPlan(input: {
+  debts: {
+    id: string;
+    name: string;
+    type: DebtType;
+    balance: number;
+    annualRate?: number;
+  }[];
+  extraPayment: number;
+}): { months: number; totalInterest: number } {
+  const snapshot = input.debts
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      type: item.type,
+      balance: Math.max(0, Number(item.balance) || 0),
+      annualRate: getDebtAssumedAnnualRate(item.type, item.annualRate)
+    }))
+    .filter((item) => item.balance > 0);
+
+  if (snapshot.length === 0) {
+    return { months: 0, totalInterest: 0 };
+  }
+
+  let months = 0;
+  let totalInterest = 0;
+  const maxMonths = 1200;
+
+  while (months < maxMonths && snapshot.some((item) => item.balance > 0.01)) {
+    months += 1;
+
+    for (const debt of snapshot) {
+      if (debt.balance <= 0) continue;
+      const monthlyRate = debt.annualRate / 12 / 100;
+      const interest = debt.balance * monthlyRate;
+      if (interest > 0) {
+        debt.balance += interest;
+        totalInterest += interest;
+      }
+    }
+
+    let totalPaymentBudget =
+      snapshot.reduce(
+        (sum, debt) => sum + calculateDebtMinimumPayment({ ...debt, remainingMonths: 12 }),
+        0
+      ) + Math.max(0, input.extraPayment);
+
+    for (const debt of snapshot) {
+      if (debt.balance <= 0 || totalPaymentBudget <= 0) continue;
+      const minPay = Math.min(
+        debt.balance,
+        calculateDebtMinimumPayment({ ...debt, remainingMonths: 12 })
+      );
+      debt.balance -= minPay;
+      totalPaymentBudget -= minPay;
+    }
+
+    const sortedByRate = [...snapshot].sort((a, b) => b.annualRate - a.annualRate);
+    for (const debt of sortedByRate) {
+      if (debt.balance <= 0 || totalPaymentBudget <= 0) continue;
+      const extra = Math.min(debt.balance, totalPaymentBudget);
+      debt.balance -= extra;
+      totalPaymentBudget -= extra;
+    }
+  }
+
+  return {
+    months,
+    totalInterest
+  };
+}
+
 export function RepaymentManagementPage() {
   const { debts, monthlyIncome, setMonthlyIncome, addDebt, replaceDebts, removeDebt } =
     useAppPreferences();
@@ -242,6 +322,7 @@ export function RepaymentManagementPage() {
   const [addDebtSuccess, setAddDebtSuccess] = useState(false);
   const [newDebtId, setNewDebtId] = useState('');
   const [listTransitioning, setListTransitioning] = useState(false);
+  const [simulatorExtraPayment, setSimulatorExtraPayment] = useState('1000');
   const debtIdsRef = useRef<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -253,6 +334,43 @@ export function RepaymentManagementPage() {
     () => getPressureLevel(debtSummary.pressureRatio),
     [debtSummary.pressureRatio]
   );
+  const debtHealthScore = useMemo(
+    () => calculateDebtHealthScore(debtSummary, monthlyIncome),
+    [debtSummary, monthlyIncome]
+  );
+  const debtToIncomeRatio = useMemo(() => {
+    if (monthlyIncome <= 0) return 0;
+    return debtSummary.totalDebt / (monthlyIncome * 12);
+  }, [debtSummary.totalDebt, monthlyIncome]);
+
+  const repaymentPriority = useMemo(() => {
+    return debts
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        balance: item.balance,
+        type: item.type,
+        annualRate: getDebtAssumedAnnualRate(item.type, item.annualRate),
+        minimumPayment: calculateDebtMinimumPayment(item)
+      }))
+      .sort((a, b) => {
+        if (b.annualRate !== a.annualRate) return b.annualRate - a.annualRate;
+        return b.minimumPayment - a.minimumPayment;
+      });
+  }, [debts]);
+
+  const simulatorResult = useMemo(() => {
+    const extraPayment = Math.max(0, Number(simulatorExtraPayment) || 0);
+    const baseline = simulateRepaymentPlan({ debts, extraPayment: 0 });
+    const accelerated = simulateRepaymentPlan({ debts, extraPayment });
+    return {
+      baseline,
+      accelerated,
+      extraPayment,
+      savedMonths: Math.max(0, baseline.months - accelerated.months),
+      savedInterest: Math.max(0, baseline.totalInterest - accelerated.totalInterest)
+    };
+  }, [debts, simulatorExtraPayment]);
 
   const incomeSamples = useMemo(
     () =>
@@ -580,39 +698,51 @@ export function RepaymentManagementPage() {
         <h2 style={{ marginTop: 0 }}>💳 负债管理</h2>
         <p className="muted">支持信用卡、消费贷、贷款，自动计算每月最低还款额与总负债压力。</p>
 
-        <div className="card" style={{ marginBottom: 12, padding: 12 }}>
-          <h3 style={{ marginTop: 0 }}>📷 上传截图并自动填写</h3>
-          <p className="muted" style={{ marginTop: 0 }}>
-            上传账单截图后，AI 会自动识别负债信息并填充到下方列表。
-          </p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={extractLoading}
+        <div className="card finance-overview-panel" style={{ marginTop: 12, padding: 12 }}>
+          <h3 style={{ marginTop: 0 }}>📊 负债压力总览</h3>
+          <div className="finance-overview-grid finance-overview-grid-strong">
+            <article className="finance-overview-metric-card">
+              <p className="finance-overview-label">总负债</p>
+              <p className="finance-overview-value">
+                <span className="finance-overview-number">{debtSummary.totalDebt.toFixed(2)}</span>
+                <span className="finance-overview-unit">¥</span>
+              </p>
+            </article>
+            <article className="finance-overview-metric-card">
+              <p className="finance-overview-label">每月最低还款</p>
+              <p className="finance-overview-value">
+                <span className="finance-overview-number">
+                  {debtSummary.totalMinimumPayment.toFixed(2)}
+                </span>
+                <span className="finance-overview-unit">¥</span>
+              </p>
+            </article>
+            <article
+              className={`finance-overview-metric-card finance-overview-pressure-card finance-overview-pressure-${pressureLevel.tone}`}
             >
-              {extractLoading ? '识别中...' : '上传负债截图'}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={onExtractDebtFromScreenshot}
-            />
-            <span className="muted">支持支付宝/银行/信用卡账单截图。</span>
+              <p className="finance-overview-label">负债率（{pressureLevel.label}）</p>
+              <p className="finance-overview-value">
+                <span className="finance-overview-number">
+                  {(debtSummary.pressureRatio * 100).toFixed(1)}
+                </span>
+                <span className="finance-overview-unit">%</span>
+              </p>
+            </article>
+            <article className="finance-overview-metric-card finance-overview-health-card">
+              <p className="finance-overview-label">负债健康度</p>
+              <p className="finance-overview-value">
+                <span className="finance-overview-number">{debtHealthScore}</span>
+                <span className="finance-overview-unit">/100</span>
+              </p>
+            </article>
           </div>
-          {debtImagePreview ? (
-            <img
-              src={debtImagePreview}
-              alt="负债截图预览"
-              style={{
-                marginTop: 10,
-                maxWidth: 260,
-                borderRadius: 8,
-                border: '1px solid var(--color-border)'
-              }}
-            />
+          <p className="muted" style={{ margin: '8px 0 0' }}>
+            负债率按“每月最低还款 / 月收入”计算；负债健康度综合负债规模与还款压力。
+          </p>
+          {monthlyIncome <= 0 ? (
+            <p className="muted" style={{ margin: '8px 0 0' }}>
+              暂无月收入，建议先用 AI 估算后再查看精确健康度。
+            </p>
           ) : null}
         </div>
 
@@ -646,15 +776,49 @@ export function RepaymentManagementPage() {
             <div>
               <h3 style={{ margin: 0 }}>添加负债</h3>
               <p className="muted" style={{ margin: '4px 0 0 0' }}>
-                手动填写负债信息
+                双入口：账单识别 + 手动添加
               </p>
             </div>
             <span className="finance-debt-entry-icon" aria-hidden>
               💳
             </span>
           </div>
-          <p className="muted" style={{ margin: '0 0 8px 0' }}>
-            用于补充识别失败或新增账单，贷款支持年化利率与期数输入。
+
+          <div className="finance-debt-dual-entry">
+            <button
+              type="button"
+              className="finance-debt-entry-action"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={extractLoading}
+            >
+              {extractLoading ? '识别中...' : '📷 上传账单自动识别'}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={onExtractDebtFromScreenshot}
+            />
+            <span className="muted">支持支付宝/银行/信用卡账单截图。</span>
+          </div>
+
+          {debtImagePreview ? (
+            <img
+              src={debtImagePreview}
+              alt="负债截图预览"
+              style={{
+                marginTop: 10,
+                maxWidth: 260,
+                borderRadius: 8,
+                border: '1px solid var(--color-border-light)',
+                boxShadow: '0 6px 16px color-mix(in srgb, var(--color-text) 8%, transparent)'
+              }}
+            />
+          ) : null}
+
+          <p className="muted" style={{ margin: '12px 0 8px 0' }}>
+            或手动添加：用于补充识别失败或新增账单，贷款支持年化利率与期数输入。
           </p>
           <form onSubmit={onAddDebt} className="finance-debt-form-grid">
             <div className="finance-debt-form-row finance-debt-form-row-primary">
@@ -717,6 +881,9 @@ export function RepaymentManagementPage() {
                 disabled={!isLoanType}
               />
             </div>
+            <p className="muted finance-debt-form-helper">
+              示例：信用卡通常不填利率和期数；贷款请补全年化利率与剩余期数，便于还款模拟更准确。
+            </p>
             {debtFormError ? (
               <p className="muted finance-debt-form-error">{debtFormError}</p>
             ) : null}
@@ -726,7 +893,7 @@ export function RepaymentManagementPage() {
                 className="primary finance-debt-submit"
                 disabled={!canSubmitDebt}
               >
-                {addDebtSuccess ? '✔ 已添加' : '+ 添加负债'}
+                {addDebtSuccess ? '✔ 负债已添加' : '+ 手动添加'}
               </button>
             </div>
           </form>
@@ -742,16 +909,7 @@ export function RepaymentManagementPage() {
             return (
               <div
                 key={item.id}
-                className={item.id === newDebtId ? 'finance-debt-item-enter' : ''}
-                style={{
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 8,
-                  padding: 10,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 8
-                }}
+                className={`finance-debt-item ${item.id === newDebtId ? 'finance-debt-item-enter' : ''}`}
               >
                 <div>
                   <strong>
@@ -774,49 +932,60 @@ export function RepaymentManagementPage() {
           })}
         </div>
 
-        <div className="card finance-overview-panel" style={{ marginTop: 12, padding: 12 }}>
-          <h3 style={{ marginTop: 0 }}>📊 负债压力总览</h3>
-          <div className="finance-overview-grid">
-            <article className="finance-overview-metric-card">
-              <p className="finance-overview-label">总负债</p>
-              <p className="finance-overview-value">
-                <span className="finance-overview-number">{debtSummary.totalDebt.toFixed(2)}</span>
-                <span className="finance-overview-unit">¥</span>
-              </p>
-            </article>
-            <article className="finance-overview-metric-card">
-              <p className="finance-overview-label">每月最低还款</p>
-              <p className="finance-overview-value">
-                <span className="finance-overview-number">
-                  {debtSummary.totalMinimumPayment.toFixed(2)}
-                </span>
-                <span className="finance-overview-unit">¥</span>
-              </p>
-            </article>
-            <article
-              className={`finance-overview-metric-card finance-overview-pressure-card finance-overview-pressure-${pressureLevel.tone}`}
-            >
-              <p className="finance-overview-label">负债率（{pressureLevel.label}）</p>
-              <p className="finance-overview-value">
-                <span className="finance-overview-number">
-                  {(debtSummary.pressureRatio * 100).toFixed(1)}
-                </span>
-                <span className="finance-overview-unit">%</span>
-              </p>
-            </article>
-          </div>
-          {monthlyIncome <= 0 ? (
-            <p className="muted" style={{ margin: '8px 0 0' }}>
-              负债率待 AI 从账单详情估算月收入后会更准确。
-            </p>
-          ) : null}
-        </div>
-
         <div className="card finance-primary-panel" style={{ marginTop: 12, padding: 12 }}>
           <h3 style={{ marginTop: 0 }}>🤖 AI 还款策略</h3>
           <p className="muted" style={{ marginTop: 0 }}>
-            结合当前负债与 AI 估算月收入，生成未来 3 个月分步还款建议。
+            输出优先级排序、每月还款压力提示，并可模拟额外还款的提前结清效果。
           </p>
+
+          <div className="finance-ai-insight-grid">
+            <div className="finance-ai-insight-card">
+              <h4 style={{ margin: '0 0 8px 0' }}>推荐还款优先级</h4>
+              {repaymentPriority.length === 0 ? (
+                <p className="muted" style={{ margin: 0 }}>
+                  暂无负债数据。
+                </p>
+              ) : (
+                <ol style={{ margin: 0, paddingInlineStart: 18 }}>
+                  {repaymentPriority.map((item) => (
+                    <li key={item.id} style={{ marginBottom: 4 }}>
+                      {item.name}（年化参考 {item.annualRate.toFixed(1)}%，最低 ¥
+                      {item.minimumPayment.toFixed(0)}）
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+            <div className="finance-ai-insight-card">
+              <h4 style={{ margin: '0 0 8px 0' }}>每月还款压力提示</h4>
+              <p style={{ margin: 0 }}>
+                当前每月最低还款占收入
+                <strong> {(debtSummary.pressureRatio * 100).toFixed(1)}%</strong>， 负债余额占年收入
+                <strong> {(debtToIncomeRatio * 100).toFixed(1)}%</strong>。
+              </p>
+            </div>
+          </div>
+
+          <div className="finance-ai-insight-card" style={{ marginTop: 10 }}>
+            <h4 style={{ margin: '0 0 8px 0' }}>还款模拟器</h4>
+            <div className="finance-simulator-row">
+              <label htmlFor="simulator-extra">每月额外还款金额（¥）</label>
+              <input
+                id="simulator-extra"
+                className="finance-debt-form-control"
+                type="number"
+                min={0}
+                step="1"
+                value={simulatorExtraPayment}
+                onChange={(event) => setSimulatorExtraPayment(event.target.value)}
+              />
+            </div>
+            <p className="muted" style={{ margin: '8px 0 0' }}>
+              预计提前还清 <strong>{simulatorResult.savedMonths}</strong> 个月，预计节省利息
+              <strong> ¥{simulatorResult.savedInterest.toFixed(2)}</strong>。
+            </p>
+          </div>
+
           <button type="button" onClick={onGenerateRepaymentAdvice} disabled={repaymentLoading}>
             {repaymentLoading ? '生成中...' : '生成 AI 还款建议'}
           </button>

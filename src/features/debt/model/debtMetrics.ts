@@ -16,6 +16,21 @@ export type DebtSummary = {
   pressureRatio: number;
 };
 
+export function calculateDebtHealthScore(summary: DebtSummary, monthlyIncome: number): number {
+  const income = toPositiveNumber(monthlyIncome);
+  if (income === 0) {
+    return 0;
+  }
+
+  const annualIncome = income * 12;
+  const debtRatio = summary.totalDebt / annualIncome;
+  const debtRisk = Math.min(1, debtRatio / 1.5);
+  const paymentRisk = Math.min(1, summary.pressureRatio / 0.6);
+  const riskScore = debtRisk * 0.45 + paymentRisk * 0.55;
+
+  return Math.max(0, Math.min(100, Math.round(100 - riskScore * 100)));
+}
+
 const debtRules: Record<DebtType, { rate: number; minFloor: number }> = {
   'credit-card': { rate: 0.1, minFloor: 100 },
   'consumer-loan': { rate: 0.1, minFloor: 50 },
