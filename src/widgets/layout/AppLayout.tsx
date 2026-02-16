@@ -21,32 +21,32 @@ type QuickEntry = {
 
 const navSections: Array<{ title: string; items: NavItem[] }> = [
   {
-    title: 'AI 助手',
+    title: '智能助手',
     items: [
       { to: '/assistant', label: '记账助手', icon: '🤖' },
       { to: '/smart-budget', label: '智能预算', icon: '🧠' }
     ]
   },
   {
-    title: '交易数据',
+    title: '交易与洞察',
     items: [
-      { to: '/transactions', label: '交易详情', icon: '📋' },
-      { to: '/', label: '统计分析', icon: '📊', end: true }
+      { to: '/transactions', label: '交易流水', icon: '📋' },
+      { to: '/', label: '数据概览', icon: '📊', end: true }
     ]
   },
   {
-    title: '基础数据',
+    title: '账务管理',
     items: [
-      { to: '/categories-accounts', label: '账户/分类/标签', icon: '🗂️' },
+      { to: '/categories-accounts', label: '账户与分类', icon: '🗂️' },
       { to: '/repayment-management', label: '还款管理', icon: '💳' }
     ]
   },
   {
-    title: '杂项',
+    title: '系统服务',
     items: [
       { to: '/settings', label: '设置', icon: '⚙️' },
-      { to: '/exchange', label: '汇率数据', icon: '💱' },
-      { to: '/finance', label: '金融资讯', icon: '📰' },
+      { to: '/exchange', label: '汇率工具', icon: '💱' },
+      { to: '/finance', label: '市场资讯', icon: '📰' },
       { to: '/about', label: '关于', icon: 'ℹ️' }
     ]
   }
@@ -65,16 +65,16 @@ const logoMenuItems = [
  */
 const mobileQuickGroups: Array<{ title: string; items: QuickEntry[] }> = [
   {
-    title: '高频入口',
+    title: '常用功能',
     items: [
       { label: '记账助手', icon: '🤖', to: '/assistant' },
       { label: '智能预算', icon: '🧠', to: '/smart-budget' },
-      { label: '交易详情', icon: '📋', to: '/transactions' },
-      { label: '统计分析', icon: '📊', to: '/', end: true },
-      { label: '分类账户', icon: '🗂️', to: '/categories-accounts' },
+      { label: '交易流水', icon: '📋', to: '/transactions' },
+      { label: '数据概览', icon: '📊', to: '/', end: true },
+      { label: '账户与分类', icon: '🗂️', to: '/categories-accounts' },
       { label: '还款管理', icon: '💳', to: '/repayment-management' },
-      { label: '金融资讯', icon: '📰', to: '/finance' },
-      { label: '汇率数据', icon: '💱', to: '/exchange' }
+      { label: '市场资讯', icon: '📰', to: '/finance' },
+      { label: '汇率工具', icon: '💱', to: '/exchange' }
     ]
   },
   {
