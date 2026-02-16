@@ -956,6 +956,14 @@ tr:hover td {
   font-weight: inherit;
 }
 
+.transaction-sort-btn-center {
+  justify-content: center;
+}
+
+.transaction-sort-btn-left {
+  justify-content: flex-start;
+}
+
 .transaction-sort-btn:hover:not(:disabled) {
   background: transparent;
   color: var(--color-text);
@@ -969,6 +977,7 @@ tr:hover td {
   border-bottom: 1px solid var(--color-border-light);
   padding-top: var(--space-2);
   padding-bottom: var(--space-2);
+  white-space: normal;
 }
 
 .transaction-filter-row input,
@@ -983,15 +992,24 @@ tr:hover td {
 }
 
 .transaction-amount-range-inputs {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 4px;
+  width: 100%;
 }
 
 .transaction-amount-range-inputs input {
   min-width: 0;
-  width: auto;
-  flex: 1 1 0;
+  width: 100%;
+}
+
+.transaction-table-wrap thead th.transaction-col-compact {
+  text-align: center;
+}
+
+.transaction-table-wrap thead th.transaction-col-long-text {
+  text-align: left;
 }
 
 .transaction-context-menu {
