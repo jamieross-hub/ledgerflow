@@ -32,7 +32,7 @@ import {
   useTransactionFilters
 } from '../../features/transactions/hooks/useTransactionFilters';
 import { Category } from '../../entities/category/types';
-import { TransactionSource } from '../../entities/transaction/types';
+import { TransactionItem, TransactionSource } from '../../entities/transaction/types';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 
 const DEFAULT_PAGE_SIZE = 8;
@@ -318,6 +318,7 @@ export function TransactionsPage() {
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [aiRecategorizingId, setAiRecategorizingId] = useState<string | null>(null);
+  const [bulkAiRecategorizing, setBulkAiRecategorizing] = useState(false);
   const [bulkSelectionEnabled, setBulkSelectionEnabled] = useState(false);
   const [highlightId, setHighlightId] = useState<string>('');
   const [importNotice, setImportNotice] = useState<{
@@ -822,6 +823,95 @@ export function TransactionsPage() {
     applyBulkUpdate({ accountId });
   };
 
+  const recategorizeByAi = async (
+    tx: TransactionItem
+  ): Promise<'changed' | 'unchanged' | 'fallback-changed'> => {
+    const fallbackRecategorize = () => {
+      const nextCategoryId = inferCategoryIdByTransaction(tx, categories, tx.categoryId);
+      if (!nextCategoryId || nextCategoryId === tx.categoryId) {
+        return false;
+      }
+      updateTransaction(tx.id, { ...tx, categoryId: nextCategoryId });
+      return true;
+    };
+
+    const hasAiConfig =
+      Boolean(aiApiKey.trim()) && Boolean(aiModel.trim()) && Boolean(aiBaseUrl.trim());
+    if (!hasAiConfig) {
+      return fallbackRecategorize() ? 'fallback-changed' : 'unchanged';
+    }
+
+    const txTypeLabel =
+      tx.type === 'income'
+        ? '收入'
+        : tx.type === 'budget'
+          ? '预算'
+          : tx.type === 'repayment'
+            ? '还款'
+            : '支出';
+    const availableCategories = categories.map((item) => item.name);
+    const currentCategoryName =
+      categories.find((item) => item.id === tx.categoryId)?.name || '未分类';
+
+    try {
+      const reply = await sendAiChat({
+        baseUrl: aiBaseUrl,
+        apiKey: aiApiKey,
+        model: aiModel,
+        systemPrompt:
+          '你是交易重分类助手。请根据交易信息，从给定分类列表中选择最匹配的一项。仅返回 JSON：{"category":"分类名"}。禁止输出解释。若不确定，返回当前分类。',
+        messages: [
+          {
+            role: 'user',
+            text: `交易信息：\n- 类型: ${txTypeLabel}\n- 金额: ${tx.amount}\n- 备注: ${tx.note || '无'}\n- 标签: ${(tx.tags || []).join(',') || '无'}\n- 当前分类: ${currentCategoryName}\n可选分类：${JSON.stringify(availableCategories)}`
+          }
+        ]
+      });
+
+      const suggestedName = parseAiCategoryName(reply.content);
+      const matched = categories.find((item) => item.name.trim() === suggestedName);
+      if (!suggestedName || !matched || matched.id === tx.categoryId) {
+        return fallbackRecategorize() ? 'fallback-changed' : 'unchanged';
+      }
+
+      updateTransaction(tx.id, { ...tx, categoryId: matched.id });
+      return 'changed';
+    } catch {
+      return fallbackRecategorize() ? 'fallback-changed' : 'unchanged';
+    }
+  };
+
+  const handleBulkAiRecategorize = async () => {
+    if (selectedIds.length === 0 || bulkAiRecategorizing) {
+      return;
+    }
+
+    setBulkAiRecategorizing(true);
+    let changed = 0;
+    let fallbackChanged = 0;
+
+    for (const id of selectedIds) {
+      const tx = transactions.find((item) => item.id === id);
+      if (!tx) continue;
+      const result = await recategorizeByAi(tx);
+      if (result === 'changed') {
+        changed += 1;
+      }
+      if (result === 'fallback-changed') {
+        fallbackChanged += 1;
+      }
+    }
+
+    if (changed > 0) {
+      showToast(`已按大模型建议完成 ${changed} 条交易重分类。`, 'success');
+    } else if (fallbackChanged > 0) {
+      showToast(`已按账单信息完成 ${fallbackChanged} 条交易重分类。`, 'success');
+    } else {
+      showToast('AI 分类建议未变化，无需替换。', 'warning');
+    }
+    setBulkAiRecategorizing(false);
+  };
+
   const hasQuickFilters =
     quickFilters.date.trim().length > 0 ||
     quickFilters.type !== 'all' ||
@@ -1053,6 +1143,7 @@ export function TransactionsPage() {
         onDelete={(id) => setPendingDeleteIds([id])}
         onDeleteSelected={handleDeleteSelected}
         onBulkEditCategory={handleBulkEditCategory}
+        onBulkAiRecategorize={() => void handleBulkAiRecategorize()}
         onBulkEditAccount={handleBulkEditAccount}
         categoryOptions={categories.map((item) => ({ id: item.id, name: item.name }))}
         accountOptions={accounts.map((item) => ({ id: item.id, name: item.name }))}
@@ -1086,71 +1177,20 @@ export function TransactionsPage() {
 
           setAiRecategorizingId(selected.id);
 
-          const fallbackRecategorize = () => {
-            const nextCategoryId = inferCategoryIdByTransaction(
-              selected,
-              categories,
-              selected.categoryId
-            );
-            if (!nextCategoryId || nextCategoryId === selected.categoryId) {
+          void recategorizeByAi(selected)
+            .then((result) => {
+              if (result === 'changed') {
+                showToast('已按大模型建议完成重分类。', 'success');
+                return;
+              }
+              if (result === 'fallback-changed') {
+                showToast('已按账单信息完成 AI 重分类。', 'success');
+                return;
+              }
               showToast('AI 分类建议未变化，无需替换。', 'warning');
-              setAiRecategorizingId(null);
-              return;
-            }
-            updateTransaction(selected.id, { ...selected, categoryId: nextCategoryId });
-            showToast('已按账单信息完成 AI 重分类。', 'success');
-            setAiRecategorizingId(null);
-          };
-
-          const hasAiConfig =
-            Boolean(aiApiKey.trim()) && Boolean(aiModel.trim()) && Boolean(aiBaseUrl.trim());
-          if (!hasAiConfig) {
-            fallbackRecategorize();
-            return;
-          }
-
-          const txTypeLabel =
-            selected.type === 'income'
-              ? '收入'
-              : selected.type === 'budget'
-                ? '预算'
-                : selected.type === 'repayment'
-                  ? '还款'
-                  : '支出';
-          const availableCategories = categories.map((item) => item.name);
-          const currentCategoryName =
-            categories.find((item) => item.id === selected.categoryId)?.name || '未分类';
-
-          void sendAiChat({
-            baseUrl: aiBaseUrl,
-            apiKey: aiApiKey,
-            model: aiModel,
-            systemPrompt:
-              '你是交易重分类助手。请根据交易信息，从给定分类列表中选择最匹配的一项。仅返回 JSON：{"category":"分类名"}。禁止输出解释。若不确定，返回当前分类。',
-            messages: [
-              {
-                role: 'user',
-                text: `交易信息：\n- 类型: ${txTypeLabel}\n- 金额: ${selected.amount}\n- 备注: ${selected.note || '无'}\n- 标签: ${(selected.tags || []).join(',') || '无'}\n- 当前分类: ${currentCategoryName}\n可选分类：${JSON.stringify(availableCategories)}`
-              }
-            ]
-          })
-            .then((reply) => {
-              const suggestedName = parseAiCategoryName(reply.content);
-              if (!suggestedName) {
-                fallbackRecategorize();
-                return;
-              }
-              const matched = categories.find((item) => item.name.trim() === suggestedName);
-              if (!matched || matched.id === selected.categoryId) {
-                fallbackRecategorize();
-                return;
-              }
-              updateTransaction(selected.id, { ...selected, categoryId: matched.id });
-              showToast('已按大模型建议完成重分类。', 'success');
-              setAiRecategorizingId(null);
             })
-            .catch(() => {
-              fallbackRecategorize();
+            .finally(() => {
+              setAiRecategorizingId(null);
             });
         }}
         aiRecategorizing={selected ? aiRecategorizingId === selected.id : false}
