@@ -6,7 +6,6 @@ describe('useAppPreferences RSS subscriptions', () => {
     localStorage.removeItem('ledgerflow-preferences');
     useAppPreferences.setState({
       theme: 'system',
-      syncTargetDb: 'postgresql',
       rssSubscriptions: [
         {
           id: 'rss-financial-times-markets',

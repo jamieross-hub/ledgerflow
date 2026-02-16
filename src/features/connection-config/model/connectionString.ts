@@ -6,9 +6,7 @@ export interface ParsedConnectionString {
   database?: string;
 }
 
-const PROTOCOL_MAP: Record<'postgresql' | 'mysql' | 'redis', string[]> = {
-  postgresql: ['postgres', 'postgresql'],
-  mysql: ['mysql'],
+const PROTOCOL_MAP: Record<'redis', string[]> = {
   redis: ['redis', 'rediss']
 };
 
@@ -16,7 +14,7 @@ function normalizeProtocol(raw: string) {
   return raw.replace(':', '').toLowerCase();
 }
 
-export function parseConnectionString(connectionString: string, type: 'postgresql' | 'mysql' | 'redis') {
+export function parseConnectionString(connectionString: string, type: 'redis') {
   try {
     const url = new URL(connectionString);
     const protocol = normalizeProtocol(url.protocol);

@@ -1,4 +1,4 @@
-export type ConnectionType = 'postgresql' | 'mysql' | 'redis';
+export type ConnectionType = 'redis';
 
 export interface ConnectionPoolConfig {
   min: number;

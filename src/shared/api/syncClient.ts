@@ -12,7 +12,6 @@ export interface FinanceSyncData {
 export interface SyncLocalDataRequest {
   source: 'manual' | 'auto';
   strategy?: 'append' | 'upsert';
-  targetDbType?: 'postgresql' | 'mysql';
   data: FinanceSyncData;
 }
 
@@ -28,7 +27,6 @@ export interface SyncChangeRequest {
   action: 'insert' | 'update' | 'delete';
   row?: unknown;
   id?: string;
-  targetDbType?: 'postgresql' | 'mysql';
   happenedAt: string;
 }
 

@@ -35,7 +35,7 @@ export function ConnectionConfigManager() {
         style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}
       >
         <div>
-          <h3 style={{ margin: 0 }}>连接配置管理（PG / MySQL / Redis）</h3>
+          <h3 style={{ margin: 0 }}>连接配置管理（Redis）</h3>
           <p
             style={{
               margin: '6px 0 0',
