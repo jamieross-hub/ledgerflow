@@ -1,0 +1,42 @@
+import { describe, expect, it, vi } from 'vitest';
+import { parseFinanceBackupPayload, webdavDownloadBackup, type BackupWebdavConfig } from './backup';
+
+const baseConfig: BackupWebdavConfig = {
+  endpoint: 'https://dav.example.com/remote.php/dav/files/user',
+  username: 'alice',
+  password: 'secret',
+  remoteFilePath: '账本备份/2026 02 backup.json',
+  proxyEnabled: true,
+  proxyBasePath: '/api/webdav'
+};
+
+describe('parseFinanceBackupPayload', () => {
+  it('支持带 UTF-8 BOM 的 JSON 备份', () => {
+    const payload = parseFinanceBackupPayload(
+      '\uFEFF{\n"version":1,"data":{"transactions":[],"categories":[],"accounts":[]}}'
+    );
+
+    expect(payload.version).toBe(1);
+    expect(payload.data.transactions).toEqual([]);
+  });
+});
+
+describe('webdavDownloadBackup', () => {
+  it('请求路径应正确 URL 编码，避免中文/空格路径导致恢复失败', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => '{"version":1,"data":{"transactions":[],"categories":[],"accounts":[]}}'
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await webdavDownloadBackup(baseConfig);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      '/api/webdav/%E8%B4%A6%E6%9C%AC%E5%A4%87%E4%BB%BD/2026%2002%20backup.json'
+    );
+
+    vi.unstubAllGlobals();
+  });
+});

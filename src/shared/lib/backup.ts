@@ -43,7 +43,8 @@ export function createFinanceBackupPayload(input: {
 }
 
 export function parseFinanceBackupPayload(raw: string): FinanceBackupPayload {
-  const parsed = JSON.parse(raw) as Partial<FinanceBackupPayload>;
+  const normalizedRaw = raw.replace(/^\uFEFF/, '').trim();
+  const parsed = JSON.parse(normalizedRaw) as Partial<FinanceBackupPayload>;
   if (!parsed || typeof parsed !== 'object') {
     throw new Error('备份文件格式无效');
   }
@@ -126,7 +127,12 @@ export function loadWebdavConfig(): BackupWebdavConfig {
 }
 
 function joinWebdavPath(config: BackupWebdavConfig, remoteFilePath: string): string {
-  const path = remoteFilePath.replace(/^\/+/, '');
+  const path = remoteFilePath
+    .split('/')
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
   if (config.proxyEnabled) {
     const proxyBase = config.proxyBasePath.trim().replace(/\/+$/, '') || '/api/webdav';
     return `${proxyBase}/${path}`;

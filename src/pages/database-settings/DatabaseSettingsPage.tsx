@@ -104,6 +104,7 @@ export function DatabaseSettingsPage() {
     }
 
     try {
+      ensureHydrated();
       const refs = ensureDefaultRefs(source);
       const rows = await parseBillFileToTransactions({
         file,
@@ -271,6 +272,7 @@ export function DatabaseSettingsPage() {
               setImportSource('wechat');
               billInputRef.current?.click();
             }}
+            disabled={!hasHydrated}
           >
             导入微信账单
           </button>
@@ -280,6 +282,7 @@ export function DatabaseSettingsPage() {
               setImportSource('alipay');
               billInputRef.current?.click();
             }}
+            disabled={!hasHydrated}
           >
             导入支付宝账单
           </button>
