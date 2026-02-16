@@ -576,51 +576,59 @@ export function RepaymentManagementPage() {
           ) : null}
         </div>
 
-        <div className="card finance-secondary-panel" style={{ marginBottom: 12, padding: 12 }}>
+        <div className="card finance-secondary-panel" style={{ marginBottom: 12, padding: 24 }}>
           <h3 style={{ marginTop: 0 }}>✍️ 手动填写负债</h3>
           <p className="muted" style={{ margin: '0 0 8px 0' }}>
             用于补充识别失败或新增账单，贷款支持年化利率与期数输入。
           </p>
           <form onSubmit={onAddDebt} className="finance-debt-form-grid">
-            <input
-              value={debtName}
-              onChange={(event) => setDebtName(event.target.value)}
-              placeholder="负债名称"
-            />
-            <select
-              value={debtType}
-              onChange={(event) => setDebtType(event.target.value as DebtType)}
-            >
-              <option value="credit-card">信用卡</option>
-              <option value="consumer-loan">消费贷</option>
-              <option value="loan">贷款</option>
-            </select>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={debtBalance}
-              onChange={(event) => setDebtBalance(event.target.value)}
-              placeholder="剩余本金"
-            />
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={debtAnnualRate}
-              onChange={(event) => setDebtAnnualRate(event.target.value)}
-              placeholder="年化利率%"
-              disabled={debtType !== 'loan'}
-            />
-            <input
-              type="number"
-              min={1}
-              value={debtMonths}
-              onChange={(event) => setDebtMonths(event.target.value)}
-              placeholder="剩余期数"
-              disabled={debtType !== 'loan'}
-            />
-            <button type="submit">新增</button>
+            <div className="finance-debt-form-row finance-debt-form-row-primary">
+              <input
+                value={debtName}
+                onChange={(event) => setDebtName(event.target.value)}
+                placeholder="负债名称"
+              />
+              <select
+                value={debtType}
+                onChange={(event) => setDebtType(event.target.value as DebtType)}
+              >
+                <option value="credit-card">信用卡</option>
+                <option value="consumer-loan">消费贷</option>
+                <option value="loan">贷款</option>
+              </select>
+            </div>
+            <div className="finance-debt-form-row finance-debt-form-row-detail">
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={debtBalance}
+                onChange={(event) => setDebtBalance(event.target.value)}
+                placeholder="剩余本金"
+              />
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={debtAnnualRate}
+                onChange={(event) => setDebtAnnualRate(event.target.value)}
+                placeholder="年化利率%"
+                disabled={debtType !== 'loan'}
+              />
+              <input
+                type="number"
+                min={1}
+                value={debtMonths}
+                onChange={(event) => setDebtMonths(event.target.value)}
+                placeholder="剩余期数"
+                disabled={debtType !== 'loan'}
+              />
+            </div>
+            <div className="finance-debt-form-actions">
+              <button type="submit" className="primary">
+                + 添加负债
+              </button>
+            </div>
           </form>
         </div>
 
