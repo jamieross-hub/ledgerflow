@@ -6170,8 +6170,26 @@ body.exchange-resizing {
 
 .finance-debt-form-grid {
   display: grid;
-  gap: 8px;
-  grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr)) auto;
+  gap: 18px;
+}
+
+.finance-debt-form-row {
+  display: grid;
+  gap: 10px;
+  align-items: center;
+}
+
+.finance-debt-form-row-primary {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+.finance-debt-form-row-detail {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.finance-debt-form-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .finance-feed-form-grid {
@@ -6192,17 +6210,14 @@ body.exchange-resizing {
 }
 
 @media (max-width: 1120px) {
-  .finance-debt-form-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .finance-overview-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 760px) {
-  .finance-debt-form-grid,
+  .finance-debt-form-row-primary,
+  .finance-debt-form-row-detail,
   .finance-feed-form-grid {
     grid-template-columns: minmax(0, 1fr);
   }
