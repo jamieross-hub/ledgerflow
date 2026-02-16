@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TransactionItem } from '../../../entities/transaction/types';
 import { EMPTY_CATEGORY_FILTER_VALUE } from '../model/categoryQuickFilter';
@@ -91,6 +91,8 @@ interface TransactionTableProps {
   onClearFilters: () => void;
   onPrevPage: () => void;
   onNextPage: () => void;
+  onFirstPage: () => void;
+  onLastPage: () => void;
   onPageSizeChange: (size: number) => void;
   onOpenDetail: (id: string) => void;
   onDelete: (id: string) => void;
@@ -141,6 +143,8 @@ export function TransactionTable({
   onClearFilters,
   onPrevPage,
   onNextPage,
+  onFirstPage,
+  onLastPage,
   onPageSizeChange,
   onOpenDetail,
   onDelete,
@@ -238,6 +242,23 @@ export function TransactionTable({
     merchantOrderNo: 'merchantOrderNo',
     note: 'note'
   };
+
+  const pageSummary = useMemo(() => {
+    const incomeTotal = rows.reduce(
+      (sum, row) => (row.item.type === 'income' ? sum + row.item.amount : sum),
+      0
+    );
+    const expenseTotal = rows.reduce(
+      (sum, row) => (row.item.type !== 'income' ? sum + row.item.amount : sum),
+      0
+    );
+    return {
+      incomeTotal,
+      expenseTotal,
+      netTotal: incomeTotal - expenseTotal,
+      overallTotal: rows.reduce((sum, row) => sum + row.item.amount, 0)
+    };
+  }, [rows]);
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -670,6 +691,42 @@ export function TransactionTable({
                   })
                 )}
               </tbody>
+              {rows.length > 0 && (
+                <tfoot>
+                  <tr className="transaction-summary-row">
+                    {bulkSelectionEnabled ? (
+                      <td className="transaction-summary-label">汇总</td>
+                    ) : null}
+                    {orderedColumns
+                      .filter((column) => visibleColumns[column.key])
+                      .map((column, index) => {
+                        const isFirstVisible = index === 0;
+                        if (column.key === 'amount') {
+                          return (
+                            <td
+                              key={`summary-${column.key}`}
+                              className="transaction-summary-amount"
+                            >
+                              金额合计 {formatCurrency(pageSummary.overallTotal)} ｜ 收入{' '}
+                              {formatCurrency(pageSummary.incomeTotal)} ｜ 支出{' '}
+                              {formatCurrency(pageSummary.expenseTotal)} ｜ 净额{' '}
+                              {formatCurrency(pageSummary.netTotal)}
+                            </td>
+                          );
+                        }
+
+                        return (
+                          <td
+                            key={`summary-${column.key}`}
+                            className={isFirstVisible ? 'transaction-summary-label' : undefined}
+                          >
+                            {isFirstVisible ? `汇总（当前页 ${rows.length} 条）` : '-'}
+                          </td>
+                        );
+                      })}
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
 
@@ -771,6 +828,9 @@ export function TransactionTable({
                   ))}
                 </select>
               </label>
+              <button type="button" disabled={page === 1} onClick={onFirstPage}>
+                第一页
+              </button>
               <button type="button" disabled={page === 1} onClick={onPrevPage}>
                 上一页
               </button>
@@ -779,6 +839,9 @@ export function TransactionTable({
               </small>
               <button type="button" disabled={page === pages} onClick={onNextPage}>
                 下一页
+              </button>
+              <button type="button" disabled={page === pages} onClick={onLastPage}>
+                最后一页
               </button>
             </div>
           </div>
