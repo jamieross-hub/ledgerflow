@@ -1425,6 +1425,23 @@ tr:hover td {
   width: auto;
 }
 
+.transaction-summary-row td {
+  background: color-mix(in srgb, var(--color-bg-subtle) 75%, white);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+}
+
+.transaction-summary-row .transaction-summary-label {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.transaction-summary-row .transaction-summary-amount {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 768px) {
   .transaction-pagination,
   .transaction-pagination-controls {

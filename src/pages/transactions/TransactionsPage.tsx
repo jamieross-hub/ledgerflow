@@ -1215,8 +1215,10 @@ export function TransactionsPage() {
         quickFilters={quickFilters}
         onSortChange={handleSortChange}
         onQuickFilterChange={handleQuickFilterChange}
+        onFirstPage={() => setPage(1)}
         onPrevPage={() => setPage(Math.max(1, page - 1))}
         onNextPage={() => setPage(Math.min(pages, page + 1))}
+        onLastPage={() => setPage(pages)}
         onPageSizeChange={(size) => {
           // 切换页大小后重置到第一页，避免超页码导致用户误解“数据丢失”。
           setPageSize(size);
