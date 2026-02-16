@@ -204,6 +204,19 @@ function parseIncomeExtraction(content: string): { monthlyIncome?: number; reaso
   };
 }
 
+function getPressureLevel(ratio: number): {
+  tone: 'safe' | 'warning' | 'danger';
+  label: string;
+} {
+  if (ratio < 0.3) {
+    return { tone: 'safe', label: '健康' };
+  }
+  if (ratio < 0.6) {
+    return { tone: 'warning', label: '关注' };
+  }
+  return { tone: 'danger', label: '偏高' };
+}
+
 export function RepaymentManagementPage() {
   const { debts, monthlyIncome, setMonthlyIncome, addDebt, replaceDebts, removeDebt } =
     useAppPreferences();
@@ -228,6 +241,10 @@ export function RepaymentManagementPage() {
   const debtSummary = useMemo(
     () => calculateDebtSummary(debts, monthlyIncome),
     [debts, monthlyIncome]
+  );
+  const pressureLevel = useMemo(
+    () => getPressureLevel(debtSummary.pressureRatio),
+    [debtSummary.pressureRatio]
   );
 
   const incomeSamples = useMemo(
@@ -559,47 +576,53 @@ export function RepaymentManagementPage() {
           ) : null}
         </div>
 
-        <form onSubmit={onAddDebt} className="finance-debt-form-grid">
-          <input
-            value={debtName}
-            onChange={(event) => setDebtName(event.target.value)}
-            placeholder="负债名称"
-          />
-          <select
-            value={debtType}
-            onChange={(event) => setDebtType(event.target.value as DebtType)}
-          >
-            <option value="credit-card">信用卡</option>
-            <option value="consumer-loan">消费贷</option>
-            <option value="loan">贷款</option>
-          </select>
-          <input
-            type="number"
-            min={0}
-            step="0.01"
-            value={debtBalance}
-            onChange={(event) => setDebtBalance(event.target.value)}
-            placeholder="剩余本金"
-          />
-          <input
-            type="number"
-            min={0}
-            step="0.01"
-            value={debtAnnualRate}
-            onChange={(event) => setDebtAnnualRate(event.target.value)}
-            placeholder="年化利率%"
-            disabled={debtType !== 'loan'}
-          />
-          <input
-            type="number"
-            min={1}
-            value={debtMonths}
-            onChange={(event) => setDebtMonths(event.target.value)}
-            placeholder="剩余期数"
-            disabled={debtType !== 'loan'}
-          />
-          <button type="submit">新增</button>
-        </form>
+        <div className="card finance-secondary-panel" style={{ marginBottom: 12, padding: 12 }}>
+          <h3 style={{ marginTop: 0 }}>✍️ 手动填写负债</h3>
+          <p className="muted" style={{ margin: '0 0 8px 0' }}>
+            用于补充识别失败或新增账单，贷款支持年化利率与期数输入。
+          </p>
+          <form onSubmit={onAddDebt} className="finance-debt-form-grid">
+            <input
+              value={debtName}
+              onChange={(event) => setDebtName(event.target.value)}
+              placeholder="负债名称"
+            />
+            <select
+              value={debtType}
+              onChange={(event) => setDebtType(event.target.value as DebtType)}
+            >
+              <option value="credit-card">信用卡</option>
+              <option value="consumer-loan">消费贷</option>
+              <option value="loan">贷款</option>
+            </select>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={debtBalance}
+              onChange={(event) => setDebtBalance(event.target.value)}
+              placeholder="剩余本金"
+            />
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={debtAnnualRate}
+              onChange={(event) => setDebtAnnualRate(event.target.value)}
+              placeholder="年化利率%"
+              disabled={debtType !== 'loan'}
+            />
+            <input
+              type="number"
+              min={1}
+              value={debtMonths}
+              onChange={(event) => setDebtMonths(event.target.value)}
+              placeholder="剩余期数"
+              disabled={debtType !== 'loan'}
+            />
+            <button type="submit">新增</button>
+          </form>
+        </div>
 
         <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
           {debts.length === 0 ? <p className="muted">还没有负债记录，先新增一条吧。</p> : null}
@@ -639,19 +662,45 @@ export function RepaymentManagementPage() {
           })}
         </div>
 
-        <div className="card" style={{ marginTop: 12, padding: 12 }}>
-          <h3 style={{ marginTop: 0 }}>负债压力总览</h3>
-          <p style={{ margin: '4px 0' }}>总负债：¥{debtSummary.totalDebt.toFixed(2)}</p>
-          <p style={{ margin: '4px 0' }}>
-            每月最低还款：¥{debtSummary.totalMinimumPayment.toFixed(2)}
-          </p>
-          <p style={{ margin: '4px 0' }}>
-            负债压力：{(debtSummary.pressureRatio * 100).toFixed(1)}%
-            {monthlyIncome <= 0 ? '（待 AI 从账单详情估算月收入）' : ''}
-          </p>
+        <div className="card finance-overview-panel" style={{ marginTop: 12, padding: 12 }}>
+          <h3 style={{ marginTop: 0 }}>📊 负债压力总览</h3>
+          <div className="finance-overview-grid">
+            <article className="finance-overview-metric-card">
+              <p className="finance-overview-label">总负债</p>
+              <p className="finance-overview-value">
+                <span className="finance-overview-number">{debtSummary.totalDebt.toFixed(2)}</span>
+                <span className="finance-overview-unit">¥</span>
+              </p>
+            </article>
+            <article className="finance-overview-metric-card">
+              <p className="finance-overview-label">每月最低还款</p>
+              <p className="finance-overview-value">
+                <span className="finance-overview-number">
+                  {debtSummary.totalMinimumPayment.toFixed(2)}
+                </span>
+                <span className="finance-overview-unit">¥</span>
+              </p>
+            </article>
+            <article
+              className={`finance-overview-metric-card finance-overview-pressure-card finance-overview-pressure-${pressureLevel.tone}`}
+            >
+              <p className="finance-overview-label">负债率（{pressureLevel.label}）</p>
+              <p className="finance-overview-value">
+                <span className="finance-overview-number">
+                  {(debtSummary.pressureRatio * 100).toFixed(1)}
+                </span>
+                <span className="finance-overview-unit">%</span>
+              </p>
+            </article>
+          </div>
+          {monthlyIncome <= 0 ? (
+            <p className="muted" style={{ margin: '8px 0 0' }}>
+              负债率待 AI 从账单详情估算月收入后会更准确。
+            </p>
+          ) : null}
         </div>
 
-        <div className="card" style={{ marginTop: 12, padding: 12 }}>
+        <div className="card finance-primary-panel" style={{ marginTop: 12, padding: 12 }}>
           <h3 style={{ marginTop: 0 }}>🤖 AI 还款策略</h3>
           <p className="muted" style={{ marginTop: 0 }}>
             结合当前负债与 AI 估算月收入，生成未来 3 个月分步还款建议。
