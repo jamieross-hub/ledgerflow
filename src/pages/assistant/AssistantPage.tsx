@@ -10,7 +10,6 @@ import {
 } from 'react';
 import { Link } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
-import { SMART_TRANSACTION_COMMANDS } from '../../features/assistant/workbench/workbenchTypes';
 import { useAssistantWorkbench } from '../../features/assistant/workbench/useAssistantWorkbench';
 import { BillPreviewCard } from '../../features/assistant/ui/BillPreviewCard';
 import { useAiSettings } from '../../shared/store/useAiSettings';
@@ -77,6 +76,19 @@ function renderMarkdownContent(raw: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   let bullets: string[] = [];
 
+  const parseTableRow = (line: string) =>
+    line
+      .replace(/^\||\|$/g, '')
+      .split('|')
+      .map((cell) => cell.trim());
+
+  const isTableSeparator = (line: string) => {
+    const cells = parseTableRow(line);
+    return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+  };
+
+  const isTableRow = (line: string) => /^\|.+\|$/.test(line);
+
   const flushBullets = () => {
     if (bullets.length === 0) return;
     nodes.push(
@@ -89,11 +101,53 @@ function renderMarkdownContent(raw: string): ReactNode[] {
     bullets = [];
   };
 
-  lines.forEach((rawLine, idx) => {
-    const line = rawLine.trim();
+  for (let idx = 0; idx < lines.length; idx += 1) {
+    const line = lines[idx].trim();
     if (!line) {
       flushBullets();
-      return;
+      continue;
+    }
+
+    const nextLine = lines[idx + 1]?.trim() || '';
+    if (isTableRow(line) && isTableSeparator(nextLine)) {
+      flushBullets();
+      const headerCells = parseTableRow(line);
+      const rows: string[][] = [];
+      idx += 2;
+      while (idx < lines.length) {
+        const rowLine = lines[idx].trim();
+        if (!isTableRow(rowLine)) break;
+        const rowCells = parseTableRow(rowLine);
+        if (rowCells.length > 0) rows.push(rowCells);
+        idx += 1;
+      }
+      idx -= 1;
+
+      nodes.push(
+        <div key={`md-table-${nodes.length}`} className="chat-md-table-wrap">
+          <table className="chat-md-table">
+            <thead>
+              <tr>
+                {headerCells.map((cell, cellIdx) => (
+                  <th key={`md-th-${cellIdx}`}>{renderInlineMarkdown(cell)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rowIdx) => (
+                <tr key={`md-tr-${rowIdx}`}>
+                  {headerCells.map((_, colIdx) => (
+                    <td key={`md-td-${rowIdx}-${colIdx}`}>
+                      {renderInlineMarkdown(row[colIdx] ?? '')}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      continue;
     }
 
     const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
@@ -106,19 +160,19 @@ function renderMarkdownContent(raw: string): ReactNode[] {
           {renderInlineMarkdown(title)}
         </p>
       );
-      return;
+      continue;
     }
 
     const bulletMatch = line.match(/^[-*]\s+(.+)$/);
     if (bulletMatch) {
       bullets.push(bulletMatch[1]);
-      return;
+      continue;
     }
 
     const numberedMatch = line.match(/^(\d+)\.\s+(.+)$/);
     if (numberedMatch) {
       bullets.push(`${numberedMatch[1]}. ${numberedMatch[2]}`);
-      return;
+      continue;
     }
 
     flushBullets();
@@ -127,7 +181,7 @@ function renderMarkdownContent(raw: string): ReactNode[] {
         {renderInlineMarkdown(line)}
       </p>
     );
-  });
+  }
 
   flushBullets();
   return nodes;
@@ -170,13 +224,6 @@ const ANALYSIS_SHORTCUT_SEEDS = [
   }
 ];
 
-const DEFAULT_QUICK_BILL_TEMPLATES = [
-  { label: '🍜 午饭 18（支付宝）', prompt: '今天午饭18元，用支付宝支付' },
-  { label: '☕ 咖啡 23（微信）', prompt: '今天买咖啡23元，用微信支付' },
-  { label: '🚇 地铁 4（零钱）', prompt: '今天地铁4元，用现金支付' },
-  { label: '💼 工资入账', prompt: '本月工资到账 12000 元，入账银行卡' }
-];
-
 const CHAT_HISTORY_CACHE_KEYS: Record<AssistantMode, string> = {
   bookkeeping: 'ledgerflow.assistant.chatHistory.bookkeeping',
   assistant: 'ledgerflow.assistant.chatHistory.assistant'
@@ -202,43 +249,6 @@ function readChatHistory(mode: AssistantMode): ChatHistoryItem[] {
 
 function toMonthKey(date: string) {
   return date.slice(0, 7);
-}
-
-function buildSmartQuickTemplates(transactions: TransactionItem[], categories: Category[]) {
-  const categoryMap = new Map(categories.map((item) => [item.id, item.name]));
-  const expenseRows = transactions
-    .filter((item) => item.type === 'expense')
-    .sort((a, b) => +new Date(b.date) - +new Date(a.date));
-  const grouped = Object.values(
-    expenseRows.reduce<
-      Record<
-        string,
-        { note: string; amount: number; account: string; count: number; category: string }
-      >
-    >((acc, item) => {
-      const note = (item.note || '').trim() || '日常消费';
-      const amount = Math.round(Number(item.amount || 0) * 100) / 100;
-      const sourceText = `${item.note || ''} ${(item.tags || []).join(' ')}`;
-      const account = /微信/i.test(sourceText)
-        ? '微信'
-        : /支付宝|alipay/i.test(sourceText)
-          ? '支付宝'
-          : '账户';
-      const category = categoryMap.get(item.categoryId) || '其他';
-      const key = `${note}|${amount}|${account}`;
-      if (!acc[key]) acc[key] = { note, amount, account, count: 0, category };
-      acc[key].count += 1;
-      return acc;
-    }, {})
-  )
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 4)
-    .map((item) => ({
-      label: `⚡ ${item.note} ${item.amount}（${item.account}）`,
-      prompt: `今天${item.note}${item.amount}元，用${item.account}支付，分类记为${item.category}`
-    }));
-
-  return grouped.length >= 2 ? grouped : DEFAULT_QUICK_BILL_TEMPLATES;
 }
 
 function buildLocalPresetQuestions(transactions: TransactionItem[], categories: Category[]) {
@@ -337,7 +347,6 @@ export function AssistantPage() {
   const [presetQuestions, setPresetQuestions] = useState<PresetQuestion[]>([]);
   const [loadingPresets, setLoadingPresets] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(() => readChatHistory(mode));
-  const [quickTemplates, setQuickTemplates] = useState(DEFAULT_QUICK_BILL_TEMPLATES);
   const latestTransaction = useMemo(
     () =>
       [...transactions]
@@ -529,10 +538,6 @@ export function AssistantPage() {
   }, [loadPersonalizedQuestions]);
 
   useEffect(() => {
-    setQuickTemplates(buildSmartQuickTemplates(transactions, categories));
-  }, [categories, transactions]);
-
-  useEffect(() => {
     setChatHistory(readChatHistory(mode));
   }, [mode]);
 
@@ -655,18 +660,6 @@ export function AssistantPage() {
               <div className="chat-kawaii-topline">今天 {todayLabel}</div>
               <div className="chat-kawaii-amount">¥0.00</div>
               <div className="chat-kawaii-sub">本轮准备记账 · 一句话也能生成账单 ✨</div>
-              <div className="chat-kawaii-actions">
-                {quickTemplates.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => wb.applyCommand(item.prompt)}
-                    disabled={wb.status === 'recognizing'}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
               <div className="chat-kawaii-mascot" aria-hidden>
                 <span>૮₍ ˶•⤙•˶ ₎ა</span>
                 <small>来嘛来嘛，点我就能秒记账～</small>
@@ -682,7 +675,19 @@ export function AssistantPage() {
                   {loadingPresets ? '生成中...' : '换一批'}
                 </button>
               </div>
-              <p className="chat-kawaii-sub">快捷提问已移动到输入框上方按钮区，可直接点击发送。</p>
+              <div className="chat-preset-list">
+                {presetQuestions.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="chat-preset-item"
+                    onClick={() => wb.applyCommand(item.prompt)}
+                    disabled={wb.status === 'recognizing'}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
               <div className="chat-kawaii-mascot" aria-hidden>
                 <span>🧾</span>
                 <small>数据会说话，我负责翻译成能执行的建议。</small>
@@ -697,7 +702,7 @@ export function AssistantPage() {
                 {mode === 'bookkeeping' ? 'AI 记账助手' : 'AI 问答助手'}
               </div>
               <div className="chat-msg-content">
-                <p>输入一句话、贴截图，或者点击上方模板，我会帮你快速生成可保存账单。</p>
+                <p>输入一句话或贴截图，我会帮你快速生成可保存账单。</p>
               </div>
             </div>
           </article>
@@ -792,32 +797,6 @@ export function AssistantPage() {
       </section>
 
       <section className="chat-input-bar">
-        <div className="chat-smart-command-row">
-          {mode === 'assistant'
-            ? presetQuestions.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="chat-smart-command-chip"
-                  onClick={() => wb.applyCommand(item.prompt)}
-                  disabled={wb.status === 'recognizing'}
-                >
-                  {item.label}
-                </button>
-              ))
-            : SMART_TRANSACTION_COMMANDS.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  className="chat-smart-command-chip"
-                  onClick={() => wb.applyCommand(item.prompt)}
-                  disabled={wb.status === 'recognizing'}
-                >
-                  {item.label}
-                </button>
-              ))}
-        </div>
-
         {shouldShowError ? (
           <div className="chat-error-strip" role="alert">
             <span>{wb.error}</span>
