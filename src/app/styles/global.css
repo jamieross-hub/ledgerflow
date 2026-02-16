@@ -6589,6 +6589,63 @@ body.exchange-resizing {
   align-items: center;
 }
 
+.finance-overview-grid-strong .finance-overview-metric-card {
+  border: 1px solid var(--color-border-light);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.finance-overview-health-card {
+  background: color-mix(in srgb, var(--color-primary-soft) 45%, var(--color-bg-elevated));
+}
+
+.finance-debt-dual-entry {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.finance-debt-entry-action {
+  border: 1px solid var(--color-border-light);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+.finance-debt-form-helper {
+  margin: -8px 0 0;
+}
+
+.finance-debt-item {
+  border: 1px solid var(--color-border-light);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.finance-ai-insight-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.finance-ai-insight-card {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  padding: 10px;
+}
+
+.finance-simulator-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 220px);
+  align-items: center;
+  gap: 10px;
+}
 .finance-ai-result {
   margin: 10px 0 0;
   white-space: pre-wrap;
@@ -6613,6 +6670,11 @@ body.exchange-resizing {
   }
 
   .finance-overview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .finance-ai-insight-grid,
+  .finance-simulator-row {
     grid-template-columns: minmax(0, 1fr);
   }
 }

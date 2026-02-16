@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { calculateDebtMinimumPayment, calculateDebtSummary, DebtItem } from './debtMetrics';
+import {
+  calculateDebtHealthScore,
+  calculateDebtMinimumPayment,
+  calculateDebtSummary,
+  DebtItem
+} from './debtMetrics';
 
 describe('debtMetrics', () => {
   it('calculates minimum payment for credit card and consumer loan by rules', () => {
@@ -47,5 +52,20 @@ describe('debtMetrics', () => {
     expect(summary.totalDebt).toBe(9000);
     expect(summary.totalMinimumPayment).toBe(900);
     expect(summary.pressureRatio).toBe(0.09);
+  });
+
+  it('calculates debt health score by debt ratio and minimum payment pressure', () => {
+    const summary = calculateDebtSummary(
+      [
+        { id: 'd1', name: '信用卡', type: 'credit-card', balance: 60000 },
+        { id: 'd2', name: '消费贷', type: 'consumer-loan', balance: 20000 }
+      ],
+      10000
+    );
+
+    const score = calculateDebtHealthScore(summary, 10000);
+    expect(score).toBeGreaterThanOrEqual(0);
+    expect(score).toBeLessThanOrEqual(100);
+    expect(score).toBe(25);
   });
 });
