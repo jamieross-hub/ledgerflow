@@ -20,15 +20,21 @@ import type { Category } from '../../entities/category/types';
 
 function inputPlaceholder(
   status: ReturnType<typeof useAssistantWorkbench>['status'],
-  hasApiKey: boolean
+  hasApiKey: boolean,
+  mode: AssistantMode
 ): string {
   if (!hasApiKey) return '请先在设置中配置 API Key';
 
+  const assistantHint = '例如：我这个月花多了吗？\n例如：餐饮支出占比多少？';
+  const bookkeepingHint = '比如：今天午饭15元，用支付宝（会自动识别分类）';
+
   switch (status) {
     case 'idle':
-      return '等待输入内容 · 比如：今天午饭15元，用支付宝（会自动识别分类）';
+      return mode === 'assistant' ? assistantHint : `等待输入内容 · ${bookkeepingHint}`;
     case 'ready':
-      return '可开始识别 · 按 Enter 发送，Shift + Enter 换行';
+      return mode === 'assistant'
+        ? `支持自然语言提问 · 按 Enter 发送，Shift + Enter 换行\n${assistantHint}`
+        : '可开始识别 · 按 Enter 发送，Shift + Enter 换行';
     case 'recognizing':
       return '模型识别中，请稍候…';
     case 'preview':
@@ -40,7 +46,7 @@ function inputPlaceholder(
     case 'error':
       return '识别失败，请调整描述后重试';
     default:
-      return '比如：今天午饭15元，用支付宝（会自动识别分类）';
+      return mode === 'assistant' ? assistantHint : bookkeepingHint;
   }
 }
 
@@ -219,8 +225,9 @@ const ANALYSIS_SHORTCUT_SEEDS = [
     prompt: '请按月对比我最近3个月的收入、支出和结余变化，指出趋势拐点，并说明最可能的影响因素。'
   },
   {
-    label: '高频标签花费洞察',
-    prompt: '请识别我消费中出现频率最高的标签或场景，评估其累计成本和节省空间，并给出优先级排序。'
+    label: '大额支出识别',
+    prompt:
+      '请识别我最近3个月中金额异常偏高的支出，标注时间、分类、金额及可能原因，并给出下月规避策略。'
   }
 ];
 
@@ -416,6 +423,12 @@ export function AssistantPage() {
   const [presetQuestions, setPresetQuestions] = useState<PresetQuestion[]>([]);
   const [loadingPresets, setLoadingPresets] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(() => readChatHistory(mode));
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const thisMonthKey = todayKey.slice(0, 7);
+  const previousMonthDate = new Date();
+  previousMonthDate.setMonth(previousMonthDate.getMonth() - 1);
+  const previousMonthKey = `${previousMonthDate.getFullYear()}-${String(previousMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
   const latestTransaction = useMemo(
     () =>
       [...transactions]
@@ -441,6 +454,81 @@ export function AssistantPage() {
     () => wb.entries.filter((item) => item.duplicateTxId).length,
     [wb.entries]
   );
+
+  const assistantOverview = useMemo(() => {
+    const validRows = transactions.filter(
+      (item) => item.type === 'income' || item.type === 'expense'
+    );
+    const todayRows = validRows.filter((item) => item.date.slice(0, 10) === todayKey);
+    const todayIncome = todayRows
+      .filter((item) => item.type === 'income')
+      .reduce((sum, item) => sum + item.amount, 0);
+    const todayExpense = todayRows
+      .filter((item) => item.type === 'expense')
+      .reduce((sum, item) => sum + item.amount, 0);
+    const todayNet = todayIncome - todayExpense;
+
+    const monthRows = validRows.filter((item) => item.date.startsWith(thisMonthKey));
+    const prevMonthRows = validRows.filter((item) => item.date.startsWith(previousMonthKey));
+    const monthExpense = monthRows
+      .filter((item) => item.type === 'expense')
+      .reduce((sum, item) => sum + item.amount, 0);
+    const prevMonthExpense = prevMonthRows
+      .filter((item) => item.type === 'expense')
+      .reduce((sum, item) => sum + item.amount, 0);
+    const monthIncome = monthRows
+      .filter((item) => item.type === 'income')
+      .reduce((sum, item) => sum + item.amount, 0);
+    const prevMonthIncome = prevMonthRows
+      .filter((item) => item.type === 'income')
+      .reduce((sum, item) => sum + item.amount, 0);
+
+    const expenseDeltaPct =
+      prevMonthExpense > 0 ? ((monthExpense - prevMonthExpense) / prevMonthExpense) * 100 : 0;
+    const incomeDeltaPct =
+      prevMonthIncome > 0 ? ((monthIncome - prevMonthIncome) / prevMonthIncome) * 100 : 0;
+
+    const recentExpenseRows = [...validRows]
+      .filter((item) => item.type === 'expense')
+      .sort((a, b) => +new Date(b.date) - +new Date(a.date))
+      .slice(0, 30);
+    const avgExpense =
+      recentExpenseRows.length > 0
+        ? recentExpenseRows.reduce((sum, item) => sum + item.amount, 0) / recentExpenseRows.length
+        : 0;
+    const abnormalRow = recentExpenseRows.find(
+      (item) => item.amount >= Math.max(avgExpense * 2.2, 500)
+    );
+
+    const monthBalance = monthIncome - monthExpense;
+    const insights = [
+      `本月累计支出 ¥${monthExpense.toFixed(2)}，较上月${expenseDeltaPct >= 0 ? '上升' : '下降'} ${Math.abs(expenseDeltaPct).toFixed(1)}%。`,
+      `本月收入趋势${incomeDeltaPct >= 0 ? '向上' : '回落'}，变化幅度 ${Math.abs(incomeDeltaPct).toFixed(1)}%，建议同步调整预算。`,
+      `当前月净额 ¥${monthBalance.toFixed(2)}，${monthBalance >= 0 ? '收支结构整体稳健。' : '建议关注可压缩支出项。'}`
+    ];
+
+    return {
+      todayIncome,
+      todayExpense,
+      todayNet,
+      monthlySummary:
+        monthExpense > 0
+          ? `本月消费 ¥${monthExpense.toFixed(2)}，主要建议聚焦高频小额与突发大额两类支出。`
+          : '本月消费数据较少，建议先连续记录 7 天后再进行结构分析。',
+      incomeTrend:
+        prevMonthIncome > 0
+          ? `收入较上月${incomeDeltaPct >= 0 ? '增长' : '下降'} ${Math.abs(incomeDeltaPct).toFixed(1)}%。`
+          : '收入趋势基线不足，建议持续记录每笔收入来源。',
+      abnormalReminder: abnormalRow
+        ? `发现异常支出：${abnormalRow.note || '未备注'} ¥${abnormalRow.amount.toFixed(2)}（${abnormalRow.date.slice(5)}）。`
+        : '暂无明显异常支出，当前波动在正常区间。',
+      insights,
+      riskAlert:
+        monthBalance < 0
+          ? '风险提示：本月净额为负，建议优先削减非必要消费并预留还款缓冲。'
+          : '风险提示：当前净额为正，但仍建议为突发支出预留至少 10% 安全垫。'
+    };
+  }, [previousMonthKey, thisMonthKey, todayKey, transactions]);
 
   // 每次状态或消息变化后，自动将视图滚动到底部，保持聊天体验。
   useEffect(() => {
@@ -771,8 +859,44 @@ export function AssistantPage() {
             </section>
           ) : (
             <section className="chat-kawaii-panel chat-assistant-panel">
-              <div className="chat-kawaii-topline">今天 {todayLabel}</div>
-              <div className="chat-kawaii-sub">先看数据，再发问，一次就问到重点。</div>
+              <div className="chat-assistant-hero">
+                <h2>🤖 你好，我是你的财务助手</h2>
+                <p>先看关键数据，再像聊天一样提问，我会主动给你可执行建议。</p>
+              </div>
+              <div className="chat-overview-grid" aria-label="今日概览">
+                <article className="chat-overview-card">
+                  <span>今日收入</span>
+                  <strong>¥{assistantOverview.todayIncome.toFixed(2)}</strong>
+                </article>
+                <article className="chat-overview-card">
+                  <span>今日支出</span>
+                  <strong>¥{assistantOverview.todayExpense.toFixed(2)}</strong>
+                </article>
+                <article className="chat-overview-card">
+                  <span>今日净额</span>
+                  <strong>¥{assistantOverview.todayNet.toFixed(2)}</strong>
+                </article>
+              </div>
+              <div className="chat-auto-insight-block">
+                <p>
+                  <strong>本月消费总结：</strong>
+                  {assistantOverview.monthlySummary}
+                </p>
+                <p>
+                  <strong>收入趋势变化：</strong>
+                  {assistantOverview.incomeTrend}
+                </p>
+                <p>
+                  <strong>异常支出提醒：</strong>
+                  {assistantOverview.abnormalReminder}
+                </p>
+              </div>
+              <div className="chat-insight-list" aria-label="主动洞察">
+                {assistantOverview.insights.map((insight) => (
+                  <p key={insight}>💡 {insight}</p>
+                ))}
+                <p className="chat-risk-alert">⚠️ {assistantOverview.riskAlert}</p>
+              </div>
               <div className="chat-preset-head">
                 <strong>个性化预设问题</strong>
                 <button
@@ -809,7 +933,11 @@ export function AssistantPage() {
                 {mode === 'bookkeeping' ? 'AI 记账助手' : 'AI 问答助手'}
               </div>
               <div className="chat-msg-content">
-                <p>输入一句话或贴截图，我会帮你快速生成可保存账单。</p>
+                <p>
+                  {mode === 'assistant'
+                    ? `今天 ${todayLabel}，我已为你准备好今日概览与主动洞察，直接用自然语言继续问我。`
+                    : '输入一句话或贴截图，我会帮你快速生成可保存账单。'}
+                </p>
               </div>
             </div>
           </article>
@@ -962,8 +1090,8 @@ export function AssistantPage() {
           <textarea
             ref={wb.textareaRef}
             className="chat-input-textarea"
-            rows={2}
-            placeholder={inputPlaceholder(wb.status, wb.hasApiKey)}
+            rows={3}
+            placeholder={inputPlaceholder(wb.status, wb.hasApiKey, mode)}
             value={wb.textInput}
             onChange={(e) => wb.setTextInput(e.target.value)}
             onPaste={(e) => void wb.handlePasteImage(e)}
