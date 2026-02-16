@@ -41,6 +41,10 @@ function monthLabel(date: Date): string {
   return `${date.getMonth() + 1}月`;
 }
 
+function isActualExpenseType(type: 'expense' | 'income' | 'budget' | 'repayment'): boolean {
+  return type === 'expense' || type === 'repayment';
+}
+
 function extractJson(text: string): string {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
@@ -178,7 +182,7 @@ export function DashboardPage() {
   });
   const income = monthly.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
   const expense = monthly
-    .filter((t) => t.type === 'expense' || t.type === 'budget' || t.type === 'repayment')
+    .filter((t) => isActualExpenseType(t.type))
     .reduce((sum, t) => sum + t.amount, 0);
   const monthlyBalance = income - expense;
 
@@ -228,7 +232,7 @@ export function DashboardPage() {
           .filter((t) => t.type === 'income')
           .reduce((sum, t) => sum + t.amount, 0);
         const mExpense = rows
-          .filter((t) => t.type === 'expense' || t.type === 'budget' || t.type === 'repayment')
+          .filter((t) => isActualExpenseType(t.type))
           .reduce((sum, t) => sum + t.amount, 0);
         const shortLabel = `${d.getMonth() + 1}月`;
         return { key, shortLabel, income: mIncome, expense: mExpense, balance: mIncome - mExpense };
@@ -245,7 +249,7 @@ export function DashboardPage() {
       const rows = transactions.filter((t) => monthKey(new Date(t.date)) === key);
       const mIncome = rows.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
       const mExpense = rows
-        .filter((t) => t.type === 'expense' || t.type === 'budget' || t.type === 'repayment')
+        .filter((t) => isActualExpenseType(t.type))
         .reduce((sum, t) => sum + t.amount, 0);
       const label = offset === -1 ? '上月' : offset === 0 ? '本月' : '下月';
       const shortLabel = `${label}（${d.getMonth() + 1}月）`;
@@ -300,7 +304,7 @@ export function DashboardPage() {
       const entry = categoryMap.get(name) || { name, income: 0, expense: 0, count: 0 };
       if (item.type === 'income') {
         entry.income += item.amount;
-      } else if (item.type === 'expense' || item.type === 'budget' || item.type === 'repayment') {
+      } else if (isActualExpenseType(item.type)) {
         entry.expense += item.amount;
       }
       entry.count += 1;
@@ -671,7 +675,7 @@ export function DashboardPage() {
   const crowdCompare = monthlyBalance >= 0 ? '高于同类人群中位线' : '低于同类人群中位线';
 
   const mysticInsight = useMemo(() => {
-    const expenseRows = monthly.filter((item) => item.type !== 'income');
+    const expenseRows = monthly.filter((item) => isActualExpenseType(item.type));
     if (expenseRows.length === 0) {
       return {
         title: '消费玄学分析',
@@ -750,7 +754,7 @@ export function DashboardPage() {
             Math.floor(d.getMonth() / 3) === Math.floor(currentMonth / 3)
           );
         })
-        .filter((item) => item.type !== 'income')
+        .filter((item) => isActualExpenseType(item.type))
         .reduce((sum, item) => sum + item.amount, 0),
     [currentMonth, currentYear, transactions]
   );
@@ -758,7 +762,7 @@ export function DashboardPage() {
     () =>
       transactions
         .filter((item) => new Date(item.date).getFullYear() === currentYear)
-        .filter((item) => item.type !== 'income')
+        .filter((item) => isActualExpenseType(item.type))
         .reduce((sum, item) => sum + item.amount, 0),
     [currentYear, transactions]
   );
