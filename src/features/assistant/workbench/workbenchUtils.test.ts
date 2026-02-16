@@ -41,11 +41,17 @@ describe('workbenchUtils', () => {
       return `acc-${createdCount}`;
     };
 
-    const id1 = ensureAccountId('支付宝', accounts, addAccount, { source: 'alipay', type: 'expense' });
+    const id1 = ensureAccountId('支付宝', accounts, addAccount, {
+      source: 'alipay',
+      type: 'expense'
+    });
     expect(id1).toBe('acc-1');
     expect(createdCount).toBe(1);
 
-    const id2 = ensureAccountId('支付宝', accounts, addAccount, { source: 'alipay', type: 'expense' });
+    const id2 = ensureAccountId('支付宝', accounts, addAccount, {
+      source: 'alipay',
+      type: 'expense'
+    });
     expect(id2).toBe('acc-1');
     expect(createdCount).toBe(1);
   });
@@ -65,7 +71,10 @@ describe('workbenchUtils', () => {
     expect(id1).toBe('acc-bank-1');
     expect(createdCount).toBe(1);
 
-    const id2 = ensureAccountId('平安银行', accounts, addAccount, { source: 'bank', type: 'income' });
+    const id2 = ensureAccountId('平安银行', accounts, addAccount, {
+      source: 'bank',
+      type: 'income'
+    });
     expect(id2).toBe('acc-bank-1');
     expect(createdCount).toBe(1);
   });
@@ -92,8 +101,38 @@ describe('workbenchUtils', () => {
     expect(result?.transactions[0].sourceHint).toBe('bank');
   });
 
+  it('分期还款截图应按剩余期数展开多条 repayment', () => {
+    const result = normalizeAiBill({
+      transactions: [
+        {
+          type: 'repayment',
+          amount: '¥2,000.00',
+          perPeriodAmount: '¥1,500.00',
+          remainingPeriods: 3,
+          date: '2025-02-10',
+          note: '招行信用卡分期还款',
+          category: '还款',
+          account: '招商银行',
+          tags: ['信用卡', '分期'],
+          sourceHint: 'bank'
+        }
+      ]
+    });
+
+    expect(result?.transactions).toHaveLength(3);
+    expect(result?.transactions.map((item) => item.amount)).toEqual([1500, 1500, 1500]);
+    expect(result?.transactions.map((item) => item.date)).toEqual([
+      '2025-02-10',
+      '2025-03-10',
+      '2025-04-10'
+    ]);
+    expect(result?.transactions[0].note).toContain('第1/3期');
+  });
+
   it('还款场景应优先推断为负债/信用账户，而非银行借记卡账户', () => {
-    const inferred = inferAccountNameFromText('平安银行房贷月供扣款', 'bank', { type: 'repayment' });
+    const inferred = inferAccountNameFromText('平安银行房贷月供扣款', 'bank', {
+      type: 'repayment'
+    });
     expect(inferred).toBe('房贷账户');
 
     const accounts: Account[] = [{ id: 'acc-cash', name: '现金', type: 'cash' }];
