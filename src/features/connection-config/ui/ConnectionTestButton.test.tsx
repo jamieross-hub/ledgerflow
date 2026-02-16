@@ -15,13 +15,13 @@ vi.mock('../model/connectionTest', () => ({
 }));
 
 const baseValues = {
-  name: 'pg-dev',
-  type: 'postgresql' as const,
+  name: 'redis-dev',
+  type: 'redis' as const,
   host: 'localhost',
-  port: 5432,
-  username: 'postgres',
+  port: 6379,
+  username: '',
   password: '123456',
-  database: 'ledger',
+  database: '0',
   connectionString: '',
   enabled: true,
   timeoutMs: 1200,

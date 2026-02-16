@@ -1,13 +1,11 @@
 import { ConnectionFormValues } from './connectionFormSchema';
 
 const DEFAULT_PORT: Record<ConnectionFormValues['type'], number> = {
-  postgresql: 5432,
-  mysql: 3306,
   redis: 6379
 };
 
 export function getConnectionDefaults(
-  type: ConnectionFormValues['type'] = 'mysql'
+  type: ConnectionFormValues['type'] = 'redis'
 ): ConnectionFormValues {
   return {
     name: '',

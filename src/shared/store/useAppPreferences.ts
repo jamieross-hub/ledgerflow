@@ -3,8 +3,6 @@ import { persist } from 'zustand/middleware';
 import { AppTheme } from '../types/app';
 import { DebtItem, DebtType } from '../../features/debt/model/debtMetrics';
 
-export type SyncTargetDbPreference = 'postgresql' | 'mysql';
-
 export type RssSubscription = {
   id: string;
   title: string;
@@ -29,12 +27,10 @@ const DEFAULT_RSS_SUBSCRIPTIONS: RssSubscription[] = [
 
 interface AppPreferencesState {
   theme: AppTheme;
-  syncTargetDb: SyncTargetDbPreference;
   rssSubscriptions: RssSubscription[];
   debts: DebtItem[];
   monthlyIncome: number;
   setTheme: (theme: AppTheme) => void;
-  setSyncTargetDb: (target: SyncTargetDbPreference) => void;
   addRssSubscription: (payload: { title: string; url: string }) => { ok: boolean; reason?: string };
   removeRssSubscription: (id: string) => void;
   toggleRssSubscription: (id: string) => void;
@@ -66,12 +62,10 @@ export const useAppPreferences = create<AppPreferencesState>()(
   persist(
     (set) => ({
       theme: 'system',
-      syncTargetDb: 'postgresql',
       rssSubscriptions: DEFAULT_RSS_SUBSCRIPTIONS,
       debts: [],
       monthlyIncome: 0,
       setTheme: (theme) => set({ theme }),
-      setSyncTargetDb: (target) => set({ syncTargetDb: target }),
       setMonthlyIncome: (income) => set({ monthlyIncome: Number.isFinite(income) ? income : 0 }),
       addRssSubscription: ({ title, url }) => {
         const normalizedUrl = normalizeFeedUrl(url);

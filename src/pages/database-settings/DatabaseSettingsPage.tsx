@@ -219,7 +219,7 @@ export function DatabaseSettingsPage() {
     <div>
       <section className="panel">
         <h2>备份设置</h2>
-        <p>已移除 MySQL / PostgreSQL / Redis 连接配置，当前统一使用备份与恢复方案。</p>
+        <p>已移除在线数据库连接配置，当前统一使用备份与恢复方案。</p>
         <ul style={{ marginTop: 10, color: 'var(--color-text-secondary)', lineHeight: 1.7 }}>
           <li>支持本地 JSON 一键导出与导入。</li>
           <li>支持导入微信 / 支付宝账单 CSV / XLSX。</li>

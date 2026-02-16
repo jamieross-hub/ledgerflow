@@ -17,7 +17,11 @@ function getDefaultsByType(type: ConnectionFormValues['type']) {
   return getConnectionDefaults(type);
 }
 
-export function ConnectionConfigForm({ initialValues, onSubmit, onCancel }: ConnectionConfigFormProps) {
+export function ConnectionConfigForm({
+  initialValues,
+  onSubmit,
+  onCancel
+}: ConnectionConfigFormProps) {
   const addLog = useDebugLogStore((s) => s.addLog);
   const [testing, setTesting] = useState(false);
 
@@ -25,8 +29,6 @@ export function ConnectionConfigForm({ initialValues, onSubmit, onCancel }: Conn
     resolver: zodResolver(connectionFormSchema),
     defaultValues: initialValues ?? getConnectionDefaults()
   });
-
-  const watchType = form.watch('type');
 
   function applyConnectionString() {
     const values = form.getValues();
@@ -80,12 +82,12 @@ export function ConnectionConfigForm({ initialValues, onSubmit, onCancel }: Conn
           <div className="grid grid-3">
             <div className="field">
               <label title="用于区分不同环境连接">名称</label>
-              <input {...form.register('name')} placeholder="例如：生产 PG 只读" />
+              <input {...form.register('name')} placeholder="例如：Redis 生产实例" />
               <small className="error">{form.formState.errors.name?.message}</small>
             </div>
 
             <div className="field">
-              <label title="切换类型后会自动填充端口与默认字段">数据库类型</label>
+              <label title="当前仅支持 Redis，切换会自动填充默认端口">数据库类型</label>
               <select
                 {...form.register('type')}
                 onChange={(e) => {
@@ -95,13 +97,9 @@ export function ConnectionConfigForm({ initialValues, onSubmit, onCancel }: Conn
                   form.setValue('port', getPortByType(type));
                   form.setValue('host', defaults.host);
                   form.setValue('database', defaults.database);
-                  if (type === 'redis') {
-                    form.setValue('username', '');
-                  }
+                  form.setValue('username', '');
                 }}
               >
-                <option value="mysql">MySQL</option>
-                <option value="postgresql">PostgreSQL</option>
                 <option value="redis">Redis</option>
               </select>
             </div>
@@ -120,34 +118,35 @@ export function ConnectionConfigForm({ initialValues, onSubmit, onCancel }: Conn
             </div>
             <div className="field">
               <label title="系统会根据数据库类型自动填充默认端口">Port</label>
-              <input type="number" {...form.register('port')} placeholder="5432" />
+              <input type="number" {...form.register('port')} placeholder="6379" />
               <small className="error">{form.formState.errors.port?.message}</small>
             </div>
             <div className="field">
-              <label title="连接后默认访问的数据库">数据库名</label>
-              <input {...form.register('database')} placeholder={watchType === 'redis' ? '0' : 'ledgerflow'} />
+              <label title="Redis 数据库编号">数据库编号</label>
+              <input {...form.register('database')} placeholder="0" />
               <small className="error">{form.formState.errors.database?.message}</small>
             </div>
           </div>
 
-          {watchType !== 'redis' && (
-            <div className="grid grid-3">
-              <div className="field">
-                <label title="数据库登录用户名">用户名</label>
-                <input {...form.register('username')} placeholder="postgres / root" />
-                <small className="error">{form.formState.errors.username?.message}</small>
-              </div>
-              <div className="field">
-                <label title="密码仅用于连接，不以明文存储">密码</label>
-                <input type="password" {...form.register('password')} placeholder="请输入密码" />
-              </div>
+          <div className="grid grid-3">
+            <div className="field">
+              <label title="Redis 用户名（大多数场景可留空）">用户名</label>
+              <input {...form.register('username')} placeholder="可选，默认留空" />
+              <small className="error">{form.formState.errors.username?.message}</small>
             </div>
-          )}
+            <div className="field">
+              <label title="密码仅用于连接，不以明文存储">密码</label>
+              <input type="password" {...form.register('password')} placeholder="请输入密码" />
+            </div>
+          </div>
 
           <div className="field">
             <label title="连接串优先级高于离散字段">连接串（可选）</label>
             <div className="row connection-inline-row">
-              <input {...form.register('connectionString')} placeholder="postgres://user:pass@host:5432/db" />
+              <input
+                {...form.register('connectionString')}
+                placeholder="redis://:password@localhost:6379/0"
+              />
               <button type="button" onClick={applyConnectionString}>
                 解析连接串
               </button>
@@ -214,12 +213,20 @@ export function ConnectionConfigForm({ initialValues, onSubmit, onCancel }: Conn
             }}
           />
 
-          <button className="primary" type="submit" disabled={testing || form.formState.isSubmitting}>
+          <button
+            className="primary"
+            type="submit"
+            disabled={testing || form.formState.isSubmitting}
+          >
             {form.formState.isSubmitting ? '保存中...' : '保存配置'}
           </button>
 
           {onCancel && (
-            <button type="button" onClick={onCancel} disabled={testing || form.formState.isSubmitting}>
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={testing || form.formState.isSubmitting}
+            >
               取消
             </button>
           )}
