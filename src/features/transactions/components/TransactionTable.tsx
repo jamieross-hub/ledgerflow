@@ -351,12 +351,8 @@ export function TransactionTable({
                     ))}
                   </select>
                 </label>
-                <button
-                  type="button"
-                  onClick={onBulkAiRecategorize}
-                  disabled={bulkAiRecategorizing}
-                >
-                  {bulkAiRecategorizing ? '🤖 AI 重分类中…' : '🤖 AI 重分类'}
+                <button type="button" onClick={onBulkAiRecategorize}>
+                  {bulkAiRecategorizing ? '⏹ 停止 AI 重分类' : '🤖 AI 重分类'}
                 </button>
                 <label className="transaction-bulk-select">
                   <span>批量账户</span>

@@ -86,7 +86,7 @@ describe('TransactionTable', () => {
     expect(dateInput).toHaveAttribute('max', '2026-02-28');
   });
 
-  it('批量 AI 重分类进行中时按钮禁用并展示进行状态', () => {
+  it('批量 AI 重分类进行中时按钮可点击并展示停止状态', () => {
     render(
       <TransactionTable
         rows={[
@@ -177,7 +177,7 @@ describe('TransactionTable', () => {
       />
     );
 
-    const aiButton = screen.getByRole('button', { name: '🤖 AI 重分类中…' });
-    expect(aiButton).toBeDisabled();
+    const aiButton = screen.getByRole('button', { name: '⏹ 停止 AI 重分类' });
+    expect(aiButton).toBeEnabled();
   });
 });
