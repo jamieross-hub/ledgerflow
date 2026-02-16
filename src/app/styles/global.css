@@ -6108,6 +6108,32 @@ body.exchange-resizing {
   background: color-mix(in srgb, var(--color-bg-elevated) 88%, var(--color-bg-subtle));
 }
 
+.finance-debt-entry-card {
+  background: color-mix(in srgb, var(--color-bg-elevated) 72%, var(--color-bg-subtle));
+  border-radius: 14px;
+  border-color: color-mix(in srgb, var(--color-border) 85%, var(--color-primary-soft));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+
+.finance-debt-entry-header {
+  margin-bottom: 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.finance-debt-entry-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-primary-soft) 72%, var(--color-bg-elevated));
+  font-size: 1rem;
+}
+
 .finance-overview-panel {
   background: color-mix(in srgb, var(--color-bg-elevated) 78%, var(--color-primary-soft));
 }
@@ -6190,6 +6216,36 @@ body.exchange-resizing {
 .finance-debt-form-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.finance-debt-form-control {
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.finance-debt-form-control:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
+  outline: none;
+}
+
+.finance-debt-submit {
+  min-height: 46px;
+  padding-inline: 20px;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.finance-debt-submit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--color-primary) 25%, transparent);
 }
 
 .finance-feed-form-grid {
