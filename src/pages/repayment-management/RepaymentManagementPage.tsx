@@ -638,14 +638,28 @@ export function RepaymentManagementPage() {
           ) : null}
         </div>
 
-        <div className="card finance-secondary-panel" style={{ marginBottom: 12, padding: 24 }}>
-          <h3 style={{ marginTop: 0 }}>✍️ 手动填写负债</h3>
+        <div
+          className="card finance-secondary-panel finance-debt-entry-card"
+          style={{ marginBottom: 12, padding: 24 }}
+        >
+          <div className="finance-debt-entry-header">
+            <div>
+              <h3 style={{ margin: 0 }}>添加负债</h3>
+              <p className="muted" style={{ margin: '4px 0 0 0' }}>
+                手动填写负债信息
+              </p>
+            </div>
+            <span className="finance-debt-entry-icon" aria-hidden>
+              💳
+            </span>
+          </div>
           <p className="muted" style={{ margin: '0 0 8px 0' }}>
             用于补充识别失败或新增账单，贷款支持年化利率与期数输入。
           </p>
           <form onSubmit={onAddDebt} className="finance-debt-form-grid">
             <div className="finance-debt-form-row finance-debt-form-row-primary">
               <input
+                className="finance-debt-form-control"
                 value={debtName}
                 onChange={(event) => {
                   setDebtName(event.target.value);
@@ -654,6 +668,7 @@ export function RepaymentManagementPage() {
                 placeholder="如 招商银行信用卡"
               />
               <select
+                className="finance-debt-form-control"
                 value={debtType}
                 onChange={(event) => setDebtType(event.target.value as DebtType)}
               >
@@ -664,6 +679,7 @@ export function RepaymentManagementPage() {
             </div>
             <div className="finance-debt-form-row finance-debt-form-row-detail">
               <input
+                className="finance-debt-form-control"
                 type="number"
                 min={0}
                 step="0.01"
@@ -675,6 +691,7 @@ export function RepaymentManagementPage() {
                 placeholder="如 12000"
               />
               <input
+                className="finance-debt-form-control"
                 type="number"
                 min={0}
                 step="0.01"
@@ -688,6 +705,7 @@ export function RepaymentManagementPage() {
                 disabled={!isLoanType}
               />
               <input
+                className="finance-debt-form-control"
                 type="number"
                 min={1}
                 value={debtMonths}
@@ -705,6 +723,8 @@ export function RepaymentManagementPage() {
             <div className="finance-debt-form-actions">
               <button type="submit" className="primary" disabled={!canSubmitDebt}>
                 {addDebtSuccess ? '✔ 已添加' : '+ 添加负债'}
+              <button type="submit" className="primary finance-debt-submit">
+                + 添加负债
               </button>
             </div>
           </form>
