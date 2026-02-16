@@ -602,17 +602,24 @@ export function TransactionTable({
                         {orderedColumns.map((column) => {
                           if (!visibleColumns[column.key]) return null;
                           if (column.key === 'type') {
+                            const typeLabel = renderCellValue(column.key, {
+                              item,
+                              categoryName,
+                              accountName
+                            });
+                            if (item.type === 'income' || item.type === 'expense') {
+                              return (
+                                <td key={`${item.id}-${column.key}`}>
+                                  <span
+                                    className={`transaction-type-dot transaction-type-dot-${item.type}`}
+                                    aria-hidden="true"
+                                  />
+                                </td>
+                              );
+                            }
                             return (
                               <td key={`${item.id}-${column.key}`}>
-                                <span
-                                  className={
-                                    item.type === 'income'
-                                      ? 'badge badge-success'
-                                      : 'badge badge-danger'
-                                  }
-                                >
-                                  {renderCellValue(column.key, { item, categoryName, accountName })}
-                                </span>
+                                <span className="transaction-type-text">{typeLabel}</span>
                               </td>
                             );
                           }
@@ -620,13 +627,11 @@ export function TransactionTable({
                             return (
                               <td
                                 key={`${item.id}-${column.key}`}
-                                style={{
-                                  fontWeight: 600,
-                                  color:
-                                    item.type === 'income'
-                                      ? 'var(--color-income)'
-                                      : 'var(--color-expense)'
-                                }}
+                                className={`transaction-amount-cell ${
+                                  item.type === 'income'
+                                    ? 'transaction-amount-income'
+                                    : 'transaction-amount-expense'
+                                }`}
                               >
                                 {renderCellValue(column.key, { item, categoryName, accountName })}
                               </td>
@@ -711,20 +716,15 @@ export function TransactionTable({
                   <div className="transaction-mobile-swipe">
                     <div className="transaction-mobile-main">
                       <header>
-                        <span
-                          className={
-                            item.type === 'income' ? 'badge badge-success' : 'badge badge-danger'
-                          }
+                        <strong
+                          className={`transaction-amount-cell ${
+                            item.type === 'income'
+                              ? 'transaction-amount-income'
+                              : 'transaction-amount-expense'
+                          }`}
                         >
-                          {item.type === 'income'
-                            ? '收入'
-                            : item.type === 'budget'
-                              ? '预算'
-                              : item.type === 'repayment'
-                                ? '还款'
-                                : '支出'}
-                        </span>
-                        <strong>{formatCurrency(item.amount)}</strong>
+                          {formatCurrency(item.amount)}
+                        </strong>
                       </header>
                       <p>{note}</p>
                       {item.orderNo || item.merchantOrderNo ? (
