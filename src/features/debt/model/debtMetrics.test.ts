@@ -2,22 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { calculateDebtMinimumPayment, calculateDebtSummary, DebtItem } from './debtMetrics';
 
 describe('debtMetrics', () => {
-  it('calculates minimum payment for credit card and huabei by rules', () => {
+  it('calculates minimum payment for credit card and consumer loan by rules', () => {
     const creditCard: DebtItem = {
       id: 'd1',
       name: '招商信用卡',
       type: 'credit-card',
       balance: 1200
     };
-    const huabei: DebtItem = {
+    const consumerLoan: DebtItem = {
       id: 'd2',
-      name: '花呗',
-      type: 'huabei',
+      name: '消费贷',
+      type: 'consumer-loan',
       balance: 200
     };
 
     expect(calculateDebtMinimumPayment(creditCard)).toBe(120);
-    expect(calculateDebtMinimumPayment(huabei)).toBe(50);
+    expect(calculateDebtMinimumPayment(consumerLoan)).toBe(50);
   });
 
   it('uses amortized formula for loans', () => {
@@ -39,7 +39,7 @@ describe('debtMetrics', () => {
     const summary = calculateDebtSummary(
       [
         { id: 'd1', name: '信用卡', type: 'credit-card', balance: 6000 },
-        { id: 'd2', name: '花呗', type: 'huabei', balance: 3000 }
+        { id: 'd2', name: '消费贷', type: 'consumer-loan', balance: 3000 }
       ],
       10000
     );

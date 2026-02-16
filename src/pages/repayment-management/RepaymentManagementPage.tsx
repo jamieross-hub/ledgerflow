@@ -7,9 +7,12 @@ import {
 } from '../../features/debt/model/debtMetrics';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useAppPreferences } from '../../shared/store/useAppPreferences';
+import { useFinanceStore } from '../../shared/store/useFinanceStore';
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const REPAYMENT_CACHE_KEY = 'ledgerflow-repayment-advice-cache-v1';
+const MONTHLY_INCOME_CACHE_KEY = 'ledgerflow-repayment-income-cache-v1';
+const INCOME_SAMPLE_LIMIT = 120;
 
 interface RepaymentAdviceCacheItem {
   key: string;
@@ -19,6 +22,15 @@ interface RepaymentAdviceCacheItem {
 }
 
 type RepaymentAdviceCache = Record<string, RepaymentAdviceCacheItem>;
+
+interface MonthlyIncomeCacheItem {
+  key: string;
+  value: number;
+  reasoning: string;
+  createdAt: string;
+}
+
+type MonthlyIncomeCache = Record<string, MonthlyIncomeCacheItem>;
 
 type ParsedDebtItem = {
   name: string;
@@ -56,6 +68,23 @@ function buildRepaymentSnapshotKey(input: {
   });
 }
 
+function buildIncomeSnapshotKey(input: {
+  model: string;
+  transactions: { date: string; type: string; amount: number; note: string }[];
+}): string {
+  return JSON.stringify({
+    model: input.model.trim(),
+    transactions: input.transactions
+      .map((item) => ({
+        date: item.date,
+        type: item.type,
+        amount: Number(item.amount.toFixed(2)),
+        note: item.note.trim()
+      }))
+      .sort((a, b) => `${a.date}-${a.amount}`.localeCompare(`${b.date}-${b.amount}`, 'zh-CN'))
+  });
+}
+
 function readCache(): RepaymentAdviceCache {
   try {
     const raw = window.localStorage.getItem(REPAYMENT_CACHE_KEY);
@@ -71,6 +100,26 @@ function readCache(): RepaymentAdviceCache {
 function writeCache(next: RepaymentAdviceCache) {
   try {
     window.localStorage.setItem(REPAYMENT_CACHE_KEY, JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+}
+
+function readIncomeCache(): MonthlyIncomeCache {
+  try {
+    const raw = window.localStorage.getItem(MONTHLY_INCOME_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed as MonthlyIncomeCache;
+  } catch {
+    return {};
+  }
+}
+
+function writeIncomeCache(next: MonthlyIncomeCache) {
+  try {
+    window.localStorage.setItem(MONTHLY_INCOME_CACHE_KEY, JSON.stringify(next));
   } catch {
     // ignore
   }
@@ -95,7 +144,8 @@ function extractJsonObject(content: string): string {
 }
 
 function normalizeDebtType(value: unknown): DebtType {
-  if (value === 'credit-card' || value === 'huabei' || value === 'loan') return value;
+  if (value === 'huabei' || value === 'consumer-loan') return 'consumer-loan';
+  if (value === 'credit-card' || value === 'loan') return value;
   return 'credit-card';
 }
 
@@ -142,10 +192,23 @@ function parseDebtExtraction(content: string): { monthlyIncome?: number; debts: 
   };
 }
 
+function parseIncomeExtraction(content: string): { monthlyIncome?: number; reasoning: string } {
+  const parsed = JSON.parse(extractJsonObject(content)) as {
+    monthlyIncome?: unknown;
+    reasoning?: unknown;
+  };
+  const income = Number(parsed.monthlyIncome || 0);
+  return {
+    monthlyIncome: Number.isFinite(income) && income > 0 ? income : undefined,
+    reasoning: String(parsed.reasoning || '').trim()
+  };
+}
+
 export function RepaymentManagementPage() {
   const { debts, monthlyIncome, setMonthlyIncome, addDebt, replaceDebts, removeDebt } =
     useAppPreferences();
   const { baseUrl, apiKey, model } = useAiSettings();
+  const transactions = useFinanceStore((state) => state.transactions);
   const [error, setError] = useState('');
   const [debtName, setDebtName] = useState('');
   const [debtType, setDebtType] = useState<DebtType>('credit-card');
@@ -157,6 +220,8 @@ export function RepaymentManagementPage() {
   const [repaymentLoading, setRepaymentLoading] = useState(false);
   const [repaymentCacheHint, setRepaymentCacheHint] = useState('');
   const [extractLoading, setExtractLoading] = useState(false);
+  const [incomeLoading, setIncomeLoading] = useState(false);
+  const [incomeHint, setIncomeHint] = useState('');
   const [debtImagePreview, setDebtImagePreview] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -164,6 +229,99 @@ export function RepaymentManagementPage() {
     () => calculateDebtSummary(debts, monthlyIncome),
     [debts, monthlyIncome]
   );
+
+  const incomeSamples = useMemo(
+    () =>
+      transactions
+        .filter((item) => item.type === 'income' && Number.isFinite(Number(item.amount)))
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, INCOME_SAMPLE_LIMIT)
+        .map((item) => ({
+          date: item.date,
+          type: item.type,
+          amount: Number(item.amount),
+          note: item.note || ''
+        })),
+    [transactions]
+  );
+
+  async function resolveMonthlyIncomeByAi(forceRefresh = false): Promise<number | null> {
+    if (incomeSamples.length === 0) {
+      setIncomeHint('账单详情里暂无收入记录，暂无法估算月收入。');
+      return null;
+    }
+
+    const snapshotKey = buildIncomeSnapshotKey({
+      model,
+      transactions: incomeSamples
+    });
+    const cache = readIncomeCache();
+    const cached = cache[snapshotKey];
+
+    if (!forceRefresh && cached?.value > 0) {
+      setMonthlyIncome(cached.value);
+      setIncomeHint(
+        `月收入已命中缓存：¥${cached.value.toFixed(2)}（${new Date(cached.createdAt).toLocaleString()}）`
+      );
+      return cached.value;
+    }
+
+    if (!apiKey.trim()) {
+      setIncomeHint('未配置 AI Key，无法自动估算月收入。');
+      return null;
+    }
+
+    setIncomeLoading(true);
+
+    try {
+      const sampleLines = incomeSamples
+        .map(
+          (item) =>
+            `${item.date.slice(0, 10)} | ¥${item.amount.toFixed(2)} | ${item.note || '无备注'}`
+        )
+        .join('\n');
+
+      const result = await sendAiChat({
+        baseUrl,
+        apiKey,
+        model,
+        systemPrompt:
+          '你是账单分析助手。你需要根据收入流水估算可用于还款管理的月收入平均值。只输出 JSON，不要输出其它说明。',
+        messages: [
+          {
+            role: 'user',
+            text: `请根据以下收入流水估算“月收入平均值”，输出 JSON：{"monthlyIncome": number, "reasoning": string}。\n要求：\n1) 仅依据输入流水；\n2) monthlyIncome 必须是正数；\n3) reasoning 用一句话说明估算依据。\n\n收入流水：\n${sampleLines}`
+          }
+        ]
+      });
+
+      const payload = parseIncomeExtraction(result.content);
+      if (!payload.monthlyIncome || payload.monthlyIncome <= 0) {
+        setIncomeHint('AI 未返回有效月收入，请检查账单详情中的收入数据。');
+        return null;
+      }
+
+      setMonthlyIncome(payload.monthlyIncome);
+      setIncomeHint(`月收入已由大模型估算并写入缓存：¥${payload.monthlyIncome.toFixed(2)}`);
+
+      writeIncomeCache({
+        ...cache,
+        [snapshotKey]: {
+          key: snapshotKey,
+          value: payload.monthlyIncome,
+          reasoning: payload.reasoning,
+          createdAt: new Date().toISOString()
+        }
+      });
+
+      return payload.monthlyIncome;
+    } catch (err) {
+      setError((err as Error).message || '月收入估算失败，请稍后重试。');
+      return null;
+    } finally {
+      setIncomeLoading(false);
+    }
+  }
 
   function onAddDebt(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -225,7 +383,7 @@ export function RepaymentManagementPage() {
         messages: [
           {
             role: 'user',
-            text: '请识别截图中的负债信息，并按以下 JSON 输出：{"monthlyIncome": number, "debts": [{"name": string, "type": "credit-card"|"huabei"|"loan", "balance": number, "annualRate": number, "remainingMonths": number}] }。\n要求：\n1) 未提及的字段可省略；\n2) 金额使用数字；\n3) 如果无法确定 type，默认 credit-card。',
+            text: '请识别截图中的负债信息，并按以下 JSON 输出：{"monthlyIncome": number, "debts": [{"name": string, "type": "credit-card"|"consumer-loan"|"loan", "balance": number, "annualRate": number, "remainingMonths": number}] }。\n要求：\n1) 未提及的字段可省略；\n2) 金额使用数字；\n3) 如果无法确定 type，默认 credit-card。',
             imageDataUrl
           }
         ]
@@ -258,14 +416,22 @@ export function RepaymentManagementPage() {
       return;
     }
 
+    const activeIncome = monthlyIncome > 0 ? monthlyIncome : await resolveMonthlyIncomeByAi(false);
+    if (!activeIncome || activeIncome <= 0) {
+      setError('无法获得有效月收入，请先导入账单详情里的收入数据。');
+      return;
+    }
+
     setError('');
     setRepaymentAdvice('');
     setRepaymentReasoning('');
     setRepaymentCacheHint('');
 
+    const summary = calculateDebtSummary(debts, activeIncome);
+
     const snapshotKey = buildRepaymentSnapshotKey({
       debts,
-      monthlyIncome,
+      monthlyIncome: activeIncome,
       model
     });
     const cache = readCache();
@@ -284,7 +450,11 @@ export function RepaymentManagementPage() {
         .map((item) => {
           const minimum = calculateDebtMinimumPayment(item);
           const typeLabel =
-            item.type === 'credit-card' ? '信用卡' : item.type === 'huabei' ? '花呗' : '贷款';
+            item.type === 'credit-card'
+              ? '信用卡'
+              : item.type === 'consumer-loan'
+                ? '消费贷'
+                : '贷款';
           const annualRate = item.type === 'loan' ? `，年化利率 ${item.annualRate || 0}%` : '';
           const months = item.type === 'loan' ? `，剩余期数 ${item.remainingMonths || 12}` : '';
           return `${item.name}（${typeLabel}）：本金 ¥${item.balance.toFixed(2)}，最低还款 ¥${minimum.toFixed(2)}${annualRate}${months}`;
@@ -300,7 +470,7 @@ export function RepaymentManagementPage() {
         messages: [
           {
             role: 'user',
-            text: `请基于以下负债情况给我一个未来 3 个月还款方案，并输出：\n1) 优先级排序\n2) 每月执行动作\n3) 风险提醒\n\n月收入：¥${monthlyIncome.toFixed(2)}\n总负债：¥${debtSummary.totalDebt.toFixed(2)}\n每月最低还款：¥${debtSummary.totalMinimumPayment.toFixed(2)}\n负债压力：${(debtSummary.pressureRatio * 100).toFixed(1)}%\n\n负债列表：\n${debtLines}`
+            text: `请基于以下负债情况给我一个未来 3 个月还款方案，并输出：\n1) 优先级排序\n2) 每月执行动作\n3) 风险提醒\n\n月收入（AI 估算）：¥${activeIncome.toFixed(2)}\n总负债：¥${summary.totalDebt.toFixed(2)}\n每月最低还款：¥${summary.totalMinimumPayment.toFixed(2)}\n负债压力：${(summary.pressureRatio * 100).toFixed(1)}%\n\n负债列表：\n${debtLines}`
           }
         ]
       });
@@ -329,7 +499,7 @@ export function RepaymentManagementPage() {
     <div className="page-stack finance-page">
       <section className="card">
         <h2 style={{ marginTop: 0 }}>💳 负债管理</h2>
-        <p className="muted">支持信用卡、花呗、贷款，自动计算每月最低还款额与总负债压力。</p>
+        <p className="muted">支持信用卡、消费贷、贷款，自动计算每月最低还款额与总负债压力。</p>
 
         <div className="card" style={{ marginBottom: 12, padding: 12 }}>
           <h3 style={{ marginTop: 0 }}>📷 上传截图并自动填写</h3>
@@ -367,17 +537,26 @@ export function RepaymentManagementPage() {
           ) : null}
         </div>
 
-        <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-          <label style={{ display: 'grid', gap: 4 }}>
-            <span className="muted">月收入（用于计算负债压力）</span>
-            <input
-              type="number"
-              min={0}
-              value={monthlyIncome || ''}
-              onChange={(event) => setMonthlyIncome(Number(event.target.value) || 0)}
-              placeholder="例如 15000"
-            />
-          </label>
+        <div className="card" style={{ marginBottom: 12, padding: 12 }}>
+          <h3 style={{ marginTop: 0 }}>💡 月收入（由大模型接管）</h3>
+          <p className="muted" style={{ margin: '0 0 8px 0' }}>
+            还款管理不再手填月收入，将基于账单详情中的收入记录由大模型估算平均值并写入缓存。
+          </p>
+          <p style={{ margin: '0 0 8px 0' }}>
+            当前月收入：{monthlyIncome > 0 ? `¥${monthlyIncome.toFixed(2)}` : '尚未估算'}
+          </p>
+          <button
+            type="button"
+            onClick={() => void resolveMonthlyIncomeByAi(true)}
+            disabled={incomeLoading}
+          >
+            {incomeLoading ? '估算中...' : '刷新 AI 月收入'}
+          </button>
+          {incomeHint ? (
+            <p className="muted" style={{ marginBottom: 0 }}>
+              {incomeHint}
+            </p>
+          ) : null}
         </div>
 
         <form onSubmit={onAddDebt} className="finance-debt-form-grid">
@@ -391,7 +570,7 @@ export function RepaymentManagementPage() {
             onChange={(event) => setDebtType(event.target.value as DebtType)}
           >
             <option value="credit-card">信用卡</option>
-            <option value="huabei">花呗</option>
+            <option value="consumer-loan">消费贷</option>
             <option value="loan">贷款</option>
           </select>
           <input
@@ -444,8 +623,8 @@ export function RepaymentManagementPage() {
                     {item.name} ·
                     {item.type === 'credit-card'
                       ? '信用卡'
-                      : item.type === 'huabei'
-                        ? '花呗'
+                      : item.type === 'consumer-loan'
+                        ? '消费贷'
                         : '贷款'}
                   </strong>
                   <p className="muted" style={{ margin: 0 }}>
@@ -468,14 +647,14 @@ export function RepaymentManagementPage() {
           </p>
           <p style={{ margin: '4px 0' }}>
             负债压力：{(debtSummary.pressureRatio * 100).toFixed(1)}%
-            {monthlyIncome <= 0 ? '（请填写月收入）' : ''}
+            {monthlyIncome <= 0 ? '（待 AI 从账单详情估算月收入）' : ''}
           </p>
         </div>
 
         <div className="card" style={{ marginTop: 12, padding: 12 }}>
           <h3 style={{ marginTop: 0 }}>🤖 AI 还款策略</h3>
           <p className="muted" style={{ marginTop: 0 }}>
-            结合当前负债与月收入，生成未来 3 个月分步还款建议。
+            结合当前负债与 AI 估算月收入，生成未来 3 个月分步还款建议。
           </p>
           <button type="button" onClick={onGenerateRepaymentAdvice} disabled={repaymentLoading}>
             {repaymentLoading ? '生成中...' : '生成 AI 还款建议'}
