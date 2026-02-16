@@ -990,6 +990,8 @@ tr:hover td {
 
 .transaction-amount-range-inputs input {
   min-width: 0;
+  width: auto;
+  flex: 1 1 0;
 }
 
 .transaction-context-menu {
@@ -1131,6 +1133,10 @@ tr:hover td {
   z-index: 1;
   background: var(--color-bg-elevated);
   min-width: 90px;
+}
+
+.transaction-table-wrap thead th.transaction-col-amount {
+  min-width: 72px;
 }
 
 .transaction-table-wrap thead th:not(.transaction-select-col) {
