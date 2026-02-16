@@ -241,6 +241,7 @@ describe('TransactionTable', () => {
         quickFilters={{
           date: '',
           type: 'all',
+          status: 'all',
           category: '',
           account: '',
           amountMin: '',
@@ -275,6 +276,7 @@ describe('TransactionTable', () => {
         visibleColumns={{
           date: true,
           type: true,
+          status: true,
           category: true,
           account: true,
           amount: true,
@@ -285,6 +287,7 @@ describe('TransactionTable', () => {
         columnOrder={[
           'date',
           'type',
+          'status',
           'category',
           'account',
           'amount',
