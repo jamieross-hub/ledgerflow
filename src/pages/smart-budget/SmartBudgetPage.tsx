@@ -13,6 +13,7 @@ import { useSmartBudgetStore } from '../../shared/store/useSmartBudgetStore';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import {
   buildBudgetTrackingRows,
+  BudgetTrackingRow,
   getRecentMonthOptions
 } from '../../features/smart-budget/model/budgetInsights';
 
@@ -92,17 +93,19 @@ export function SmartBudgetPage() {
   const [answers, setAnswers] = useState<BudgetAnswers>(initialAnswers);
   const [draftRecommendation, setDraftRecommendation] = useState<BudgetRecommendation | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<BudgetTrackingRow | null>(null);
 
   const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [aiError, setAiError] = useState('');
-  const [aiAdvice, setAiAdvice] = useState<
-    | null
-    | {
-        summary: string;
-        suggestions: string[];
-        focusCategories?: Array<{ category: string; action: 'increase' | 'decrease' | 'keep'; reason: string }>;
-      }
-  >(null);
+  const [aiAdvice, setAiAdvice] = useState<null | {
+    summary: string;
+    suggestions: string[];
+    focusCategories?: Array<{
+      category: string;
+      action: 'increase' | 'decrease' | 'keep';
+      reason: string;
+    }>;
+  }>(null);
 
   const monthOptions = useMemo(() => getRecentMonthOptions(transactions), [transactions]);
 
@@ -132,6 +135,54 @@ export function SmartBudgetPage() {
   }, [statusFilter, trackingRows]);
 
   const overspentCount = trackingRows.filter((item) => item.isOverspent).length;
+
+  const monthTransactions = useMemo(() => {
+    return transactions.filter((item) => {
+      const date = new Date(item.date);
+      return (
+        !Number.isNaN(date.getTime()) &&
+        activeMonthKey === `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      );
+    });
+  }, [transactions, activeMonthKey]);
+
+  const managementOverview = useMemo(() => {
+    const totalBudget = trackingRows.reduce((sum, item) => sum + item.budgetAmount, 0);
+    const totalSpent = trackingRows.reduce((sum, item) => sum + item.spentAmount, 0);
+    const remainingAmount = totalBudget - totalSpent;
+    const executionRate = totalBudget > 0 ? totalSpent / totalBudget : 0;
+
+    const monthIncome = monthTransactions
+      .filter((item) => item.type === 'income')
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const monthExpense = monthTransactions
+      .filter((item) => item.type === 'expense')
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+    const overspendPenalty = Math.min(overspentCount * 12, 40);
+    const executionPenalty = Math.min(Math.abs(executionRate - 1) * 100 * 0.35, 35);
+    const balanceRatio = monthExpense > 0 ? Math.min(monthIncome / monthExpense, 1) : 1;
+    const balancePenalty = Math.min((1 - balanceRatio) * 25, 25);
+
+    const healthScore = Math.max(
+      0,
+      Math.round(100 - overspendPenalty - executionPenalty - balancePenalty)
+    );
+
+    return {
+      totalBudget,
+      totalSpent,
+      remainingAmount,
+      executionRate,
+      healthScore
+    };
+  }, [trackingRows, monthTransactions, overspentCount]);
+
+  const topOverspentItem = useMemo(
+    () =>
+      trackingRows.filter((item) => item.ratio > 1).sort((a, b) => b.ratio - a.ratio)[0] || null,
+    [trackingRows]
+  );
 
   const summary = useMemo(
     () =>
@@ -223,7 +274,10 @@ export function SmartBudgetPage() {
         };
 
         const suggestions = Array.isArray(parsed.suggestions)
-          ? parsed.suggestions.map((item) => String(item)).filter(Boolean).slice(0, 6)
+          ? parsed.suggestions
+              .map((item) => String(item))
+              .filter(Boolean)
+              .slice(0, 6)
           : [];
         const focusCategories = Array.isArray(parsed.focusCategories)
           ? parsed.focusCategories
@@ -241,8 +295,13 @@ export function SmartBudgetPage() {
                 };
               })
               .filter(
-                (item): item is { category: string; action: 'increase' | 'decrease' | 'keep'; reason: string } =>
-                  Boolean(item?.category)
+                (
+                  item
+                ): item is {
+                  category: string;
+                  action: 'increase' | 'decrease' | 'keep';
+                  reason: string;
+                } => Boolean(item?.category)
               )
               .slice(0, 6)
           : [];
@@ -331,8 +390,22 @@ export function SmartBudgetPage() {
   return (
     <section className="panel smart-budget-page">
       <header className="smart-budget-header">
-        <h2>智能预算</h2>
-        <p>通过 4 个问题快速生成预算，确认后进入预算管理查看近期预算执行是否超支。</p>
+        <div>
+          <h2>智能预算</h2>
+          <p>通过 4 个问题快速生成预算，确认后进入预算管理查看近期预算执行是否超支。</p>
+        </div>
+        {confirmedPlan && mode === 'management' && !setupOpen ? (
+          <button
+            type="button"
+            className="smart-budget-inline-link"
+            onClick={() => {
+              setMode('setup');
+              setSetupOpen(true);
+            }}
+          >
+            展开预算设置
+          </button>
+        ) : null}
       </header>
 
       <div className="smart-budget-mode-switch" role="tablist" aria-label="智能预算模式">
@@ -363,25 +436,51 @@ export function SmartBudgetPage() {
         </button>
       </div>
 
-      {confirmedPlan && mode === 'management' && !setupOpen ? (
-        <p className="smart-budget-empty">
-          预算设置已折叠。{' '}
-          <button
-            type="button"
-            className="smart-budget-inline-btn"
-            onClick={() => {
-              setMode('setup');
-              setSetupOpen(true);
-            }}
-          >
-            展开预算设置
-          </button>
-        </p>
-      ) : null}
-
       {mode === 'management' ? (
         confirmedPlan ? (
           <section className="smart-budget-management" aria-label="智能预算管理看板">
+            <section className="smart-budget-overview-card" aria-label="预算总览">
+              <div className="smart-budget-overview-stats">
+                <article>
+                  <span>本月总预算</span>
+                  <strong>{formatCurrency(managementOverview.totalBudget)}</strong>
+                </article>
+                <article>
+                  <span>已使用金额</span>
+                  <strong>{formatCurrency(managementOverview.totalSpent)}</strong>
+                </article>
+                <article>
+                  <span>剩余金额</span>
+                  <strong
+                    className={managementOverview.remainingAmount >= 0 ? 'positive' : 'negative'}
+                  >
+                    {formatCurrency(managementOverview.remainingAmount)}
+                  </strong>
+                </article>
+                <article>
+                  <span>执行率</span>
+                  <strong className={managementOverview.executionRate > 1 ? 'negative' : ''}>
+                    {(managementOverview.executionRate * 100).toFixed(1)}%
+                  </strong>
+                </article>
+              </div>
+              <div className="smart-budget-overview-progress-wrap">
+                <div
+                  className="smart-budget-overview-progress"
+                  style={{
+                    background: `conic-gradient(var(--color-primary) ${Math.min(managementOverview.executionRate * 100, 100)}%, var(--color-border-light) 0)`
+                  }}
+                  title={`执行率 ${(managementOverview.executionRate * 100).toFixed(1)}%`}
+                  aria-label={`预算执行率 ${(managementOverview.executionRate * 100).toFixed(1)}%`}
+                >
+                  <span>{Math.round(managementOverview.executionRate * 100)}%</span>
+                </div>
+                <p className="smart-budget-health-score">
+                  预算健康度 <strong>{managementOverview.healthScore}</strong> / 100
+                </p>
+              </div>
+            </section>
+
             <div className="smart-budget-management-topbar">
               <div className="field">
                 <label htmlFor="budget-month">最近月份</label>
@@ -423,9 +522,37 @@ export function SmartBudgetPage() {
             </div>
 
             <section className="smart-budget-ai-card" aria-live="polite">
-              <h4 style={{ margin: 0 }}>🤖 AI 预算建议</h4>
-              {aiStatus === 'loading' ? <p className="smart-budget-empty">正在生成预算优化建议...</p> : null}
+              <div className="smart-budget-ai-card-title">
+                <span className="smart-budget-ai-icon" aria-hidden="true">
+                  🤖
+                </span>
+                <h4>AI 预算建议</h4>
+              </div>
+              {aiStatus === 'loading' ? (
+                <p className="smart-budget-empty">正在分析超支分类与预算偏差...</p>
+              ) : null}
               {aiStatus === 'error' ? <p className="smart-budget-error">{aiError}</p> : null}
+              {topOverspentItem ? (
+                <div className="smart-budget-ai-highlight">
+                  <p>
+                    <strong>⚠ {topOverspentItem.category}</strong> 超支
+                    <strong> {(topOverspentItem.ratio * 100).toFixed(0)}%</strong>
+                  </p>
+                  <p>
+                    建议下月预算调整为{' '}
+                    <strong>
+                      {formatCurrency(topOverspentItem.budgetAmount + topOverspentItem.diff * 0.5)}
+                    </strong>
+                  </p>
+                  <p>
+                    或减少当前支出 <strong>{formatCurrency(topOverspentItem.diff)}</strong>
+                  </p>
+                  <div className="smart-budget-ai-actions">
+                    <button type="button">应用到下月预算</button>
+                    <button type="button">设为本月提醒</button>
+                  </div>
+                </div>
+              ) : null}
               {aiStatus === 'done' && aiAdvice ? (
                 <>
                   <p className="smart-budget-ai-summary">{aiAdvice.summary}</p>
@@ -439,7 +566,10 @@ export function SmartBudgetPage() {
                   {aiAdvice.focusCategories?.length ? (
                     <div className="smart-budget-ai-tags">
                       {aiAdvice.focusCategories.map((item) => (
-                        <span key={`${item.category}-${item.action}`} className={`ai-tag ${item.action}`}>
+                        <span
+                          key={`${item.category}-${item.action}`}
+                          className={`ai-tag ${item.action}`}
+                        >
                           {item.category}：
                           {item.action === 'decrease'
                             ? '建议收紧'
@@ -457,18 +587,45 @@ export function SmartBudgetPage() {
             {visibleRows.length ? (
               <div className="smart-budget-progress-list">
                 {visibleRows.map((item) => (
-                  <article key={item.category} className="smart-budget-progress-card">
+                  <article
+                    key={item.category}
+                    className={`smart-budget-progress-card ${
+                      item.ratio > 1 ? 'overspent' : item.ratio >= 0.7 ? 'warning' : 'normal'
+                    }`}
+                    onClick={() => setSelectedCategory(item)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedCategory(item);
+                      }
+                    }}
+                  >
                     <header>
                       <h4>{item.category}</h4>
-                      <span className={item.isOverspent ? 'warn' : 'safe'}>
-                        {item.isOverspent ? `超支 ${formatCurrency(item.diff)}` : '预算内'}
+                      <span
+                        className={`status-tag ${item.ratio > 1 ? 'overspent' : item.ratio >= 0.7 ? 'warning' : 'normal'}`}
+                      >
+                        {item.ratio > 1 ? '超支' : item.ratio >= 0.7 ? '预警' : '正常'}
                       </span>
                     </header>
                     <p>
-                      已花费 {formatCurrency(item.spentAmount)} / 预算{' '}
-                      {formatCurrency(item.budgetAmount)}
+                      <strong>{formatCurrency(item.spentAmount)}</strong> / 预算{' '}
+                      <strong>{formatCurrency(item.budgetAmount)}</strong>
                     </p>
-                    <div className="smart-budget-progress-track" aria-hidden="true">
+                    <p>
+                      剩余金额：
+                      <strong className={item.diff <= 0 ? 'safe' : 'warn'}>
+                        {formatCurrency(-item.diff)}
+                      </strong>
+                    </p>
+                    <p>执行率：{(item.ratio * 100).toFixed(1)}%</p>
+                    <div
+                      className="smart-budget-progress-track"
+                      title={`执行率 ${(item.ratio * 100).toFixed(1)}%`}
+                      aria-label={`执行率 ${(item.ratio * 100).toFixed(1)}%`}
+                    >
                       <span
                         className={item.isOverspent ? 'warn' : ''}
                         style={{ width: `${progressPercent(item.ratio)}%` }}
@@ -484,6 +641,25 @@ export function SmartBudgetPage() {
         ) : (
           <p className="smart-budget-empty">请先完成预算设置并确认后，再查看智能预算管理。</p>
         )
+      ) : null}
+
+      {selectedCategory ? (
+        <aside className="smart-budget-detail-drawer" aria-label="预算分类详情">
+          <div className="smart-budget-detail-drawer-content">
+            <header>
+              <h3>{selectedCategory.category}</h3>
+              <button type="button" onClick={() => setSelectedCategory(null)}>
+                关闭
+              </button>
+            </header>
+            <p>
+              已花费 {formatCurrency(selectedCategory.spentAmount)} / 预算{' '}
+              {formatCurrency(selectedCategory.budgetAmount)}
+            </p>
+            <p>执行率 {(selectedCategory.ratio * 100).toFixed(1)}%</p>
+            <p>差额 {formatCurrency(selectedCategory.diff)}</p>
+          </div>
+        </aside>
       ) : null}
 
       {mode === 'setup' && setupOpen ? (
