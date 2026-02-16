@@ -612,6 +612,13 @@ export function AssistantPage() {
     submitPrompt(previousUser.text);
   };
 
+  const retryLastPrompt = () => {
+    const latestUser = [...chatHistory].reverse().find((item) => item.role === 'user');
+    if (!latestUser) return;
+    wb.setTextInput(latestUser.text);
+    submitPrompt(latestUser.text);
+  };
+
   const todayLabel = new Intl.DateTimeFormat('zh-CN', {
     month: 'numeric',
     day: 'numeric',
@@ -1035,8 +1042,8 @@ export function AssistantPage() {
         {shouldShowError ? (
           <div className="chat-error-strip" role="alert">
             <span>{wb.error}</span>
-            <button type="button" onClick={() => wb.resetWorkbench()}>
-              清空重试
+            <button type="button" onClick={retryLastPrompt} disabled={wb.status === 'recognizing'}>
+              重试
             </button>
           </div>
         ) : null}
@@ -1109,13 +1116,14 @@ export function AssistantPage() {
           />
 
           <button
-            type="submit"
-            className="chat-send-btn"
-            title="发送"
-            disabled={!wb.canRecognize || wb.status === 'recognizing'}
-            aria-disabled={!wb.canRecognize || wb.status === 'recognizing'}
+            type={wb.status === 'recognizing' ? 'button' : 'submit'}
+            className={`chat-send-btn ${wb.status === 'recognizing' ? 'chat-send-btn-stop' : ''}`}
+            title={wb.status === 'recognizing' ? '停止' : '发送'}
+            onClick={wb.status === 'recognizing' ? wb.stopRecognize : undefined}
+            disabled={wb.status !== 'recognizing' && !wb.canRecognize}
+            aria-disabled={wb.status !== 'recognizing' && !wb.canRecognize}
           >
-            ↑
+            {wb.status === 'recognizing' ? '■' : '↑'}
           </button>
         </form>
       </section>

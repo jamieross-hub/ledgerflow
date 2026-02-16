@@ -157,6 +157,7 @@ interface ChatRequestInput {
   model: string;
   messages: ChatMessageInput[];
   systemPrompt?: string;
+  signal?: AbortSignal;
 }
 
 function normalizeBaseUrl(baseUrl?: string) {
@@ -229,6 +230,7 @@ export async function sendAiChat(input: ChatRequestInput): Promise<SendAiChatRes
   const response = await fetch(`${normalizeBaseUrl(input.baseUrl)}/chat/completions`, {
     method: 'POST',
     headers: buildHeaders(input.apiKey),
+    signal: input.signal,
     body: JSON.stringify({
       model: input.model,
       messages: outboundMessages.map((message) => {
