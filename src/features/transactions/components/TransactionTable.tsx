@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TransactionItem } from '../../../entities/transaction/types';
+import { EMPTY_CATEGORY_FILTER_VALUE } from '../model/categoryQuickFilter';
 import { formatCurrency, formatDate } from '../../../shared/lib/format';
 import { EmptyState } from '../../../shared/ui/EmptyState';
 import { TableSkeleton } from '../../../shared/ui/TableSkeleton';
@@ -490,6 +491,7 @@ export function TransactionTable({
                             }
                           >
                             <option value="">全部分类</option>
+                            <option value={EMPTY_CATEGORY_FILTER_VALUE}>未分类</option>
                             {categoryOptions.map((option) => (
                               <option key={option.id} value={option.id}>
                                 {option.name}

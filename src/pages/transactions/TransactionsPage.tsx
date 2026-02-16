@@ -26,6 +26,7 @@ import {
   TransactionSortKey,
   TransactionTable
 } from '../../features/transactions/components/TransactionTable';
+import { matchesCategoryQuickFilter } from '../../features/transactions/model/categoryQuickFilter';
 import {
   resolveDateRange,
   useTransactionFilters
@@ -510,7 +511,7 @@ export function TransactionsPage() {
     return mappedRows.filter((row) => {
       const dateText = formatDate(row.item.date).toLowerCase();
       const typePass = quickFilters.type === 'all' ? true : row.item.type === quickFilters.type;
-      const categoryPass = !categoryFilter || row.item.categoryId === categoryFilter;
+      const categoryPass = matchesCategoryQuickFilter(categoryFilter, row.item.categoryId);
       const accountPass = !accountFilter || row.accountName.toLowerCase().includes(accountFilter);
       const orderNoPass =
         !orderNoFilter || (row.item.orderNo || '').toLowerCase().includes(orderNoFilter);
