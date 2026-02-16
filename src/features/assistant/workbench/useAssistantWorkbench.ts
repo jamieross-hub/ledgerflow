@@ -4,6 +4,7 @@ import type { Account } from '../../../entities/account/types';
 import type { Category } from '../../../entities/category/types';
 import type { TransactionItem } from '../../../entities/transaction/types';
 import { useDebugLogStore } from '../../../shared/store/useDebugLogStore';
+import { useAiSettings } from '../../../shared/store/useAiSettings';
 import {
   ANALYSIS_AGENT_PROMPT,
   buildTimeContext,
@@ -68,6 +69,10 @@ interface UseAssistantWorkbenchInput {
  */
 export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
   const { addLog } = useDebugLogStore();
+  const embeddingModel = useAiSettings((s) => s.embeddingModel);
+  const enableEmbeddingModel = useAiSettings((s) => s.enableEmbeddingModel);
+  const rerankModel = useAiSettings((s) => s.rerankModel);
+  const enableRerankModel = useAiSettings((s) => s.enableRerankModel);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [status, setStatus] = useState<WorkbenchStatus>('idle');
@@ -228,6 +233,11 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     setStatus('recognizing');
     setError('');
     addLog({ action: 'assistant.recognize', status: 'pending', message: '开始识别请求' });
+    addLog({
+      action: 'assistant.recognize',
+      status: 'info',
+      message: `模型配置：对话=${input.model}；嵌入=${enableEmbeddingModel ? `开启(${embeddingModel || '未设置'})` : '关闭'}；重排序=${enableRerankModel ? `开启(${rerankModel || '未设置'})` : '关闭'}`
+    });
     try {
       const basePrompt =
         input.sceneMode === 'assistant' ? ANALYSIS_AGENT_PROMPT : JSON_AGENT_PROMPT;
@@ -373,9 +383,8 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
         // 2) 若模型未给或仅给泛化名，再用本地规则兜底推断；
         // 3) 仍无法确定时只复用，不触发新建。
         const trimmedAccount = String(item.account || '').trim();
-        const hasGenericAccountName = /^(银行卡|银行账户|储蓄卡|借记卡|bank|bank\s*card|account)$/i.test(
-          trimmedAccount
-        );
+        const hasGenericAccountName =
+          /^(银行卡|银行账户|储蓄卡|借记卡|bank|bank\s*card|account)$/i.test(trimmedAccount);
         const llmAccountName = trimmedAccount && !hasGenericAccountName ? trimmedAccount : '';
         const fallbackAccountName = llmAccountName
           ? ''
@@ -393,21 +402,31 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
 
         const accountOptions = { source: accountSource, type };
         const accountId = llmAccountName
-          ? ensureAccountId(llmAccountName, accountCache, (nextName, nextType) => {
-              const createdId = input.addAccount(nextName, nextType, 0);
-              if (createdId && !accountCache.some((entry) => entry.id === createdId)) {
-                accountCache.push({ id: createdId, name: nextName.trim(), type: nextType });
-              }
-              return createdId;
-            }, accountOptions)
-          : fallbackAccountName
-            ? ensureAccountId(fallbackAccountName, accountCache, (nextName, nextType) => {
+          ? ensureAccountId(
+              llmAccountName,
+              accountCache,
+              (nextName, nextType) => {
                 const createdId = input.addAccount(nextName, nextType, 0);
                 if (createdId && !accountCache.some((entry) => entry.id === createdId)) {
                   accountCache.push({ id: createdId, name: nextName.trim(), type: nextType });
                 }
                 return createdId;
-              }, accountOptions)
+              },
+              accountOptions
+            )
+          : fallbackAccountName
+            ? ensureAccountId(
+                fallbackAccountName,
+                accountCache,
+                (nextName, nextType) => {
+                  const createdId = input.addAccount(nextName, nextType, 0);
+                  if (createdId && !accountCache.some((entry) => entry.id === createdId)) {
+                    accountCache.push({ id: createdId, name: nextName.trim(), type: nextType });
+                  }
+                  return createdId;
+                },
+                accountOptions
+              )
             : resolveAccountId(undefined, accountCache, accountOptions);
 
         const payload = {
