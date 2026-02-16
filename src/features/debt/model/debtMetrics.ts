@@ -1,4 +1,4 @@
-export type DebtType = 'credit-card' | 'huabei' | 'loan';
+export type DebtType = 'credit-card' | 'consumer-loan' | 'loan';
 
 export type DebtItem = {
   id: string;
@@ -18,9 +18,15 @@ export type DebtSummary = {
 
 const debtRules: Record<DebtType, { rate: number; minFloor: number }> = {
   'credit-card': { rate: 0.1, minFloor: 100 },
-  huabei: { rate: 0.1, minFloor: 50 },
+  'consumer-loan': { rate: 0.1, minFloor: 50 },
   loan: { rate: 0.03, minFloor: 0 }
 };
+
+function normalizeDebtType(type: unknown): DebtType {
+  if (type === 'huabei') return 'consumer-loan';
+  if (type === 'credit-card' || type === 'consumer-loan' || type === 'loan') return type;
+  return 'credit-card';
+}
 
 function toPositiveNumber(value: number | undefined): number {
   const safe = Number(value ?? 0);
@@ -58,11 +64,13 @@ export function calculateDebtMinimumPayment(debt: DebtItem): number {
     return custom;
   }
 
-  if (debt.type === 'loan') {
+  const normalizedType = normalizeDebtType(debt.type);
+
+  if (normalizedType === 'loan') {
     return calcLoanAmortizedPayment(principal, debt.annualRate, debt.remainingMonths);
   }
 
-  const rule = debtRules[debt.type];
+  const rule = debtRules[normalizedType];
   return Math.max(principal * rule.rate, rule.minFloor);
 }
 
