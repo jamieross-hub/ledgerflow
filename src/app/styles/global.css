@@ -2695,6 +2695,35 @@ small.mono {
   margin-top: 4px;
 }
 
+.chat-md-table-wrap {
+  overflow-x: auto;
+}
+
+.chat-md-table {
+  width: 100%;
+  min-width: 360px;
+  border-collapse: collapse;
+  font-size: var(--font-sm);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.chat-md-table th,
+.chat-md-table td {
+  border: 1px solid var(--color-border);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+  line-height: var(--leading-relaxed);
+}
+
+.chat-md-table th {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
 .chat-msg-image {
   max-width: 280px;
   border-radius: var(--radius-md);
@@ -4070,7 +4099,59 @@ small.mono {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--space-3);
+}
+
+.exchange-card-header {
   margin-bottom: var(--space-4);
+}
+
+.exchange-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, var(--exchange-left-width, 420px)) 12px minmax(0, 1fr);
+  align-items: stretch;
+  column-gap: var(--space-3);
+}
+
+.exchange-data-card {
+  min-width: 0;
+}
+
+.exchange-data-header {
+  display: flex;
+  align-items: center;
+}
+
+.exchange-resize-divider {
+  width: 12px;
+  cursor: col-resize;
+  border-radius: var(--radius-sm);
+  align-self: stretch;
+  background: linear-gradient(
+    90deg,
+    transparent 0,
+    transparent 4px,
+    var(--color-border) 4px,
+    var(--color-border) 8px,
+    transparent 8px,
+    transparent 100%
+  );
+}
+
+.exchange-resize-divider:hover {
+  background: linear-gradient(
+    90deg,
+    transparent 0,
+    transparent 4px,
+    var(--color-primary) 4px,
+    var(--color-primary) 8px,
+    transparent 8px,
+    transparent 100%
+  );
+}
+
+body.exchange-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .exchange-base-picker {
@@ -5110,6 +5191,15 @@ small.mono {
 }
 
 @media (max-width: 640px) {
+  .exchange-layout {
+    grid-template-columns: 1fr;
+    row-gap: var(--space-3);
+  }
+
+  .exchange-resize-divider {
+    display: none;
+  }
+
   .exchange-converter-row {
     flex-direction: column;
     align-items: stretch;
