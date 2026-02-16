@@ -112,12 +112,16 @@ export function SettingsPage() {
   const apiKey = useAiSettings((s) => s.apiKey);
   const model = useAiSettings((s) => s.model);
   const embeddingModel = useAiSettings((s) => s.embeddingModel);
+  const enableEmbeddingModel = useAiSettings((s) => s.enableEmbeddingModel);
   const rerankModel = useAiSettings((s) => s.rerankModel);
+  const enableRerankModel = useAiSettings((s) => s.enableRerankModel);
   const setBaseUrl = useAiSettings((s) => s.setBaseUrl);
   const setApiKey = useAiSettings((s) => s.setApiKey);
   const setModel = useAiSettings((s) => s.setModel);
   const setEmbeddingModel = useAiSettings((s) => s.setEmbeddingModel);
+  const setEnableEmbeddingModel = useAiSettings((s) => s.setEnableEmbeddingModel);
   const setRerankModel = useAiSettings((s) => s.setRerankModel);
+  const setEnableRerankModel = useAiSettings((s) => s.setEnableRerankModel);
   const memoryDays = useAiSettings((s) => s.memoryDays);
   const memoryBackend = useAiSettings((s) => s.memoryBackend);
   const setMemoryDays = useAiSettings((s) => s.setMemoryDays);
@@ -251,6 +255,36 @@ export function SettingsPage() {
           />
         </div>
         {modelLoadError ? <p className="settings-model-error">{modelLoadError}</p> : null}
+
+        <div className="field">
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={enableEmbeddingModel}
+              onChange={(e) => {
+                setEnableEmbeddingModel(e.target.checked);
+                showSaveToast();
+              }}
+            />
+            启用嵌入模型
+          </label>
+          <small>关闭后将跳过嵌入模型相关流程（并在调试日志中记录）。</small>
+        </div>
+
+        <div className="field">
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={enableRerankModel}
+              onChange={(e) => {
+                setEnableRerankModel(e.target.checked);
+                showSaveToast();
+              }}
+            />
+            启用重排序模型
+          </label>
+          <small>关闭后将跳过重排序模型相关流程（并在调试日志中记录）。</small>
+        </div>
 
         <div className="field">
           <label>助手记忆时长（天）</label>
