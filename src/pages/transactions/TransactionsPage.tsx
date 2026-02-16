@@ -99,6 +99,7 @@ const TX_VISIBLE_COLUMNS_KEY = 'ledgerflow.transactions.visibleColumns';
 const TX_COLUMN_ORDER_KEY = 'ledgerflow.transactions.columnOrder';
 const TX_COLUMN_WIDTHS_KEY = 'ledgerflow.transactions.columnWidths';
 const TX_DETAIL_SECTIONS_KEY = 'ledgerflow.transactions.detailSections';
+const BULK_AI_RECATEGORIZE_CONCURRENCY = 4;
 
 const IMPORT_CATEGORY_RULES: Array<{ pattern: RegExp; names: string[] }> = [
   { pattern: /工资|薪资|salary|payroll|奖金/i, names: ['工资', '收入'] },
@@ -359,6 +360,8 @@ export function TransactionsPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const importSourceRef = useRef<BillSource | null>(null);
   const bulkAiRecategorizingRef = useRef(false);
+  const bulkAiCancelRequestedRef = useRef(false);
+  const bulkAiAbortControllersRef = useRef<Set<AbortController>>(new Set());
 
   const dateRange = useMemo(() => resolveDateRange(filters), [filters]);
 
@@ -825,8 +828,9 @@ export function TransactionsPage() {
   };
 
   const recategorizeByAi = async (
-    tx: TransactionItem
-  ): Promise<'changed' | 'unchanged' | 'fallback-changed'> => {
+    tx: TransactionItem,
+    signal?: AbortSignal
+  ): Promise<'changed' | 'unchanged' | 'fallback-changed' | 'aborted'> => {
     const fallbackRecategorize = () => {
       const nextCategoryId = inferCategoryIdByTransaction(tx, categories, tx.categoryId);
       if (!nextCategoryId || nextCategoryId === tx.categoryId) {
@@ -840,6 +844,10 @@ export function TransactionsPage() {
       Boolean(aiApiKey.trim()) && Boolean(aiModel.trim()) && Boolean(aiBaseUrl.trim());
     if (!hasAiConfig) {
       return fallbackRecategorize() ? 'fallback-changed' : 'unchanged';
+    }
+
+    if (signal?.aborted) {
+      return 'aborted';
     }
 
     const txTypeLabel =
@@ -859,6 +867,7 @@ export function TransactionsPage() {
         baseUrl: aiBaseUrl,
         apiKey: aiApiKey,
         model: aiModel,
+        signal,
         systemPrompt:
           '你是交易重分类助手。请根据交易信息，从给定分类列表中选择最匹配的一项。仅返回 JSON：{"category":"分类名"}。禁止输出解释。若不确定，返回当前分类。',
         messages: [
@@ -877,35 +886,85 @@ export function TransactionsPage() {
 
       updateTransaction(tx.id, { ...tx, categoryId: matched.id });
       return 'changed';
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return 'aborted';
+      }
       return fallbackRecategorize() ? 'fallback-changed' : 'unchanged';
     }
   };
 
   const handleBulkAiRecategorize = async () => {
-    if (selectedIds.length === 0 || bulkAiRecategorizingRef.current) {
+    if (selectedIds.length === 0) {
+      return;
+    }
+
+    if (bulkAiRecategorizingRef.current) {
+      bulkAiCancelRequestedRef.current = true;
+      bulkAiAbortControllersRef.current.forEach((controller) => controller.abort());
+      showToast('正在停止批量 AI 重分类…', 'warning');
       return;
     }
 
     bulkAiRecategorizingRef.current = true;
+    bulkAiCancelRequestedRef.current = false;
     setBulkAiRecategorizing(true);
+
+    const txMap = new Map(transactions.map((item) => [item.id, item]));
+    const selectedTransactions = selectedIds
+      .map((id) => txMap.get(id))
+      .filter((item): item is TransactionItem => Boolean(item));
+
+    if (selectedTransactions.length === 0) {
+      bulkAiRecategorizingRef.current = false;
+      setBulkAiRecategorizing(false);
+      return;
+    }
+
     let changed = 0;
     let fallbackChanged = 0;
+    let aborted = 0;
+    let cursor = 0;
 
-    try {
-      for (const id of selectedIds) {
-        const tx = transactions.find((item) => item.id === id);
-        if (!tx) continue;
-        const result = await recategorizeByAi(tx);
-        if (result === 'changed') {
-          changed += 1;
+    const runWorker = async () => {
+      while (!bulkAiCancelRequestedRef.current) {
+        const tx = selectedTransactions[cursor];
+        cursor += 1;
+        if (!tx) {
+          return;
         }
-        if (result === 'fallback-changed') {
-          fallbackChanged += 1;
+
+        const controller = new AbortController();
+        bulkAiAbortControllersRef.current.add(controller);
+        try {
+          const result = await recategorizeByAi(tx, controller.signal);
+          if (result === 'changed') {
+            changed += 1;
+          }
+          if (result === 'fallback-changed') {
+            fallbackChanged += 1;
+          }
+          if (result === 'aborted') {
+            aborted += 1;
+          }
+        } finally {
+          bulkAiAbortControllersRef.current.delete(controller);
         }
       }
+    };
 
-      if (changed > 0) {
+    try {
+      const workers = Array.from({
+        length: Math.min(BULK_AI_RECATEGORIZE_CONCURRENCY, selectedTransactions.length)
+      }).map(() => runWorker());
+      await Promise.all(workers);
+
+      if (bulkAiCancelRequestedRef.current) {
+        showToast(
+          `批量 AI 重分类已停止（大模型 ${changed} 条，规则回退 ${fallbackChanged} 条，已取消 ${aborted} 条）。`,
+          'warning'
+        );
+      } else if (changed > 0) {
         showToast(`已按大模型建议完成 ${changed} 条交易重分类。`, 'success');
       } else if (fallbackChanged > 0) {
         showToast(`已按账单信息完成 ${fallbackChanged} 条交易重分类。`, 'success');
@@ -913,6 +972,8 @@ export function TransactionsPage() {
         showToast('AI 分类建议未变化，无需替换。', 'warning');
       }
     } finally {
+      bulkAiAbortControllersRef.current.clear();
+      bulkAiCancelRequestedRef.current = false;
       bulkAiRecategorizingRef.current = false;
       setBulkAiRecategorizing(false);
     }
