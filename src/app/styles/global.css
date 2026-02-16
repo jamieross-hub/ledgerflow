@@ -2366,12 +2366,17 @@ small.mono {
 .chat-fullscreen {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - var(--topbar-height));
-  height: calc(100dvh - var(--topbar-height));
+  height: 100vh;
+  height: 100dvh;
   min-height: 0;
   margin: calc(var(--space-6) * -1);
   overflow: hidden;
   background: var(--color-bg);
+}
+
+.workspace-topbar + .content .chat-fullscreen {
+  height: calc(100vh - var(--topbar-height));
+  height: calc(100dvh - var(--topbar-height));
 }
 
 /* ---------- Top Bar ---------- */
