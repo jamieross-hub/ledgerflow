@@ -164,7 +164,10 @@ export function DashboardPage() {
   >('idle');
   const [monthlyInsightError, setMonthlyInsightError] = useState('');
   const [monthlyInsightRequestToken, setMonthlyInsightRequestToken] = useState(0);
-  const [monthlyInsightProgress, setMonthlyInsightProgress] = useState(0);
+  const [hoveredChartPoint, setHoveredChartPoint] = useState<{
+    label: string;
+    value: number;
+  } | null>(null);
 
   const now = new Date();
   const currentMonth = now.getMonth();
@@ -434,23 +437,6 @@ export function DashboardPage() {
   }, [aiInput, apiKey, baseUrl, forecastRequestToken, model, monthlyBalance, transactions.length]);
 
   useEffect(() => {
-    if (monthlyInsightStatus !== 'loading' && monthlyInsightStatus !== 'streaming') {
-      setMonthlyInsightProgress(monthlyInsightStatus === 'done' ? 100 : 0);
-      return;
-    }
-
-    setMonthlyInsightProgress((prev) => (prev > 8 ? prev : 8));
-    const timer = window.setInterval(() => {
-      setMonthlyInsightProgress((prev) => {
-        const cap = monthlyInsightStatus === 'streaming' ? 94 : 86;
-        return Math.min(cap, prev + Math.max(1, Math.round((100 - prev) * 0.08)));
-      });
-    }, 380);
-
-    return () => window.clearInterval(timer);
-  }, [monthlyInsightStatus]);
-
-  useEffect(() => {
     if (transactions.length === 0) return;
     if (monthlyInsightRequestToken <= 0) return;
 
@@ -509,11 +495,9 @@ export function DashboardPage() {
           highlights
         };
         setMonthlyInsight(next);
-        setMonthlyInsightProgress(100);
         setMonthlyInsightStatus('done');
       } catch (error) {
         if (!canceled) {
-          setMonthlyInsightProgress(0);
           setMonthlyInsightStatus('error');
           setMonthlyInsightError(error instanceof Error ? error.message : '本月趋势分析失败');
         }
@@ -542,10 +526,11 @@ export function DashboardPage() {
     setMonthlyInsightRequestToken((prev) => prev + 1);
   };
 
-  const currentIndex = Math.max(recentMonths.length - 1, 0);
+  const reducedHistoryMonths = useMemo(() => recentMonths.slice(-4), [recentMonths]);
+  const currentIndex = Math.max(reducedHistoryMonths.length - 1, 0);
 
   const chartData = useMemo(() => {
-    const history = recentMonths.map((item) => ({
+    const history = reducedHistoryMonths.map((item) => ({
       label: item.shortLabel,
       value: item.balance,
       type: 'history' as const
@@ -559,7 +544,7 @@ export function DashboardPage() {
       };
     });
     return [...history, ...future];
-  }, [currentMonth, currentYear, forecast?.points, monthlyBalance, recentMonths]);
+  }, [currentMonth, currentYear, forecast?.points, monthlyBalance, reducedHistoryMonths]);
 
   const chartRange = useMemo(() => {
     const values = chartData.map((item) => item.value);
@@ -588,18 +573,38 @@ export function DashboardPage() {
 
   const historySegment = useMemo(() => {
     if (chartPoints.length < 2 || currentIndex < 1) return '';
-    return buildSmoothPath(chartPoints.slice(0, currentIndex));
-  }, [chartPoints, currentIndex]);
-
-  const currentSegment = useMemo(() => {
-    if (chartPoints.length < 2 || currentIndex < 1) return '';
-    return buildSmoothPath(chartPoints.slice(currentIndex - 1, currentIndex + 1));
+    return buildSmoothPath(chartPoints.slice(0, currentIndex + 1));
   }, [chartPoints, currentIndex]);
 
   const forecastSegment = useMemo(() => {
     if (chartPoints.length - currentIndex < 2) return '';
     return buildSmoothPath(chartPoints.slice(currentIndex, chartPoints.length));
   }, [chartPoints, currentIndex]);
+
+  const lastMonthBalance = recentMonths[recentMonths.length - 2]?.balance ?? 0;
+  const monthOverMonthChange = monthlyBalance - lastMonthBalance;
+  const monthOverMonthRate =
+    lastMonthBalance === 0
+      ? monthOverMonthChange === 0
+        ? 0
+        : 100
+      : (monthOverMonthChange / Math.abs(lastMonthBalance)) * 100;
+  const monthOverMonthDirection = monthOverMonthChange >= 0 ? 'up' : 'down';
+  const monthOverMonthArrow = monthOverMonthChange >= 0 ? '↗' : '↘';
+  const forecastMonths = useMemo(() => {
+    const values = forecast?.points?.slice(0, 3) || [
+      monthlyBalance,
+      monthlyBalance * 0.98,
+      monthlyBalance * 0.96
+    ];
+    return values.map((value, index) => {
+      const d = new Date(currentYear, currentMonth + index + 1, 1);
+      return {
+        label: monthLabel(d),
+        value: toSafeNumber(value, monthlyBalance)
+      };
+    });
+  }, [currentMonth, currentYear, forecast?.points, monthlyBalance]);
 
   const currentMonthLabel = `${currentYear}年${currentMonth + 1}月`;
   const monthlyInsightActionLabel =
@@ -902,53 +907,41 @@ export function DashboardPage() {
                     {formatCurrency(monthlyBalance)}
                   </span>
                 </p>
+                <p
+                  className={`dashboard-summary-change ${
+                    monthOverMonthDirection === 'up' ? 'positive' : 'negative'
+                  }`}
+                >
+                  <span>{monthOverMonthArrow}</span>
+                  <span>环比 {Math.abs(monthOverMonthRate).toFixed(1)}%</span>
+                  <span>
+                    ({monthOverMonthChange >= 0 ? '+' : ''}
+                    {formatCurrency(monthOverMonthChange)})
+                  </span>
+                </p>
                 <p className="dashboard-summary-sub">
                   <span className="dashboard-summary-metric income">
                     收入 {formatCurrency(income)}
                   </span>
-                  <span className="dashboard-summary-dot">·</span>
                   <span className="dashboard-summary-metric expense">
                     支出 {formatCurrency(expense)}
                   </span>
-                  <span className="dashboard-summary-dot">·</span>
                   <span className="dashboard-summary-metric neutral">交易 {monthly.length} 笔</span>
                 </p>
               </div>
               <div className="dashboard-summary-chip">AI 分析聚焦于本月分类结构与异常波动</div>
             </div>
 
-            <div className="dashboard-insight-progress" aria-live="polite">
-              <div className="dashboard-insight-progress-head">
-                <span>AI 洞察进度</span>
-                <strong>{monthlyInsightProgress}%</strong>
-              </div>
-              <div className="dashboard-insight-progress-track">
-                <span style={{ width: `${monthlyInsightProgress}%` }} />
-              </div>
-              <p>
+            <div className="dashboard-ai-actions" style={{ marginBottom: 'var(--space-3)' }}>
+              <p className="dashboard-ai-status-text">
                 {monthlyInsightStatus === 'loading'
                   ? '正在整理本月账目结构…'
                   : monthlyInsightStatus === 'streaming'
                     ? '正在生成重点结论，请稍候。'
                     : monthlyInsightStatus === 'done'
                       ? '分析完成，可查看分类与重点账目。'
-                      : '点击“重新分析”开始生成。'}
+                      : '点击右上角“重新分析”开始生成。'}
               </p>
-            </div>
-
-            <div className="dashboard-ai-actions" style={{ marginBottom: 'var(--space-3)' }}>
-              <button
-                type="button"
-                className="dashboard-forecast-refresh"
-                onClick={handleRefreshMonthlyInsight}
-                disabled={
-                  monthlyInsightStatus === 'loading' ||
-                  monthlyInsightStatus === 'streaming' ||
-                  transactions.length === 0
-                }
-              >
-                重新分析
-              </button>
               {monthlyInsightError ? (
                 <p className="dashboard-ai-error">{monthlyInsightError}</p>
               ) : null}
@@ -1027,7 +1020,11 @@ export function DashboardPage() {
             </div>
             {forecastError ? <p className="dashboard-future-tip">{forecastError}</p> : null}
 
-            <div className="dashboard-forecast-chart" aria-label="未来趋势动态图表">
+            <div
+              className="dashboard-forecast-chart"
+              aria-label="未来趋势动态图表"
+              onMouseLeave={() => setHoveredChartPoint(null)}
+            >
               <div className="dashboard-forecast-axes">
                 <div className="dashboard-forecast-axis-y" aria-label="金额轴">
                   {axisTicks.map((value, index) => (
@@ -1061,16 +1058,6 @@ export function DashboardPage() {
                       strokeLinejoin="round"
                     />
                   ) : null}
-                  {currentSegment ? (
-                    <path
-                      d={currentSegment}
-                      className="current-line dashboard-forecast-path"
-                      fill="none"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  ) : null}
                   {forecastSegment ? (
                     <path
                       d={forecastSegment}
@@ -1083,7 +1070,17 @@ export function DashboardPage() {
                   ) : null}
                   {chartPoints.map((point, index) => (
                     <g key={`point-${point.label}-${index}`} className="dashboard-forecast-point">
-                      <circle cx={point.x} cy={point.y} r={index === currentIndex ? 4.8 : 3.6} />
+                      <circle
+                        cx={point.x}
+                        cy={point.y}
+                        r={index === currentIndex ? 4.8 : 3.6}
+                        onMouseEnter={() =>
+                          setHoveredChartPoint({
+                            label: point.label,
+                            value: point.value
+                          })
+                        }
+                      />
                       <title>{`${point.label}：${formatCurrency(point.value)}`}</title>
                     </g>
                   ))}
@@ -1106,17 +1103,16 @@ export function DashboardPage() {
               </div>
               <div className="dashboard-forecast-key" aria-label="趋势颜色说明">
                 <span className="history">历史</span>
-                <span className="current">当前</span>
-                <span className="forecast">未来</span>
+                <span className="forecast">预测</span>
               </div>
+              <p className="dashboard-forecast-hover">
+                {hoveredChartPoint
+                  ? `${hoveredChartPoint.label}：${formatCurrency(hoveredChartPoint.value)}`
+                  : '悬停数据点查看具体数值'}
+              </p>
               <div className="dashboard-forecast-legend">
                 {chartData.map((item, index) => {
-                  const klass =
-                    index === currentIndex
-                      ? 'current'
-                      : item.type === 'forecast'
-                        ? 'forecast'
-                        : 'history';
+                  const klass = item.type === 'forecast' ? 'forecast' : 'history';
                   const prefix = item.type === 'forecast' ? '预测' : '';
                   return (
                     <span key={`${item.label}-${index}`} className={klass}>
@@ -1129,15 +1125,17 @@ export function DashboardPage() {
             </div>
 
             <div className="dashboard-forecast-quick-cards">
-              {chartData.slice(currentIndex).map((item, index) => (
-                <article
-                  key={`future-card-${item.label}-${index}`}
-                  className="dashboard-forecast-quick-card"
-                >
-                  <p>{index === 0 ? '本月基线' : `未来第${index}个月`}</p>
-                  <strong>{formatCurrency(item.value)}</strong>
-                </article>
-              ))}
+              <article className="dashboard-forecast-quick-card">
+                <p>未来3个月预测</p>
+                <div className="dashboard-forecast-quick-values">
+                  {forecastMonths.map((item) => (
+                    <div key={item.label} className="dashboard-forecast-quick-value-item">
+                      <span>{item.label}</span>
+                      <strong>{formatCurrency(item.value)}</strong>
+                    </div>
+                  ))}
+                </div>
+              </article>
             </div>
 
             <p className="dashboard-future-text">

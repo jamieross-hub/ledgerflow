@@ -1680,8 +1680,8 @@ small.mono {
 
 .dashboard-summary-main-amount {
   display: inline;
-  font-size: clamp(26px, 5.2vw, 34px);
-  line-height: 1.15;
+  font-size: clamp(30px, 6.2vw, 42px);
+  line-height: 1.1;
   letter-spacing: 0.01em;
   font-weight: 800;
   color: var(--color-text);
@@ -1695,13 +1695,29 @@ small.mono {
   color: var(--color-expense);
 }
 
-.dashboard-summary-sub {
-  margin: 8px 0 0 0;
-  font-size: var(--font-sm);
-  display: flex;
+.dashboard-summary-change {
+  margin: 6px 0 0;
+  display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 8px;
+  gap: 8px;
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.dashboard-summary-change.positive {
+  color: var(--color-income);
+}
+
+.dashboard-summary-change.negative {
+  color: var(--color-expense);
+}
+
+.dashboard-summary-sub {
+  margin: 10px 0 0 0;
+  font-size: var(--font-sm);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .dashboard-summary-metric {
@@ -1719,10 +1735,6 @@ small.mono {
 
 .dashboard-summary-metric.neutral {
   color: var(--color-text-secondary);
-}
-
-.dashboard-summary-dot {
-  color: var(--color-text-placeholder);
 }
 
 .dashboard-summary-chip {
@@ -1832,8 +1844,14 @@ small.mono {
 
 .dashboard-ai-actions {
   margin-top: var(--space-2);
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  gap: 6px;
+}
+
+.dashboard-ai-status-text {
+  margin: 0;
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
 }
 
 .dashboard-ai-error {
@@ -2094,12 +2112,6 @@ small.mono {
   border-color: var(--color-border);
 }
 
-.dashboard-forecast-key span.current {
-  color: var(--color-primary);
-  border-color: var(--color-primary-border);
-  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
-}
-
 .dashboard-forecast-key span.forecast {
   color: #b26a00;
   border-color: #f1c052;
@@ -2124,12 +2136,6 @@ small.mono {
   color: var(--color-text-secondary);
 }
 
-.dashboard-forecast-legend span.current {
-  color: var(--color-primary);
-  border-color: var(--color-primary-border);
-  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
-}
-
 .dashboard-forecast-legend span.forecast {
   color: #b26a00;
   border-color: #f1c052;
@@ -2138,10 +2144,6 @@ small.mono {
 
 .dashboard-forecast-chart .history-line {
   stroke: #b4b7bd;
-}
-
-.dashboard-forecast-chart .current-line {
-  stroke: var(--color-primary);
 }
 
 .dashboard-forecast-chart .forecast-line {
@@ -2168,6 +2170,12 @@ small.mono {
 .dashboard-forecast-point:hover circle {
   transform: scale(1.18);
   fill: color-mix(in srgb, var(--color-primary) 22%, var(--color-bg-elevated));
+}
+
+.dashboard-forecast-hover {
+  margin: 8px 0 0;
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
 }
 
 .dashboard-future-focus-item {
@@ -2264,7 +2272,7 @@ small.mono {
   }
 
   .dashboard-ai-actions {
-    justify-content: flex-start;
+    gap: 4px;
   }
 
   .dashboard-trend-summary {
@@ -2280,11 +2288,8 @@ small.mono {
   }
 
   .dashboard-summary-sub {
-    gap: 2px 6px;
-  }
-
-  .dashboard-summary-dot {
-    display: inline;
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 
   .dashboard-section-header {
@@ -5439,16 +5444,41 @@ body.exchange-resizing {
 }
 
 .dashboard-forecast-quick-cards {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
   margin-top: 12px;
 }
+
 .dashboard-forecast-quick-card {
   border: 1px solid var(--color-border-light);
   border-radius: 10px;
-  padding: 10px;
+  padding: 12px;
   background: var(--color-bg-subtle);
+}
+
+.dashboard-forecast-quick-card > p {
+  margin: 0 0 10px;
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+}
+
+.dashboard-forecast-quick-values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-forecast-quick-value-item {
+  display: grid;
+  gap: 4px;
+}
+
+.dashboard-forecast-quick-value-item span {
+  font-size: var(--font-xs);
+  color: var(--color-text-tertiary);
+}
+
+.dashboard-forecast-quick-value-item strong {
+  font-size: var(--font-sm);
+  color: var(--color-text);
 }
 
 .about-page {
