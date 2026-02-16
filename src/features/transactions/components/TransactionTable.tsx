@@ -113,6 +113,8 @@ interface TransactionTableProps {
   onColumnReorder: (fromKey: TransactionColumnKey, toKey: TransactionColumnKey) => void;
   columnWidths: Partial<Record<TransactionColumnKey, number>>;
   onColumnResize: (key: TransactionColumnKey, width: number) => void;
+  minAvailableDate?: string;
+  maxAvailableDate?: string;
 }
 
 export function TransactionTable({
@@ -156,7 +158,9 @@ export function TransactionTable({
   columnOrder,
   onColumnReorder,
   columnWidths,
-  onColumnResize
+  onColumnResize,
+  minAvailableDate,
+  maxAvailableDate
 }: TransactionTableProps) {
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
@@ -483,6 +487,8 @@ export function TransactionTable({
                         {column.key === 'date' ? (
                           <input
                             type="date"
+                            min={minAvailableDate}
+                            max={maxAvailableDate}
                             value={quickFilters.date}
                             onChange={(event) => onQuickFilterChange('date', event.target.value)}
                             placeholder="筛选日期"

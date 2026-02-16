@@ -1060,6 +1060,24 @@ export function TransactionsPage() {
     ? detectSource(selected.source, selected.note, selected.tags)
     : 'manual';
 
+  const availableDateBounds = useMemo(() => {
+    let min = '';
+    let max = '';
+    transactions.forEach((item) => {
+      const day = String(item.date || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+        return;
+      }
+      if (!min || day < min) {
+        min = day;
+      }
+      if (!max || day > max) {
+        max = day;
+      }
+    });
+    return { min, max };
+  }, [transactions]);
+
   return (
     <div className="transactions-page">
       <TransactionFilters
@@ -1082,6 +1100,8 @@ export function TransactionsPage() {
         onToggleColumn={handleToggleColumn}
         bulkSelectionEnabled={bulkSelectionEnabled}
         onToggleBulkSelection={() => setBulkSelectionEnabled((prev) => !prev)}
+        minAvailableDate={availableDateBounds.min}
+        maxAvailableDate={availableDateBounds.max}
       />
 
       {importNotice.visible ? (
@@ -1155,6 +1175,8 @@ export function TransactionsPage() {
         onColumnReorder={handleColumnReorder}
         columnWidths={columnWidths}
         onColumnResize={handleColumnResize}
+        minAvailableDate={availableDateBounds.min}
+        maxAvailableDate={availableDateBounds.max}
       />
 
       <TransactionDetailDrawer

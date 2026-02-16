@@ -29,6 +29,8 @@ interface TransactionFiltersProps {
   onToggleColumn: (key: TransactionColumnKey) => void;
   bulkSelectionEnabled: boolean;
   onToggleBulkSelection: () => void;
+  minAvailableDate?: string;
+  maxAvailableDate?: string;
 }
 
 export function TransactionFilters({
@@ -50,7 +52,9 @@ export function TransactionFilters({
   visibleColumns,
   onToggleColumn,
   bulkSelectionEnabled,
-  onToggleBulkSelection
+  onToggleBulkSelection,
+  minAvailableDate,
+  maxAvailableDate
 }: TransactionFiltersProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -116,6 +120,8 @@ export function TransactionFilters({
               id="tx-filter-date-from"
               aria-label="筛选开始日期"
               type="date"
+              min={minAvailableDate}
+              max={maxAvailableDate}
               onFocus={(event) => event.currentTarget.showPicker?.()}
               value={filters.dateFrom}
               onChange={(event) => onDateFromChange(event.target.value)}
@@ -140,6 +146,8 @@ export function TransactionFilters({
               id="tx-filter-date-to"
               aria-label="筛选结束日期"
               type="date"
+              min={minAvailableDate}
+              max={maxAvailableDate}
               onFocus={(event) => event.currentTarget.showPicker?.()}
               value={filters.dateTo}
               onChange={(event) => onDateToChange(event.target.value)}
