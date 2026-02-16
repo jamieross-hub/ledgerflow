@@ -105,6 +105,9 @@ export function AppLayout() {
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
+  );
 
   const draggingRef = useRef(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -176,6 +179,22 @@ export function AppLayout() {
       document.body.style.overflow = '';
     };
   }, [mobileNavOpen]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    const onViewportChange = (event: MediaQueryListEvent) => {
+      setIsMobileViewport(event.matches);
+    };
+
+    setIsMobileViewport(mediaQuery.matches);
+    mediaQuery.addEventListener('change', onViewportChange);
+
+    return () => {
+      mediaQuery.removeEventListener('change', onViewportChange);
+    };
+  }, []);
+
+  const shouldShowTopbar = collapsed || isMobileViewport;
 
   return (
     <div
@@ -253,51 +272,53 @@ export function AppLayout() {
       </aside>
 
       <div className="workspace">
-        <header className="workspace-topbar">
-          <div className="topbar-left" ref={menuRef}>
-            <button
-              type="button"
-              className="icon-btn mobile-nav-toggle"
-              onClick={() => setMobileNavOpen(true)}
-              aria-label="打开功能抽屉"
-            >
-              ☰
-            </button>
-            {collapsed ? (
-              <>
-                <button
-                  type="button"
-                  className="logo-circle"
-                  onClick={() => setMenuOpen((v) => !v)}
-                  aria-haspopup="menu"
-                  aria-expanded={menuOpen}
-                  aria-label="打开项目菜单"
-                >
-                  👤
-                </button>
-                {menuOpen ? (
-                  <div className="logo-menu" role="menu">
-                    {logoMenuItems.map((item) => (
-                      <Link
-                        key={item.to}
-                        to={item.to}
-                        className="logo-menu-item"
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        <span className="logo-menu-icon">{item.icon}</span> {item.label}
-                      </Link>
-                    ))}
-                  </div>
-                ) : null}
+        {shouldShowTopbar ? (
+          <header className="workspace-topbar">
+            <div className="topbar-left" ref={menuRef}>
+              <button
+                type="button"
+                className="icon-btn mobile-nav-toggle"
+                onClick={() => setMobileNavOpen(true)}
+                aria-label="打开功能抽屉"
+              >
+                ☰
+              </button>
+              {collapsed ? (
+                <>
+                  <button
+                    type="button"
+                    className="logo-circle"
+                    onClick={() => setMenuOpen((v) => !v)}
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpen}
+                    aria-label="打开项目菜单"
+                  >
+                    👤
+                  </button>
+                  {menuOpen ? (
+                    <div className="logo-menu" role="menu">
+                      {logoMenuItems.map((item) => (
+                        <Link
+                          key={item.to}
+                          to={item.to}
+                          className="logo-menu-item"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          <span className="logo-menu-icon">{item.icon}</span> {item.label}
+                        </Link>
+                      ))}
+                    </div>
+                  ) : null}
 
-                <div className="topbar-brand-copy compact">
-                  <h1>LedgerFlow</h1>
-                  <span>智能记账工作台</span>
-                </div>
-              </>
-            ) : null}
-          </div>
-        </header>
+                  <div className="topbar-brand-copy compact">
+                    <h1>LedgerFlow</h1>
+                    <span>智能记账工作台</span>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </header>
+        ) : null}
 
         <main className="content">
           <Outlet />
