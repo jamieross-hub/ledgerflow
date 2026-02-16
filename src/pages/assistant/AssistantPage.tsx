@@ -243,6 +243,61 @@ interface PresetQuestionsCachePayload {
   questions: CachedPresetQuestion[];
 }
 
+function withPresetIds(questions: CachedPresetQuestion[], namespace: string): PresetQuestion[] {
+  return questions.map((item, index) => ({
+    id: `${namespace}-${index}`,
+    label: item.label,
+    prompt: item.prompt
+  }));
+}
+
+function buildPresetQuestionsSignature(transactions: TransactionItem[], categories: Category[]) {
+  const txSignature = transactions
+    .slice(-120)
+    .map((item) => `${item.date}|${item.type}|${item.amount}|${item.categoryId}|${item.note ?? ''}`)
+    .join('~');
+  const categorySignature = categories
+    .map((item) => `${item.id}:${item.name}`)
+    .sort()
+    .join('~');
+  return `${transactions.length}:${categories.length}:${categorySignature}:${txSignature}`;
+}
+
+function readPresetQuestionsCache(signature: string): CachedPresetQuestion[] | null {
+  try {
+    const raw = window.localStorage.getItem(PRESET_QUESTIONS_CACHE_KEY);
+    if (!raw) return null;
+    const payload = JSON.parse(raw) as PresetQuestionsCachePayload;
+    if (
+      !payload ||
+      payload.signature !== signature ||
+      Date.now() - payload.updatedAt > PRESET_QUESTIONS_CACHE_TTL_MS ||
+      !Array.isArray(payload.questions)
+    ) {
+      return null;
+    }
+    return payload.questions.filter(
+      (item): item is CachedPresetQuestion =>
+        Boolean(item) && typeof item.label === 'string' && typeof item.prompt === 'string'
+    );
+  } catch {
+    return null;
+  }
+}
+
+function writePresetQuestionsCache(signature: string, questions: CachedPresetQuestion[]) {
+  try {
+    const payload: PresetQuestionsCachePayload = {
+      signature,
+      updatedAt: Date.now(),
+      questions
+    };
+    window.localStorage.setItem(PRESET_QUESTIONS_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore storage write errors
+  }
+}
+
 function readChatHistory(mode: AssistantMode): ChatHistoryItem[] {
   try {
     const raw = window.sessionStorage.getItem(CHAT_HISTORY_CACHE_KEYS[mode]);
