@@ -448,6 +448,38 @@ export function RepaymentManagementPage() {
     [repaymentAccounts, repaymentAccountBalanceMap]
   );
 
+  const repaymentAccountSummary = useMemo(() => {
+    return repaymentAccountCards.reduce(
+      (sum, account) => {
+        const rawBalance = Number(account.computedBalance ?? 0);
+        if (!Number.isFinite(rawBalance)) {
+          return sum;
+        }
+
+        const normalizedBalance = Math.abs(rawBalance);
+        if (account.type === 'credit' || account.type === 'liability') {
+          return {
+            ...sum,
+            liabilityTotal: sum.liabilityTotal + normalizedBalance
+          };
+        }
+
+        if (account.type === 'receivable') {
+          return {
+            ...sum,
+            receivableTotal: sum.receivableTotal + normalizedBalance
+          };
+        }
+
+        return sum;
+      },
+      { liabilityTotal: 0, receivableTotal: 0 }
+    );
+  }, [repaymentAccountCards]);
+
+  const overviewTotalDebt = debtSummary.totalDebt + repaymentAccountSummary.liabilityTotal;
+  const overviewNetDebt = Math.max(0, overviewTotalDebt - repaymentAccountSummary.receivableTotal);
+
   const pendingDeleteLinkedCount = pendingDeleteAccountId
     ? transactions.filter((item) => item.accountId === pendingDeleteAccountId).length
     : 0;
@@ -811,7 +843,7 @@ export function RepaymentManagementPage() {
             <article className="finance-overview-metric-card">
               <p className="finance-overview-label">总负债</p>
               <p className="finance-overview-value">
-                <span className="finance-overview-number">{debtSummary.totalDebt.toFixed(2)}</span>
+                <span className="finance-overview-number">{overviewTotalDebt.toFixed(2)}</span>
                 <span className="finance-overview-unit">¥</span>
               </p>
             </article>
@@ -842,9 +874,28 @@ export function RepaymentManagementPage() {
                 <span className="finance-overview-unit">/100</span>
               </p>
             </article>
+            <article className="finance-overview-metric-card">
+              <p className="finance-overview-label">应收资产</p>
+              <p className="finance-overview-value">
+                <span className="finance-overview-number">
+                  {repaymentAccountSummary.receivableTotal.toFixed(2)}
+                </span>
+                <span className="finance-overview-unit">¥</span>
+              </p>
+            </article>
+            <article className="finance-overview-metric-card">
+              <p className="finance-overview-label">净负债（扣除应收）</p>
+              <p className="finance-overview-value">
+                <span className="finance-overview-number">{overviewNetDebt.toFixed(2)}</span>
+                <span className="finance-overview-unit">¥</span>
+              </p>
+            </article>
           </div>
           <p className="muted" style={{ margin: '8px 0 0' }}>
-            负债率按“每月最低还款 / 月收入”计算；负债健康度综合负债规模与还款压力。
+            总负债已包含“负债明细 + 还款账户（信用卡/负债）”；净负债会扣除“应收”余额。
+          </p>
+          <p className="muted" style={{ margin: '8px 0 0' }}>
+            负债率按“每月最低还款 / 月收入”计算；负债健康度基于负债明细中的还款压力。
           </p>
           {monthlyIncome <= 0 ? (
             <p className="muted" style={{ margin: '8px 0 0' }}>
