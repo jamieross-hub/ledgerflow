@@ -14,6 +14,29 @@ describe('workbenchUtils', () => {
     expect(result?.transactions[0].note).toBe('午餐');
   });
 
+  it('未来日期的消费应自动归类为预算而非实际支出', () => {
+    const today = new Date();
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 15)
+      .toISOString()
+      .slice(0, 10);
+
+    const result = normalizeAiBill({
+      transactions: [
+        {
+          type: 'expense',
+          amount: '2999',
+          date: nextMonth,
+          note: '下月买手机',
+          category: '购物',
+          account: '',
+          tags: ['计划消费']
+        }
+      ]
+    });
+
+    expect(result?.transactions).toHaveLength(1);
+    expect(result?.transactions[0].type).toBe('budget');
+  });
   it('应兼容图片 OCR 常见金额与日期格式', () => {
     const result = normalizeAiBill({
       transactions: [
