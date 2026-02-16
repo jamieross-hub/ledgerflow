@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import {
   calculateDebtMinimumPayment,
@@ -8,6 +8,7 @@ import {
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useAppPreferences } from '../../shared/store/useAppPreferences';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
+import { Toast } from '../../shared/ui/Toast';
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const REPAYMENT_CACHE_KEY = 'ledgerflow-repayment-advice-cache-v1';
@@ -236,6 +237,12 @@ export function RepaymentManagementPage() {
   const [incomeLoading, setIncomeLoading] = useState(false);
   const [incomeHint, setIncomeHint] = useState('');
   const [debtImagePreview, setDebtImagePreview] = useState('');
+  const [debtFormError, setDebtFormError] = useState('');
+  const [debtToastVisible, setDebtToastVisible] = useState(false);
+  const [addDebtSuccess, setAddDebtSuccess] = useState(false);
+  const [newDebtId, setNewDebtId] = useState('');
+  const [listTransitioning, setListTransitioning] = useState(false);
+  const debtIdsRef = useRef<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const debtSummary = useMemo(
@@ -261,6 +268,41 @@ export function RepaymentManagementPage() {
         })),
     [transactions]
   );
+
+  const isLoanType = debtType === 'loan';
+  const trimmedDebtName = debtName.trim();
+  const balance = Number(debtBalance);
+  const annualRate = Number(debtAnnualRate);
+  const months = Number(debtMonths);
+  const annualRateRaw = debtAnnualRate.trim();
+  const isAnnualRateNumeric = annualRateRaw === '' || /^\d+(\.\d+)?$/.test(annualRateRaw);
+  const canSubmitDebt =
+    trimmedDebtName.length > 0 &&
+    Number.isFinite(balance) &&
+    balance > 0 &&
+    (!isLoanType ||
+      (annualRateRaw.length > 0 &&
+        isAnnualRateNumeric &&
+        Number.isFinite(annualRate) &&
+        annualRate >= 0)) &&
+    (!isLoanType ||
+      (debtMonths.trim().length > 0 &&
+        Number.isFinite(months) &&
+        Number.isInteger(months) &&
+        months > 0));
+
+  useEffect(() => {
+    const previousIds = debtIdsRef.current;
+    const nextIds = debts.map((item) => item.id);
+    const insertedId = nextIds.find((id) => !previousIds.includes(id));
+    if (insertedId) {
+      setNewDebtId(insertedId);
+      setListTransitioning(true);
+      window.setTimeout(() => setNewDebtId(''), 220);
+      window.setTimeout(() => setListTransitioning(false), 220);
+    }
+    debtIdsRef.current = nextIds;
+  }, [debts]);
 
   async function resolveMonthlyIncomeByAi(forceRefresh = false): Promise<number | null> {
     if (incomeSamples.length === 0) {
@@ -342,24 +384,44 @@ export function RepaymentManagementPage() {
 
   function onAddDebt(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const balance = Number(debtBalance);
-    if (!debtName.trim() || !Number.isFinite(balance) || balance <= 0) {
-      setError('请填写有效的负债名称和金额。');
+
+    if (!trimmedDebtName || !debtBalance.trim()) {
+      setDebtFormError('请填写完整的负债名称和剩余本金。');
+      return;
+    }
+    if (!Number.isFinite(balance) || balance <= 0) {
+      setDebtFormError('剩余本金需为大于 0 的数字。');
+      return;
+    }
+    if (isLoanType && !annualRateRaw) {
+      setDebtFormError('请填写年利率。');
+      return;
+    }
+    if (isLoanType && !isAnnualRateNumeric) {
+      setDebtFormError('年利率只能输入数字。');
+      return;
+    }
+    if (isLoanType && (!debtMonths.trim() || !Number.isInteger(months) || months <= 0)) {
+      setDebtFormError('剩余期数需为大于 0 的整数。');
       return;
     }
 
     addDebt({
-      name: debtName.trim(),
+      name: trimmedDebtName,
       type: debtType,
       balance,
-      annualRate: debtType === 'loan' ? Number(debtAnnualRate) || 0 : undefined,
-      remainingMonths: debtType === 'loan' ? Number(debtMonths) || 12 : undefined
+      annualRate: isLoanType ? annualRate : undefined,
+      remainingMonths: isLoanType ? months : undefined
     });
 
     setDebtName('');
     setDebtBalance('');
     setDebtAnnualRate('');
     setDebtMonths('');
+    setDebtFormError('');
+    setDebtToastVisible(true);
+    setAddDebtSuccess(true);
+    window.setTimeout(() => setAddDebtSuccess(false), 800);
     setError('');
   }
 
@@ -585,8 +647,11 @@ export function RepaymentManagementPage() {
             <div className="finance-debt-form-row finance-debt-form-row-primary">
               <input
                 value={debtName}
-                onChange={(event) => setDebtName(event.target.value)}
-                placeholder="负债名称"
+                onChange={(event) => {
+                  setDebtName(event.target.value);
+                  setDebtFormError('');
+                }}
+                placeholder="如 招商银行信用卡"
               />
               <select
                 value={debtType}
@@ -603,42 +668,59 @@ export function RepaymentManagementPage() {
                 min={0}
                 step="0.01"
                 value={debtBalance}
-                onChange={(event) => setDebtBalance(event.target.value)}
-                placeholder="剩余本金"
+                onChange={(event) => {
+                  setDebtBalance(event.target.value);
+                  setDebtFormError('');
+                }}
+                placeholder="如 12000"
               />
               <input
                 type="number"
                 min={0}
                 step="0.01"
                 value={debtAnnualRate}
-                onChange={(event) => setDebtAnnualRate(event.target.value)}
-                placeholder="年化利率%"
-                disabled={debtType !== 'loan'}
+                onChange={(event) => {
+                  setDebtAnnualRate(event.target.value);
+                  setDebtFormError('');
+                }}
+                inputMode="decimal"
+                placeholder="如 15"
+                disabled={!isLoanType}
               />
               <input
                 type="number"
                 min={1}
                 value={debtMonths}
-                onChange={(event) => setDebtMonths(event.target.value)}
-                placeholder="剩余期数"
-                disabled={debtType !== 'loan'}
+                onChange={(event) => {
+                  setDebtMonths(event.target.value);
+                  setDebtFormError('');
+                }}
+                placeholder="如 12"
+                disabled={!isLoanType}
               />
             </div>
+            {debtFormError ? (
+              <p className="muted finance-debt-form-error">{debtFormError}</p>
+            ) : null}
             <div className="finance-debt-form-actions">
-              <button type="submit" className="primary">
-                + 添加负债
+              <button type="submit" className="primary" disabled={!canSubmitDebt}>
+                {addDebtSuccess ? '✔ 已添加' : '+ 添加负债'}
               </button>
             </div>
           </form>
         </div>
 
-        <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+        <div
+          className={`finance-debt-list ${listTransitioning ? 'finance-debt-list-shift' : ''}`}
+          style={{ marginTop: 12, display: 'grid', gap: 8 }}
+        >
           {debts.length === 0 ? <p className="muted">还没有负债记录，先新增一条吧。</p> : null}
           {debts.map((item) => {
             const minimum = calculateDebtMinimumPayment(item);
             return (
               <div
                 key={item.id}
+                className={item.id === newDebtId ? 'finance-debt-item-enter' : ''}
                 style={{
                   border: '1px solid var(--color-border)',
                   borderRadius: 8,
@@ -737,6 +819,13 @@ export function RepaymentManagementPage() {
         </div>
 
         {error ? <p className="muted">{error}</p> : null}
+        <Toast
+          visible={debtToastVisible}
+          message="负债已添加"
+          variant="success"
+          duration={1200}
+          onClose={() => setDebtToastVisible(false)}
+        />
       </section>
     </div>
   );

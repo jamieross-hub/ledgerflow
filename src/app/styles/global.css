@@ -6192,6 +6192,34 @@ body.exchange-resizing {
   justify-content: flex-end;
 }
 
+.finance-debt-form-error {
+  margin: -8px 0 0;
+}
+
+.finance-debt-list {
+  transition: transform 0.2s ease;
+}
+
+.finance-debt-list-shift {
+  transform: translateY(6px);
+}
+
+.finance-debt-item-enter {
+  animation: finance-debt-item-enter 0.2s ease both;
+}
+
+@keyframes finance-debt-item-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .finance-feed-form-grid {
   display: grid;
   gap: 8px;
