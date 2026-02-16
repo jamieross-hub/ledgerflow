@@ -358,6 +358,7 @@ export function TransactionsPage() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const importSourceRef = useRef<BillSource | null>(null);
+  const bulkAiRecategorizingRef = useRef(false);
 
   const dateRange = useMemo(() => resolveDateRange(filters), [filters]);
 
@@ -882,34 +883,39 @@ export function TransactionsPage() {
   };
 
   const handleBulkAiRecategorize = async () => {
-    if (selectedIds.length === 0 || bulkAiRecategorizing) {
+    if (selectedIds.length === 0 || bulkAiRecategorizingRef.current) {
       return;
     }
 
+    bulkAiRecategorizingRef.current = true;
     setBulkAiRecategorizing(true);
     let changed = 0;
     let fallbackChanged = 0;
 
-    for (const id of selectedIds) {
-      const tx = transactions.find((item) => item.id === id);
-      if (!tx) continue;
-      const result = await recategorizeByAi(tx);
-      if (result === 'changed') {
-        changed += 1;
+    try {
+      for (const id of selectedIds) {
+        const tx = transactions.find((item) => item.id === id);
+        if (!tx) continue;
+        const result = await recategorizeByAi(tx);
+        if (result === 'changed') {
+          changed += 1;
+        }
+        if (result === 'fallback-changed') {
+          fallbackChanged += 1;
+        }
       }
-      if (result === 'fallback-changed') {
-        fallbackChanged += 1;
-      }
-    }
 
-    if (changed > 0) {
-      showToast(`已按大模型建议完成 ${changed} 条交易重分类。`, 'success');
-    } else if (fallbackChanged > 0) {
-      showToast(`已按账单信息完成 ${fallbackChanged} 条交易重分类。`, 'success');
-    } else {
-      showToast('AI 分类建议未变化，无需替换。', 'warning');
+      if (changed > 0) {
+        showToast(`已按大模型建议完成 ${changed} 条交易重分类。`, 'success');
+      } else if (fallbackChanged > 0) {
+        showToast(`已按账单信息完成 ${fallbackChanged} 条交易重分类。`, 'success');
+      } else {
+        showToast('AI 分类建议未变化，无需替换。', 'warning');
+      }
+    } finally {
+      bulkAiRecategorizingRef.current = false;
+      setBulkAiRecategorizing(false);
     }
-    setBulkAiRecategorizing(false);
   };
 
   const hasQuickFilters =
@@ -1164,6 +1170,7 @@ export function TransactionsPage() {
         onDeleteSelected={handleDeleteSelected}
         onBulkEditCategory={handleBulkEditCategory}
         onBulkAiRecategorize={() => void handleBulkAiRecategorize()}
+        bulkAiRecategorizing={bulkAiRecategorizing}
         onBulkEditAccount={handleBulkEditAccount}
         categoryOptions={categories.map((item) => ({ id: item.id, name: item.name }))}
         accountOptions={accounts.map((item) => ({ id: item.id, name: item.name }))}

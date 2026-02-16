@@ -97,6 +97,7 @@ interface TransactionTableProps {
   onDeleteSelected: () => void;
   onBulkEditCategory: (categoryId: string) => void;
   onBulkAiRecategorize: () => void;
+  bulkAiRecategorizing: boolean;
   onBulkEditAccount: (accountId: string) => void;
   categoryOptions: Array<{ id: string; name: string }>;
   accountOptions: Array<{ id: string; name: string }>;
@@ -146,6 +147,7 @@ export function TransactionTable({
   onDeleteSelected,
   onBulkEditCategory,
   onBulkAiRecategorize,
+  bulkAiRecategorizing,
   onBulkEditAccount,
   categoryOptions,
   accountOptions,
@@ -349,8 +351,12 @@ export function TransactionTable({
                     ))}
                   </select>
                 </label>
-                <button type="button" onClick={onBulkAiRecategorize}>
-                  🤖 AI 重分类
+                <button
+                  type="button"
+                  onClick={onBulkAiRecategorize}
+                  disabled={bulkAiRecategorizing}
+                >
+                  {bulkAiRecategorizing ? '🤖 AI 重分类中…' : '🤖 AI 重分类'}
                 </button>
                 <label className="transaction-bulk-select">
                   <span>批量账户</span>
