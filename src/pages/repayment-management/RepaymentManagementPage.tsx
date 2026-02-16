@@ -721,10 +721,12 @@ export function RepaymentManagementPage() {
               <p className="muted finance-debt-form-error">{debtFormError}</p>
             ) : null}
             <div className="finance-debt-form-actions">
-              <button type="submit" className="primary" disabled={!canSubmitDebt}>
+              <button
+                type="submit"
+                className="primary finance-debt-submit"
+                disabled={!canSubmitDebt}
+              >
                 {addDebtSuccess ? '✔ 已添加' : '+ 添加负债'}
-              <button type="submit" className="primary finance-debt-submit">
-                + 添加负债
               </button>
             </div>
           </form>
