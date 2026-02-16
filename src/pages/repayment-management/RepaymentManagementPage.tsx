@@ -1,6 +1,11 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import {
+  getAccountDisplayIcon,
+  getAccountTypeLabel
+} from '../../features/accounts/model/accountTypes';
+import type { AccountType } from '../../features/accounts/model/accountTypes';
+import {
   calculateDebtHealthScore,
   calculateDebtMinimumPayment,
   calculateDebtSummary,
@@ -9,12 +14,24 @@ import {
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useAppPreferences } from '../../shared/store/useAppPreferences';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
+import { formatCurrencyFixed2 } from '../../shared/lib/format';
+import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
+import { EmptyState } from '../../shared/ui/EmptyState';
 import { Toast } from '../../shared/ui/Toast';
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const REPAYMENT_CACHE_KEY = 'ledgerflow-repayment-advice-cache-v1';
 const MONTHLY_INCOME_CACHE_KEY = 'ledgerflow-repayment-income-cache-v1';
 const INCOME_SAMPLE_LIMIT = 120;
+const REPAYMENT_ACCOUNT_TYPES: AccountType[] = ['credit', 'liability', 'receivable'];
+
+function normalizeNameInput(raw: string) {
+  return raw.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function isValidName(name: string) {
+  return name.length >= 1 && name.length <= 24;
+}
 
 interface RepaymentAdviceCacheItem {
   key: string;
@@ -303,6 +320,10 @@ export function RepaymentManagementPage() {
     useAppPreferences();
   const { baseUrl, apiKey, model } = useAiSettings();
   const transactions = useFinanceStore((state) => state.transactions);
+  const accounts = useFinanceStore((state) => state.accounts);
+  const addAccount = useFinanceStore((state) => state.addAccount);
+  const updateAccountBalance = useFinanceStore((state) => state.updateAccountBalance);
+  const removeAccount = useFinanceStore((state) => state.removeAccount);
   const [error, setError] = useState('');
   const [debtName, setDebtName] = useState('');
   const [debtType, setDebtType] = useState<DebtType>('credit-card');
@@ -323,6 +344,12 @@ export function RepaymentManagementPage() {
   const [newDebtId, setNewDebtId] = useState('');
   const [listTransitioning, setListTransitioning] = useState(false);
   const [simulatorExtraPayment, setSimulatorExtraPayment] = useState('1000');
+  const [repaymentAccountName, setRepaymentAccountName] = useState('');
+  const [repaymentAccountType, setRepaymentAccountType] = useState<AccountType | ''>('credit');
+  const [repaymentAccountInitialBalance, setRepaymentAccountInitialBalance] = useState('0');
+  const [repaymentAccountError, setRepaymentAccountError] = useState('');
+  const [pendingDeleteAccountId, setPendingDeleteAccountId] = useState<string | null>(null);
+  const [editingAccountBalances, setEditingAccountBalances] = useState<Record<string, string>>({});
   const debtIdsRef = useRef<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -387,6 +414,44 @@ export function RepaymentManagementPage() {
     [transactions]
   );
 
+  const repaymentAccounts = useMemo(
+    () => accounts.filter((item) => item.type && REPAYMENT_ACCOUNT_TYPES.includes(item.type)),
+    [accounts]
+  );
+
+  const repaymentAccountBalanceMap = useMemo(() => {
+    const map = new Map<string, number>();
+    repaymentAccounts.forEach((account) => {
+      const base = Number(account.initialBalance ?? 0);
+      map.set(account.id, Number.isFinite(base) ? base : 0);
+    });
+
+    transactions.forEach((tx) => {
+      const amount = Number(tx.amount);
+      if (!tx.accountId || !Number.isFinite(amount) || !map.has(tx.accountId)) {
+        return;
+      }
+      const prev = map.get(tx.accountId) || 0;
+      const next = tx.type === 'income' ? prev + amount : prev - amount;
+      map.set(tx.accountId, next);
+    });
+
+    return map;
+  }, [repaymentAccounts, transactions]);
+
+  const repaymentAccountCards = useMemo(
+    () =>
+      repaymentAccounts.map((item) => ({
+        ...item,
+        computedBalance: repaymentAccountBalanceMap.get(item.id) ?? Number(item.balance ?? 0)
+      })),
+    [repaymentAccounts, repaymentAccountBalanceMap]
+  );
+
+  const pendingDeleteLinkedCount = pendingDeleteAccountId
+    ? transactions.filter((item) => item.accountId === pendingDeleteAccountId).length
+    : 0;
+
   const isLoanType = debtType === 'loan';
   const trimmedDebtName = debtName.trim();
   const balance = Number(debtBalance);
@@ -408,6 +473,48 @@ export function RepaymentManagementPage() {
         Number.isFinite(months) &&
         Number.isInteger(months) &&
         months > 0));
+
+  const submitRepaymentAccount = (e: FormEvent) => {
+    e.preventDefault();
+    const normalized = normalizeNameInput(repaymentAccountName);
+    if (!isValidName(normalized)) {
+      setRepaymentAccountError('账户名称需为 1-24 个字符，且不能包含 < 或 >。');
+      return;
+    }
+    if (!repaymentAccountType || !REPAYMENT_ACCOUNT_TYPES.includes(repaymentAccountType)) {
+      setRepaymentAccountError('请选择信用卡 / 负债 / 应收账户类型。');
+      return;
+    }
+    const initialBalance = Number(repaymentAccountInitialBalance || '0');
+    addAccount(
+      normalized,
+      repaymentAccountType,
+      Number.isFinite(initialBalance) ? initialBalance : 0
+    );
+    setRepaymentAccountName('');
+    setRepaymentAccountType('credit');
+    setRepaymentAccountInitialBalance('0');
+    setRepaymentAccountError('');
+  };
+
+  const applyRepaymentAccountBalance = (accountId: string) => {
+    const current = repaymentAccounts.find((item) => item.id === accountId);
+    if (!current) {
+      return;
+    }
+    const raw =
+      editingAccountBalances[accountId] ??
+      Number(
+        repaymentAccountBalanceMap.get(accountId) ?? current.balance ?? current.initialBalance ?? 0
+      ).toFixed(2);
+    const parsed = Number(raw || '0');
+    if (!Number.isFinite(parsed)) {
+      return;
+    }
+    const normalized = Math.round(parsed * 100) / 100;
+    updateAccountBalance(accountId, normalized);
+    setEditingAccountBalances((prev) => ({ ...prev, [accountId]: normalized.toFixed(2) }));
+  };
 
   useEffect(() => {
     const previousIds = debtIdsRef.current;
@@ -1019,6 +1126,121 @@ export function RepaymentManagementPage() {
           ) : null}
         </div>
 
+        <section className="panel" style={{ marginTop: 16 }}>
+          <h3 style={{ marginTop: 0 }}>🏦 还款账户管理</h3>
+          <p className="muted" style={{ marginTop: 0 }}>
+            账户管理中的「信用卡 / 负债 / 应收」已统一迁移到这里维护，可直接校准余额。
+          </p>
+
+          <form onSubmit={submitRepaymentAccount} className="account-create-form">
+            <div className="account-create-grid">
+              <div className="field">
+                <label>账户名称</label>
+                <input
+                  placeholder="如：招商信用卡 / 花呗 / 朋友借款"
+                  value={repaymentAccountName}
+                  onChange={(e) => {
+                    setRepaymentAccountName(e.target.value);
+                    if (repaymentAccountError) setRepaymentAccountError('');
+                  }}
+                  maxLength={24}
+                />
+              </div>
+              <div className="field">
+                <label>账户类型</label>
+                <select
+                  value={repaymentAccountType}
+                  onChange={(e) => setRepaymentAccountType(e.target.value as AccountType | '')}
+                >
+                  <option value="credit">💳 信用卡</option>
+                  <option value="liability">📄 负债</option>
+                  <option value="receivable">📥 应收</option>
+                </select>
+              </div>
+              <div className="field">
+                <label>初始余额</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={repaymentAccountInitialBalance}
+                  onChange={(e) => setRepaymentAccountInitialBalance(e.target.value)}
+                />
+              </div>
+              <button className="primary account-create-submit" type="submit">
+                添加账户
+              </button>
+            </div>
+          </form>
+          {repaymentAccountError ? <small className="error">{repaymentAccountError}</small> : null}
+
+          {repaymentAccountCards.length === 0 ? (
+            <EmptyState
+              title="暂无还款账户"
+              description="可新增信用卡、负债或应收账户，统一在还款管理中维护。"
+              icon="💳"
+            />
+          ) : (
+            <div className="account-card-grid">
+              {repaymentAccountCards.map((item) => {
+                const balanceValue =
+                  editingAccountBalances[item.id] ?? Number(item.computedBalance || 0).toFixed(2);
+                return (
+                  <article key={item.id} className="account-card">
+                    <header className="account-card-head">
+                      <span className="account-card-icon" aria-hidden="true">
+                        {getAccountDisplayIcon(item.name, item.type)}
+                      </span>
+                      <div className="account-card-main">
+                        <strong>{item.name}</strong>
+                        {item.type ? (
+                          <span className="account-type-badge">
+                            {getAccountTypeLabel(item.type)}
+                          </span>
+                        ) : null}
+                        <small>初始：{formatCurrencyFixed2(item.initialBalance ?? 0)}</small>
+                      </div>
+                      <div className="account-card-balance-wrap">
+                        <span className="mono-inline account-card-balance">
+                          {formatCurrencyFixed2(item.computedBalance)}
+                        </span>
+                        <small>按交易自动汇总</small>
+                      </div>
+                    </header>
+
+                    <div className="account-card-actions">
+                      <div className="field account-balance-field">
+                        <label>校准余额</label>
+                        <input
+                          className="account-balance-input"
+                          type="number"
+                          placeholder="输入余额"
+                          value={balanceValue}
+                          onChange={(e) =>
+                            setEditingAccountBalances((prev) => ({
+                              ...prev,
+                              [item.id]: e.target.value
+                            }))
+                          }
+                        />
+                      </div>
+                      <button type="button" onClick={() => applyRepaymentAccountBalance(item.id)}>
+                        保存校准
+                      </button>
+                      <button
+                        className="danger"
+                        type="button"
+                        onClick={() => setPendingDeleteAccountId(item.id)}
+                      >
+                        删除
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
         {error ? <p className="muted">{error}</p> : null}
         <Toast
           visible={debtToastVisible}
@@ -1028,6 +1250,25 @@ export function RepaymentManagementPage() {
           onClose={() => setDebtToastVisible(false)}
         />
       </section>
+
+      <ConfirmDialog
+        open={Boolean(pendingDeleteAccountId)}
+        title="确认删除账户"
+        description={
+          pendingDeleteLinkedCount > 0
+            ? `该账户下存在 ${pendingDeleteLinkedCount} 条交易记录，删除后仅移除账户本身。是否继续？`
+            : '删除账户后将无法恢复，是否继续？'
+        }
+        confirmText="确认删除"
+        cancelText="取消"
+        danger
+        onConfirm={() => {
+          if (!pendingDeleteAccountId) return;
+          removeAccount(pendingDeleteAccountId);
+          setPendingDeleteAccountId(null);
+        }}
+        onCancel={() => setPendingDeleteAccountId(null)}
+      />
     </div>
   );
 }
