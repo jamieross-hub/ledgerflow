@@ -3440,6 +3440,16 @@ small.mono {
   cursor: not-allowed;
 }
 
+.chat-send-btn-stop {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger);
+}
+
+.chat-send-btn-stop:hover:not(:disabled) {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger);
+}
+
 .chat-latest-bill {
   max-width: 780px;
   width: 100%;

@@ -75,6 +75,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
   const enableRerankModel = useAiSettings((s) => s.enableRerankModel);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const recognizeAbortRef = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<WorkbenchStatus>('idle');
   const [textInput, setTextInput] = useState('');
   const [imageDataUrls, setImageDataUrls] = useState<string[]>([]);
@@ -238,6 +239,9 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       status: 'info',
       message: `模型配置：对话=${input.model}；嵌入=${enableEmbeddingModel ? `开启(${embeddingModel || '未设置'})` : '关闭'}；重排序=${enableRerankModel ? `开启(${rerankModel || '未设置'})` : '关闭'}`
     });
+    const controller = new AbortController();
+    recognizeAbortRef.current = controller;
+
     try {
       const basePrompt =
         input.sceneMode === 'assistant' ? ANALYSIS_AGENT_PROMPT : JSON_AGENT_PROMPT;
@@ -247,7 +251,8 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
         apiKey: input.apiKey,
         model: input.model,
         systemPrompt: prompt,
-        messages: [{ role: 'user', text: cleanPrompt, imageDataUrls }]
+        messages: [{ role: 'user', text: cleanPrompt, imageDataUrls }],
+        signal: controller.signal
       });
       setRawContent(reply.content);
       setRawReasoning(reply.reasoning || '');
@@ -284,10 +289,19 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
         });
       }
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setStatus(hasInput ? 'ready' : 'idle');
+        addLog({ action: 'assistant.recognize', status: 'info', message: '用户已停止本次回答' });
+        return;
+      }
       const message = err instanceof Error ? mapAssistantErrorMessage(err.message) : '识别失败';
       setError(message);
       setStatus('error');
       addLog({ action: 'assistant.recognize', status: 'error', message });
+    } finally {
+      if (recognizeAbortRef.current === controller) {
+        recognizeAbortRef.current = null;
+      }
     }
   };
 
@@ -467,6 +481,8 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
   };
 
   const resetWorkbench = () => {
+    recognizeAbortRef.current?.abort();
+    recognizeAbortRef.current = null;
     setTextInput('');
     setImageDataUrls([]);
     setEntries([]);
@@ -475,6 +491,11 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     setLastUsage(null);
     setError('');
     setStatus('idle');
+  };
+
+  const stopRecognize = () => {
+    if (status !== 'recognizing') return;
+    recognizeAbortRef.current?.abort();
   };
 
   return {
@@ -504,6 +525,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     handleLoadModels,
     handleRecognize,
     handleRecognizeWithPrompt,
+    stopRecognize,
     updateEntry,
     removeEntry,
     saveSelected,
