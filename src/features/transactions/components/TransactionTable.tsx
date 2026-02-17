@@ -40,6 +40,7 @@ export interface TransactionQuickFilters {
   amountMax: string;
   tags: string;
   merchant: string;
+  location: string;
   orderNo: string;
   merchantOrderNo: string;
   note: string;
@@ -600,9 +601,6 @@ export function TransactionTable({
                             value={quickFilters.amountMin}
                             onChange={(event) => {
                               onQuickFilterChange('amountMin', event.target.value);
-                              if (quickFilters.amountMax) {
-                                onQuickFilterChange('amountMax', '');
-                              }
                             }}
                             placeholder="最小金额"
                           />
