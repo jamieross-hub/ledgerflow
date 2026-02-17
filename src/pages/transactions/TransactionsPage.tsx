@@ -137,8 +137,6 @@ const COLUMN_MIN_WIDTHS: Record<TransactionColumnKey, number> = {
 };
 const COLUMN_MAX_WIDTH = 640;
 
-const BULK_AI_RECATEGORIZE_CONCURRENCY = 4;
-
 const IMPORT_CATEGORY_RULES: Array<{ pattern: RegExp; names: string[] }> = [
   { pattern: /工资|薪资|salary|payroll|奖金/i, names: ['工资', '收入'] },
   {
@@ -334,6 +332,7 @@ export function TransactionsPage() {
   const aiBaseUrl = useAiSettings((s) => s.baseUrl);
   const aiApiKey = useAiSettings((s) => s.apiKey);
   const aiModel = useAiSettings((s) => s.model);
+  const bulkRecategorizeConcurrency = useAiSettings((s) => s.bulkRecategorizeConcurrency);
 
   const {
     filters,
@@ -1073,7 +1072,7 @@ export function TransactionsPage() {
 
     try {
       const workers = Array.from({
-        length: Math.min(BULK_AI_RECATEGORIZE_CONCURRENCY, selectedTransactions.length)
+        length: Math.min(bulkRecategorizeConcurrency, selectedTransactions.length)
       }).map(() => runWorker());
       await Promise.all(workers);
 
