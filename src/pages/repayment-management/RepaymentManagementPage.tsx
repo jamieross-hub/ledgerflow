@@ -59,6 +59,14 @@ type ParsedDebtItem = {
   remainingMonths?: number;
 };
 
+type RepaymentStrategyType = 'avalanche' | 'snowball' | 'ladder';
+
+const REPAYMENT_STRATEGY_LABELS: Record<RepaymentStrategyType, string> = {
+  avalanche: '雪崩法（先高利率）',
+  snowball: '雪球法（先小余额）',
+  ladder: '阶梯法（利率与余额加权）'
+};
+
 function buildRepaymentSnapshotKey(input: {
   monthlyIncome: number;
   debts: {
@@ -243,6 +251,23 @@ function getDebtAssumedAnnualRate(type: DebtType, annualRate?: number): number {
   return type === 'credit-card' ? 18 : 12;
 }
 
+function getStrategySortedDebts<T extends { annualRate: number; balance: number }>(
+  debts: T[],
+  strategy: RepaymentStrategyType
+): T[] {
+  if (strategy === 'snowball') {
+    return [...debts].sort((a, b) => a.balance - b.balance || b.annualRate - a.annualRate);
+  }
+  if (strategy === 'ladder') {
+    return [...debts].sort((a, b) => {
+      const scoreA = a.annualRate * 0.65 + (1 / Math.max(1, a.balance)) * 1000;
+      const scoreB = b.annualRate * 0.65 + (1 / Math.max(1, b.balance)) * 1000;
+      return scoreB - scoreA;
+    });
+  }
+  return [...debts].sort((a, b) => b.annualRate - a.annualRate || a.balance - b.balance);
+}
+
 function simulateRepaymentPlan(input: {
   debts: {
     id: string;
@@ -252,6 +277,7 @@ function simulateRepaymentPlan(input: {
     annualRate?: number;
   }[];
   extraPayment: number;
+  strategy: RepaymentStrategyType;
 }): { months: number; totalInterest: number } {
   const snapshot = input.debts
     .map((item) => ({
@@ -300,8 +326,8 @@ function simulateRepaymentPlan(input: {
       totalPaymentBudget -= minPay;
     }
 
-    const sortedByRate = [...snapshot].sort((a, b) => b.annualRate - a.annualRate);
-    for (const debt of sortedByRate) {
+    const strategySortedDebts = getStrategySortedDebts(snapshot, input.strategy);
+    for (const debt of strategySortedDebts) {
       if (debt.balance <= 0 || totalPaymentBudget <= 0) continue;
       const extra = Math.min(debt.balance, totalPaymentBudget);
       debt.balance -= extra;
@@ -330,6 +356,8 @@ export function RepaymentManagementPage() {
   const [debtBalance, setDebtBalance] = useState('');
   const [debtAnnualRate, setDebtAnnualRate] = useState('');
   const [debtMonths, setDebtMonths] = useState('');
+  const [debtBillDay, setDebtBillDay] = useState('');
+  const [debtRepaymentDay, setDebtRepaymentDay] = useState('');
   const [repaymentAdvice, setRepaymentAdvice] = useState('');
   const [repaymentReasoning, setRepaymentReasoning] = useState('');
   const [repaymentLoading, setRepaymentLoading] = useState(false);
@@ -371,31 +399,48 @@ export function RepaymentManagementPage() {
   }, [debtSummary.totalDebt, monthlyIncome]);
 
   const repaymentPriority = useMemo(() => {
-    return debts
-      .map((item) => ({
-        id: item.id,
-        name: item.name,
-        balance: item.balance,
-        type: item.type,
-        annualRate: getDebtAssumedAnnualRate(item.type, item.annualRate),
-        minimumPayment: calculateDebtMinimumPayment(item)
-      }))
-      .sort((a, b) => {
-        if (b.annualRate !== a.annualRate) return b.annualRate - a.annualRate;
-        return b.minimumPayment - a.minimumPayment;
-      });
+    const ranked = debts
+      .map((item) => {
+        const annualRate = getDebtAssumedAnnualRate(item.type, item.annualRate);
+        const balance = Math.max(0, item.balance);
+        return {
+          id: item.id,
+          name: item.name,
+          balance,
+          type: item.type,
+          annualRate,
+          minimumPayment: calculateDebtMinimumPayment(item),
+          priorityScore: annualRate * 0.7 + Math.log10(balance + 1) * 15
+        };
+      })
+      .sort((a, b) => b.priorityScore - a.priorityScore || b.annualRate - a.annualRate);
+
+    return ranked.map((item, index) => ({
+      ...item,
+      recommendationTone: index === 0 ? 'danger' : index <= 2 ? 'warning' : 'safe'
+    }));
   }, [debts]);
 
   const simulatorResult = useMemo(() => {
     const extraPayment = Math.max(0, Number(simulatorExtraPayment) || 0);
-    const baseline = simulateRepaymentPlan({ debts, extraPayment: 0 });
-    const accelerated = simulateRepaymentPlan({ debts, extraPayment });
+    const strategyComparison = (Object.keys(REPAYMENT_STRATEGY_LABELS) as RepaymentStrategyType[])
+      .map((strategy) => {
+        const baseline = simulateRepaymentPlan({ debts, extraPayment: 0, strategy });
+        const accelerated = simulateRepaymentPlan({ debts, extraPayment, strategy });
+        return {
+          strategy,
+          baseline,
+          accelerated,
+          savedMonths: Math.max(0, baseline.months - accelerated.months),
+          savedInterest: Math.max(0, baseline.totalInterest - accelerated.totalInterest)
+        };
+      })
+      .sort((a, b) => b.savedInterest - a.savedInterest || b.savedMonths - a.savedMonths);
+
     return {
-      baseline,
-      accelerated,
       extraPayment,
-      savedMonths: Math.max(0, baseline.months - accelerated.months),
-      savedInterest: Math.max(0, baseline.totalInterest - accelerated.totalInterest)
+      strategyComparison,
+      best: strategyComparison[0]
     };
   }, [debts, simulatorExtraPayment]);
 
@@ -479,6 +524,26 @@ export function RepaymentManagementPage() {
 
   const overviewTotalDebt = debtSummary.totalDebt + repaymentAccountSummary.liabilityTotal;
   const overviewNetDebt = Math.max(0, overviewTotalDebt - repaymentAccountSummary.receivableTotal);
+  const pressurePercent = debtSummary.pressureRatio * 100;
+  const pressureRingPercent = Math.min(100, Math.max(0, pressurePercent));
+
+  const repaymentCalendarReminders = useMemo(() => {
+    const today = new Date().getDate();
+    return debts
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        billDay: item.billDay,
+        repaymentDay: item.repaymentDay,
+        minimumPayment: calculateDebtMinimumPayment(item),
+        dueInDays:
+          typeof item.repaymentDay === 'number'
+            ? (item.repaymentDay - today + 31) % 31
+            : Number.POSITIVE_INFINITY
+      }))
+      .filter((item) => Number.isFinite(item.dueInDays))
+      .sort((a, b) => a.dueInDays - b.dueInDays);
+  }, [debts]);
 
   const pendingDeleteLinkedCount = pendingDeleteAccountId
     ? transactions.filter((item) => item.accountId === pendingDeleteAccountId).length
@@ -490,11 +555,20 @@ export function RepaymentManagementPage() {
   const annualRate = Number(debtAnnualRate);
   const months = Number(debtMonths);
   const annualRateRaw = debtAnnualRate.trim();
+  const billDay = Number(debtBillDay);
+  const repaymentDay = Number(debtRepaymentDay);
   const isAnnualRateNumeric = annualRateRaw === '' || /^\d+(\.\d+)?$/.test(annualRateRaw);
+  const billDayValid =
+    debtBillDay.trim().length === 0 || (Number.isInteger(billDay) && billDay >= 1 && billDay <= 31);
+  const repaymentDayValid =
+    debtRepaymentDay.trim().length === 0 ||
+    (Number.isInteger(repaymentDay) && repaymentDay >= 1 && repaymentDay <= 31);
   const canSubmitDebt =
     trimmedDebtName.length > 0 &&
     Number.isFinite(balance) &&
     balance > 0 &&
+    billDayValid &&
+    repaymentDayValid &&
     (!isLoanType ||
       (annualRateRaw.length > 0 &&
         isAnnualRateNumeric &&
@@ -658,6 +732,10 @@ export function RepaymentManagementPage() {
       setDebtFormError('“年化利率(%)”只能输入数字。');
       return;
     }
+    if (!billDayValid || !repaymentDayValid) {
+      setDebtFormError('账单日和还款日需在 1~31 之间，可留空。');
+      return;
+    }
     if (isLoanType && (!debtMonths.trim() || !Number.isInteger(months) || months <= 0)) {
       setDebtFormError('“剩余期数(月)”需为大于 0 的整数。');
       return;
@@ -668,13 +746,17 @@ export function RepaymentManagementPage() {
       type: debtType,
       balance,
       annualRate: isLoanType ? annualRate : undefined,
-      remainingMonths: isLoanType ? months : undefined
+      remainingMonths: isLoanType ? months : undefined,
+      billDay: debtBillDay.trim().length > 0 ? billDay : undefined,
+      repaymentDay: debtRepaymentDay.trim().length > 0 ? repaymentDay : undefined
     });
 
     setDebtName('');
     setDebtBalance('');
     setDebtAnnualRate('');
     setDebtMonths('');
+    setDebtBillDay('');
+    setDebtRepaymentDay('');
     setDebtFormError('');
     setDebtToastVisible(true);
     setAddDebtSuccess(true);
@@ -839,6 +921,41 @@ export function RepaymentManagementPage() {
 
         <div className="card finance-overview-panel" style={{ marginTop: 12, padding: 12 }}>
           <h3 style={{ marginTop: 0 }}>📊 负债压力总览</h3>
+          <div className="finance-overview-hero">
+            <div
+              className="finance-pressure-ring"
+              style={{
+                background: `conic-gradient(var(--color-danger) 0 ${pressureRingPercent}%, var(--color-bg-subtle) ${pressureRingPercent}% 100%)`
+              }}
+              aria-label="负债率环形图"
+            >
+              <span>{pressurePercent.toFixed(1)}%</span>
+            </div>
+            <div className="finance-overview-bars" aria-label="关键指标柱状图">
+              <div className="finance-overview-bar-row">
+                <span>最低还款额</span>
+                <div>
+                  <i
+                    style={{
+                      width: `${Math.min(100, (debtSummary.totalMinimumPayment / Math.max(1, monthlyIncome || debtSummary.totalMinimumPayment)) * 100)}%`
+                    }}
+                  />
+                </div>
+                <strong>¥{debtSummary.totalMinimumPayment.toFixed(0)}</strong>
+              </div>
+              <div className="finance-overview-bar-row">
+                <span>总负债</span>
+                <div>
+                  <i
+                    style={{
+                      width: `${Math.min(100, (overviewTotalDebt / Math.max(1, monthlyIncome * 12 || overviewTotalDebt)) * 100)}%`
+                    }}
+                  />
+                </div>
+                <strong>¥{overviewTotalDebt.toFixed(0)}</strong>
+              </div>
+            </div>
+          </div>
           <div className="finance-overview-grid finance-overview-grid-strong">
             <article className="finance-overview-metric-card">
               <p className="finance-overview-label">总负债</p>
@@ -1046,11 +1163,37 @@ export function RepaymentManagementPage() {
                 disabled={!isLoanType}
                 aria-label="剩余期数"
               />
+              <input
+                className="finance-debt-form-control"
+                type="number"
+                min={1}
+                max={31}
+                value={debtBillDay}
+                onChange={(event) => {
+                  setDebtBillDay(event.target.value);
+                  setDebtFormError('');
+                }}
+                placeholder="账单日（1-31，可选）"
+                aria-label="账单日"
+              />
+              <input
+                className="finance-debt-form-control"
+                type="number"
+                min={1}
+                max={31}
+                value={debtRepaymentDay}
+                onChange={(event) => {
+                  setDebtRepaymentDay(event.target.value);
+                  setDebtFormError('');
+                }}
+                placeholder="还款日（1-31，可选）"
+                aria-label="还款日"
+              />
             </div>
             <p className="muted finance-debt-form-helper">
               {isLoanType
-                ? '当前为“贷款”类型：请填写年化利率(%)与剩余期数(月)，系统会更准确计算最低还款与压力。'
-                : '当前为“非贷款”类型：可先只填名称、类型、剩余本金；利率与期数可留空。'}
+                ? '当前为“贷款”类型：请填写年化利率(%)与剩余期数(月)，并建议补充账单日/还款日。'
+                : '当前为“非贷款”类型：可先填名称、类型、剩余本金，再补充账单日/还款日。'}
             </p>
             {debtFormError ? (
               <p className="muted finance-debt-form-error">{debtFormError}</p>
@@ -1089,7 +1232,8 @@ export function RepaymentManagementPage() {
                         : '贷款'}
                   </strong>
                   <p className="muted" style={{ margin: 0 }}>
-                    剩余本金 ¥{item.balance.toFixed(2)} · 最低还款 ¥{minimum.toFixed(2)}
+                    剩余本金 ¥{item.balance.toFixed(2)} · 最低还款 ¥{minimum.toFixed(2)} · 账单日{' '}
+                    {item.billDay || '--'} · 还款日 {item.repaymentDay || '--'}
                   </p>
                 </div>
                 <button type="button" onClick={() => removeDebt(item.id)}>
@@ -1116,9 +1260,12 @@ export function RepaymentManagementPage() {
               ) : (
                 <ol style={{ margin: 0, paddingInlineStart: 18 }}>
                   {repaymentPriority.map((item) => (
-                    <li key={item.id} style={{ marginBottom: 4 }}>
-                      {item.name}（年化参考 {item.annualRate.toFixed(1)}%，最低 ¥
-                      {item.minimumPayment.toFixed(0)}）
+                    <li
+                      key={item.id}
+                      className={`finance-priority-item finance-priority-${item.recommendationTone}`}
+                    >
+                      {item.name}（年化参考 {item.annualRate.toFixed(1)}%，余额 ¥
+                      {item.balance.toFixed(0)}，最低 ¥{item.minimumPayment.toFixed(0)}）
                     </li>
                   ))}
                 </ol>
@@ -1135,7 +1282,7 @@ export function RepaymentManagementPage() {
           </div>
 
           <div className="finance-ai-insight-card" style={{ marginTop: 10 }}>
-            <h4 style={{ margin: '0 0 8px 0' }}>还款模拟器</h4>
+            <h4 style={{ margin: '0 0 8px 0' }}>还款模拟器（策略对比）</h4>
             <div className="finance-simulator-row">
               <label htmlFor="simulator-extra">每月额外还款金额（¥）</label>
               <input
@@ -1148,10 +1295,48 @@ export function RepaymentManagementPage() {
                 onChange={(event) => setSimulatorExtraPayment(event.target.value)}
               />
             </div>
-            <p className="muted" style={{ margin: '8px 0 0' }}>
-              预计提前还清 <strong>{simulatorResult.savedMonths}</strong> 个月，预计节省利息
-              <strong> ¥{simulatorResult.savedInterest.toFixed(2)}</strong>。
-            </p>
+            {simulatorResult.best ? (
+              <p className="muted" style={{ margin: '8px 0 0' }}>
+                最优策略：
+                <strong>{REPAYMENT_STRATEGY_LABELS[simulatorResult.best.strategy]}</strong>
+                ，预计提前还清
+                <strong> {simulatorResult.best.savedMonths}</strong> 个月，预计节省利息
+                <strong> ¥{simulatorResult.best.savedInterest.toFixed(2)}</strong>。
+              </p>
+            ) : null}
+            <div className="finance-strategy-compare-grid">
+              {simulatorResult.strategyComparison.map((result) => (
+                <article key={result.strategy} className="finance-strategy-card">
+                  <strong>{REPAYMENT_STRATEGY_LABELS[result.strategy]}</strong>
+                  <p className="muted" style={{ margin: '6px 0 0' }}>
+                    当前计划：{result.accelerated.months} 个月 · 利息 ¥
+                    {result.accelerated.totalInterest.toFixed(0)}
+                  </p>
+                  <p className="muted" style={{ margin: '4px 0 0' }}>
+                    节省：{result.savedMonths} 个月 / ¥{result.savedInterest.toFixed(0)}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <div className="finance-ai-insight-card" style={{ marginTop: 10 }}>
+            <h4 style={{ margin: '0 0 8px 0' }}>到期提醒</h4>
+            {repaymentCalendarReminders.length === 0 ? (
+              <p className="muted" style={{ margin: 0 }}>
+                请在负债列表补充还款日后启用提醒。
+              </p>
+            ) : (
+              <ul style={{ margin: 0, paddingInlineStart: 18 }}>
+                {repaymentCalendarReminders.slice(0, 5).map((item) => (
+                  <li key={item.id}>
+                    {item.name}：账单日 {item.billDay || '--'} 日，还款日 {item.repaymentDay} 日，
+                    {item.dueInDays === 0 ? '今天到期' : `${item.dueInDays} 天后到期`}（最低 ¥
+                    {item.minimumPayment.toFixed(0)}）
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <button type="button" onClick={onGenerateRepaymentAdvice} disabled={repaymentLoading}>
