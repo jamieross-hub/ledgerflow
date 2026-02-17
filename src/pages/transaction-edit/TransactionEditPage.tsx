@@ -24,6 +24,19 @@ function formatLocalDateTime(raw: string): string {
   return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
 }
 
+function suggestTags(note: string, merchantOrderNo: string, orderNo: string): string[] {
+  const source = `${note} ${merchantOrderNo} ${orderNo}`.toLowerCase();
+  const rules: Array<{ keyword: RegExp; tag: string }> = [
+    { keyword: /(星巴克|咖啡|奶茶|茶饮)/, tag: '饮品' },
+    { keyword: /(超市|便利店|盒马|永辉)/, tag: '日用品' },
+    { keyword: /(地铁|公交|打车|滴滴|高铁)/, tag: '出行' },
+    { keyword: /(外卖|美团|饿了么|餐)/, tag: '餐饮' },
+    { keyword: /(工资|薪资|奖金)/, tag: '工资收入' },
+    { keyword: /(淘宝|京东|拼多多)/, tag: '网购' }
+  ];
+  return rules.filter((item) => item.keyword.test(source)).map((item) => item.tag);
+}
+
 function validateAmount(raw: string): { ok: true; value: number } | { ok: false; message: string } {
   const normalized = raw.trim();
   if (!normalized) {
@@ -101,6 +114,12 @@ export function TransactionEditPage() {
   const [dateError, setDateError] = useState('');
   const [formError, setFormError] = useState('');
 
+  const suggestedTags = useMemo(
+    () =>
+      suggestTags(note, merchantOrderNo, orderNo).filter((tag) => !parseTags(tags).includes(tag)),
+    [note, merchantOrderNo, orderNo, tags]
+  );
+
   const handleBack = useCallback(() => {
     navigate('/transactions');
   }, [navigate]);
@@ -146,6 +165,9 @@ export function TransactionEditPage() {
       return;
     }
 
+    const mergedTags = Array.from(
+      new Set([...parseTags(tags), ...suggestTags(note, merchantOrderNo, orderNo)])
+    );
     const payload = {
       type,
       categoryId,
@@ -153,7 +175,7 @@ export function TransactionEditPage() {
       amount: amountResult.value,
       date: dateResult.value,
       note,
-      tags: parseTags(tags),
+      tags: mergedTags,
       source: current?.source ?? 'manual',
       orderNo: orderNo.trim() || undefined,
       merchantOrderNo: merchantOrderNo.trim() || undefined,
@@ -198,7 +220,7 @@ export function TransactionEditPage() {
           <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} required>
             {categories.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.name}
+                {(item.icon || '📁') + ' ' + item.name}
               </option>
             ))}
           </select>
@@ -287,6 +309,22 @@ export function TransactionEditPage() {
         <div className="field">
           <label>标签（逗号分隔）</label>
           <input value={tags} onChange={(e) => setTags(e.target.value)} />
+          {suggestedTags.length > 0 ? (
+            <small style={{ color: 'var(--color-text-secondary)' }}>
+              自动建议：
+              {suggestedTags.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  className="tag-count-chip"
+                  onClick={() => setTags((prev) => [...parseTags(prev), tag].join(','))}
+                  style={{ marginLeft: 6 }}
+                >
+                  {tag}
+                </button>
+              ))}
+            </small>
+          ) : null}
         </div>
 
         {formError ? <p className="error">{formError}</p> : null}

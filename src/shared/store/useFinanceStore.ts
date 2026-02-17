@@ -14,7 +14,12 @@ interface FinanceState {
   addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
   updateTransaction: (id: string, payload: Omit<TransactionItem, 'id'>) => void;
   removeTransaction: (id: string) => void;
-  addCategory: (name: string) => string;
+  addCategory: (
+    name: string,
+    options?: { kind?: Category['kind']; color?: string; icon?: string }
+  ) => string;
+  updateCategory: (id: string, payload: Partial<Omit<Category, 'id'>>) => void;
+  reorderCategories: (orderedIds: string[]) => void;
   removeCategory: (id: string) => void;
   addAccount: (name: string, type?: Account['type'], initialBalance?: number) => string;
   updateAccountBalance: (id: string, balance: number) => void;
@@ -29,32 +34,116 @@ interface FinanceState {
 
 const defaultCategories: Category[] = [
   // 生活大类（衣食住行）
-  { id: 'cat-food', name: '餐饮' },
-  { id: 'cat-clothing', name: '衣物穿搭' },
-  { id: 'cat-housing', name: '住房' },
-  { id: 'cat-utilities', name: '水电燃气' },
-  { id: 'cat-transport', name: '交通' },
+  { id: 'cat-food', name: '餐饮', kind: 'expense', icon: '🍜', color: '#f97316', sortOrder: 1 },
+  {
+    id: 'cat-clothing',
+    name: '衣物穿搭',
+    kind: 'expense',
+    icon: '👕',
+    color: '#ec4899',
+    sortOrder: 2
+  },
+  { id: 'cat-housing', name: '住房', kind: 'expense', icon: '🏠', color: '#8b5cf6', sortOrder: 3 },
+  {
+    id: 'cat-utilities',
+    name: '水电燃气',
+    kind: 'expense',
+    icon: '💡',
+    color: '#22c55e',
+    sortOrder: 4
+  },
+  {
+    id: 'cat-transport',
+    name: '交通',
+    kind: 'expense',
+    icon: '🚇',
+    color: '#06b6d4',
+    sortOrder: 5
+  },
 
   // 高频日常
-  { id: 'cat-shopping', name: '购物日用' },
-  { id: 'cat-communication', name: '通讯网络' },
-  { id: 'cat-health', name: '医疗健康' },
-  { id: 'cat-education', name: '教育学习' },
-  { id: 'cat-entertainment', name: '娱乐社交' },
-  { id: 'cat-travel', name: '旅行' },
-  { id: 'cat-gift', name: '人情往来' },
+  {
+    id: 'cat-shopping',
+    name: '购物日用',
+    kind: 'expense',
+    icon: '🛍️',
+    color: '#ef4444',
+    sortOrder: 6
+  },
+  {
+    id: 'cat-communication',
+    name: '通讯网络',
+    kind: 'expense',
+    icon: '📶',
+    color: '#0ea5e9',
+    sortOrder: 7
+  },
+  {
+    id: 'cat-health',
+    name: '医疗健康',
+    kind: 'expense',
+    icon: '🩺',
+    color: '#14b8a6',
+    sortOrder: 8
+  },
+  {
+    id: 'cat-education',
+    name: '教育学习',
+    kind: 'expense',
+    icon: '📚',
+    color: '#6366f1',
+    sortOrder: 9
+  },
+  {
+    id: 'cat-entertainment',
+    name: '娱乐社交',
+    kind: 'expense',
+    icon: '🎮',
+    color: '#a855f7',
+    sortOrder: 10
+  },
+  { id: 'cat-travel', name: '旅行', kind: 'expense', icon: '🧳', color: '#f59e0b', sortOrder: 11 },
+  {
+    id: 'cat-gift',
+    name: '人情往来',
+    kind: 'expense',
+    icon: '🎁',
+    color: '#e11d48',
+    sortOrder: 12
+  },
 
   // 金融/收入
-  { id: 'cat-salary', name: '工资' },
-  { id: 'cat-bonus', name: '奖金' },
-  { id: 'cat-invest-income', name: '理财收益' },
-  { id: 'cat-refund', name: '退款返现' },
-  { id: 'cat-insurance', name: '保险' },
-  { id: 'cat-tax', name: '税费' },
-  { id: 'cat-loan', name: '还款' },
+  { id: 'cat-salary', name: '工资', kind: 'income', icon: '💰', color: '#16a34a', sortOrder: 13 },
+  { id: 'cat-bonus', name: '奖金', kind: 'income', icon: '🎉', color: '#22c55e', sortOrder: 14 },
+  {
+    id: 'cat-invest-income',
+    name: '理财收益',
+    kind: 'income',
+    icon: '📈',
+    color: '#15803d',
+    sortOrder: 15
+  },
+  {
+    id: 'cat-refund',
+    name: '退款返现',
+    kind: 'income',
+    icon: '💸',
+    color: '#10b981',
+    sortOrder: 16
+  },
+  {
+    id: 'cat-insurance',
+    name: '保险',
+    kind: 'expense',
+    icon: '🛡️',
+    color: '#0284c7',
+    sortOrder: 17
+  },
+  { id: 'cat-tax', name: '税费', kind: 'expense', icon: '🧾', color: '#7c3aed', sortOrder: 18 },
+  { id: 'cat-loan', name: '还款', kind: 'expense', icon: '🏦', color: '#475569', sortOrder: 19 },
 
   // 兜底
-  { id: 'cat-other', name: '其他' }
+  { id: 'cat-other', name: '其他', kind: 'expense', icon: '📦', color: '#6b7280', sortOrder: 20 }
 ];
 
 const defaultAccounts: Account[] = [
@@ -186,7 +275,7 @@ export const useFinanceStore = create<FinanceState>()(
         });
         void syncChangeIfNeeded({ entity: 'transactions', action: 'delete', id });
       },
-      addCategory: (name) => {
+      addCategory: (name, options) => {
         const normalizedName = normalizeCategoryName(name);
         if (!normalizedName) {
           return defaultCategories[0]?.id || 'cat-unknown';
@@ -203,7 +292,14 @@ export const useFinanceStore = create<FinanceState>()(
             return s;
           }
 
-          insertedRow = { id: generateId(), name: normalizedName };
+          insertedRow = {
+            id: generateId(),
+            name: normalizedName,
+            kind: options?.kind,
+            color: options?.color,
+            icon: options?.icon,
+            sortOrder: s.categories.length + 1
+          };
           resolvedId = insertedRow.id;
           const compacted = sanitizeCategoriesAndTransactions(
             [...s.categories, insertedRow],
@@ -220,6 +316,32 @@ export const useFinanceStore = create<FinanceState>()(
         }
 
         return resolvedId;
+      },
+      updateCategory: (id, payload) => {
+        let updatedRow: Category | null = null;
+        set((s) => {
+          const categories = s.categories.map((item) => {
+            if (item.id !== id) {
+              return item;
+            }
+            updatedRow = { ...item, ...payload };
+            return updatedRow;
+          });
+          return { categories };
+        });
+        if (updatedRow) {
+          void syncChangeIfNeeded({ entity: 'categories', action: 'update', row: updatedRow, id });
+        }
+      },
+      reorderCategories: (orderedIds) => {
+        set((s) => {
+          const orderMap = new Map(orderedIds.map((categoryId, index) => [categoryId, index + 1]));
+          const categories = s.categories.map((item) => ({
+            ...item,
+            sortOrder: orderMap.get(item.id) ?? item.sortOrder ?? s.categories.length + 1
+          }));
+          return { categories };
+        });
       },
       removeCategory: (id) => {
         set((s) => ({ categories: s.categories.filter((item) => item.id !== id) }));
