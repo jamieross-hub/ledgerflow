@@ -781,6 +781,32 @@ export function DashboardPage() {
         <div className="welcome-emoji">💰</div>
       </section>
 
+      <section className="panel dashboard-getting-started">
+        <div className="dashboard-section-header">
+          <h3>新手三步</h3>
+          <span>先完成流程，再看趋势更准确</span>
+        </div>
+        <ol className="dashboard-onboarding-steps">
+          <li>① 添加账目：先记录收入/支出，建立基础数据。</li>
+          <li>② 设置预算：为高频分类设上限，及时提醒超支风险。</li>
+          <li>③ 查看分析：在趋势与洞察里识别波动原因。</li>
+        </ol>
+        <div className="dashboard-onboarding-actions">
+          <button type="button" onClick={() => (window.location.href = '/transactions/new')}>
+            新增账目
+          </button>
+          <button type="button" onClick={() => (window.location.href = '/smart-budget')}>
+            打开预算
+          </button>
+          <button type="button" onClick={() => (window.location.href = '/')}>
+            查看分析
+          </button>
+        </div>
+        <p className="dashboard-shortcuts-tip">
+          键盘快捷键：<kbd>N</kbd> 新增账目 · <kbd>B</kbd> 打开预算 · <kbd>/</kbd> 快速搜索
+        </p>
+      </section>
+
       <section className="panel">
         <h2>核心资产仪表盘</h2>
         <div className="grid grid-3">

@@ -142,18 +142,20 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: var(--color-bg-subtle);
-  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-2);
+  box-shadow: var(--shadow-xs);
 }
 
 .sidebar-overview-card {
   background: linear-gradient(140deg, var(--color-primary-bg), var(--color-bg-subtle));
-  border: 1px solid var(--color-border-light);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-3);
   margin-bottom: var(--space-3);
+  box-shadow: var(--shadow-xs);
 }
 
 .sidebar-overview-card h3 {
@@ -167,8 +169,39 @@ body {
   color: var(--color-text-secondary);
 }
 
+.sidebar-overview-actions {
+  margin-top: var(--space-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sidebar-overview-action {
+  text-decoration: none;
+  color: var(--color-primary);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-md);
+  padding: 4px 10px;
+  font-size: var(--font-xs);
+}
+
+.sidebar-overview-action:hover {
+  background: var(--color-primary-bg);
+}
+
+.sidebar-section-toggle {
+  border: none;
+  background: transparent;
+  padding: var(--space-1) var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
 .sidebar-section-title {
-  margin: var(--space-1) var(--space-2) var(--space-1);
+  margin: 0;
   font-size: var(--font-xs);
   font-weight: 600;
   color: var(--color-text-tertiary);
@@ -1558,6 +1591,46 @@ small.mono {
   line-height: 1;
   flex-shrink: 0;
   animation: welcome-float 3s ease-in-out infinite;
+}
+
+.dashboard-getting-started {
+  border-color: var(--color-primary-border);
+}
+
+.dashboard-onboarding-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: var(--space-1);
+  color: var(--color-text-secondary);
+}
+
+.dashboard-onboarding-actions {
+  margin-top: var(--space-3);
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.dashboard-onboarding-actions button {
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
+}
+
+.dashboard-shortcuts-tip {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-sm);
+}
+
+.dashboard-shortcuts-tip kbd {
+  border: 1px solid var(--color-border);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  padding: 1px 6px;
+  background: var(--color-bg-subtle);
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
 }
 
 @keyframes welcome-float {
