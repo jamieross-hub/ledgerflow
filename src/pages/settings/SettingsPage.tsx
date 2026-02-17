@@ -124,8 +124,10 @@ export function SettingsPage() {
   const setEnableRerankModel = useAiSettings((s) => s.setEnableRerankModel);
   const memoryDays = useAiSettings((s) => s.memoryDays);
   const memoryBackend = useAiSettings((s) => s.memoryBackend);
+  const bulkRecategorizeConcurrency = useAiSettings((s) => s.bulkRecategorizeConcurrency);
   const setMemoryDays = useAiSettings((s) => s.setMemoryDays);
   const setMemoryBackend = useAiSettings((s) => s.setMemoryBackend);
+  const setBulkRecategorizeConcurrency = useAiSettings((s) => s.setBulkRecategorizeConcurrency);
 
   const [masked, setMasked] = useState(true);
   const [toastVisible, setToastVisible] = useState(false);
@@ -313,6 +315,22 @@ export function SettingsPage() {
             <option value="local">本地（默认）</option>
             <option value="redis">Redis（占位，待后端接入）</option>
           </select>
+        </div>
+
+        <div className="field">
+          <label>批量 AI 重分类并发数</label>
+          <input
+            type="number"
+            min={1}
+            max={12}
+            step={1}
+            value={bulkRecategorizeConcurrency}
+            onChange={(e) => {
+              setBulkRecategorizeConcurrency(Number(e.target.value));
+              showSaveToast();
+            }}
+          />
+          <small>建议 2~8。并发越高速度越快，但更容易触发模型限流。</small>
         </div>
       </section>
 

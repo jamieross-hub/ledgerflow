@@ -12,6 +12,7 @@ interface AiSettingsState {
   enableRerankModel: boolean;
   memoryDays: number;
   memoryBackend: 'local' | 'redis';
+  bulkRecategorizeConcurrency: number;
   setBaseUrl: (baseUrl: string) => void;
   setApiKey: (apiKey: string) => void;
   setModel: (model: string) => void;
@@ -21,6 +22,17 @@ interface AiSettingsState {
   setEnableRerankModel: (enabled: boolean) => void;
   setMemoryDays: (days: number) => void;
   setMemoryBackend: (backend: 'local' | 'redis') => void;
+  setBulkRecategorizeConcurrency: (value: number) => void;
+}
+
+const DEFAULT_BULK_RECATEGORIZE_CONCURRENCY = 4;
+const MAX_BULK_RECATEGORIZE_CONCURRENCY = 12;
+
+function normalizeBulkRecategorizeConcurrency(value: number): number {
+  return Math.min(
+    MAX_BULK_RECATEGORIZE_CONCURRENCY,
+    Math.max(1, Math.round(Number.isFinite(value) ? value : DEFAULT_BULK_RECATEGORIZE_CONCURRENCY))
+  );
 }
 
 /**
@@ -40,6 +52,7 @@ export const useAiSettings = create<AiSettingsState>()(
       enableRerankModel: true,
       memoryDays: 3,
       memoryBackend: 'local',
+      bulkRecategorizeConcurrency: DEFAULT_BULK_RECATEGORIZE_CONCURRENCY,
       setBaseUrl: (baseUrl: string) => set({ baseUrl: baseUrl.trim() }),
       setApiKey: (apiKey: string) => set({ apiKey: apiKey.trim() }),
       setModel: (model: string) => set({ model: model.trim() || ENV.aiDefaultModel }),
@@ -49,7 +62,9 @@ export const useAiSettings = create<AiSettingsState>()(
       setEnableRerankModel: (enabled: boolean) => set({ enableRerankModel: enabled }),
       setMemoryDays: (days: number) =>
         set({ memoryDays: Math.min(3, Math.max(1, Math.round(days || 1))) }),
-      setMemoryBackend: (backend: 'local' | 'redis') => set({ memoryBackend: backend })
+      setMemoryBackend: (backend: 'local' | 'redis') => set({ memoryBackend: backend }),
+      setBulkRecategorizeConcurrency: (value: number) =>
+        set({ bulkRecategorizeConcurrency: normalizeBulkRecategorizeConcurrency(value) })
     }),
     {
       name: 'ledgerflow-ai-settings',
@@ -70,6 +85,9 @@ export const useAiSettings = create<AiSettingsState>()(
         if (typeof next.enableRerankModel !== 'boolean') {
           next.enableRerankModel = true;
         }
+        next.bulkRecategorizeConcurrency = normalizeBulkRecategorizeConcurrency(
+          next.bulkRecategorizeConcurrency
+        );
         return next;
       }
     }
