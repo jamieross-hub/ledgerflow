@@ -6257,6 +6257,14 @@ body.exchange-resizing {
   color: var(--color-text);
 }
 
+.smart-budget-health-explain {
+  margin: 0;
+  font-size: var(--font-xs);
+  color: var(--color-text-tertiary);
+  max-width: 420px;
+  text-align: center;
+}
+
 .smart-budget-management-topbar {
   display: flex;
   gap: var(--space-3);
@@ -6510,6 +6518,24 @@ body.exchange-resizing {
   overflow: hidden;
 }
 
+.smart-budget-table input[type='number'] {
+  width: 100%;
+  min-width: 120px;
+}
+
+.smart-budget-delta {
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-sm);
+}
+
+.smart-budget-delta.balanced {
+  color: var(--color-success);
+}
+
+.smart-budget-delta.unbalanced {
+  color: var(--color-danger);
+}
+
 .smart-budget-actions {
   display: flex;
   flex-wrap: wrap;
@@ -6608,6 +6634,66 @@ body.exchange-resizing {
 .smart-budget-ai-tags .ai-tag.increase {
   color: var(--color-success);
   border-color: color-mix(in srgb, var(--color-success) 35%, var(--color-border));
+}
+
+.smart-budget-trend-card,
+.smart-budget-anomaly-card {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background: var(--color-bg-elevated);
+}
+
+.smart-budget-trend-card h4,
+.smart-budget-anomaly-card h4 {
+  margin: 0 0 var(--space-3);
+}
+
+.smart-budget-trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+}
+
+.smart-budget-trend-item {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.smart-budget-trend-item header {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-sm);
+}
+
+.smart-budget-trend-bars {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  align-items: end;
+  min-height: 86px;
+}
+
+.smart-budget-trend-bars div {
+  height: 86px;
+  display: flex;
+  align-items: end;
+}
+
+.smart-budget-trend-bars span {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 8px 8px 4px 4px;
+  background: color-mix(in srgb, var(--color-primary) 70%, #fff);
+}
+
+.smart-budget-anomaly-card ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.smart-budget-anomaly-card li + li {
+  margin-top: var(--space-2);
 }
 
 .smart-budget-detail-drawer {

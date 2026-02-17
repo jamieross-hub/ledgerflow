@@ -22,6 +22,42 @@ export type BudgetRecommendation = {
   categoryBudgets: BudgetCategoryPlan[];
 };
 
+export function applyCategoryBudgetEdits(
+  recommendation: BudgetRecommendation,
+  updates: Record<string, number>
+): BudgetRecommendation {
+  const monthlyIncome = recommendation.monthlyIncome;
+  const editedCategoryBudgets = recommendation.categoryBudgets.map((item) => {
+    const nextAmount = updates[item.category];
+    const amount =
+      Number.isFinite(nextAmount) && nextAmount >= 0
+        ? Math.round(nextAmount)
+        : Math.round(item.amount);
+    return {
+      ...item,
+      amount,
+      ratio: monthlyIncome > 0 ? amount / monthlyIncome : 0
+    };
+  });
+
+  const monthlyFixedExpense =
+    editedCategoryBudgets.find((item) => item.category === '固定支出')?.amount || 0;
+  const savingsAmount =
+    editedCategoryBudgets.find((item) => item.category === '储蓄/投资')?.amount || 0;
+  const flexibleBudget = editedCategoryBudgets
+    .filter((item) => !['固定支出', '储蓄/投资'].includes(item.category))
+    .reduce((sum, item) => sum + item.amount, 0);
+
+  return {
+    ...recommendation,
+    monthlyFixedExpense,
+    savingsAmount,
+    flexibleBudget,
+    disposableIncome: monthlyIncome - monthlyFixedExpense,
+    categoryBudgets: editedCategoryBudgets
+  };
+}
+
 const IDENTITY_LABELS: Record<UserIdentity, string> = {
   student: '学生',
   employee: '上班族',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateBudgetRecommendation } from './budgetPlanner';
+import { applyCategoryBudgetEdits, generateBudgetRecommendation } from './budgetPlanner';
 
 describe('generateBudgetRecommendation', () => {
   it('should keep total category budgets equal to monthly income', () => {
@@ -35,5 +35,22 @@ describe('generateBudgetRecommendation', () => {
         savingsRatio: 0.3
       })
     ).toThrow('固定支出需要小于月收入，才能生成可执行预算。');
+  });
+
+  it('supports quick category budget edits on result page', () => {
+    const result = generateBudgetRecommendation({
+      identity: 'employee',
+      monthlyIncomeK: 10,
+      monthlyFixedExpenseK: 3,
+      savingsRatio: 0.3
+    });
+
+    const edited = applyCategoryBudgetEdits(result, {
+      餐饮: 1800,
+      '储蓄/投资': 2400
+    });
+
+    expect(edited.categoryBudgets.find((item) => item.category === '餐饮')?.amount).toBe(1800);
+    expect(edited.savingsAmount).toBe(2400);
   });
 });
