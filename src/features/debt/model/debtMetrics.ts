@@ -8,6 +8,8 @@ export type DebtItem = {
   annualRate?: number;
   remainingMonths?: number;
   customMinPayment?: number;
+  billDay?: number;
+  repaymentDay?: number;
 };
 
 export type DebtSummary = {
