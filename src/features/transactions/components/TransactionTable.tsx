@@ -746,36 +746,13 @@ export function TransactionTable({
               {rows.length > 0 && (
                 <tfoot>
                   <tr className="transaction-summary-row">
-                    {bulkSelectionEnabled ? (
-                      <td className="transaction-summary-label">汇总</td>
-                    ) : null}
-                    {orderedColumns
-                      .filter((column) => visibleColumns[column.key])
-                      .map((column, index) => {
-                        const isFirstVisible = index === 0;
-                        if (column.key === 'amount') {
-                          return (
-                            <td
-                              key={`summary-${column.key}`}
-                              className="transaction-summary-amount"
-                            >
-                              金额合计 {formatCurrency(pageSummary.overallTotal)} ｜ 收入{' '}
-                              {formatCurrency(pageSummary.incomeTotal)} ｜ 支出{' '}
-                              {formatCurrency(pageSummary.expenseTotal)} ｜ 净额{' '}
-                              {formatCurrency(pageSummary.netTotal)}
-                            </td>
-                          );
-                        }
-
-                        return (
-                          <td
-                            key={`summary-${column.key}`}
-                            className={isFirstVisible ? 'transaction-summary-label' : undefined}
-                          >
-                            {isFirstVisible ? `汇总（当前页 ${rows.length} 条）` : '-'}
-                          </td>
-                        );
-                      })}
+                    <td colSpan={visibleColumnCount} className="transaction-summary-amount">
+                      汇总（当前页 {rows.length} 条）｜ 金额合计{' '}
+                      {formatCurrency(pageSummary.overallTotal)} ｜ 收入{' '}
+                      {formatCurrency(pageSummary.incomeTotal)} ｜ 支出{' '}
+                      {formatCurrency(pageSummary.expenseTotal)} ｜ 净额{' '}
+                      {formatCurrency(pageSummary.netTotal)}
+                    </td>
                   </tr>
                 </tfoot>
               )}
