@@ -10,6 +10,7 @@ import {
   getAccountTypeLabel
 } from '../../features/accounts/model/accountTypes';
 import type { AccountType } from '../../features/accounts/model/accountTypes';
+import type { Category } from '../../entities/category/types';
 
 function normalizeNameInput(raw: string) {
   return raw.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
@@ -20,6 +21,16 @@ function isValidName(name: string) {
 }
 
 const GENERAL_ACCOUNT_TYPES: AccountType[] = ['cash', 'debit', 'savings', 'virtual'];
+const CATEGORY_COLORS = [
+  '#f97316',
+  '#ec4899',
+  '#8b5cf6',
+  '#22c55e',
+  '#06b6d4',
+  '#ef4444',
+  '#6366f1'
+];
+const CATEGORY_ICONS = ['🍜', '💰', '🛍️', '🏠', '🚇', '🎁', '📚', '💡', '📦'];
 
 export function CategoriesAccountsPage() {
   const navigate = useNavigate();
@@ -27,16 +38,23 @@ export function CategoriesAccountsPage() {
   const accounts = useFinanceStore((s) => s.accounts);
   const transactions = useFinanceStore((s) => s.transactions);
   const addCategory = useFinanceStore((s) => s.addCategory);
+  const updateCategory = useFinanceStore((s) => s.updateCategory);
+  const reorderCategories = useFinanceStore((s) => s.reorderCategories);
   const removeCategory = useFinanceStore((s) => s.removeCategory);
   const addAccount = useFinanceStore((s) => s.addAccount);
+  const addTransaction = useFinanceStore((s) => s.addTransaction);
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
   const updateAccountBalance = useFinanceStore((s) => s.updateAccountBalance);
   const removeAccount = useFinanceStore((s) => s.removeAccount);
 
   const [categoryName, setCategoryName] = useState('');
+  const [categoryKind, setCategoryKind] = useState<'income' | 'expense'>('expense');
+  const categoryColor = CATEGORY_COLORS[0];
+  const categoryIcon = CATEGORY_ICONS[0];
   const [accountName, setAccountName] = useState('');
   const [accountType, setAccountType] = useState<AccountType | ''>('');
   const [accountInitialBalance, setAccountInitialBalance] = useState('0');
+  const [adjustAmounts, setAdjustAmounts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [pendingDeleteAccountId, setPendingDeleteAccountId] = useState<string | null>(null);
   const [pendingDeleteCategoryId, setPendingDeleteCategoryId] = useState<string | null>(null);
@@ -47,9 +65,10 @@ export function CategoriesAccountsPage() {
   const [showAllAccounts, setShowAllAccounts] = useState(false);
   const [categoryError, setCategoryError] = useState('');
   const [accountError, setAccountError] = useState('');
+  const [mergeTargetByTag, setMergeTargetByTag] = useState<Record<string, string>>({});
 
-  const CATEGORY_COLLAPSE_THRESHOLD = 3;
-  const TAG_COLLAPSE_THRESHOLD = 3;
+  const CATEGORY_COLLAPSE_THRESHOLD = 5;
+  const TAG_COLLAPSE_THRESHOLD = 5;
   const ACCOUNT_COLLAPSE_THRESHOLD = 8;
 
   useEffect(() => {
@@ -64,7 +83,7 @@ export function CategoriesAccountsPage() {
       setCategoryError('分类名称需为 1-24 个字符，且不能包含 < 或 >。');
       return;
     }
-    addCategory(normalized);
+    addCategory(normalized, { kind: categoryKind, color: categoryColor, icon: categoryIcon });
     setCategoryName('');
     setCategoryError('');
   }
@@ -110,6 +129,22 @@ export function CategoriesAccountsPage() {
       }, 0)
     : 0;
 
+  const orderedCategories = useMemo(() => {
+    const byOrder = [...categories].sort(
+      (a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER)
+    );
+    const income: Category[] = [];
+    const expense: Category[] = [];
+    byOrder.forEach((item) => {
+      if (item.kind === 'income') {
+        income.push(item);
+      } else {
+        expense.push(item);
+      }
+    });
+    return { income, expense };
+  }, [categories]);
+
   const tagGroups = useMemo(() => {
     const map = new Map<string, { key: string; label: string; count: number }>();
     transactions.forEach((tx) => {
@@ -135,9 +170,20 @@ export function CategoriesAccountsPage() {
     });
   }, [transactions]);
 
-  const displayCategories = useMemo(
-    () => (showAllCategories ? categories : categories.slice(0, CATEGORY_COLLAPSE_THRESHOLD)),
-    [categories, showAllCategories]
+  const displayExpenseCategories = useMemo(
+    () =>
+      showAllCategories
+        ? orderedCategories.expense
+        : orderedCategories.expense.slice(0, CATEGORY_COLLAPSE_THRESHOLD),
+    [orderedCategories.expense, showAllCategories]
+  );
+
+  const displayIncomeCategories = useMemo(
+    () =>
+      showAllCategories
+        ? orderedCategories.income
+        : orderedCategories.income.slice(0, CATEGORY_COLLAPSE_THRESHOLD),
+    [orderedCategories.income, showAllCategories]
   );
 
   const categoryUsageMap = useMemo(() => {
@@ -160,7 +206,10 @@ export function CategoriesAccountsPage() {
     [managedAccounts, showAllAccounts]
   );
 
-  const hiddenCategoryCount = Math.max(0, categories.length - displayCategories.length);
+  const hiddenCategoryCount = Math.max(
+    0,
+    categories.length - (displayExpenseCategories.length + displayIncomeCategories.length)
+  );
   const hiddenTagCount = Math.max(0, tagGroups.length - displayTags.length);
   const hiddenAccountCount = Math.max(0, managedAccounts.length - displayAccounts.length);
 
@@ -203,6 +252,46 @@ export function CategoriesAccountsPage() {
     setEditingBalances((prev) => ({ ...prev, [accountId]: normalized.toFixed(2) }));
   };
 
+  const applySingleAdjustment = (accountId: string) => {
+    const value = Number(adjustAmounts[accountId] || '0');
+    if (!Number.isFinite(value) || value === 0) {
+      return;
+    }
+    const category = categories.find((item) => item.kind === (value > 0 ? 'income' : 'expense'));
+    if (!category) {
+      return;
+    }
+    addTransaction({
+      type: value > 0 ? 'income' : 'expense',
+      categoryId: category.id,
+      accountId,
+      amount: Math.abs(value),
+      date: new Date().toISOString(),
+      note: '账户单笔调整',
+      tags: ['账户校准'],
+      source: 'manual',
+      status: 'completed'
+    });
+    setAdjustAmounts((prev) => ({ ...prev, [accountId]: '' }));
+  };
+
+  const moveCategory = (categoryId: string, direction: -1 | 1) => {
+    const orderedIds = [...categories]
+      .sort(
+        (a, b) =>
+          (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER)
+      )
+      .map((item) => item.id);
+    const currentIndex = orderedIds.indexOf(categoryId);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= orderedIds.length) {
+      return;
+    }
+    const next = [...orderedIds];
+    [next[currentIndex], next[targetIndex]] = [next[targetIndex], next[currentIndex]];
+    reorderCategories(next);
+  };
+
   const accountCards = useMemo(
     () =>
       displayAccounts.map((item) => {
@@ -229,6 +318,42 @@ export function CategoriesAccountsPage() {
     });
   };
 
+  const mergeTagIntoAnother = (fromLabel: string, toLabel: string) => {
+    const from = fromLabel.trim().toLowerCase();
+    const to = toLabel.trim();
+    if (!from || !to || from === to.toLowerCase()) {
+      return;
+    }
+    transactions.forEach((tx) => {
+      let touched = false;
+      const normalizedSet = new Set<string>();
+      const nextTags = tx.tags
+        .map((tag) => {
+          const key = tag.trim().toLowerCase();
+          if (!key) {
+            return '';
+          }
+          if (key === from) {
+            touched = true;
+            return to;
+          }
+          return tag.trim();
+        })
+        .filter((item) => {
+          if (!item) return false;
+          const key = item.toLowerCase();
+          if (normalizedSet.has(key)) {
+            return false;
+          }
+          normalizedSet.add(key);
+          return true;
+        });
+      if (touched) {
+        updateTransaction(tx.id, { ...tx, tags: nextTags });
+      }
+    });
+  };
+
   const totalBalance = useMemo(
     () => accountCards.reduce((sum, item) => sum + item.computedBalance, 0),
     [accountCards]
@@ -237,6 +362,67 @@ export function CategoriesAccountsPage() {
   const negativeAccounts = useMemo(
     () => accountCards.filter((item) => item.computedBalance < 0).length,
     [accountCards]
+  );
+
+  const renderCategoryRow = (item: Category) => (
+    <li key={item.id} className="row categories-row">
+      <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span
+          aria-hidden="true"
+          style={{ width: 20, height: 20, display: 'inline-grid', placeItems: 'center' }}
+        >
+          {item.icon || '📁'}
+        </span>
+        <button
+          type="button"
+          className="tag-count-chip"
+          style={{ borderColor: item.color || 'transparent', color: item.color || undefined }}
+          onClick={() =>
+            updateCategory(item.id, {
+              color:
+                CATEGORY_COLORS[
+                  (CATEGORY_COLORS.indexOf(item.color || '') + 1) % CATEGORY_COLORS.length
+                ]
+            })
+          }
+          aria-label={`切换 ${item.name} 的颜色`}
+        >
+          颜色
+        </button>
+        <button
+          type="button"
+          className="tag-count-chip"
+          onClick={() =>
+            updateCategory(item.id, {
+              icon: CATEGORY_ICONS[
+                (CATEGORY_ICONS.indexOf(item.icon || '') + 1) % CATEGORY_ICONS.length
+              ]
+            })
+          }
+          aria-label={`切换 ${item.name} 的图标`}
+        >
+          图标
+        </button>
+        <strong>{item.name}</strong>
+        <button
+          type="button"
+          className="tag-count-chip tag-count-chip-link"
+          onClick={() => navigate(`/transactions?categoryId=${encodeURIComponent(item.id)}`)}
+          aria-label={`查看分类 ${item.name} 的 ${categoryUsageMap.get(item.id) || 0} 条交易`}
+        >
+          {categoryUsageMap.get(item.id) || 0} 条
+        </button>
+      </span>
+      <button type="button" onClick={() => moveCategory(item.id, -1)}>
+        ↑
+      </button>
+      <button type="button" onClick={() => moveCategory(item.id, 1)}>
+        ↓
+      </button>
+      <button type="button" className="danger" onClick={() => setPendingDeleteCategoryId(item.id)}>
+        删除
+      </button>
+    </li>
   );
 
   return (
@@ -268,6 +454,13 @@ export function CategoriesAccountsPage() {
             style={{ flex: 1 }}
             maxLength={24}
           />
+          <select
+            value={categoryKind}
+            onChange={(e) => setCategoryKind(e.target.value as 'income' | 'expense')}
+          >
+            <option value="expense">支出分类</option>
+            <option value="income">收入分类</option>
+          </select>
           <button className="primary" type="submit">
             添加
           </button>
@@ -279,36 +472,15 @@ export function CategoriesAccountsPage() {
           <EmptyState title="暂无分类" description="请添加第一个交易分类。" icon="🧩" />
         ) : (
           <>
-            <ul className="categories-list">
-              {displayCategories.map((item) => (
-                <li key={item.id} className="row categories-row">
-                  <span style={{ flex: 1 }}>
-                    {item.name}
-                    <button
-                      type="button"
-                      className="tag-count-chip tag-count-chip-link"
-                      onClick={() =>
-                        navigate(`/transactions?categoryId=${encodeURIComponent(item.id)}`)
-                      }
-                      aria-label={`查看分类 ${item.name} 的 ${categoryUsageMap.get(item.id) || 0} 条交易`}
-                    >
-                      {categoryUsageMap.get(item.id) || 0} 条
-                    </button>
-                  </span>
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => setPendingDeleteCategoryId(item.id)}
-                  >
-                    删除
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <h3>支出分类</h3>
+            <ul className="categories-list">{displayExpenseCategories.map(renderCategoryRow)}</ul>
+            <h3 style={{ marginTop: 16 }}>收入分类</h3>
+            <ul className="categories-list">{displayIncomeCategories.map(renderCategoryRow)}</ul>
             {categories.length > CATEGORY_COLLAPSE_THRESHOLD ? (
               <div className="row" style={{ justifyContent: 'space-between', marginTop: 10 }}>
                 <small style={{ color: 'var(--color-text-secondary)' }}>
-                  已显示 {displayCategories.length}/{categories.length}
+                  已显示 {displayExpenseCategories.length + displayIncomeCategories.length}/
+                  {categories.length}
                 </small>
                 <button type="button" onClick={() => setShowAllCategories((prev) => !prev)}>
                   {showAllCategories ? '收起' : `展开剩余 ${hiddenCategoryCount} 项`}
@@ -318,11 +490,11 @@ export function CategoriesAccountsPage() {
           </>
         )}
 
-        <h3 style={{ marginTop: 20 }}>交易标签</h3>
+        <h3 style={{ marginTop: 20 }}>交易标签（支持合并/删除）</h3>
         {tagGroups.length === 0 ? (
           <EmptyState
             title="暂无标签"
-            description="标签来自交易明细，新增交易标签后会自动聚合到这里。"
+            description="新增交易时会自动建议并创建标签，后续可在此集中管理。"
             icon="🏷️"
           />
         ) : (
@@ -338,17 +510,37 @@ export function CategoriesAccountsPage() {
                       onClick={() =>
                         navigate(`/transactions?keyword=${encodeURIComponent(tag.label)}`)
                       }
-                      aria-label={`查看标签 ${tag.label} 的 ${tag.count} 条交易`}
                     >
                       {tag.count} 条
                     </button>
                   </span>
+                  <select
+                    value={mergeTargetByTag[tag.key] || ''}
+                    onChange={(e) =>
+                      setMergeTargetByTag((prev) => ({ ...prev, [tag.key]: e.target.value }))
+                    }
+                  >
+                    <option value="">选择合并目标</option>
+                    {tagGroups
+                      .filter((item) => item.key !== tag.key)
+                      .map((item) => (
+                        <option key={item.key} value={item.label}>
+                          {item.label}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => mergeTagIntoAnother(tag.label, mergeTargetByTag[tag.key] || '')}
+                  >
+                    合并
+                  </button>
                   <button
                     type="button"
                     className="danger"
                     onClick={() => setPendingRemoveTagLabel(tag.label)}
                   >
-                    全部移除
+                    删除
                   </button>
                 </li>
               ))}
@@ -401,8 +593,6 @@ export function CategoriesAccountsPage() {
             <div className="field">
               <label>账户类型</label>
               <select
-                aria-label="账户类型"
-                title="账户类型"
                 value={accountType}
                 onChange={(e) => setAccountType(e.target.value as AccountType | '')}
               >
@@ -474,17 +664,34 @@ export function CategoriesAccountsPage() {
                         <input
                           className="account-balance-input"
                           type="number"
-                          aria-label={`校准余额：${item.name}`}
-                          title={`校准余额：${item.name}`}
                           placeholder="输入余额"
                           value={balanceValue}
                           onChange={(e) =>
                             setEditingBalances((prev) => ({ ...prev, [item.id]: e.target.value }))
                           }
                         />
+                        <small>
+                          <a href="#" onClick={(e) => e.preventDefault()}>
+                            自动校准说明：系统会回推“初始余额”，使当前余额与输入值一致。
+                          </a>
+                        </small>
                       </div>
                       <button type="button" onClick={() => applyAccountBalance(item.id)}>
                         保存校准
+                      </button>
+                    </div>
+                    <div className="account-card-actions" style={{ marginTop: 8 }}>
+                      <input
+                        className="account-balance-input"
+                        type="number"
+                        placeholder="单笔调整（+收入 / -支出）"
+                        value={adjustAmounts[item.id] || ''}
+                        onChange={(e) =>
+                          setAdjustAmounts((prev) => ({ ...prev, [item.id]: e.target.value }))
+                        }
+                      />
+                      <button type="button" onClick={() => applySingleAdjustment(item.id)}>
+                        添加单笔调整
                       </button>
                       <button className="danger" onClick={() => setPendingDeleteAccountId(item.id)}>
                         删除
