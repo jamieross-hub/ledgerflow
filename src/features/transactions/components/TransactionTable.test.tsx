@@ -31,6 +31,7 @@ describe('TransactionTable', () => {
           amountMax: '',
           tags: '',
           merchant: '',
+          location: '',
           orderNo: '',
           merchantOrderNo: '',
           note: ''
@@ -134,6 +135,7 @@ describe('TransactionTable', () => {
           amountMax: '',
           tags: '',
           merchant: '',
+          location: '',
           orderNo: '',
           merchantOrderNo: '',
           note: ''
@@ -248,6 +250,7 @@ describe('TransactionTable', () => {
           amountMax: '',
           tags: '',
           merchant: '',
+          location: '',
           orderNo: '',
           merchantOrderNo: '',
           note: ''

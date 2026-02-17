@@ -9,7 +9,7 @@ import {
   BillImportMode,
   parseBillFileToTransactions
 } from '../../shared/lib/billImport';
-import { formatDate } from '../../shared/lib/format';
+import { formatCurrency, formatDate } from '../../shared/lib/format';
 import { resolveImportDefaultAccountId } from '../../shared/lib/importAccount';
 import { Toast, ToastVariant } from '../../shared/ui/Toast';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
@@ -50,10 +50,30 @@ const DEFAULT_QUICK_FILTERS: TransactionQuickFilters = {
   amountMax: '',
   tags: '',
   merchant: '',
+  location: '',
   orderNo: '',
   merchantOrderNo: '',
   note: ''
 };
+
+const TX_SEARCH_HISTORY_KEY = 'ledgerflow.transactions.searchHistory';
+
+function getWeekRange(offsetWeeks = 0): { from: Date; to: Date } {
+  const now = new Date();
+  const day = now.getDay() || 7;
+  const monday = new Date(now);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(now.getDate() - day + 1 + offsetWeeks * 7);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  return { from: monday, to: sunday };
+}
+
+function extractLocation(note: string): string {
+  const match = note.match(/(?:@|在|于|地点[:：])\s*([\u4e00-\u9fa5A-Za-z0-9·\-\s]{2,20})/);
+  return match?.[1]?.trim() || '';
+}
 
 const DEFAULT_VISIBLE_COLUMNS: Record<TransactionColumnKey, boolean> = {
   date: true,
@@ -356,6 +376,15 @@ export function TransactionsPage() {
   });
 
   const [quickFilters, setQuickFilters] = useState<TransactionQuickFilters>(DEFAULT_QUICK_FILTERS);
+  const [searchHistory, setSearchHistory] = useState<string[]>(() => {
+    try {
+      const raw = window.localStorage.getItem(TX_SEARCH_HISTORY_KEY);
+      const parsed = raw ? (JSON.parse(raw) as string[]) : [];
+      return Array.isArray(parsed) ? parsed.filter(Boolean).slice(0, 8) : [];
+    } catch {
+      return [];
+    }
+  });
   const [sortKey, setSortKey] = useState<TransactionSortKey>('date');
   const [sortDirection, setSortDirection] = useState<TransactionSortDirection>('desc');
   const [visibleColumns, setVisibleColumns] = useState<Record<TransactionColumnKey, boolean>>(() =>
@@ -441,6 +470,10 @@ export function TransactionsPage() {
   }, [columnWidths]);
 
   useEffect(() => {
+    window.localStorage.setItem(TX_SEARCH_HISTORY_KEY, JSON.stringify(searchHistory));
+  }, [searchHistory]);
+
+  useEffect(() => {
     const categoryId = searchParams.get('categoryId') ?? '';
     if (!categoryId) {
       return;
@@ -523,8 +556,12 @@ export function TransactionsPage() {
      * 导致列表隐式追加“金额必须等于 0”，于是出现“交易记录为空”。
      */
     const hasAmountMin = amountMinRaw.length > 0 && Number.isFinite(amountMin);
+    const amountMaxRaw = quickFilters.amountMax.trim();
+    const amountMax = Number(amountMaxRaw);
+    const hasAmountMax = amountMaxRaw.length > 0 && Number.isFinite(amountMax);
     const tagsFilter = quickFilters.tags.trim().toLowerCase();
     const merchantFilter = quickFilters.merchant.trim().toLowerCase();
+    const locationFilter = quickFilters.location.trim().toLowerCase();
     const orderNoFilter = quickFilters.orderNo.trim().toLowerCase();
     const merchantOrderNoFilter = quickFilters.merchantOrderNo.trim().toLowerCase();
     const noteFilter = quickFilters.note.trim().toLowerCase();
@@ -546,8 +583,15 @@ export function TransactionsPage() {
         !merchantFilter ||
         (row.item.note || '').toLowerCase().includes(merchantFilter) ||
         (row.item.merchantOrderNo || '').toLowerCase().includes(merchantFilter);
+      const locationText = extractLocation(row.item.note).toLowerCase();
+      const locationPass =
+        !locationFilter ||
+        locationText.includes(locationFilter) ||
+        (row.item.note || '').toLowerCase().includes(`在${locationFilter}`);
       const notePass = !noteFilter || (row.item.note || '').toLowerCase().includes(noteFilter);
-      const amountPass = !hasAmountMin || row.item.amount >= amountMin;
+      const amountPass =
+        (!hasAmountMin || row.item.amount >= amountMin) &&
+        (!hasAmountMax || row.item.amount <= amountMax);
 
       return (
         (!dateFilter || dateText.includes(dateFilter)) &&
@@ -558,12 +602,67 @@ export function TransactionsPage() {
         amountPass &&
         tagsPass &&
         merchantPass &&
+        locationPass &&
         orderNoPass &&
         merchantOrderNoPass &&
         notePass
       );
     });
   }, [mappedRows, quickFilters]);
+
+  const monthlySummary = useMemo(() => {
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return quickFilteredRows.reduce(
+      (acc, row) => {
+        if (!row.item.date.startsWith(monthKey)) return acc;
+        if (row.item.type === 'income') acc.income += row.item.amount;
+        else acc.expense += row.item.amount;
+        return acc;
+      },
+      { income: 0, expense: 0 }
+    );
+  }, [quickFilteredRows]);
+
+  const groupedRows = useMemo(() => {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const thisWeek = getWeekRange(0);
+    const lastWeek = getWeekRange(-1);
+    const result: Record<'today' | 'thisWeek' | 'lastWeek', TransactionRowView[]> = {
+      today: [],
+      thisWeek: [],
+      lastWeek: []
+    };
+
+    quickFilteredRows.forEach((row) => {
+      const d = new Date(row.item.date);
+      const day = row.item.date.slice(0, 10);
+      if (day === today) {
+        result.today.push(row);
+      } else if (d >= thisWeek.from && d <= thisWeek.to) {
+        result.thisWeek.push(row);
+      } else if (d >= lastWeek.from && d <= lastWeek.to) {
+        result.lastWeek.push(row);
+      }
+    });
+
+    return result;
+  }, [quickFilteredRows]);
+
+  const tagCloud = useMemo(() => {
+    const freq = new Map<string, number>();
+    quickFilteredRows.forEach((row) => {
+      (row.item.tags || []).forEach((tag) => {
+        if (!tag) return;
+        freq.set(tag, (freq.get(tag) || 0) + 1);
+      });
+    });
+    return [...freq.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([tag, count]) => ({ tag, count }));
+  }, [quickFilteredRows]);
 
   const sortedRows = useMemo(() => {
     const rows = [...quickFilteredRows];
@@ -1005,8 +1104,10 @@ export function TransactionsPage() {
     quickFilters.category.trim().length > 0 ||
     quickFilters.account.trim().length > 0 ||
     quickFilters.amountMin.trim().length > 0 ||
+    quickFilters.amountMax.trim().length > 0 ||
     quickFilters.tags.trim().length > 0 ||
     quickFilters.merchant.trim().length > 0 ||
+    quickFilters.location.trim().length > 0 ||
     quickFilters.orderNo.trim().length > 0 ||
     quickFilters.merchantOrderNo.trim().length > 0 ||
     quickFilters.note.trim().length > 0;
@@ -1016,6 +1117,14 @@ export function TransactionsPage() {
     value: TransactionQuickFilters[K]
   ) => {
     setQuickFilters((prev) => ({ ...prev, [key]: value }));
+    if (key === 'merchant') {
+      const keyword = String(value || '').trim();
+      if (keyword) {
+        setSearchHistory((prev) =>
+          [keyword, ...prev.filter((item) => item !== keyword)].slice(0, 8)
+        );
+      }
+    }
     setPage(1);
   };
 
@@ -1217,6 +1326,100 @@ export function TransactionsPage() {
         style={{ display: 'none' }}
         onChange={(event) => void handleImportFile(event)}
       />
+
+      <section className="panel transaction-insight-panel">
+        <div className="transaction-monthly-summary">
+          <div>
+            <span>本月支出</span>
+            <strong>{formatCurrency(monthlySummary.expense)}</strong>
+          </div>
+          <div>
+            <span>本月收入</span>
+            <strong>{formatCurrency(monthlySummary.income)}</strong>
+          </div>
+          <div>
+            <span>本月净额</span>
+            <strong>{formatCurrency(monthlySummary.income - monthlySummary.expense)}</strong>
+          </div>
+        </div>
+
+        <div className="transaction-advanced-filters">
+          <input
+            value={quickFilters.amountMin}
+            onChange={(event) => handleQuickFilterChange('amountMin', event.target.value)}
+            placeholder="最小金额"
+            type="number"
+          />
+          <input
+            value={quickFilters.amountMax}
+            onChange={(event) => handleQuickFilterChange('amountMax', event.target.value)}
+            placeholder="最大金额"
+            type="number"
+          />
+          <input
+            value={quickFilters.merchant}
+            onChange={(event) => handleQuickFilterChange('merchant', event.target.value)}
+            placeholder="商户名"
+          />
+          <input
+            value={quickFilters.location}
+            onChange={(event) => handleQuickFilterChange('location', event.target.value)}
+            placeholder="消费地点"
+          />
+        </div>
+
+        {searchHistory.length > 0 ? (
+          <div className="transaction-search-history">
+            <span>历史搜索：</span>
+            {searchHistory.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => handleQuickFilterChange('merchant', item)}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {tagCloud.length > 0 ? (
+          <div className="transaction-tag-cloud">
+            {tagCloud.map((entry) => (
+              <button
+                key={entry.tag}
+                type="button"
+                onClick={() => handleQuickFilterChange('tags', entry.tag)}
+              >
+                #{entry.tag} ({entry.count})
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="transaction-group-grid">
+          {(
+            [
+              ['today', '今天'],
+              ['thisWeek', '本周'],
+              ['lastWeek', '上周']
+            ] as const
+          ).map(([key, label]) => (
+            <article key={key} className="transaction-group-card">
+              <h4>{label}</h4>
+              <small>{groupedRows[key].length} 笔</small>
+              <ul>
+                {groupedRows[key].slice(0, 4).map((row) => (
+                  <li key={row.item.id}>
+                    <span>{row.item.note || row.categoryName}</span>
+                    <strong>{formatCurrency(row.item.amount)}</strong>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <TransactionTable
         pageSize={pageSize}

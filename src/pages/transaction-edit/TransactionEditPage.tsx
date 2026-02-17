@@ -1,7 +1,16 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { TransactionStatus } from '../../entities/transaction/types';
+import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
+import { extractJsonString } from '../../features/assistant/workbench/workbenchUtils';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
+import { useAiSettings } from '../../shared/store/useAiSettings';
+
+interface RecognitionSuggestion {
+  merchant: string;
+  category: string;
+  reason: string;
+}
 
 const MAX_AMOUNT = 999999999.99;
 const MIN_DATE = '2000-01-01T00:00';
@@ -93,6 +102,9 @@ export function TransactionEditPage() {
   const transactions = useFinanceStore((s) => s.transactions);
   const addTransaction = useFinanceStore((s) => s.addTransaction);
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
+  const aiBaseUrl = useAiSettings((s) => s.baseUrl);
+  const aiApiKey = useAiSettings((s) => s.apiKey);
+  const aiModel = useAiSettings((s) => s.model);
 
   const current = useMemo(() => transactions.find((item) => item.id === id), [transactions, id]);
   const [type, setType] = useState<'income' | 'expense' | 'budget' | 'repayment'>(
@@ -113,6 +125,8 @@ export function TransactionEditPage() {
   const [amountError, setAmountError] = useState('');
   const [dateError, setDateError] = useState('');
   const [formError, setFormError] = useState('');
+  const [recognizing, setRecognizing] = useState(false);
+  const [suggestion, setSuggestion] = useState<RecognitionSuggestion | null>(null);
 
   const suggestedTags = useMemo(
     () =>
@@ -123,6 +137,30 @@ export function TransactionEditPage() {
   const handleBack = useCallback(() => {
     navigate('/transactions');
   }, [navigate]);
+
+  const recognizeMerchant = useCallback(async () => {
+    const text = note.trim();
+    if (!text || !aiBaseUrl || !aiModel) return;
+    setRecognizing(true);
+    try {
+      const prompt = `请识别交易备注中的商户名称与分类，只返回 JSON：{"merchant":"", "category":"", "reason":""}。备注：${text}`;
+      const res = await sendAiChat({
+        baseUrl: aiBaseUrl,
+        apiKey: aiApiKey,
+        model: aiModel,
+        messages: [{ role: 'user', text: prompt }]
+      });
+      const raw = extractJsonString(res?.content || '');
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as RecognitionSuggestion;
+      if (!parsed?.merchant && !parsed?.category) return;
+      setSuggestion(parsed);
+    } catch {
+      // ignore suggestion failures
+    } finally {
+      setRecognizing(false);
+    }
+  }, [aiApiKey, aiBaseUrl, aiModel, note]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -304,6 +342,37 @@ export function TransactionEditPage() {
         <div className="field">
           <label>备注</label>
           <textarea value={note} onChange={(e) => setNote(e.target.value)} />
+          <div className="row" style={{ marginTop: 8 }}>
+            <button type="button" onClick={() => void recognizeMerchant()} disabled={recognizing}>
+              {recognizing ? 'AI 识别中...' : 'AI 识别商户与分类'}
+            </button>
+          </div>
+          {suggestion ? (
+            <small>
+              建议：商户「{suggestion.merchant || '未识别'}」，分类「
+              {suggestion.category || '未识别'}」。
+              <button
+                type="button"
+                onClick={() => {
+                  if (suggestion.merchant) {
+                    setNote((prev) =>
+                      prev.includes(suggestion.merchant)
+                        ? prev
+                        : `${suggestion.merchant} ${prev}`.trim()
+                    );
+                  }
+                  if (suggestion.category) {
+                    const matched = categories.find((item) =>
+                      item.name.includes(suggestion.category)
+                    );
+                    if (matched) setCategoryId(matched.id);
+                  }
+                }}
+              >
+                应用建议
+              </button>
+            </small>
+          ) : null}
         </div>
 
         <div className="field">

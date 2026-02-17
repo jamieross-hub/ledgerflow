@@ -7150,3 +7150,67 @@ body.exchange-resizing {
   border-radius: 10px;
   padding: 10px;
 }
+
+.transaction-insight-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.transaction-monthly-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.transaction-monthly-summary > div {
+  border: 1px solid var(--color-border, #e6e8ec);
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--color-bg-soft, #f8fafc);
+}
+
+.transaction-monthly-summary span {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.transaction-advanced-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.transaction-search-history,
+.transaction-tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.transaction-group-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.transaction-group-card {
+  border: 1px solid var(--color-border, #e6e8ec);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.transaction-group-card ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.transaction-group-card li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
