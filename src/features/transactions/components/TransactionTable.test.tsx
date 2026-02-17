@@ -306,7 +306,7 @@ describe('TransactionTable', () => {
 
     expect(screen.getByRole('button', { name: '第一页' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '最后一页' })).toBeInTheDocument();
-    expect(screen.getByText('汇总（当前页 2 条）')).toBeInTheDocument();
+    expect(screen.getByText(/汇总（当前页 2 条）/)).toBeInTheDocument();
     expect(screen.getByText(/金额合计 ¥250.00/)).toBeInTheDocument();
   });
 });
