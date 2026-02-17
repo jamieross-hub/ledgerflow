@@ -92,6 +92,22 @@ function getConstellationLabel(month: number, day: number): string {
 }
 
 const FORECAST_CACHE_KEY = 'dashboard_forecast_cache_v1';
+const DASHBOARD_MODULES_KEY = 'dashboard_custom_modules_v1';
+
+const DASHBOARD_MODULE_CATALOG = [
+  { id: 'dynamic-charts', label: '动态图表', description: '收支趋势、分类占比、净资产曲线' },
+  {
+    id: 'anomaly-insights',
+    label: '异常与亮点',
+    description: 'AI + 本地模式识别消费异动和节省机会'
+  },
+  { id: 'top-transactions', label: '支出排行', description: '展示本月金额较高的重点账目' },
+  { id: 'history-compare', label: '历史对比维度', description: '上月 / 季度 / 年度支出对比' },
+  { id: 'profile', label: '消费画像', description: '时段偏好、商家偏好、消费人格' },
+  { id: 'finance-suggestions', label: '财务建议', description: '结合玄学与预算动作给出建议' }
+] as const;
+
+type DashboardModuleId = (typeof DASHBOARD_MODULE_CATALOG)[number]['id'];
 
 function normalizeForecastPayload(raw: unknown, fallback: number): ForecastPayload | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -172,6 +188,18 @@ export function DashboardPage() {
     label: string;
     value: number;
   } | null>(null);
+  const [trendGranularity, setTrendGranularity] = useState<'week' | 'month'>('week');
+  const [moduleOrder, setModuleOrder] = useState<DashboardModuleId[]>(() =>
+    DASHBOARD_MODULE_CATALOG.map((item) => item.id)
+  );
+  const [moduleVisibility, setModuleVisibility] = useState<Record<DashboardModuleId, boolean>>(
+    () =>
+      Object.fromEntries(DASHBOARD_MODULE_CATALOG.map((item) => [item.id, true])) as Record<
+        DashboardModuleId,
+        boolean
+      >
+  );
+  const [draggingModule, setDraggingModule] = useState<DashboardModuleId | null>(null);
 
   const now = new Date();
   const currentMonth = now.getMonth();
@@ -767,6 +795,184 @@ export function DashboardPage() {
     [currentYear, transactions]
   );
 
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DASHBOARD_MODULES_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        order?: DashboardModuleId[];
+        visibility?: Partial<Record<DashboardModuleId, boolean>>;
+      };
+      if (Array.isArray(parsed.order)) {
+        const safeOrder = parsed.order.filter((id): id is DashboardModuleId =>
+          DASHBOARD_MODULE_CATALOG.some((item) => item.id === id)
+        );
+        if (safeOrder.length) {
+          const missing = DASHBOARD_MODULE_CATALOG.map((item) => item.id).filter(
+            (id) => !safeOrder.includes(id)
+          );
+          setModuleOrder([...safeOrder, ...missing]);
+        }
+      }
+      if (parsed.visibility) {
+        setModuleVisibility((prev) => ({ ...prev, ...parsed.visibility }));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        DASHBOARD_MODULES_KEY,
+        JSON.stringify({ order: moduleOrder, visibility: moduleVisibility })
+      );
+    } catch {
+      // ignore
+    }
+  }, [moduleOrder, moduleVisibility]);
+
+  const trendSeries = useMemo(() => {
+    if (trendGranularity === 'month') {
+      return recentMonths.map((item) => ({
+        label: item.shortLabel,
+        income: item.income,
+        expense: item.expense
+      }));
+    }
+
+    const nowPoint = new Date(currentYear, currentMonth, now.getDate());
+    return Array.from({ length: 8 }).map((_, index) => {
+      const offset = 7 - index;
+      const end = new Date(nowPoint);
+      end.setDate(end.getDate() - offset * 7);
+      const start = new Date(end);
+      start.setDate(start.getDate() - 6);
+      const rows = transactions.filter((item) => {
+        const date = new Date(item.date);
+        return date >= start && date <= end;
+      });
+      const weekIncome = rows
+        .filter((item) => item.type === 'income')
+        .reduce((sum, item) => sum + item.amount, 0);
+      const weekExpense = rows
+        .filter((item) => isActualExpenseType(item.type))
+        .reduce((sum, item) => sum + item.amount, 0);
+      return {
+        label: `${start.getMonth() + 1}/${start.getDate()}-${end.getMonth() + 1}/${end.getDate()}`,
+        income: weekIncome,
+        expense: weekExpense
+      };
+    });
+  }, [currentMonth, currentYear, now, recentMonths, transactions, trendGranularity]);
+
+  const categoryExpensePie = useMemo(() => {
+    const map = new Map<string, number>();
+    monthly
+      .filter((item) => isActualExpenseType(item.type))
+      .forEach((item) => {
+        const name = categoryNameMap.get(item.categoryId) || item.categoryId || '未分类';
+        map.set(name, (map.get(name) || 0) + item.amount);
+      });
+    const total = Array.from(map.values()).reduce((sum, value) => sum + value, 0);
+    return Array.from(map.entries())
+      .map(([name, amount]) => ({
+        name,
+        amount,
+        percent: total > 0 ? (amount / total) * 100 : 0
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 6);
+  }, [categoryNameMap, monthly]);
+
+  const netAssetCurve = useMemo(() => {
+    const balances = recentMonths.map((item) => item.balance);
+    const current = netAssets;
+    const points = new Array(balances.length);
+    let running = current;
+    for (let i = balances.length - 1; i >= 0; i -= 1) {
+      points[i] = running;
+      running -= balances[i];
+    }
+    return recentMonths.map((item, index) => ({ label: item.shortLabel, value: points[index] }));
+  }, [netAssets, recentMonths]);
+
+  const anomalyInsight = useMemo(() => {
+    const expenseRows = transactions.filter((item) => isActualExpenseType(item.type));
+    if (!expenseRows.length) {
+      return {
+        anomalies: ['暂无支出数据，暂无法识别异常。'],
+        highlights: ['先记一笔账单，系统即可生成亮点分析。']
+      };
+    }
+
+    const merchantThisWeek = new Map<string, number>();
+    const merchantPrevWeek = new Map<string, number>();
+    const today = new Date();
+    const thisWeekStart = new Date(today);
+    thisWeekStart.setDate(today.getDate() - 6);
+    const prevWeekStart = new Date(today);
+    prevWeekStart.setDate(today.getDate() - 13);
+
+    expenseRows.forEach((item) => {
+      const date = new Date(item.date);
+      const merchant =
+        (item.note || '').trim().slice(0, 12) || categoryNameMap.get(item.categoryId) || '未知商家';
+      if (date >= thisWeekStart) {
+        merchantThisWeek.set(merchant, (merchantThisWeek.get(merchant) || 0) + item.amount);
+      } else if (date >= prevWeekStart && date < thisWeekStart) {
+        merchantPrevWeek.set(merchant, (merchantPrevWeek.get(merchant) || 0) + item.amount);
+      }
+    });
+
+    const anomalies = Array.from(merchantThisWeek.entries())
+      .map(([merchant, amount]) => {
+        const prev = merchantPrevWeek.get(merchant) || 0;
+        return { merchant, amount, prev, ratio: prev > 0 ? amount / prev : amount > 0 ? 99 : 0 };
+      })
+      .filter((item) => item.amount > 100 && item.ratio >= 1.8)
+      .sort((a, b) => b.ratio - a.ratio)
+      .slice(0, 2)
+      .map(
+        (item) =>
+          `⚠️ ${item.merchant} 本周支出 ${formatCurrency(item.amount)}，较上周提升 ${item.prev ? `${((item.ratio - 1) * 100).toFixed(0)}%` : '显著增长'}。`
+      );
+
+    const monthlyByDay = new Map<string, number>();
+    monthly.forEach((item) => {
+      if (!isActualExpenseType(item.type)) return;
+      const key = item.date.slice(0, 10);
+      monthlyByDay.set(key, (monthlyByDay.get(key) || 0) + item.amount);
+    });
+    const dayValues = Array.from(monthlyByDay.values());
+    const dayAvg = dayValues.reduce((sum, value) => sum + value, 0) / Math.max(dayValues.length, 1);
+    const lowerDays = dayValues.filter((value) => value < dayAvg * 0.7).length;
+
+    const highlights = [
+      `✅ 本月日均支出约 ${formatCurrency(dayAvg)}，其中 ${lowerDays} 天低于均值 70%，节奏控制较好。`,
+      ...(monthlyInsight?.highlights?.slice(0, 2).map((item) => `✨ AI：${item}`) || [])
+    ].slice(0, 3);
+
+    return {
+      anomalies: anomalies.length ? anomalies : ['未发现明显异常消费激增，当前消费波动相对稳定。'],
+      highlights
+    };
+  }, [categoryNameMap, monthly, monthlyInsight?.highlights, transactions]);
+
+  const moveModule = (from: DashboardModuleId, to: DashboardModuleId) => {
+    if (from === to) return;
+    setModuleOrder((prev) => {
+      const next = prev.slice();
+      const fromIndex = next.indexOf(from);
+      const toIndex = next.indexOf(to);
+      if (fromIndex < 0 || toIndex < 0) return prev;
+      next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, from);
+      return next;
+    });
+  };
+
   return (
     <div>
       <section className="welcome-banner">
@@ -832,49 +1038,225 @@ export function DashboardPage() {
             </div>
           </div>
         </div>
-        <div className="dashboard-core-top-list">
+        <section className="dashboard-module-customizer" aria-label="首页模块自定义">
           <div className="dashboard-section-header">
-            <h4>重点账目</h4>
-            <span>金额 TOP {displayTopTransactions.length}</span>
+            <h4>首页模块自定义</h4>
+            <span>拖拽排序 + 开关卡片</span>
           </div>
-          <div className="dashboard-top-list">
-            {displayTopTransactions.map((item, index) => (
-              <article key={`${item.date}-${index}`} className="dashboard-top-item">
-                <div>
-                  <p className="dashboard-top-title">
-                    {item.category || '未分类'} · {item.date}
-                  </p>
-                  <p className="dashboard-top-note">{item.note || '无备注'}</p>
+          <div className="dashboard-module-toggle-list">
+            {DASHBOARD_MODULE_CATALOG.map((module) => (
+              <label key={module.id}>
+                <input
+                  type="checkbox"
+                  checked={moduleVisibility[module.id]}
+                  onChange={(event) =>
+                    setModuleVisibility((prev) => ({ ...prev, [module.id]: event.target.checked }))
+                  }
+                />
+                <span>{module.label}</span>
+              </label>
+            ))}
+          </div>
+          <div className="dashboard-module-order-list" role="list" aria-label="模块顺序">
+            {moduleOrder.map((moduleId) => {
+              const module = DASHBOARD_MODULE_CATALOG.find((item) => item.id === moduleId);
+              if (!module) return null;
+              return (
+                <button
+                  key={module.id}
+                  type="button"
+                  className="dashboard-module-chip"
+                  draggable
+                  onDragStart={() => setDraggingModule(module.id)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => {
+                    if (draggingModule) moveModule(draggingModule, module.id);
+                    setDraggingModule(null);
+                  }}
+                  onDragEnd={() => setDraggingModule(null)}
+                >
+                  ↕ {module.label}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {moduleOrder.map((moduleId) => {
+          if (!moduleVisibility[moduleId]) return null;
+          if (moduleId === 'dynamic-charts') {
+            const maxValue = Math.max(
+              ...trendSeries.flatMap((item) => [item.income, item.expense]),
+              1
+            );
+            const pieGradient = (() => {
+              let cursor = 0;
+              const colors = ['#4f8cff', '#6ad7b9', '#f6a623', '#ff6b6b', '#9b6bff', '#14b8a6'];
+              const segments = categoryExpensePie.map((item, index) => {
+                const start = cursor;
+                cursor += item.percent;
+                return `${colors[index % colors.length]} ${start}% ${cursor}%`;
+              });
+              return segments.length ? `conic-gradient(${segments.join(',')})` : 'none';
+            })();
+            const netMax = Math.max(...netAssetCurve.map((item) => item.value), 1);
+            return (
+              <section key={moduleId} className="dashboard-dynamic-grid">
+                <article className="panel" style={{ margin: 0 }}>
+                  <div className="dashboard-section-header">
+                    <h4>收支趋势（{trendGranularity === 'week' ? '按周' : '按月'}）</h4>
+                    <div className="dashboard-segment-control">
+                      <button
+                        type="button"
+                        className={trendGranularity === 'week' ? 'active' : ''}
+                        onClick={() => setTrendGranularity('week')}
+                      >
+                        周
+                      </button>
+                      <button
+                        type="button"
+                        className={trendGranularity === 'month' ? 'active' : ''}
+                        onClick={() => setTrendGranularity('month')}
+                      >
+                        月
+                      </button>
+                    </div>
+                  </div>
+                  <div className="dashboard-mini-bars">
+                    {trendSeries.map((item) => (
+                      <div key={item.label}>
+                        <strong>{item.label}</strong>
+                        <span
+                          style={{ height: `${(item.income / maxValue) * 100}%` }}
+                          className="income"
+                        />
+                        <span
+                          style={{ height: `${(item.expense / maxValue) * 100}%` }}
+                          className="expense"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </article>
+                <article className="panel" style={{ margin: 0 }}>
+                  <h4>分类支出占比</h4>
+                  <div className="dashboard-pie-wrap">
+                    <div className="dashboard-pie" style={{ background: pieGradient }} />
+                    <div>
+                      {categoryExpensePie.map((item) => (
+                        <p key={item.name}>
+                          {item.name}：{item.percent.toFixed(1)}%
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                </article>
+                <article className="panel" style={{ margin: 0 }}>
+                  <h4>累计净资产曲线</h4>
+                  <div className="dashboard-net-curve">
+                    {netAssetCurve.map((item) => (
+                      <div key={item.label}>
+                        <span>{item.label}</span>
+                        <i style={{ width: `${(item.value / netMax) * 100}%` }} />
+                        <strong>{formatCurrency(item.value)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              </section>
+            );
+          }
+
+          if (moduleId === 'anomaly-insights') {
+            return (
+              <section key={moduleId} className="panel" style={{ marginTop: 12 }}>
+                <div className="dashboard-section-header">
+                  <h4>异常提醒与亮点分析</h4>
+                  <span>每日/每周消费模式</span>
                 </div>
-                <strong>{formatCurrency(item.amount)}</strong>
+                <div className="dashboard-anomaly-grid">
+                  <article>
+                    <h5>异常提醒</h5>
+                    <ul>
+                      {anomalyInsight.anomalies.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </article>
+                  <article>
+                    <h5>节省亮点</h5>
+                    <ul>
+                      {anomalyInsight.highlights.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </article>
+                </div>
+              </section>
+            );
+          }
+
+          if (moduleId === 'top-transactions') {
+            return (
+              <div key={moduleId} className="dashboard-core-top-list">
+                <div className="dashboard-section-header">
+                  <h4>重点账目</h4>
+                  <span>金额 TOP {displayTopTransactions.length}</span>
+                </div>
+                <div className="dashboard-top-list">
+                  {displayTopTransactions.map((item, index) => (
+                    <article key={`${item.date}-${index}`} className="dashboard-top-item">
+                      <div>
+                        <p className="dashboard-top-title">
+                          {item.category || '未分类'} · {item.date}
+                        </p>
+                        <p className="dashboard-top-note">{item.note || '无备注'}</p>
+                      </div>
+                      <strong>{formatCurrency(item.amount)}</strong>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            );
+          }
+
+          if (moduleId === 'profile') {
+            return (
+              <article key={moduleId} className="panel" style={{ marginTop: 12 }}>
+                <h3>消费行为画像</h3>
+                <p>时段偏好：{timePreference}</p>
+                <p>高频商家：{topMerchant}</p>
+                <p>消费人格：{personalityTag}</p>
+                <p>同类人群对比：{crowdCompare}</p>
               </article>
-            ))}
-          </div>
-        </div>
-        <div className="grid grid-2" style={{ marginTop: 12 }}>
-          <article className="panel" style={{ margin: 0 }}>
-            <h3>消费行为画像</h3>
-            <p>时段偏好：{timePreference}</p>
-            <p>高频商家：{topMerchant}</p>
-            <p>消费人格：{personalityTag}</p>
-            <p>同类人群对比：{crowdCompare}</p>
-          </article>
-          <article className="panel" style={{ margin: 0 }}>
-            <h3>历史对比维度</h3>
-            <p>上月支出：{formatCurrency(recentMonths[recentMonths.length - 2]?.expense || 0)}</p>
-            <p>本季度支出：{formatCurrency(quarterExpense)}</p>
-            <p>本年度支出：{formatCurrency(yearlyExpense)}</p>
-          </article>
-          <article className="panel" style={{ margin: 0 }}>
-            <h3>{mysticInsight.title}</h3>
-            {mysticInsight.lines.map((line) => (
-              <p key={line}>{line}</p>
-            ))}
-            <p>
-              <strong>{mysticInsight.disclaimer}</strong>
-            </p>
-          </article>
-        </div>
+            );
+          }
+
+          if (moduleId === 'history-compare') {
+            return (
+              <article key={moduleId} className="panel" style={{ marginTop: 12 }}>
+                <h3>历史对比维度</h3>
+                <p>
+                  上月支出：{formatCurrency(recentMonths[recentMonths.length - 2]?.expense || 0)}
+                </p>
+                <p>本季度支出：{formatCurrency(quarterExpense)}</p>
+                <p>本年度支出：{formatCurrency(yearlyExpense)}</p>
+              </article>
+            );
+          }
+
+          return (
+            <article key={moduleId} className="panel" style={{ marginTop: 12 }}>
+              <h3>{mysticInsight.title}</h3>
+              {mysticInsight.lines.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+              <p>
+                <strong>{mysticInsight.disclaimer}</strong>
+              </p>
+            </article>
+          );
+        })}
       </section>
 
       {transactions.length === 0 ? (
