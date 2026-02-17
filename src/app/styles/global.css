@@ -6904,3 +6904,111 @@ body.exchange-resizing {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.dashboard-module-customizer {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+}
+.dashboard-module-toggle-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0;
+}
+.dashboard-module-toggle-list label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dashboard-module-order-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dashboard-module-chip {
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-panel);
+  padding: 4px 10px;
+}
+.dashboard-dynamic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.dashboard-segment-control {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.dashboard-segment-control button {
+  border: 0;
+  background: transparent;
+  padding: 4px 10px;
+}
+.dashboard-segment-control button.active {
+  background: var(--color-primary);
+  color: #fff;
+}
+.dashboard-mini-bars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+  gap: 8px;
+  align-items: end;
+  min-height: 140px;
+}
+.dashboard-mini-bars div {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+.dashboard-mini-bars span {
+  width: 12px;
+  border-radius: 6px;
+  display: inline-block;
+  min-height: 4px;
+}
+.dashboard-mini-bars span.income {
+  background: #4f8cff;
+}
+.dashboard-mini-bars span.expense {
+  background: #ff6b6b;
+}
+.dashboard-pie-wrap {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.dashboard-pie {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+}
+.dashboard-net-curve div {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.dashboard-net-curve i {
+  display: inline-block;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #6ad7b9, #4f8cff);
+}
+.dashboard-anomaly-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+.dashboard-anomaly-grid article {
+  background: var(--color-bg-soft);
+  border-radius: 10px;
+  padding: 10px;
+}
