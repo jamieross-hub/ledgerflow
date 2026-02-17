@@ -3286,6 +3286,38 @@ small.mono {
   color: var(--color-warning);
 }
 
+.chat-push-insights {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.chat-push-insight-item {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+  padding: 10px 12px;
+  background: var(--color-bg-elevated);
+  display: grid;
+  gap: 4px;
+}
+
+.chat-push-insight-item h4 {
+  margin: 0;
+  font-size: var(--font-sm);
+  color: var(--color-text);
+}
+
+.chat-push-insight-item p {
+  margin: 0;
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+}
+
+.chat-push-insight-item.warning {
+  border-color: var(--color-warning-border);
+  background: color-mix(in srgb, var(--color-warning-bg) 65%, #fff 35%);
+}
+
 .chat-preset-head {
   display: flex;
   align-items: center;
@@ -3313,6 +3345,10 @@ small.mono {
   gap: var(--space-2);
 }
 
+.chat-preset-list-smart {
+  margin-bottom: var(--space-1);
+}
+
 .chat-preset-item {
   text-align: center;
   border: 1px solid var(--color-border);
@@ -3332,6 +3368,22 @@ small.mono {
   background: var(--color-primary-bg);
   border-color: var(--color-primary-border);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary-bg) 45%, transparent);
+}
+
+.chat-preset-item-smart {
+  border-radius: var(--radius-lg);
+  text-align: left;
+  display: grid;
+  gap: 2px;
+}
+
+.chat-preset-item-smart strong {
+  font-size: var(--font-sm);
+}
+
+.chat-preset-item-tag {
+  color: var(--color-primary);
+  font-size: 11px;
 }
 
 /* ---------- Input Bar ---------- */
