@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { ThemeSwitcher } from '../../features/theme-switcher/ThemeSwitcher';
 import { formatCurrency } from '../../shared/lib/format';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
@@ -28,21 +28,21 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
     ]
   },
   {
-    title: '交易与洞察',
+    title: '收支管理',
     items: [
       { to: '/transactions', label: '交易流水', icon: '📋' },
       { to: '/', label: '数据概览', icon: '📊', end: true }
     ]
   },
   {
-    title: '账务管理',
+    title: '资产负债',
     items: [
       { to: '/categories-accounts', label: '账户与分类', icon: '🗂️' },
       { to: '/repayment-management', label: '还款管理', icon: '💳' }
     ]
   },
   {
-    title: '系统服务',
+    title: '工具资讯',
     items: [
       { to: '/settings', label: '设置', icon: '⚙️' },
       { to: '/exchange', label: '汇率工具', icon: '💱' },
@@ -101,12 +101,16 @@ const todayLabel = new Intl.DateTimeFormat('zh-CN', {
 }).format(new Date());
 
 export function AppLayout() {
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
+  );
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(navSections.map((section) => [section.title, true]))
   );
 
   const draggingRef = useRef(false);
@@ -162,6 +166,38 @@ export function AppLayout() {
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
+
+  useEffect(() => {
+    const isTypingTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      const tag = target.tagName.toLowerCase();
+      return tag === 'input' || tag === 'textarea' || target.isContentEditable;
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey || isTypingTarget(event.target)) {
+        return;
+      }
+
+      if (event.key === 'N' || event.key === 'n') {
+        event.preventDefault();
+        navigate('/transactions/new');
+      }
+
+      if (event.key === 'B' || event.key === 'b') {
+        event.preventDefault();
+        navigate('/smart-budget');
+      }
+
+      if (event.key === '/') {
+        event.preventDefault();
+        navigate('/transactions');
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [navigate]);
 
   useEffect(() => {
     if (!collapsed && menuOpen) {
@@ -221,43 +257,71 @@ export function AppLayout() {
         {collapsed ? null : (
           <section className="sidebar-overview-card">
             <h3>{monthLabel}</h3>
-            <p>先记账，再看趋势，账本更清晰。</p>
+            <p>① 添加账目 ② 设置预算 ③ 查看分析</p>
+            <div className="sidebar-overview-actions">
+              <Link to="/transactions/new" className="sidebar-overview-action">
+                记一笔
+              </Link>
+              <Link to="/smart-budget" className="sidebar-overview-action">
+                去预算
+              </Link>
+              <Link to="/" className="sidebar-overview-action">
+                看分析
+              </Link>
+            </div>
           </section>
         )}
 
         <nav className="sidebar-nav">
           {navSections.map((section) => (
             <div key={section.title} className="sidebar-section">
-              {collapsed ? null : <p className="sidebar-section-title">{section.title}</p>}
-              {section.items.map((item) => {
-                if (!item.to || item.disabled) {
+              {collapsed ? null : (
+                <button
+                  type="button"
+                  className="sidebar-section-toggle"
+                  onClick={() =>
+                    setExpandedSections((prev) => ({
+                      ...prev,
+                      [section.title]: !prev[section.title]
+                    }))
+                  }
+                >
+                  <span className="sidebar-section-title">{section.title}</span>
+                  <span>{expandedSections[section.title] ? '▾' : '▸'}</span>
+                </button>
+              )}
+              {(collapsed || expandedSections[section.title]) &&
+                section.items.map((item) => {
+                  if (!item.to || item.disabled) {
+                    return (
+                      <div
+                        key={`${section.title}-${item.label}`}
+                        className="sidebar-link disabled"
+                        title={item.label}
+                      >
+                        <span className="sidebar-link-icon">{item.icon}</span>
+                        {collapsed ? null : (
+                          <span className="sidebar-link-label">{item.label}</span>
+                        )}
+                      </div>
+                    );
+                  }
+
                   return (
-                    <div
+                    <NavLink
                       key={`${section.title}-${item.label}`}
-                      className="sidebar-link disabled"
+                      to={item.to}
+                      end={item.end}
+                      className={({ isActive }) =>
+                        isActive ? 'sidebar-link active' : 'sidebar-link'
+                      }
                       title={item.label}
                     >
                       <span className="sidebar-link-icon">{item.icon}</span>
                       {collapsed ? null : <span className="sidebar-link-label">{item.label}</span>}
-                    </div>
+                    </NavLink>
                   );
-                }
-
-                return (
-                  <NavLink
-                    key={`${section.title}-${item.label}`}
-                    to={item.to}
-                    end={item.end}
-                    className={({ isActive }) =>
-                      isActive ? 'sidebar-link active' : 'sidebar-link'
-                    }
-                    title={item.label}
-                  >
-                    <span className="sidebar-link-icon">{item.icon}</span>
-                    {collapsed ? null : <span className="sidebar-link-label">{item.label}</span>}
-                  </NavLink>
-                );
-              })}
+                })}
             </div>
           ))}
         </nav>

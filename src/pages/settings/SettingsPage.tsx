@@ -316,6 +316,16 @@ export function SettingsPage() {
         </div>
       </section>
 
+      <section className="panel">
+        <h2>数据安全与隐私说明</h2>
+        <ul>
+          <li>本地存储：账目、账户、分类等核心数据默认保存在当前浏览器本地，不会自动上传。</li>
+          <li>传输加密：调用 AI 服务时建议使用 HTTPS，API Key 仅用于你配置的供应商请求。</li>
+          <li>最小化原则：仅在你主动触发 AI 功能时发送必要上下文，避免冗余数据外发。</li>
+          <li>隐私保护：可在导出前检查并删除备注中的敏感信息，降低共享风险。</li>
+        </ul>
+      </section>
+
       <Toast
         visible={toastVisible}
         variant="success"
