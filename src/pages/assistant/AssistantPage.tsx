@@ -209,6 +209,13 @@ interface PresetQuestion {
   prompt: string;
 }
 
+interface PushInsight {
+  id: string;
+  title: string;
+  detail: string;
+  level?: 'default' | 'warning';
+}
+
 const ANALYSIS_SHORTCUT_SEEDS = [
   {
     label: '最近1个月消费分析',
@@ -390,6 +397,15 @@ function buildLocalPresetQuestions(transactions: TransactionItem[], categories: 
     .map((item, index) => ({ id: `fallback-${index}`, ...item }));
 }
 
+function buildAssistantConversationPrompt(question: string, history: ChatHistoryItem[]): string {
+  const context = history
+    .slice(-6)
+    .map((item) => `${item.role === 'user' ? '用户' : '助手'}：${item.text}`)
+    .join('\n');
+  if (!context) return question;
+  return `请结合以下最近对话上下文连续回答，避免重复追问已确认的信息。\n\n最近对话：\n${context}\n\n当前问题：${question}`;
+}
+
 export function AssistantPage() {
   const [mode, setMode] = useState<AssistantMode>('assistant');
   const baseUrl = useAiSettings((s) => s.baseUrl);
@@ -501,6 +517,49 @@ export function AssistantPage() {
     );
 
     const monthBalance = monthIncome - monthExpense;
+    const weeklyRows = validRows.filter((item) => {
+      const gap = Math.floor((Date.now() - new Date(item.date).getTime()) / (1000 * 60 * 60 * 24));
+      return gap >= 0 && gap < 14;
+    });
+    const thisWeekExpense = weeklyRows
+      .filter((item) => item.type === 'expense')
+      .slice(0, 7)
+      .reduce((sum, item) => sum + item.amount, 0);
+    const lastWeekExpense = weeklyRows
+      .filter((item) => item.type === 'expense')
+      .slice(7, 14)
+      .reduce((sum, item) => sum + item.amount, 0);
+    const weeklyExpenseDeltaPct =
+      lastWeekExpense > 0 ? ((thisWeekExpense - lastWeekExpense) / lastWeekExpense) * 100 : 0;
+
+    const creditAccountCount = accounts.filter((item) => item.type === 'credit').length;
+
+    const pushInsights: PushInsight[] = [
+      {
+        id: 'weekly-expense-delta',
+        title:
+          lastWeekExpense > 0
+            ? `近7天餐饮/日常消费较上周${weeklyExpenseDeltaPct >= 0 ? '增加' : '下降'} ${Math.abs(weeklyExpenseDeltaPct).toFixed(1)}%`
+            : '近7天消费记录已更新，建议继续补齐一周数据后看趋势',
+        detail:
+          lastWeekExpense > 0
+            ? `本周支出 ¥${thisWeekExpense.toFixed(2)}，上周 ¥${lastWeekExpense.toFixed(2)}。`
+            : `当前累计支出 ¥${thisWeekExpense.toFixed(2)}。`,
+        level: weeklyExpenseDeltaPct > 15 ? 'warning' : 'default'
+      },
+      {
+        id: 'credit-reminder',
+        title:
+          creditAccountCount > 0
+            ? `检测到 ${creditAccountCount} 个信用账户，建议提前核对下周还款计划`
+            : '尚未配置信用卡账户，可在还款管理页补充后获取到期提醒',
+        detail:
+          creditAccountCount > 0
+            ? '可在还款管理页统一查看信用卡/负债余额，避免临期资金紧张。'
+            : '完善账户后，我会基于账户结构持续给出还款相关提醒。',
+        level: creditAccountCount > 0 ? 'warning' : 'default'
+      }
+    ];
     const insights = [
       `本月累计支出 ¥${monthExpense.toFixed(2)}，较上月${expenseDeltaPct >= 0 ? '上升' : '下降'} ${Math.abs(expenseDeltaPct).toFixed(1)}%。`,
       `本月收入趋势${incomeDeltaPct >= 0 ? '向上' : '回落'}，变化幅度 ${Math.abs(incomeDeltaPct).toFixed(1)}%，建议同步调整预算。`,
@@ -523,12 +582,57 @@ export function AssistantPage() {
         ? `发现异常支出：${abnormalRow.note || '未备注'} ¥${abnormalRow.amount.toFixed(2)}（${abnormalRow.date.slice(5)}）。`
         : '暂无明显异常支出，当前波动在正常区间。',
       insights,
+      pushInsights,
       riskAlert:
         monthBalance < 0
           ? '风险提示：本月净额为负，建议优先削减非必要消费并预留还款缓冲。'
           : '风险提示：当前净额为正，但仍建议为突发支出预留至少 10% 安全垫。'
     };
-  }, [previousMonthKey, thisMonthKey, todayKey, transactions]);
+  }, [accounts, previousMonthKey, thisMonthKey, todayKey, transactions]);
+
+  const behaviorRecommendedQuestions = useMemo(() => {
+    const categoryNameMap = new Map(categories.map((item) => [item.id, item.name]));
+    const recentExpenses = [...transactions]
+      .filter((item) => item.type === 'expense')
+      .sort((a, b) => +new Date(b.date) - +new Date(a.date))
+      .slice(0, 25);
+    const topRecentCategory = Object.values(
+      recentExpenses.reduce<Record<string, { name: string; amount: number }>>((acc, item) => {
+        const name = categoryNameMap.get(item.categoryId) || '其他';
+        if (!acc[name]) acc[name] = { name, amount: 0 };
+        acc[name].amount += item.amount;
+        return acc;
+      }, {})
+    ).sort((a, b) => b.amount - a.amount)[0];
+
+    const fallback: PresetQuestion[] = [
+      {
+        id: 'behavior-fallback-1',
+        label: '本月支出压力点',
+        prompt: '请结合我最近账单，指出本月最容易超支的 3 个场景，并给出逐条控费动作。'
+      },
+      {
+        id: 'behavior-fallback-2',
+        label: '下周现金流提醒',
+        prompt: '请基于最近消费节奏，预测我下周资金压力，并给出可执行的预算分配建议。'
+      }
+    ];
+
+    if (!topRecentCategory) return fallback;
+
+    return [
+      {
+        id: 'behavior-top-category',
+        label: `重点看${topRecentCategory.name}`,
+        prompt: `请专项分析我最近在“${topRecentCategory.name}”上的支出结构，说明可立刻执行的降本动作。`
+      },
+      {
+        id: 'behavior-trend-check',
+        label: '最近行为趋势',
+        prompt: '请结合我最近 14 天消费，找出 2 个行为变化趋势，并说明对应的预算影响。'
+      }
+    ];
+  }, [categories, transactions]);
 
   // 每次状态或消息变化后，自动将视图滚动到底部，保持聊天体验。
   useEffect(() => {
@@ -561,10 +665,12 @@ export function AssistantPage() {
   const submitPrompt = (prompt: string) => {
     const clean = prompt.trim();
     if (!clean || wb.status === 'recognizing') return;
+    const requestPrompt =
+      mode === 'assistant' ? buildAssistantConversationPrompt(clean, chatHistory) : clean;
     pendingRequestModeRef.current = mode;
     setChatHistory((prev) => [...prev, { id: `${Date.now()}-user`, role: 'user', text: clean }]);
     wb.setTextInput('');
-    void wb.handleRecognizeWithPrompt(clean);
+    void wb.handleRecognizeWithPrompt(requestPrompt);
   };
 
   const onSubmit = (event: FormEvent) => {
@@ -904,8 +1010,19 @@ export function AssistantPage() {
                 ))}
                 <p className="chat-risk-alert">⚠️ {assistantOverview.riskAlert}</p>
               </div>
+              <div className="chat-push-insights" aria-label="主动洞察推送">
+                {assistantOverview.pushInsights.map((item) => (
+                  <article
+                    key={item.id}
+                    className={`chat-push-insight-item ${item.level === 'warning' ? 'warning' : ''}`}
+                  >
+                    <h4>{item.title}</h4>
+                    <p>{item.detail}</p>
+                  </article>
+                ))}
+              </div>
               <div className="chat-preset-head">
-                <strong>个性化预设问题</strong>
+                <strong>智能场景提问</strong>
                 <button
                   type="button"
                   onClick={() => void loadPersonalizedQuestions({ forceRefresh: true })}
@@ -913,13 +1030,27 @@ export function AssistantPage() {
                   {loadingPresets ? '生成中...' : '换一批'}
                 </button>
               </div>
+              <div className="chat-preset-list chat-preset-list-smart">
+                {behaviorRecommendedQuestions.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="chat-preset-item chat-preset-item-smart"
+                    onClick={() => submitPrompt(item.prompt)}
+                    disabled={wb.status === 'recognizing'}
+                  >
+                    <span className="chat-preset-item-tag">最近行为推荐</span>
+                    <strong>{item.label}</strong>
+                  </button>
+                ))}
+              </div>
               <div className="chat-preset-list">
                 {presetQuestions.map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     className="chat-preset-item"
-                    onClick={() => wb.applyCommand(item.prompt)}
+                    onClick={() => submitPrompt(item.prompt)}
                     disabled={wb.status === 'recognizing'}
                   >
                     {item.label}
