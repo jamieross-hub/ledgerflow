@@ -1161,7 +1161,7 @@ tr:hover td {
 
 .transaction-table-wrap table {
   font-size: clamp(13px, 0.88vw, 14px);
-  min-width: 100%;
+  min-width: max-content;
   width: max-content;
 }
 
