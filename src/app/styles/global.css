@@ -991,19 +991,6 @@ tr:hover td {
   background: var(--color-bg-elevated);
 }
 
-.transaction-amount-range-inputs {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-}
-
-.transaction-amount-range-inputs input {
-  min-width: 0;
-  width: 100%;
-}
-
 .transaction-table-wrap thead th.transaction-col-compact {
   text-align: center;
 }
@@ -1154,7 +1141,8 @@ tr:hover td {
 }
 
 .transaction-table-wrap thead th.transaction-col-amount {
-  min-width: 72px;
+  min-width: 64px;
+  max-width: 108px;
 }
 
 .transaction-table-wrap thead th:not(.transaction-select-col) {

@@ -516,16 +516,13 @@ export function TransactionsPage() {
     const statusFilter = quickFilters.status;
     const accountFilter = quickFilters.account.trim().toLowerCase();
     const amountMinRaw = quickFilters.amountMin.trim();
-    const amountMaxRaw = quickFilters.amountMax.trim();
     const amountMin = Number(amountMinRaw);
-    const amountMax = Number(amountMaxRaw);
     /**
      * 根因说明：
      * Number('') === 0，之前在“金额筛选框留空”时被误判为有效条件，
      * 导致列表隐式追加“金额必须等于 0”，于是出现“交易记录为空”。
      */
     const hasAmountMin = amountMinRaw.length > 0 && Number.isFinite(amountMin);
-    const hasAmountMax = amountMaxRaw.length > 0 && Number.isFinite(amountMax);
     const tagsFilter = quickFilters.tags.trim().toLowerCase();
     const merchantFilter = quickFilters.merchant.trim().toLowerCase();
     const orderNoFilter = quickFilters.orderNo.trim().toLowerCase();
@@ -550,9 +547,7 @@ export function TransactionsPage() {
         (row.item.note || '').toLowerCase().includes(merchantFilter) ||
         (row.item.merchantOrderNo || '').toLowerCase().includes(merchantFilter);
       const notePass = !noteFilter || (row.item.note || '').toLowerCase().includes(noteFilter);
-      const amountPass =
-        (!hasAmountMin || row.item.amount >= amountMin) &&
-        (!hasAmountMax || row.item.amount <= amountMax);
+      const amountPass = !hasAmountMin || row.item.amount >= amountMin;
 
       return (
         (!dateFilter || dateText.includes(dateFilter)) &&
@@ -1010,7 +1005,6 @@ export function TransactionsPage() {
     quickFilters.category.trim().length > 0 ||
     quickFilters.account.trim().length > 0 ||
     quickFilters.amountMin.trim().length > 0 ||
-    quickFilters.amountMax.trim().length > 0 ||
     quickFilters.tags.trim().length > 0 ||
     quickFilters.merchant.trim().length > 0 ||
     quickFilters.orderNo.trim().length > 0 ||

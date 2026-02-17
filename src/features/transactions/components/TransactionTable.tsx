@@ -8,7 +8,7 @@ import { TableSkeleton } from '../../../shared/ui/TableSkeleton';
 
 const NOTE_MAX_LENGTH = 22;
 const DEFAULT_MIN_COLUMN_WIDTH = 90;
-const AMOUNT_COLUMN_MIN_WIDTH = 72;
+const AMOUNT_COLUMN_MIN_WIDTH = 64;
 
 function getMinColumnWidth(key: TransactionColumnKey): number {
   return key === 'amount' ? AMOUNT_COLUMN_MIN_WIDTH : DEFAULT_MIN_COLUMN_WIDTH;
@@ -595,25 +595,17 @@ export function TransactionTable({
                             ))}
                           </select>
                         ) : column.key === 'amount' ? (
-                          <div className="transaction-amount-range-inputs">
-                            <input
-                              type="number"
-                              value={quickFilters.amountMin}
-                              onChange={(event) =>
-                                onQuickFilterChange('amountMin', event.target.value)
+                          <input
+                            type="number"
+                            value={quickFilters.amountMin}
+                            onChange={(event) => {
+                              onQuickFilterChange('amountMin', event.target.value);
+                              if (quickFilters.amountMax) {
+                                onQuickFilterChange('amountMax', '');
                               }
-                              placeholder="最小"
-                            />
-                            <span>~</span>
-                            <input
-                              type="number"
-                              value={quickFilters.amountMax}
-                              onChange={(event) =>
-                                onQuickFilterChange('amountMax', event.target.value)
-                              }
-                              placeholder="最大"
-                            />
-                          </div>
+                            }}
+                            placeholder="最小金额"
+                          />
                         ) : (
                           <input
                             value={
