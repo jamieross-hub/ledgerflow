@@ -6,6 +6,7 @@ import {
   BudgetAnswers,
   BudgetRecommendation,
   UserIdentity,
+  applyCategoryBudgetEdits,
   generateBudgetRecommendation,
   getIdentityLabel
 } from '../../features/smart-budget/model/budgetPlanner';
@@ -92,6 +93,7 @@ export function SmartBudgetPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'overspent' | 'safe'>('all');
   const [answers, setAnswers] = useState<BudgetAnswers>(initialAnswers);
   const [draftRecommendation, setDraftRecommendation] = useState<BudgetRecommendation | null>(null);
+  const [draftTotalDelta, setDraftTotalDelta] = useState(0);
   const [selectedMonthKey, setSelectedMonthKey] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<BudgetTrackingRow | null>(null);
 
@@ -177,6 +179,90 @@ export function SmartBudgetPage() {
       healthScore
     };
   }, [trackingRows, monthTransactions, overspentCount]);
+
+  const healthExplainText = useMemo(() => {
+    const executionPercent = managementOverview.executionRate * 100;
+    if (executionPercent < 80) return '执行率低于 80%，预算较宽裕，可将结余优先转入储蓄或应急金。';
+    if (executionPercent <= 100) return '执行率在 80%~100% 区间，预算使用健康，建议保持当前节奏。';
+    return '执行率高于 100%，说明已超支，请优先压降非必要支出或调高重点分类预算。';
+  }, [managementOverview.executionRate]);
+
+  const categoryTrendRows = useMemo(() => {
+    if (!confirmedPlan) return [];
+
+    const recentKeys = getRecentMonthOptions(transactions, 6)
+      .map((item) => item.key)
+      .reverse();
+    const monthLabelMap = new Map(
+      getRecentMonthOptions(transactions, 6).map((item) => [item.key, item.label])
+    );
+
+    const trackedCategories = confirmedPlan.recommendation.categoryBudgets
+      .filter((item) => !['固定支出', '储蓄/投资'].includes(item.category))
+      .slice(0, 6);
+
+    const monthRows = recentKeys.map((key) => ({
+      key,
+      rows: buildBudgetTrackingRows({
+        recommendation: confirmedPlan.recommendation,
+        categories,
+        transactions,
+        monthKey: key
+      })
+    }));
+
+    return trackedCategories.map((budget) => ({
+      category: budget.category,
+      points: monthRows.map((month) => {
+        const row = month.rows.find((item) => item.category === budget.category);
+        return {
+          monthKey: month.key,
+          monthLabel: monthLabelMap.get(month.key) || month.key,
+          ratio: row?.ratio || 0
+        };
+      })
+    }));
+  }, [confirmedPlan, transactions, categories]);
+
+  const anomalyAlerts = useMemo(() => {
+    if (!activeMonthKey || !trackingRows.length) return [];
+    const [yearStr, monthStr] = activeMonthKey.split('-');
+    const year = Number(yearStr);
+    const month = Number(monthStr);
+    if (!Number.isFinite(year) || !Number.isFinite(month)) return [];
+
+    const now = new Date();
+    const isCurrentMonth = now.getFullYear() === year && now.getMonth() + 1 === month;
+    const dayPassed = isCurrentMonth
+      ? Math.max(now.getDate(), 1)
+      : new Date(year, month, 0).getDate();
+    const totalDays = new Date(year, month, 0).getDate();
+
+    return trackingRows
+      .map((item) => {
+        const projectedSpent =
+          dayPassed > 0 ? (item.spentAmount / dayPassed) * totalDays : item.spentAmount;
+        const riskRatio = item.budgetAmount > 0 ? projectedSpent / item.budgetAmount : 0;
+        const suggestedSaving = Math.max(projectedSpent - item.budgetAmount, 0);
+        if (riskRatio <= 1) return null;
+        return {
+          ...item,
+          projectedSpent,
+          riskRatio,
+          suggestedSaving
+        };
+      })
+      .filter(
+        (
+          item
+        ): item is BudgetTrackingRow & {
+          projectedSpent: number;
+          riskRatio: number;
+          suggestedSaving: number;
+        } => Boolean(item)
+      )
+      .sort((a, b) => b.riskRatio - a.riskRatio);
+  }, [activeMonthKey, trackingRows]);
 
   const topOverspentItem = useMemo(
     () =>
@@ -334,6 +420,26 @@ export function SmartBudgetPage() {
     categories
   ]);
 
+  useEffect(() => {
+    if (!draftRecommendation) {
+      setDraftTotalDelta(0);
+      return;
+    }
+
+    const total = draftRecommendation.categoryBudgets.reduce((sum, item) => sum + item.amount, 0);
+    setDraftTotalDelta(total - draftRecommendation.monthlyIncome);
+  }, [draftRecommendation]);
+
+  const handleDraftCategoryAmountChange = (category: string, amount: number) => {
+    if (!draftRecommendation) return;
+
+    const safeAmount = Number.isFinite(amount) ? Math.max(0, Math.round(amount)) : 0;
+    const nextRecommendation = applyCategoryBudgetEdits(draftRecommendation, {
+      [category]: safeAmount
+    });
+    setDraftRecommendation(nextRecommendation);
+  };
+
   const goNext = () => {
     setError(null);
 
@@ -375,6 +481,12 @@ export function SmartBudgetPage() {
     if (!draftRecommendation) {
       return;
     }
+
+    if (draftTotalDelta !== 0) {
+      setError(`分类预算合计需与月收入一致（当前差额 ${formatCurrency(draftTotalDelta)}）。`);
+      return;
+    }
+
     confirmPlan({ answers, recommendation: draftRecommendation });
     setSetupOpen(false);
     setMode('management');
@@ -477,6 +589,9 @@ export function SmartBudgetPage() {
                 </div>
                 <p className="smart-budget-health-score">
                   预算健康度 <strong>{managementOverview.healthScore}</strong> / 100
+                </p>
+                <p className="smart-budget-health-explain">
+                  {healthExplainText}（判定区间：&lt;80% 宽裕，80%~100% 健康，&gt;100% 超支）
                 </p>
               </div>
             </section>
@@ -583,6 +698,51 @@ export function SmartBudgetPage() {
                 </>
               ) : null}
             </section>
+
+            {categoryTrendRows.length ? (
+              <section className="smart-budget-trend-card" aria-label="预算执行趋势">
+                <h4>跨月趋势对比（各分类执行率）</h4>
+                <div className="smart-budget-trend-grid">
+                  {categoryTrendRows.map((row) => (
+                    <article key={row.category} className="smart-budget-trend-item">
+                      <header>
+                        <strong>{row.category}</strong>
+                        <span>
+                          {(row.points[row.points.length - 1]?.ratio * 100 || 0).toFixed(0)}%
+                        </span>
+                      </header>
+                      <div className="smart-budget-trend-bars">
+                        {row.points.map((point) => (
+                          <div
+                            key={`${row.category}-${point.monthKey}`}
+                            title={`${point.monthLabel}：${(point.ratio * 100).toFixed(1)}%`}
+                          >
+                            <span style={{ height: `${Math.min(point.ratio * 100, 160)}%` }} />
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {anomalyAlerts.length ? (
+              <section className="smart-budget-anomaly-card" aria-label="异常提醒">
+                <h4>异常提醒与调整建议</h4>
+                <ul>
+                  {anomalyAlerts.slice(0, 4).map((item) => (
+                    <li key={item.category}>
+                      <strong>{item.category}</strong> 预计月末支出{' '}
+                      {formatCurrency(item.projectedSpent)}， 约为预算的{' '}
+                      {(item.riskRatio * 100).toFixed(0)}%。建议优先减少非必要消费
+                      {formatCurrency(item.suggestedSaving)}，或将该分类预算上调到
+                      {formatCurrency(item.projectedSpent)}。
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
 
             {visibleRows.length ? (
               <div className="smart-budget-progress-list">
@@ -815,13 +975,33 @@ export function SmartBudgetPage() {
                     {draftRecommendation.categoryBudgets.map((row) => (
                       <tr key={row.category}>
                         <td>{row.category}</td>
-                        <td>{formatCurrency(row.amount)}</td>
+                        <td>
+                          <input
+                            aria-label={`${row.category}预算金额`}
+                            type="number"
+                            min={0}
+                            step={100}
+                            value={row.amount}
+                            onChange={(event) =>
+                              handleDraftCategoryAmountChange(
+                                row.category,
+                                Number(event.target.value)
+                              )
+                            }
+                          />
+                        </td>
                         <td>{(row.ratio * 100).toFixed(1)}%</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+
+              <p
+                className={`smart-budget-delta ${draftTotalDelta === 0 ? 'balanced' : 'unbalanced'}`}
+              >
+                分类预算合计差额：{formatCurrency(draftTotalDelta)}（需为 0 才能确认）
+              </p>
 
               <div className="smart-budget-actions">
                 <button type="button" className="primary" onClick={handleConfirm}>
