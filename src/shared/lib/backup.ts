@@ -3,6 +3,7 @@ import { Category } from '../../entities/category/types';
 import { TransactionItem } from '../../entities/transaction/types';
 
 const BACKUP_KEY = 'ledgerflow-backup-webdav-v1';
+const BACKUP_PASSWORD_SESSION_KEY = 'ledgerflow-backup-webdav-password';
 
 export interface BackupWebdavConfig {
   /** 真实 WebDAV 服务地址，例如：https://dav.example.com/remote.php/dav/files/user */
@@ -88,8 +89,35 @@ export function downloadBackupJson(payload: FinanceBackupPayload): void {
   URL.revokeObjectURL(url);
 }
 
+function readWebdavPasswordFromSession(): string {
+  try {
+    return window.sessionStorage.getItem(BACKUP_PASSWORD_SESSION_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeWebdavPasswordToSession(password: string): void {
+  try {
+    if (password) {
+      window.sessionStorage.setItem(BACKUP_PASSWORD_SESSION_KEY, password);
+      return;
+    }
+    window.sessionStorage.removeItem(BACKUP_PASSWORD_SESSION_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function saveWebdavConfig(config: BackupWebdavConfig): void {
-  window.localStorage.setItem(BACKUP_KEY, JSON.stringify(config));
+  writeWebdavPasswordToSession(config.password);
+  window.localStorage.setItem(
+    BACKUP_KEY,
+    JSON.stringify({
+      ...config,
+      password: ''
+    })
+  );
 }
 
 export function loadWebdavConfig(): BackupWebdavConfig {
@@ -109,7 +137,7 @@ export function loadWebdavConfig(): BackupWebdavConfig {
     return {
       endpoint: String(parsed.endpoint || ''),
       username: String(parsed.username || ''),
-      password: String(parsed.password || ''),
+      password: readWebdavPasswordFromSession() || String(parsed.password || ''),
       remoteFilePath: String(parsed.remoteFilePath || 'ledgerflow/backup.json'),
       proxyEnabled: parsed.proxyEnabled !== false,
       proxyBasePath: String(parsed.proxyBasePath || '/api/webdav')

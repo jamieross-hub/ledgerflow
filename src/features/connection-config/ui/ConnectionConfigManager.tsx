@@ -44,7 +44,7 @@ export function ConnectionConfigManager() {
             }}
           >
             支持直接填写地址、端口、用户名、密码、连接串及 TLS
-            参数。敏感字段将以加密形式存储到浏览器本地。
+            参数。敏感字段会在浏览器本地做混淆存储，勿视为强加密。
           </p>
         </div>
         <button className="primary" onClick={() => setAdding((x) => !x)}>

@@ -1,5 +1,14 @@
-import { describe, expect, it, vi } from 'vitest';
-import { parseFinanceBackupPayload, webdavDownloadBackup, type BackupWebdavConfig } from './backup';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  loadWebdavConfig,
+  parseFinanceBackupPayload,
+  saveWebdavConfig,
+  webdavDownloadBackup,
+  type BackupWebdavConfig
+} from './backup';
+
+const BACKUP_KEY = 'ledgerflow-backup-webdav-v1';
+const BACKUP_PASSWORD_SESSION_KEY = 'ledgerflow-backup-webdav-password';
 
 const baseConfig: BackupWebdavConfig = {
   endpoint: 'https://dav.example.com/remote.php/dav/files/user',
@@ -10,6 +19,11 @@ const baseConfig: BackupWebdavConfig = {
   proxyBasePath: '/api/webdav'
 };
 
+beforeEach(() => {
+  localStorage.removeItem(BACKUP_KEY);
+  sessionStorage.removeItem(BACKUP_PASSWORD_SESSION_KEY);
+});
+
 describe('parseFinanceBackupPayload', () => {
   it('支持带 UTF-8 BOM 的 JSON 备份', () => {
     const payload = parseFinanceBackupPayload(
@@ -18,6 +32,25 @@ describe('parseFinanceBackupPayload', () => {
 
     expect(payload.version).toBe(1);
     expect(payload.data.transactions).toEqual([]);
+  });
+});
+
+describe('webdav config storage hardening', () => {
+  it('should not persist WebDAV password in localStorage', () => {
+    saveWebdavConfig(baseConfig);
+
+    const persisted = localStorage.getItem(BACKUP_KEY) || '';
+    expect(persisted).not.toContain(baseConfig.password);
+    expect(persisted).toContain('"password":""');
+
+    expect(sessionStorage.getItem(BACKUP_PASSWORD_SESSION_KEY)).toBe(baseConfig.password);
+  });
+
+  it('should restore password from sessionStorage when loading config', () => {
+    saveWebdavConfig(baseConfig);
+
+    const loaded = loadWebdavConfig();
+    expect(loaded.password).toBe(baseConfig.password);
   });
 });
 

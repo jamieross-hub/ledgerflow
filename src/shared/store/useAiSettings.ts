@@ -2,6 +2,54 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ENV } from '../config/env';
 
+const AI_SETTINGS_STORAGE_KEY = 'ledgerflow-ai-settings';
+const AI_SETTINGS_API_KEY_SESSION_KEY = 'ledgerflow-ai-settings-api-key';
+
+function readSessionApiKey() {
+  try {
+    return window.sessionStorage.getItem(AI_SETTINGS_API_KEY_SESSION_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeSessionApiKey(apiKey: string) {
+  try {
+    if (apiKey) {
+      window.sessionStorage.setItem(AI_SETTINGS_API_KEY_SESSION_KEY, apiKey);
+      return;
+    }
+    window.sessionStorage.removeItem(AI_SETTINGS_API_KEY_SESSION_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
+
+type PersistedAiSettingsState = Omit<
+  AiSettingsState,
+  | 'apiKey'
+  | 'setBaseUrl'
+  | 'setApiKey'
+  | 'setModel'
+  | 'setEmbeddingModel'
+  | 'setEnableEmbeddingModel'
+  | 'setRerankModel'
+  | 'setEnableRerankModel'
+  | 'setMemoryDays'
+  | 'setMemoryBackend'
+  | 'setBulkRecategorizeConcurrency'
+> & {
+  baseUrl: string;
+  model: string;
+  embeddingModel: string;
+  enableEmbeddingModel: boolean;
+  rerankModel: string;
+  enableRerankModel: boolean;
+  memoryDays: number;
+  memoryBackend: 'local' | 'redis';
+  bulkRecategorizeConcurrency: number;
+};
+
 interface AiSettingsState {
   baseUrl: string;
   apiKey: string;
@@ -44,7 +92,7 @@ export const useAiSettings = create<AiSettingsState>()(
   persist(
     (set) => ({
       baseUrl: ENV.aiBaseUrl,
-      apiKey: ENV.aiApiKey,
+      apiKey: readSessionApiKey() || ENV.aiApiKey,
       model: ENV.aiDefaultModel,
       embeddingModel: 'text-embedding-3-small',
       enableEmbeddingModel: true,
@@ -54,7 +102,11 @@ export const useAiSettings = create<AiSettingsState>()(
       memoryBackend: 'local',
       bulkRecategorizeConcurrency: DEFAULT_BULK_RECATEGORIZE_CONCURRENCY,
       setBaseUrl: (baseUrl: string) => set({ baseUrl: baseUrl.trim() }),
-      setApiKey: (apiKey: string) => set({ apiKey: apiKey.trim() }),
+      setApiKey: (apiKey: string) => {
+        const nextApiKey = apiKey.trim();
+        writeSessionApiKey(nextApiKey);
+        set({ apiKey: nextApiKey });
+      },
       setModel: (model: string) => set({ model: model.trim() || ENV.aiDefaultModel }),
       setEmbeddingModel: (model: string) => set({ embeddingModel: model.trim() }),
       setEnableEmbeddingModel: (enabled: boolean) => set({ enableEmbeddingModel: enabled }),
@@ -67,9 +119,21 @@ export const useAiSettings = create<AiSettingsState>()(
         set({ bulkRecategorizeConcurrency: normalizeBulkRecategorizeConcurrency(value) })
     }),
     {
-      name: 'ledgerflow-ai-settings',
-      merge: (persisted, current) => {
-        const next = { ...current, ...(persisted as Partial<AiSettingsState>) };
+      name: AI_SETTINGS_STORAGE_KEY,
+      partialize: (state: AiSettingsState): PersistedAiSettingsState => ({
+        baseUrl: state.baseUrl,
+        model: state.model,
+        embeddingModel: state.embeddingModel,
+        enableEmbeddingModel: state.enableEmbeddingModel,
+        rerankModel: state.rerankModel,
+        enableRerankModel: state.enableRerankModel,
+        memoryDays: state.memoryDays,
+        memoryBackend: state.memoryBackend,
+        bulkRecategorizeConcurrency: state.bulkRecategorizeConcurrency
+      }),
+      merge: (persisted: unknown, current: AiSettingsState) => {
+        const next = { ...current, ...(persisted as Partial<PersistedAiSettingsState>) };
+        next.apiKey = readSessionApiKey() || next.apiKey || ENV.aiApiKey;
         if (!next.model?.trim()) {
           next.model = ENV.aiDefaultModel;
         }

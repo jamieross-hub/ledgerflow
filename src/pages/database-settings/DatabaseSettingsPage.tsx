@@ -21,6 +21,43 @@ import { Toast, ToastVariant } from '../../shared/ui/Toast';
 
 type BillSource = 'wechat' | 'alipay';
 
+const MAX_BACKUP_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_BILL_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+const BACKUP_ACCEPTED_MIME_TYPES = new Set(['application/json', 'text/json']);
+const BILL_ACCEPTED_EXTENSIONS = new Set(['.csv', '.txt', '.xlsx']);
+
+function getFileExtension(fileName: string): string {
+  const index = fileName.lastIndexOf('.');
+  if (index < 0) return '';
+  return fileName.slice(index).toLowerCase();
+}
+
+function validateBackupFile(file: File): void {
+  const ext = getFileExtension(file.name);
+  const hasValidMime = !file.type || BACKUP_ACCEPTED_MIME_TYPES.has(file.type);
+  const hasValidExt = ext === '.json';
+
+  if (!hasValidMime && !hasValidExt) {
+    throw new Error('备份导入失败：仅支持 JSON 文件（.json）');
+  }
+
+  if (file.size > MAX_BACKUP_FILE_SIZE_BYTES) {
+    throw new Error('备份导入失败：文件过大，请上传不超过 5MB 的 JSON 备份');
+  }
+}
+
+function validateBillFile(file: File): void {
+  const ext = getFileExtension(file.name);
+  if (!BILL_ACCEPTED_EXTENSIONS.has(ext)) {
+    throw new Error('账单导入失败：仅支持 CSV/TXT/XLSX 文件');
+  }
+
+  if (file.size > MAX_BILL_FILE_SIZE_BYTES) {
+    throw new Error('账单导入失败：文件过大，请上传不超过 10MB 的账单文件');
+  }
+}
+
 export function DatabaseSettingsPage() {
   const hasHydrated = useFinanceStore((s) => s.hasHydrated);
   const transactions = useFinanceStore((s) => s.transactions);
@@ -80,6 +117,7 @@ export function DatabaseSettingsPage() {
     }
 
     try {
+      validateBackupFile(file);
       ensureHydrated();
       const text = await file.text();
       const payload = parseFinanceBackupPayload(text);
@@ -104,6 +142,7 @@ export function DatabaseSettingsPage() {
     }
 
     try {
+      validateBillFile(file);
       ensureHydrated();
       const refs = ensureDefaultRefs(source);
       const rows = await parseBillFileToTransactions({

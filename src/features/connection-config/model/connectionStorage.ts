@@ -3,75 +3,71 @@ import { ConnectionFormValues } from './connectionFormSchema';
 import { generateId } from '../../../shared/lib/id';
 
 const STORAGE_KEY = 'ledgerflow-connections';
-const STORAGE_VERSION = 2;
+const STORAGE_VERSION = 3;
 const SECRET_FIELDS: Array<keyof ConnectionConfig> = ['password', 'connectionString'];
+const SECRET_SESSION_KEY = 'ledgerflow-connections-secrets';
 
 interface PersistedPayload {
   v: number;
   rows: ConnectionConfig[];
 }
 
-function getLocalCipherKey() {
-  return `${window.location.origin}|${navigator.userAgent}|${STORAGE_KEY}|v${STORAGE_VERSION}`;
-}
+type SecretFields = Pick<ConnectionConfig, 'password' | 'connectionString'>;
 
-function toBase64(input: string) {
-  const bytes = new TextEncoder().encode(input);
-  let binary = '';
-  bytes.forEach((b) => {
-    binary += String.fromCharCode(b);
-  });
-  return btoa(binary);
-}
-
-function fromBase64(input: string) {
-  const binary = atob(input);
-  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-}
-
-function xorTransform(value: string, key: string) {
-  if (!value) return value;
-  const chars = Array.from(value).map((char, idx) =>
-    String.fromCharCode(char.charCodeAt(0) ^ key.charCodeAt(idx % key.length))
-  );
-  return chars.join('');
-}
-
-function encryptText(value?: string) {
-  if (!value) return value;
-  const transformed = xorTransform(value, getLocalCipherKey());
-  return toBase64(transformed);
-}
-
-function decryptText(value?: string) {
-  if (!value) return value;
+function readSessionSecrets(): Record<string, SecretFields> {
   try {
-    const raw = fromBase64(value);
-    return xorTransform(raw, getLocalCipherKey());
+    const raw = window.sessionStorage.getItem(SECRET_SESSION_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, SecretFields>;
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed;
   } catch {
-    return value;
+    return {};
   }
 }
 
-function encryptRow(row: ConnectionConfig): ConnectionConfig {
-  const next = { ...row };
-  SECRET_FIELDS.forEach((field) => {
-    const val = next[field];
-    if (typeof val === 'string' && val.trim()) {
-      next[field] = encryptText(val) as never;
+function writeSessionSecrets(secrets: Record<string, SecretFields>) {
+  try {
+    if (Object.keys(secrets).length === 0) {
+      window.sessionStorage.removeItem(SECRET_SESSION_KEY);
+      return;
     }
-  });
-  return next;
+    window.sessionStorage.setItem(SECRET_SESSION_KEY, JSON.stringify(secrets));
+  } catch {
+    // ignore storage errors
+  }
 }
 
-function decryptRow(row: ConnectionConfig): ConnectionConfig {
+function storeRowSecrets(row: ConnectionConfig) {
+  const current = readSessionSecrets();
+  current[row.id] = {
+    password: row.password || '',
+    connectionString: row.connectionString || ''
+  };
+  writeSessionSecrets(current);
+}
+
+function removeRowSecrets(id: string) {
+  const current = readSessionSecrets();
+  if (!current[id]) return;
+  delete current[id];
+  writeSessionSecrets(current);
+}
+
+function attachRowSecrets(row: ConnectionConfig): ConnectionConfig {
+  const secret = readSessionSecrets()[row.id];
+  if (!secret) return row;
+  return {
+    ...row,
+    password: secret.password || row.password,
+    connectionString: secret.connectionString || row.connectionString
+  };
+}
+
+function stripRowSecrets(row: ConnectionConfig): ConnectionConfig {
   const next = { ...row };
   SECRET_FIELDS.forEach((field) => {
-    const val = next[field];
-    if (typeof val === 'string' && val.trim()) {
-      next[field] = decryptText(val) as never;
-    }
+    next[field] = '' as never;
   });
   return next;
 }
@@ -88,7 +84,7 @@ function readAll(): ConnectionConfig[] {
     }
 
     if (parsed && Array.isArray(parsed.rows)) {
-      return parsed.rows.map((item) => decryptRow(item));
+      return parsed.rows.map((item) => attachRowSecrets(item));
     }
 
     return [];
@@ -100,7 +96,7 @@ function readAll(): ConnectionConfig[] {
 function writeAll(rows: ConnectionConfig[]) {
   const payload: PersistedPayload = {
     v: STORAGE_VERSION,
-    rows: rows.map((item) => encryptRow(item))
+    rows: rows.map((item) => stripRowSecrets(item))
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }
@@ -115,9 +111,11 @@ export function saveConnection(values: ConnectionFormValues) {
   const next: ConnectionConfig = {
     ...values,
     id: values.id ?? generateId(),
-    createdAt: values.id ? rows.find((x) => x.id === values.id)?.createdAt ?? now : now,
+    createdAt: values.id ? (rows.find((x) => x.id === values.id)?.createdAt ?? now) : now,
     updatedAt: now
   };
+
+  storeRowSecrets(next);
 
   const idx = rows.findIndex((x) => x.id === next.id);
   if (idx >= 0) rows[idx] = next;
@@ -129,9 +127,12 @@ export function saveConnection(values: ConnectionFormValues) {
 
 export function deleteConnection(id: string) {
   writeAll(readAll().filter((x) => x.id !== id));
+  removeRowSecrets(id);
 }
 
 export function toggleConnection(id: string, enabled: boolean) {
-  const rows = readAll().map((x) => (x.id === id ? { ...x, enabled, updatedAt: new Date().toISOString() } : x));
+  const rows = readAll().map((x) =>
+    x.id === id ? { ...x, enabled, updatedAt: new Date().toISOString() } : x
+  );
   writeAll(rows);
 }
