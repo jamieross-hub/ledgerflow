@@ -8,7 +8,7 @@ import {
   useRef,
   useState
 } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { useAssistantWorkbench } from '../../features/assistant/workbench/useAssistantWorkbench';
 import { BillPreviewCard } from '../../features/assistant/ui/BillPreviewCard';
@@ -407,6 +407,7 @@ function buildAssistantConversationPrompt(question: string, history: ChatHistory
 }
 
 export function AssistantPage() {
+  const navigate = useNavigate();
   const [mode, setMode] = useState<AssistantMode>('assistant');
   const baseUrl = useAiSettings((s) => s.baseUrl);
   const apiKey = useAiSettings((s) => s.apiKey);
@@ -863,7 +864,7 @@ export function AssistantPage() {
       <header className="chat-topbar">
         <div className="chat-topbar-left">
           <span className="chat-topbar-title">AI 记账助手</span>
-          <div className="chat-mode-switch" role="tablist" aria-label="模式切换">
+          <div className="chat-mode-switch" aria-label="模式切换">
             <button
               type="button"
               className={mode === 'bookkeeping' ? 'active' : ''}
@@ -928,6 +929,13 @@ export function AssistantPage() {
         </div>
 
         <div className="chat-topbar-right">
+          <button
+            type="button"
+            className="chat-secondary-action-btn"
+            onClick={() => navigate('/transactions/new?quick=1')}
+          >
+            记一笔
+          </button>
           <button
             type="button"
             className="chat-clear-btn"
@@ -1252,7 +1260,6 @@ export function AssistantPage() {
             title={wb.status === 'recognizing' ? '停止' : '发送'}
             onClick={wb.status === 'recognizing' ? wb.stopRecognize : undefined}
             disabled={wb.status !== 'recognizing' && !wb.canRecognize}
-            aria-disabled={wb.status !== 'recognizing' && !wb.canRecognize}
           >
             {wb.status === 'recognizing' ? '■' : '↑'}
           </button>

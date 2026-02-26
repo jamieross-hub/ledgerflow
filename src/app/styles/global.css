@@ -729,7 +729,7 @@ button.danger:hover:not(:disabled) {
 }
 
 .transaction-filters-secondary-row {
-  margin-top: var(--space-3);
+  margin-top: var(--space-2);
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
@@ -742,6 +742,10 @@ button.danger:hover:not(:disabled) {
   z-index: 4;
   isolation: isolate;
   overflow: visible;
+}
+
+.transaction-filters-panel h2 {
+  margin-bottom: var(--space-2);
 }
 
 .transaction-filter-popover {
@@ -1367,7 +1371,7 @@ tr:hover td {
 }
 
 .transaction-mobile-item:hover {
-  background: #f5f6f8;
+  background: var(--color-bg-hover);
 }
 
 .transaction-mobile-swipe {
@@ -5047,9 +5051,9 @@ body.exchange-resizing {
 }
 
 .categories-accounts-page {
-  align-items: start;
-  grid-template-columns: minmax(320px, 0.9fr) minmax(440px, 1.1fr);
-  gap: var(--space-4);
+  align-items: stretch;
+  grid-template-columns: minmax(360px, var(--categories-left-width, 520px)) 12px minmax(420px, 1fr);
+  gap: var(--space-3);
 }
 
 .categories-panel,
@@ -5118,14 +5122,37 @@ body.exchange-resizing {
   align-items: center;
 }
 
-.account-toolbar-tip {
-  margin: 0 0 var(--space-3) 0;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  border: 1px dashed var(--color-primary-border);
-  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg-subtle));
-  color: var(--color-text-secondary);
-  font-size: var(--font-sm);
+.categories-accounts-resize-divider {
+  width: 12px;
+  cursor: col-resize;
+  border-radius: var(--radius-sm);
+  align-self: stretch;
+  background: linear-gradient(
+    90deg,
+    transparent 0,
+    transparent 4px,
+    var(--color-border) 4px,
+    var(--color-border) 8px,
+    transparent 8px,
+    transparent 100%
+  );
+}
+
+.categories-accounts-resize-divider:hover {
+  background: linear-gradient(
+    90deg,
+    transparent 0,
+    transparent 4px,
+    var(--color-primary) 4px,
+    var(--color-primary) 8px,
+    transparent 8px,
+    transparent 100%
+  );
+}
+
+body.categories-accounts-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .account-create-form {
@@ -5190,49 +5217,49 @@ body.exchange-resizing {
 
 .account-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-2);
 }
 
 .account-card {
-  border: 1px solid color-mix(in srgb, var(--color-border) 90%, transparent);
-  border-radius: var(--radius-xl);
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+  border-radius: var(--radius-lg);
   background: var(--color-bg-elevated);
-  padding: var(--space-3);
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  box-shadow: var(--shadow-xs);
+  gap: var(--space-2);
+  box-shadow: none;
 }
 
 .account-card-head {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
 }
 
 .account-card-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: var(--color-bg-subtle);
   border: 1px solid var(--color-border);
-  font-size: 20px;
+  font-size: 16px;
 }
 
 .account-card-main {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
 }
 
 .account-card-main strong {
-  font-size: 20px;
+  font-size: 15px;
   color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
@@ -5241,31 +5268,33 @@ body.exchange-resizing {
 
 .account-card-main small {
   color: var(--color-text-tertiary);
+  font-size: var(--font-xs);
 }
 
 .account-card-balance-wrap {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
   max-width: 100%;
 }
 
 .account-card-balance-wrap small {
   color: var(--color-text-tertiary);
-  font-size: var(--font-xs);
+  font-size: 11px;
 }
 
 .account-card-balance {
-  font-size: clamp(18px, 1.8vw, 34px);
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  line-height: 1;
+  font-size: clamp(16px, 1.2vw, 22px);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.1;
   white-space: nowrap;
-  max-width: min(100%, 280px);
+  max-width: min(100%, 220px);
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
 }
 
 .account-card-balance-positive {
@@ -5278,10 +5307,13 @@ body.exchange-resizing {
 
 .account-card-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(112px, auto) minmax(96px, auto);
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: end;
   gap: var(--space-2);
+}
+
+.account-card-actions-balance-view {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .account-balance-field {
@@ -5290,12 +5322,32 @@ body.exchange-resizing {
 
 .account-balance-field label {
   margin-bottom: 4px;
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
 }
 
 .account-balance-input {
   width: 100%;
   min-width: 0;
   font-weight: 600;
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+.account-balance-display-btn {
+  width: 100%;
+  text-align: left;
+  min-height: 34px;
+  border: 1px dashed var(--color-border-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-subtle);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.account-balance-display-btn:hover {
+  border-color: var(--color-primary-border);
+  background: color-mix(in srgb, var(--color-primary-bg) 70%, var(--color-bg-subtle));
 }
 
 .transaction-order-ellipsis {
@@ -5375,6 +5427,10 @@ body.exchange-resizing {
     grid-template-columns: 1fr;
   }
 
+  .categories-accounts-resize-divider {
+    display: none;
+  }
+
   .account-create-grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -5397,6 +5453,32 @@ body.exchange-resizing {
 
   .categories-accounts-metrics {
     justify-content: flex-start;
+  }
+
+  .categories-form-row {
+    gap: var(--space-2);
+  }
+
+  .categories-form-row > input,
+  .categories-form-row > select,
+  .categories-form-row > button {
+    width: 100%;
+  }
+
+  .categories-row {
+    gap: var(--space-2);
+    align-items: flex-start;
+  }
+
+  .categories-row > span {
+    flex-basis: 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .categories-row > button,
+  .categories-row > select {
+    min-height: 36px;
   }
 
   .account-create-grid {
@@ -6458,11 +6540,56 @@ body.exchange-resizing {
   display: grid;
   gap: var(--space-1);
   cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.smart-budget-choice-card:has(input:checked) {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 45%, transparent);
+}
+
+.smart-budget-choice-card:has(input:focus-visible) {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+  outline-offset: 2px;
 }
 
 .smart-budget-choice-card input {
   justify-self: start;
   margin: 0;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-border-strong, var(--color-border));
+  background: var(--color-bg-elevated);
+  display: inline-grid;
+  place-content: center;
+}
+
+.smart-budget-choice-card input::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transform: scale(0);
+  transition: transform 0.15s ease-in-out;
+  background: var(--color-primary);
+}
+
+.smart-budget-choice-card input:checked {
+  border-color: var(--color-primary);
+}
+
+.smart-budget-choice-card input:checked::before {
+  transform: scale(1);
+}
+
+.smart-budget-choice-card input:focus,
+.smart-budget-choice-card input:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .smart-budget-choice-card strong {
@@ -7132,6 +7259,11 @@ body.exchange-resizing {
   .finance-strategy-compare-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .dashboard-module-toggle-list,
+  .dashboard-module-order-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .dashboard-module-customizer {
@@ -7139,21 +7271,24 @@ body.exchange-resizing {
   padding: 12px;
   border: 1px dashed var(--color-border);
   border-radius: 12px;
+  display: grid;
+  gap: 10px;
 }
 .dashboard-module-toggle-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin: 8px 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+  margin: 4px 0;
 }
 .dashboard-module-toggle-list label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 .dashboard-module-order-list {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 .dashboard-module-chip {
@@ -7161,6 +7296,8 @@ body.exchange-resizing {
   border-radius: 999px;
   background: var(--color-panel);
   padding: 4px 10px;
+  width: 100%;
+  text-align: left;
 }
 .dashboard-dynamic-grid {
   display: grid;
@@ -7183,12 +7320,43 @@ body.exchange-resizing {
   background: var(--color-primary);
   color: #fff;
 }
+.dashboard-mini-bars-legend {
+  display: inline-flex;
+  gap: 12px;
+  align-items: center;
+  margin: 2px 0 8px;
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+}
+
+.dashboard-mini-bars-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-mini-bars-legend span::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dashboard-mini-bars-legend .legend-income::before {
+  background: #1d4ed8;
+}
+
+.dashboard-mini-bars-legend .legend-expense::before {
+  background: #b91c1c;
+}
+
 .dashboard-mini-bars {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
   gap: 8px;
   align-items: end;
-  min-height: 140px;
+  min-height: 148px;
 }
 .dashboard-mini-bars div {
   display: grid;
@@ -7196,16 +7364,16 @@ body.exchange-resizing {
   justify-items: center;
 }
 .dashboard-mini-bars span {
-  width: 12px;
-  border-radius: 6px;
+  width: 14px;
+  border-radius: 7px;
   display: inline-block;
   min-height: 4px;
 }
 .dashboard-mini-bars span.income {
-  background: #4f8cff;
+  background: #1d4ed8;
 }
 .dashboard-mini-bars span.expense {
-  background: #ff6b6b;
+  background: #b91c1c;
 }
 .dashboard-pie-wrap {
   display: flex;
@@ -7254,10 +7422,10 @@ body.exchange-resizing {
 }
 
 .transaction-monthly-summary > div {
-  border: 1px solid var(--color-border, #e6e8ec);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   padding: 10px;
-  background: var(--color-bg-soft, #f8fafc);
+  background: var(--color-bg-subtle);
 }
 
 .transaction-monthly-summary span {

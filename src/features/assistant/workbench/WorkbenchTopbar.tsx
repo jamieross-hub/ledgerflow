@@ -35,7 +35,9 @@ export function WorkbenchTopbar({ status, providerText, onOpenSettings }: Workbe
       </div>
       <div className="assistant-wb-topbar-actions">
         <span className={STATUS_CLASS[status]}>{STATUS_TEXT[status]}</span>
-        <small className="assistant-wb-provider">{providerText || '未配置供应商'}</small>
+        <span className="assistant-wb-provider" title={providerText}>
+          {providerText}
+        </span>
         <button type="button" onClick={onOpenSettings}>
           AI 设置
         </button>

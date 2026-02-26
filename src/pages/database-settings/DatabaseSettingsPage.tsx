@@ -13,7 +13,8 @@ import {
   parseFinanceBackupPayload,
   saveWebdavConfig,
   webdavDownloadBackup,
-  webdavUploadBackup
+  webdavUploadBackup,
+  sanitizeWebdavConfig
 } from '../../shared/lib/backup';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
@@ -206,14 +207,10 @@ export function DatabaseSettingsPage() {
       throw new Error('请填写远程文件路径');
     }
 
-    if (webdav.proxyEnabled) {
-      const basePath = webdav.proxyBasePath.trim();
-      if (!basePath) {
-        throw new Error('已启用同源代理，请填写代理入口路径');
-      }
-      if (!basePath.startsWith('/')) {
-        throw new Error('代理入口路径必须以 / 开头，例如 /api/webdav');
-      }
+    try {
+      sanitizeWebdavConfig(webdav);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'WebDAV 配置不合法');
     }
   };
 
@@ -349,7 +346,7 @@ export function DatabaseSettingsPage() {
         <h3 style={{ marginTop: 0 }}>WebDAV 同步</h3>
         <p className="sync-tip" style={{ marginTop: 0 }}>
           浏览器直连 WebDAV 常因 CORS 失败。默认开启同源代理：前端请求本站路径（如 /api/webdav），
-          再由服务端反向代理到真实 WebDAV。
+          再由服务端反向代理到真实 WebDAV。安全策略：仅允许 HTTPS，且拒绝 localhost/内网地址。
         </p>
         <div className="field" style={{ marginBottom: 10 }}>
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

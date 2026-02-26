@@ -1,4 +1,12 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import {
+  FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { formatCurrencyFixed2 } from '../../shared/lib/format';
@@ -31,6 +39,10 @@ const CATEGORY_COLORS = [
   '#6366f1'
 ];
 const CATEGORY_ICONS = ['🍜', '💰', '🛍️', '🏠', '🚇', '🎁', '📚', '💡', '📦'];
+
+const MIN_CATEGORY_PANEL_WIDTH = 360;
+const MIN_ACCOUNTS_PANEL_WIDTH = 420;
+const DEFAULT_CATEGORY_PANEL_WIDTH = 520;
 
 export function CategoriesAccountsPage() {
   const navigate = useNavigate();
@@ -66,6 +78,9 @@ export function CategoriesAccountsPage() {
   const [categoryError, setCategoryError] = useState('');
   const [accountError, setAccountError] = useState('');
   const [mergeTargetByTag, setMergeTargetByTag] = useState<Record<string, string>>({});
+  const [editingBalanceAccountId, setEditingBalanceAccountId] = useState<string | null>(null);
+  const layoutRef = useRef<HTMLDivElement | null>(null);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(DEFAULT_CATEGORY_PANEL_WIDTH);
 
   const CATEGORY_COLLAPSE_THRESHOLD = 5;
   const TAG_COLLAPSE_THRESHOLD = 5;
@@ -75,6 +90,54 @@ export function CategoriesAccountsPage() {
     const timer = window.setTimeout(() => setLoading(false), 120);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    const clampByContainer = () => {
+      const node = layoutRef.current;
+      if (!node) {
+        return;
+      }
+      const total = node.getBoundingClientRect().width;
+      const maxLeft = Math.max(MIN_CATEGORY_PANEL_WIDTH, total - MIN_ACCOUNTS_PANEL_WIDTH);
+      setLeftPanelWidth((prev) => Math.min(Math.max(prev, MIN_CATEGORY_PANEL_WIDTH), maxLeft));
+    };
+
+    clampByContainer();
+    window.addEventListener('resize', clampByContainer);
+
+    return () => {
+      window.removeEventListener('resize', clampByContainer);
+    };
+  }, []);
+
+  const handleDividerMouseDown = (event: ReactMouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const container = layoutRef.current;
+    if (!container) {
+      return;
+    }
+
+    const rect = container.getBoundingClientRect();
+    const maxLeft = Math.max(MIN_CATEGORY_PANEL_WIDTH, rect.width - MIN_ACCOUNTS_PANEL_WIDTH);
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const nextWidth = Math.min(
+        Math.max(moveEvent.clientX - rect.left, MIN_CATEGORY_PANEL_WIDTH),
+        maxLeft
+      );
+      setLeftPanelWidth(nextWidth);
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      document.body.classList.remove('categories-accounts-resizing');
+    };
+
+    document.body.classList.add('categories-accounts-resizing');
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
 
   function submitCategory(e: FormEvent) {
     e.preventDefault();
@@ -250,6 +313,16 @@ export function CategoriesAccountsPage() {
     const normalized = Math.round(parsed * 100) / 100;
     updateAccountBalance(accountId, normalized);
     setEditingBalances((prev) => ({ ...prev, [accountId]: normalized.toFixed(2) }));
+    setEditingBalanceAccountId((prev) => (prev === accountId ? null : prev));
+  };
+
+  const startEditBalance = (accountId: string, computedBalance: number) => {
+    setEditingBalanceAccountId(accountId);
+    setEditingBalances((prev) => ({
+      ...prev,
+      [accountId]:
+        prev[accountId] ?? (Number.isFinite(computedBalance) ? computedBalance.toFixed(2) : '0.00')
+    }));
   };
 
   const applySingleAdjustment = (accountId: string) => {
@@ -426,7 +499,11 @@ export function CategoriesAccountsPage() {
   );
 
   return (
-    <div className="grid grid-2 categories-accounts-page">
+    <div
+      className="grid categories-accounts-page"
+      ref={layoutRef}
+      style={{ '--categories-left-width': `${leftPanelWidth}px` } as CSSProperties}
+    >
       <section className="panel categories-panel">
         <header className="categories-accounts-head">
           <h2>分类与标签管理</h2>
@@ -455,6 +532,7 @@ export function CategoriesAccountsPage() {
             maxLength={24}
           />
           <select
+            aria-label="分类类型"
             value={categoryKind}
             onChange={(e) => setCategoryKind(e.target.value as 'income' | 'expense')}
           >
@@ -515,6 +593,7 @@ export function CategoriesAccountsPage() {
                     </button>
                   </span>
                   <select
+                    aria-label={`选择 ${tag.label} 的合并目标`}
                     value={mergeTargetByTag[tag.key] || ''}
                     onChange={(e) =>
                       setMergeTargetByTag((prev) => ({ ...prev, [tag.key]: e.target.value }))
@@ -559,6 +638,14 @@ export function CategoriesAccountsPage() {
         )}
       </section>
 
+      <div
+        className="categories-accounts-resize-divider"
+        role="separator"
+        aria-label="调整分类与账户面板宽度"
+        aria-orientation="vertical"
+        onMouseDown={handleDividerMouseDown}
+      />
+
       <section className="panel accounts-panel">
         <header className="categories-accounts-head">
           <h2>账户管理</h2>
@@ -571,10 +658,6 @@ export function CategoriesAccountsPage() {
             </span>
           </div>
         </header>
-
-        <div className="account-toolbar-tip">
-          可在下方快速新增账户、校准余额，并查看每个账户的资金健康状态。
-        </div>
 
         <form onSubmit={submitAccount} className="account-create-form">
           <div className="account-create-grid">
@@ -593,6 +676,7 @@ export function CategoriesAccountsPage() {
             <div className="field">
               <label>账户类型</label>
               <select
+                aria-label="账户类型"
                 value={accountType}
                 onChange={(e) => setAccountType(e.target.value as AccountType | '')}
               >
@@ -629,6 +713,7 @@ export function CategoriesAccountsPage() {
               {accountCards.map((item) => {
                 const balanceValue =
                   editingBalances[item.id] ?? Number(item.computedBalance || 0).toFixed(2);
+                const isEditingBalance = editingBalanceAccountId === item.id;
                 return (
                   <article key={item.id} className="account-card">
                     <header className="account-card-head">
@@ -651,6 +736,8 @@ export function CategoriesAccountsPage() {
                               ? 'account-card-balance-negative'
                               : 'account-card-balance-positive'
                           }`}
+                          onDoubleClick={() => startEditBalance(item.id, item.computedBalance)}
+                          title="双击编辑余额"
                         >
                           {formatCurrencyFixed2(item.computedBalance)}
                         </span>
@@ -658,27 +745,49 @@ export function CategoriesAccountsPage() {
                       </div>
                     </header>
 
-                    <div className="account-card-actions">
+                    <div
+                      className={`account-card-actions ${
+                        isEditingBalance ? '' : 'account-card-actions-balance-view'
+                      }`.trim()}
+                    >
                       <div className="field account-balance-field">
-                        <label>校准余额</label>
-                        <input
-                          className="account-balance-input"
-                          type="number"
-                          placeholder="输入余额"
-                          value={balanceValue}
-                          onChange={(e) =>
-                            setEditingBalances((prev) => ({ ...prev, [item.id]: e.target.value }))
-                          }
-                        />
-                        <small>
-                          <a href="#" onClick={(e) => e.preventDefault()}>
-                            自动校准说明：系统会回推“初始余额”，使当前余额与输入值一致。
-                          </a>
-                        </small>
+                        <label>账户余额（双击可编辑）</label>
+                        {isEditingBalance ? (
+                          <input
+                            className="account-balance-input"
+                            type="number"
+                            placeholder="输入余额"
+                            value={balanceValue}
+                            onChange={(e) =>
+                              setEditingBalances((prev) => ({ ...prev, [item.id]: e.target.value }))
+                            }
+                            autoFocus
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="account-balance-display-btn"
+                            onDoubleClick={() => startEditBalance(item.id, item.computedBalance)}
+                          >
+                            {formatCurrencyFixed2(item.computedBalance)}
+                          </button>
+                        )}
                       </div>
-                      <button type="button" onClick={() => applyAccountBalance(item.id)}>
-                        保存校准
-                      </button>
+                      {isEditingBalance ? (
+                        <>
+                          <button type="button" onClick={() => applyAccountBalance(item.id)}>
+                            保存
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditingBalanceAccountId((prev) => (prev === item.id ? null : prev))
+                            }
+                          >
+                            取消
+                          </button>
+                        </>
+                      ) : null}
                     </div>
                     <div className="account-card-actions" style={{ marginTop: 8 }}>
                       <input

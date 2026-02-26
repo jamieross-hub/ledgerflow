@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { DebugLogPanel } from '../../features/debug-log/ui/DebugLogPanel';
 import { APP_VERSION } from '../../shared/config/app';
@@ -162,6 +163,7 @@ const TIPS = [
 ];
 
 export function DashboardPage() {
+  const navigate = useNavigate();
   const transactions = useFinanceStore((s) => s.transactions);
   const accounts = useFinanceStore((s) => s.accounts);
   const categories = useFinanceStore((s) => s.categories);
@@ -999,13 +1001,13 @@ export function DashboardPage() {
           <li>③ 查看分析：在趋势与洞察里识别波动原因。</li>
         </ol>
         <div className="dashboard-onboarding-actions">
-          <button type="button" onClick={() => (window.location.href = '/transactions/new')}>
+          <button type="button" onClick={() => navigate('/transactions/new?quick=1')}>
             新增账目
           </button>
-          <button type="button" onClick={() => (window.location.href = '/smart-budget')}>
+          <button type="button" onClick={() => navigate('/smart-budget')}>
             打开预算
           </button>
-          <button type="button" onClick={() => (window.location.href = '/')}>
+          <button type="button" onClick={() => navigate('/')}>
             查看分析
           </button>
         </div>
@@ -1058,7 +1060,7 @@ export function DashboardPage() {
               </label>
             ))}
           </div>
-          <div className="dashboard-module-order-list" role="list" aria-label="模块顺序">
+          <div className="dashboard-module-order-list" aria-label="模块顺序">
             {moduleOrder.map((moduleId) => {
               const module = DASHBOARD_MODULE_CATALOG.find((item) => item.id === moduleId);
               if (!module) return null;
@@ -1122,6 +1124,10 @@ export function DashboardPage() {
                         月
                       </button>
                     </div>
+                  </div>
+                  <div className="dashboard-mini-bars-legend" aria-label="收支图例">
+                    <span className="legend-income">收入</span>
+                    <span className="legend-expense">支出</span>
                   </div>
                   <div className="dashboard-mini-bars">
                     {trendSeries.map((item) => (
@@ -1269,14 +1275,14 @@ export function DashboardPage() {
             secondaryAction={{
               label: '找 AI 助手',
               onClick: () => {
-                window.location.href = '/assistant';
+                navigate('/assistant');
               }
             }}
             primaryAction={{
               label: '记一笔',
               variant: 'primary',
               onClick: () => {
-                window.location.href = '/transactions/new';
+                navigate('/transactions/new?quick=1');
               }
             }}
           />

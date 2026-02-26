@@ -17,6 +17,110 @@ export interface BackupWebdavConfig {
   proxyBasePath: string;
 }
 
+const PRIVATE_IPV4_RANGES: Array<[number, number]> = [
+  [0x0a000000, 0x0affffff], // 10.0.0.0/8
+  [0xac100000, 0xac1fffff], // 172.16.0.0/12
+  [0xc0a80000, 0xc0a8ffff], // 192.168.0.0/16
+  [0x7f000000, 0x7fffffff], // 127.0.0.0/8
+  [0xa9fe0000, 0xa9feffff], // 169.254.0.0/16
+  [0x00000000, 0x00ffffff] // 0.0.0.0/8
+];
+
+function ipv4ToInt(hostname: string): number | null {
+  const parts = hostname.split('.');
+  if (parts.length !== 4) return null;
+  const nums = parts.map((item) => Number(item));
+  if (nums.some((item) => !Number.isInteger(item) || item < 0 || item > 255)) {
+    return null;
+  }
+  return ((nums[0] << 24) >>> 0) + (nums[1] << 16) + (nums[2] << 8) + nums[3];
+}
+
+function isPrivateOrLocalHost(hostname: string): boolean {
+  const lower = hostname.toLowerCase();
+  if (lower === 'localhost' || lower === '::1') return true;
+  if (lower.startsWith('fe80:') || lower.startsWith('fc') || lower.startsWith('fd')) {
+    return true;
+  }
+
+  const ipv4 = ipv4ToInt(lower);
+  if (ipv4 === null) return false;
+  return PRIVATE_IPV4_RANGES.some(([start, end]) => ipv4 >= start && ipv4 <= end);
+}
+
+function normalizeProxyBasePath(path: string): string {
+  const trimmed = path.trim();
+  if (!trimmed) {
+    throw new Error('已启用同源代理，请填写代理入口路径');
+  }
+  if (!trimmed.startsWith('/')) {
+    throw new Error('代理入口路径必须以 / 开头，例如 /api/webdav');
+  }
+  if (trimmed.startsWith('//') || trimmed.includes('://')) {
+    throw new Error('代理入口路径仅允许同源相对路径，例如 /api/webdav');
+  }
+  return trimmed.replace(/\/+$/, '') || '/api/webdav';
+}
+
+function normalizeWebdavEndpoint(endpoint: string): string {
+  const trimmed = endpoint.trim();
+  if (!trimmed) {
+    throw new Error('请填写 WebDAV 地址');
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error('WebDAV 地址格式无效，请使用完整 HTTPS URL');
+  }
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error('WebDAV 地址仅支持 HTTPS 协议');
+  }
+
+  if (parsed.username || parsed.password) {
+    throw new Error('WebDAV 地址中不应包含用户名或密码');
+  }
+
+  if (isPrivateOrLocalHost(parsed.hostname)) {
+    throw new Error('WebDAV 地址不允许使用本地或内网地址');
+  }
+
+  return parsed.toString().replace(/\/$/, '');
+}
+
+function normalizeRemoteFilePath(path: string): string {
+  const trimmed = path.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+  if (!trimmed) {
+    throw new Error('请填写远程文件路径');
+  }
+
+  const segments = trimmed.split('/').map((item) => item.trim());
+  if (segments.some((item) => !item || item === '.' || item === '..')) {
+    throw new Error('远程文件路径不合法，请避免使用空段或 . / ..');
+  }
+
+  return segments.join('/');
+}
+
+export function sanitizeWebdavConfig(config: BackupWebdavConfig): BackupWebdavConfig {
+  const endpoint = normalizeWebdavEndpoint(config.endpoint);
+  const remoteFilePath = normalizeRemoteFilePath(config.remoteFilePath);
+
+  return {
+    ...config,
+    endpoint,
+    username: config.username.trim(),
+    password: config.password,
+    remoteFilePath,
+    proxyEnabled: Boolean(config.proxyEnabled),
+    proxyBasePath: config.proxyEnabled
+      ? normalizeProxyBasePath(config.proxyBasePath)
+      : '/api/webdav'
+  };
+}
+
 export interface FinanceBackupPayload {
   version: number;
   exportedAt: string;
@@ -110,11 +214,12 @@ function writeWebdavPasswordToSession(password: string): void {
 }
 
 export function saveWebdavConfig(config: BackupWebdavConfig): void {
-  writeWebdavPasswordToSession(config.password);
+  const sanitized = sanitizeWebdavConfig(config);
+  writeWebdavPasswordToSession(sanitized.password);
   window.localStorage.setItem(
     BACKUP_KEY,
     JSON.stringify({
-      ...config,
+      ...sanitized,
       password: ''
     })
   );
@@ -134,14 +239,14 @@ export function loadWebdavConfig(): BackupWebdavConfig {
       };
     }
     const parsed = JSON.parse(raw) as Partial<BackupWebdavConfig>;
-    return {
+    return sanitizeWebdavConfig({
       endpoint: String(parsed.endpoint || ''),
       username: String(parsed.username || ''),
       password: readWebdavPasswordFromSession() || String(parsed.password || ''),
       remoteFilePath: String(parsed.remoteFilePath || 'ledgerflow/backup.json'),
       proxyEnabled: parsed.proxyEnabled !== false,
       proxyBasePath: String(parsed.proxyBasePath || '/api/webdav')
-    };
+    });
   } catch {
     return {
       endpoint: '',
@@ -155,18 +260,16 @@ export function loadWebdavConfig(): BackupWebdavConfig {
 }
 
 function joinWebdavPath(config: BackupWebdavConfig, remoteFilePath: string): string {
-  const path = remoteFilePath
+  const path = normalizeRemoteFilePath(remoteFilePath)
     .split('/')
-    .map((segment) => segment.trim())
-    .filter(Boolean)
     .map((segment) => encodeURIComponent(segment))
     .join('/');
   if (config.proxyEnabled) {
-    const proxyBase = config.proxyBasePath.trim().replace(/\/+$/, '') || '/api/webdav';
+    const proxyBase = normalizeProxyBasePath(config.proxyBasePath);
     return `${proxyBase}/${path}`;
   }
 
-  const base = config.endpoint.trim().replace(/\/+$/, '');
+  const base = normalizeWebdavEndpoint(config.endpoint);
   return `${base}/${path}`;
 }
 
@@ -174,13 +277,14 @@ function buildWebdavHeaders(
   config: BackupWebdavConfig,
   extra?: Record<string, string>
 ): Record<string, string> {
+  const sanitized = sanitizeWebdavConfig(config);
   const headers: Record<string, string> = {
-    Authorization: buildBasicAuth(config.username, config.password),
+    Authorization: buildBasicAuth(sanitized.username, sanitized.password),
     ...extra
   };
 
-  if (config.proxyEnabled) {
-    headers['X-WebDAV-Endpoint'] = config.endpoint.trim();
+  if (sanitized.proxyEnabled) {
+    headers['X-WebDAV-Endpoint'] = sanitized.endpoint;
   }
 
   return headers;

@@ -52,12 +52,6 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
   }
 ];
 
-const logoMenuItems = [
-  { to: '/settings', label: '设置', icon: '⚙️' },
-  { to: '/about', label: '关于', icon: 'ℹ️' },
-  { to: '/database-settings', label: '备份设置', icon: '🗄️' }
-];
-
 /**
  * 移动抽屉中的快捷入口分组。
  *
@@ -104,7 +98,6 @@ export function AppLayout() {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(260);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
@@ -114,7 +107,6 @@ export function AppLayout() {
   );
 
   const draggingRef = useRef(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
   const transactions = useFinanceStore((s) => s.transactions);
 
   const thisMonth = new Date();
@@ -156,18 +148,6 @@ export function AppLayout() {
   }, [collapsed]);
 
   useEffect(() => {
-    const onClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (menuRef.current && !menuRef.current.contains(target)) {
-        setMenuOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, []);
-
-  useEffect(() => {
     const isTypingTarget = (target: EventTarget | null) => {
       if (!(target instanceof HTMLElement)) return false;
       const tag = target.tagName.toLowerCase();
@@ -181,7 +161,7 @@ export function AppLayout() {
 
       if (event.key === 'N' || event.key === 'n') {
         event.preventDefault();
-        navigate('/transactions/new');
+        navigate('/transactions/new?quick=1');
       }
 
       if (event.key === 'B' || event.key === 'b') {
@@ -198,12 +178,6 @@ export function AppLayout() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [navigate]);
-
-  useEffect(() => {
-    if (!collapsed && menuOpen) {
-      setMenuOpen(false);
-    }
-  }, [collapsed, menuOpen]);
 
   useEffect(() => {
     if (mobileNavOpen) {
@@ -259,7 +233,7 @@ export function AppLayout() {
             <h3>{monthLabel}</h3>
             <p>① 添加账目 ② 设置预算 ③ 查看分析</p>
             <div className="sidebar-overview-actions">
-              <Link to="/transactions/new" className="sidebar-overview-action">
+              <Link to="/transactions/new?quick=1" className="sidebar-overview-action">
                 记一笔
               </Link>
               <Link to="/smart-budget" className="sidebar-overview-action">
@@ -338,7 +312,7 @@ export function AppLayout() {
       <div className="workspace">
         {shouldShowTopbar ? (
           <header className="workspace-topbar">
-            <div className="topbar-left" ref={menuRef}>
+            <div className="topbar-left">
               <button
                 type="button"
                 className="icon-btn mobile-nav-toggle"
@@ -349,30 +323,9 @@ export function AppLayout() {
               </button>
               {collapsed ? (
                 <>
-                  <button
-                    type="button"
-                    className="logo-circle"
-                    onClick={() => setMenuOpen((v) => !v)}
-                    aria-haspopup="menu"
-                    aria-expanded={menuOpen}
-                    aria-label="打开项目菜单"
-                  >
+                  <button type="button" className="logo-circle" aria-label="用户头像">
                     👤
                   </button>
-                  {menuOpen ? (
-                    <div className="logo-menu" role="menu">
-                      {logoMenuItems.map((item) => (
-                        <Link
-                          key={item.to}
-                          to={item.to}
-                          className="logo-menu-item"
-                          onClick={() => setMenuOpen(false)}
-                        >
-                          <span className="logo-menu-icon">{item.icon}</span> {item.label}
-                        </Link>
-                      ))}
-                    </div>
-                  ) : null}
 
                   <div className="topbar-brand-copy compact">
                     <h1>LedgerFlow</h1>

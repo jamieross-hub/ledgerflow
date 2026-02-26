@@ -1,5 +1,5 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { TransactionStatus } from '../../entities/transaction/types';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { extractJsonString } from '../../features/assistant/workbench/workbenchUtils';
@@ -96,6 +96,7 @@ function validateDate(raw: string): { ok: true; value: string } | { ok: false; m
 export function TransactionEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const categories = useFinanceStore((s) => s.categories);
   const accounts = useFinanceStore((s) => s.accounts);
@@ -107,8 +108,19 @@ export function TransactionEditPage() {
   const aiModel = useAiSettings((s) => s.model);
 
   const current = useMemo(() => transactions.find((item) => item.id === id), [transactions, id]);
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const presetTypeRaw = searchParams.get('type');
+  const presetType =
+    presetTypeRaw === 'income' ||
+    presetTypeRaw === 'expense' ||
+    presetTypeRaw === 'budget' ||
+    presetTypeRaw === 'repayment'
+      ? presetTypeRaw
+      : null;
+  const quickMode = !id && searchParams.get('quick') === '1';
+
   const [type, setType] = useState<'income' | 'expense' | 'budget' | 'repayment'>(
-    current?.type ?? 'expense'
+    current?.type ?? presetType ?? 'expense'
   );
   const [categoryId, setCategoryId] = useState(current?.categoryId ?? categories[0]?.id ?? '');
   const [accountId, setAccountId] = useState(current?.accountId ?? accounts[0]?.id ?? '');
@@ -127,6 +139,7 @@ export function TransactionEditPage() {
   const [formError, setFormError] = useState('');
   const [recognizing, setRecognizing] = useState(false);
   const [suggestion, setSuggestion] = useState<RecognitionSuggestion | null>(null);
+  const amountInputRef = useRef<HTMLInputElement | null>(null);
 
   const suggestedTags = useMemo(
     () =>
@@ -174,6 +187,19 @@ export function TransactionEditPage() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handleBack]);
+
+  useEffect(() => {
+    if (!quickMode || id) {
+      return;
+    }
+
+    const timer = window.requestAnimationFrame(() => {
+      amountInputRef.current?.focus();
+      amountInputRef.current?.select();
+    });
+
+    return () => window.cancelAnimationFrame(timer);
+  }, [id, quickMode]);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -236,11 +262,18 @@ export function TransactionEditPage() {
         </button>
         <small style={{ color: 'var(--color-text-secondary)' }}>按 Esc 快速返回</small>
       </div>
-      <h2>{id ? '编辑账目' : '新增账目'}</h2>
+      <h2>{id ? '编辑账目' : quickMode ? '秒速记账' : '新增账目'}</h2>
+      {quickMode && !id ? (
+        <small style={{ color: 'var(--color-text-secondary)', display: 'block', marginBottom: 10 }}>
+          快速模式：仅需填写金额与必要字段，保存后自动返回交易页。
+        </small>
+      ) : null}
       <form onSubmit={handleSubmit}>
         <div className="field">
-          <label>类型</label>
+          <label htmlFor="tx-type">类型</label>
           <select
+            id="tx-type"
+            aria-label="交易类型"
             value={type}
             onChange={(e) =>
               setType(e.target.value as 'income' | 'expense' | 'budget' | 'repayment')
@@ -254,8 +287,14 @@ export function TransactionEditPage() {
         </div>
 
         <div className="field">
-          <label>分类</label>
-          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} required>
+          <label htmlFor="tx-category">分类</label>
+          <select
+            id="tx-category"
+            aria-label="交易分类"
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            required
+          >
             {categories.map((item) => (
               <option key={item.id} value={item.id}>
                 {(item.icon || '📁') + ' ' + item.name}
@@ -265,8 +304,13 @@ export function TransactionEditPage() {
         </div>
 
         <div className="field">
-          <label>账户</label>
-          <select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+          <label htmlFor="tx-account">账户</label>
+          <select
+            id="tx-account"
+            aria-label="交易账户"
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+          >
             {accounts.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
@@ -276,8 +320,11 @@ export function TransactionEditPage() {
         </div>
 
         <div className="field">
-          <label>金额</label>
+          <label htmlFor="tx-amount">金额</label>
           <input
+            id="tx-amount"
+            aria-label="交易金额"
+            ref={amountInputRef}
             value={amount}
             onChange={(e) => {
               setAmount(e.target.value);
@@ -294,8 +341,10 @@ export function TransactionEditPage() {
         </div>
 
         <div className="field">
-          <label>日期时间</label>
+          <label htmlFor="tx-date">日期时间</label>
           <input
+            id="tx-date"
+            aria-label="交易日期时间"
             value={date}
             onChange={(e) => {
               setDate(e.target.value);
@@ -311,8 +360,10 @@ export function TransactionEditPage() {
         </div>
 
         <div className="field">
-          <label>交易订单号</label>
+          <label htmlFor="tx-order-no">交易订单号</label>
           <input
+            id="tx-order-no"
+            aria-label="交易订单号"
             value={orderNo}
             onChange={(e) => setOrderNo(e.target.value)}
             placeholder="如：202602100001"
@@ -320,8 +371,10 @@ export function TransactionEditPage() {
         </div>
 
         <div className="field">
-          <label>商家订单号</label>
+          <label htmlFor="tx-merchant-order-no">商家订单号</label>
           <input
+            id="tx-merchant-order-no"
+            aria-label="商家订单号"
             value={merchantOrderNo}
             onChange={(e) => setMerchantOrderNo(e.target.value)}
             placeholder="如：MCH-20260210-01"
@@ -329,8 +382,13 @@ export function TransactionEditPage() {
         </div>
 
         <div className="field">
-          <label>交易状态</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value as TransactionStatus)}>
+          <label htmlFor="tx-status">交易状态</label>
+          <select
+            id="tx-status"
+            aria-label="交易状态"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as TransactionStatus)}
+          >
             <option value="pending">待处理</option>
             <option value="completed">已完成</option>
             <option value="refunded">已退款</option>
@@ -340,8 +398,14 @@ export function TransactionEditPage() {
         </div>
 
         <div className="field">
-          <label>备注</label>
-          <textarea value={note} onChange={(e) => setNote(e.target.value)} />
+          <label htmlFor="tx-note">备注</label>
+          <textarea
+            id="tx-note"
+            aria-label="交易备注"
+            placeholder="例如：工作日午餐"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
           <div className="row" style={{ marginTop: 8 }}>
             <button type="button" onClick={() => void recognizeMerchant()} disabled={recognizing}>
               {recognizing ? 'AI 识别中...' : 'AI 识别商户与分类'}
@@ -376,8 +440,14 @@ export function TransactionEditPage() {
         </div>
 
         <div className="field">
-          <label>标签（逗号分隔）</label>
-          <input value={tags} onChange={(e) => setTags(e.target.value)} />
+          <label htmlFor="tx-tags">标签（逗号分隔）</label>
+          <input
+            id="tx-tags"
+            aria-label="交易标签"
+            placeholder="如：餐饮,工作日"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+          />
           {suggestedTags.length > 0 ? (
             <small style={{ color: 'var(--color-text-secondary)' }}>
               自动建议：

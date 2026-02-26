@@ -2,14 +2,22 @@ import { describe, expect, it, vi } from 'vitest';
 import { sendAiChat } from './openaiCompatibleClient';
 
 describe('openaiCompatibleClient baseUrl validation', () => {
-  it('rejects non-http(s) protocols to avoid unsafe endpoint usage', async () => {
+  it('rejects non-https protocols to avoid unsafe endpoint usage', async () => {
     await expect(
       sendAiChat({
         baseUrl: 'javascript:alert(1)',
         model: 'test-model',
         messages: [{ role: 'user', text: 'hello' }]
       })
-    ).rejects.toThrow('仅支持 http 或 https 协议');
+    ).rejects.toThrow('仅支持 HTTPS 协议');
+
+    await expect(
+      sendAiChat({
+        baseUrl: 'http://api.example.com/v1',
+        model: 'test-model',
+        messages: [{ role: 'user', text: 'hello' }]
+      })
+    ).rejects.toThrow('仅支持 HTTPS 协议');
   });
 
   it('normalizes trailing slash before requesting', async () => {
