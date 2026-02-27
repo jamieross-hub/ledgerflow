@@ -3,5 +3,5 @@ services:
     image: 34v0wphix/ledgerflow:latest
     container_name: ledgerflow-web
     ports:
-      - "18080:80"
+      - "${LEDGERFLOW_PORT:-8080}:80"
     restart: unless-stopped

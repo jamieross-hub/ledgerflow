@@ -1,5 +1,7 @@
 import { ENV } from '../../../shared/config/env';
 
+type AiRequestScene = 'models' | 'chat' | 'chat-stream';
+
 /**
  * OpenAI 兼容客户端。
  *
@@ -58,6 +60,40 @@ export interface SendAiChatResult {
   usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
 }
 
+function sanitizeBackendErrorDetail(raw: string): string {
+  const text = raw.replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+
+  return text
+    .replace(/(bearer\s+)[^\s]+/gi, '$1***')
+    .replace(/("?(api[-_ ]?key|password|token|secret)"?\s*[:=]\s*")([^"\\]{1,512})"/gi, '$1***"')
+    .replace(/(api[-_ ]?key|password|token|secret)\s*[:=]\s*([^\s,;"'<>]{1,512})/gi, '$1=***')
+    .replace(/(https?:\/\/)[^\s'"<>]+/gi, '$1***')
+    .slice(0, 240);
+}
+
+function buildAiErrorCode(scene: AiRequestScene, status: number): string {
+  const prefix =
+    scene === 'models' ? 'AI_MODELS' : scene === 'chat-stream' ? 'AI_CHAT_STREAM' : 'AI_CHAT';
+  return `${prefix}_HTTP_${status}`;
+}
+
+async function throwSanitizedHttpError(response: Response, scene: AiRequestScene): Promise<never> {
+  const detail = await response.text().catch(() => '');
+  const code = buildAiErrorCode(scene, response.status);
+  const sanitizedDetail = sanitizeBackendErrorDetail(detail);
+
+  if (sanitizedDetail) {
+    console.warn('[AI_HTTP_ERROR]', {
+      code,
+      status: response.status,
+      detail: sanitizedDetail
+    });
+  }
+
+  throw new Error(`AI 服务请求失败（错误码：${code}）`);
+}
+
 export async function sendAiChatStream(
   input: ChatRequestInput,
   handlers: {
@@ -103,9 +139,18 @@ export async function sendAiChatStream(
     })
   });
 
-  if (!response.ok || !response.body) {
-    const detail = await response.text().catch(() => '');
-    const error = new Error(`流式对话请求失败：HTTP ${response.status} ${detail}`.trim());
+  if (!response.ok) {
+    const error = await throwSanitizedHttpError(response, 'chat-stream').catch((err) =>
+      err instanceof Error
+        ? err
+        : new Error('AI 服务请求失败（错误码：AI_CHAT_STREAM_HTTP_UNKNOWN）')
+    );
+    handlers.onError?.(error);
+    throw error;
+  }
+
+  if (!response.body) {
+    const error = new Error('AI 服务流式响应为空（错误码：AI_CHAT_STREAM_NO_BODY）');
     handlers.onError?.(error);
     throw error;
   }
@@ -196,8 +241,7 @@ export async function fetchAiModels(baseUrl?: string, apiKey?: string): Promise<
   });
 
   if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`模型列表获取失败：HTTP ${response.status} ${detail}`.trim());
+    await throwSanitizedHttpError(response, 'models');
   }
 
   const payload = (await response.json()) as ModelsResponse;
@@ -260,8 +304,7 @@ export async function sendAiChat(input: ChatRequestInput): Promise<SendAiChatRes
   });
 
   if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`对话请求失败：HTTP ${response.status} ${detail}`.trim());
+    await throwSanitizedHttpError(response, 'chat');
   }
 
   const payload = (await response.json()) as ChatCompletionResponse;

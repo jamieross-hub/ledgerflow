@@ -18,13 +18,27 @@ interface ParseBillFileInput {
 
 export type BillImportMode = 'incremental' | 'merge' | 'overwrite';
 
+export interface BillImportParseSummary {
+  delimiter: ',' | '\t' | null;
+  headerDetected: boolean;
+  totalLines: number;
+  dataLines: number;
+  parsedCount: number;
+  skippedCount: number;
+}
+
+export interface ParseBillFileResult {
+  rows: Omit<TransactionItem, 'id'>[];
+  summary: BillImportParseSummary;
+}
+
 interface ApplyBillImportModeInput {
   mode: BillImportMode;
   existing: TransactionItem[];
   incoming: Omit<TransactionItem, 'id'>[];
 }
 
-interface ApplyBillImportModeResult {
+export interface ApplyBillImportModeResult {
   append: Omit<TransactionItem, 'id'>[];
   update: Array<{ id: string; payload: Omit<TransactionItem, 'id'> }>;
   skipped: number;
@@ -407,6 +421,8 @@ function parseBillCsvLines(input: ParseBillInput): {
   lines: string[];
   headers: string[];
   delimiter: ',' | '\t';
+  headerDetected: boolean;
+  totalLines: number;
 } | null {
   const text = normalizeText(input.csvText);
   if (!text) {
@@ -429,41 +445,84 @@ function parseBillCsvLines(input: ParseBillInput): {
   return {
     lines: lines.slice(headerIndex + 1),
     headers,
-    delimiter
+    delimiter,
+    headerDetected: isLikelyHeader(headers),
+    totalLines: lines.length
+  };
+}
+
+function parseBillCsvToTransactionsInternal(input: ParseBillInput): ParseBillFileResult {
+  const parsed = parseBillCsvLines(input);
+  if (!parsed) {
+    return {
+      rows: [],
+      summary: {
+        delimiter: null,
+        headerDetected: false,
+        totalLines: 0,
+        dataLines: 0,
+        parsedCount: 0,
+        skippedCount: 0
+      }
+    };
+  }
+
+  const rows: Omit<TransactionItem, 'id'>[] = [];
+  for (const line of parsed.lines) {
+    const item = buildTransactionFromLine(line, parsed.headers, parsed.delimiter, input);
+    if (item) {
+      rows.push(item);
+    }
+  }
+
+  return {
+    rows,
+    summary: {
+      delimiter: parsed.delimiter,
+      headerDetected: parsed.headerDetected,
+      totalLines: parsed.totalLines,
+      dataLines: parsed.lines.length,
+      parsedCount: rows.length,
+      skippedCount: Math.max(0, parsed.lines.length - rows.length)
+    }
   };
 }
 
 export function parseBillCsvToTransactions(input: ParseBillInput): Omit<TransactionItem, 'id'>[] {
-  const parsed = parseBillCsvLines(input);
-  if (!parsed) {
-    return [];
-  }
-
-  const result: Omit<TransactionItem, 'id'>[] = [];
-  for (const line of parsed.lines) {
-    const item = buildTransactionFromLine(line, parsed.headers, parsed.delimiter, input);
-    if (item) {
-      result.push(item);
-    }
-  }
-
-  return result;
+  return parseBillCsvToTransactionsInternal(input).rows;
 }
 
 export async function parseBillCsvToTransactionsAsync(
   input: ParseBillInput
 ): Promise<Omit<TransactionItem, 'id'>[]> {
+  const result = await parseBillCsvToTransactionsAsyncDetailed(input);
+  return result.rows;
+}
+
+export async function parseBillCsvToTransactionsAsyncDetailed(
+  input: ParseBillInput
+): Promise<ParseBillFileResult> {
   const parsed = parseBillCsvLines(input);
   if (!parsed) {
-    return [];
+    return {
+      rows: [],
+      summary: {
+        delimiter: null,
+        headerDetected: false,
+        totalLines: 0,
+        dataLines: 0,
+        parsedCount: 0,
+        skippedCount: 0
+      }
+    };
   }
 
-  const result: Omit<TransactionItem, 'id'>[] = [];
+  const rows: Omit<TransactionItem, 'id'>[] = [];
 
   for (let i = 0; i < parsed.lines.length; i++) {
     const item = buildTransactionFromLine(parsed.lines[i], parsed.headers, parsed.delimiter, input);
     if (item) {
-      result.push(item);
+      rows.push(item);
     }
 
     if (i > 0 && i % IMPORT_PARSE_YIELD_INTERVAL === 0) {
@@ -471,7 +530,17 @@ export async function parseBillCsvToTransactionsAsync(
     }
   }
 
-  return result;
+  return {
+    rows,
+    summary: {
+      delimiter: parsed.delimiter,
+      headerDetected: parsed.headerDetected,
+      totalLines: parsed.totalLines,
+      dataLines: parsed.lines.length,
+      parsedCount: rows.length,
+      skippedCount: Math.max(0, parsed.lines.length - rows.length)
+    }
+  };
 }
 
 function cellRefToColIndex(cellRef: string): number {
@@ -488,7 +557,8 @@ async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
     throw new Error('当前环境不支持 XLSX 解压');
   }
 
-  const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  const safeBytes = Uint8Array.from(data);
+  const stream = new Blob([safeBytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
   const buffer = await new Response(stream).arrayBuffer();
   return new Uint8Array(buffer);
 }
@@ -629,14 +699,21 @@ async function decodeBillFileText(file: File): Promise<string> {
   return utf8;
 }
 
-export async function parseBillFileToTransactions(
+export async function parseBillFileToTransactionsDetailed(
   input: ParseBillFileInput
-): Promise<Omit<TransactionItem, 'id'>[]> {
+): Promise<ParseBillFileResult> {
   const csvText = await decodeBillFileText(input.file);
-  return parseBillCsvToTransactionsAsync({
+  return parseBillCsvToTransactionsAsyncDetailed({
     csvText,
     source: input.source,
     defaultCategoryId: input.defaultCategoryId,
     defaultAccountId: input.defaultAccountId
   });
+}
+
+export async function parseBillFileToTransactions(
+  input: ParseBillFileInput
+): Promise<Omit<TransactionItem, 'id'>[]> {
+  const result = await parseBillFileToTransactionsDetailed(input);
+  return result.rows;
 }

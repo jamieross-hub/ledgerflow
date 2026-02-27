@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAiSettings } from './useAiSettings';
 
 const AI_SETTINGS_KEY = 'ledgerflow-ai-settings';
@@ -33,7 +33,11 @@ describe('useAiSettings', () => {
   it('stores API Key in sessionStorage instead of localStorage', () => {
     useAiSettings.getState().setApiKey('  sk-test-session  ');
 
-    expect(sessionStorage.getItem(AI_SETTINGS_API_KEY_SESSION_KEY)).toBe('sk-test-session');
+    const raw = sessionStorage.getItem(AI_SETTINGS_API_KEY_SESSION_KEY);
+    expect(raw).toBeTruthy();
+    const parsed = JSON.parse(String(raw)) as { value: string; expiresAt: number };
+    expect(parsed.value).toBe('sk-test-session');
+    expect(parsed.expiresAt).toBeGreaterThan(Date.now());
 
     const persisted = localStorage.getItem(AI_SETTINGS_KEY) || '';
     expect(persisted).not.toContain('sk-test-session');
@@ -41,9 +45,23 @@ describe('useAiSettings', () => {
 
   it('clears session API Key when setApiKey receives empty string', () => {
     useAiSettings.getState().setApiKey('sk-temp');
-    expect(sessionStorage.getItem(AI_SETTINGS_API_KEY_SESSION_KEY)).toBe('sk-temp');
+    const raw = sessionStorage.getItem(AI_SETTINGS_API_KEY_SESSION_KEY);
+    expect(raw).toBeTruthy();
+    const parsed = JSON.parse(String(raw)) as { value: string; expiresAt: number };
+    expect(parsed.value).toBe('sk-temp');
 
     useAiSettings.getState().setApiKey('   ');
     expect(sessionStorage.getItem(AI_SETTINGS_API_KEY_SESSION_KEY)).toBeNull();
+  });
+  it('expires session API Key after ttl', async () => {
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1000);
+    useAiSettings.getState().setApiKey('sk-expiring');
+
+    nowSpy.mockReturnValue(1000 + 8 * 24 * 60 * 60 * 1000);
+    await useAiSettings.persist.rehydrate();
+
+    expect(useAiSettings.getState().apiKey).toBe('');
+    expect(sessionStorage.getItem(AI_SETTINGS_API_KEY_SESSION_KEY)).toBeNull();
+    nowSpy.mockRestore();
   });
 });

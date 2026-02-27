@@ -6,6 +6,7 @@ const STORAGE_KEY = 'ledgerflow-connections';
 const STORAGE_VERSION = 3;
 const SECRET_FIELDS: Array<keyof ConnectionConfig> = ['password', 'connectionString'];
 const SECRET_SESSION_KEY = 'ledgerflow-connections-secrets';
+const SECRET_SESSION_TTL_MS = 30 * 60 * 1000;
 
 interface PersistedPayload {
   v: number;
@@ -13,14 +14,34 @@ interface PersistedPayload {
 }
 
 type SecretFields = Pick<ConnectionConfig, 'password' | 'connectionString'>;
+type SecretEntry = SecretFields & { expiresAt: number };
 
 function readSessionSecrets(): Record<string, SecretFields> {
   try {
     const raw = window.sessionStorage.getItem(SECRET_SESSION_KEY);
     if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, SecretFields>;
+    const parsed = JSON.parse(raw) as Record<string, Partial<SecretEntry>>;
     if (!parsed || typeof parsed !== 'object') return {};
-    return parsed;
+
+    const now = Date.now();
+    const valid: Record<string, SecretFields> = {};
+    Object.entries(parsed).forEach(([id, value]) => {
+      if (
+        value &&
+        typeof value.password === 'string' &&
+        typeof value.connectionString === 'string' &&
+        typeof value.expiresAt === 'number' &&
+        value.expiresAt > now
+      ) {
+        valid[id] = {
+          password: value.password,
+          connectionString: value.connectionString
+        };
+      }
+    });
+
+    writeSessionSecrets(valid);
+    return valid;
   } catch {
     return {};
   }
@@ -32,7 +53,16 @@ function writeSessionSecrets(secrets: Record<string, SecretFields>) {
       window.sessionStorage.removeItem(SECRET_SESSION_KEY);
       return;
     }
-    window.sessionStorage.setItem(SECRET_SESSION_KEY, JSON.stringify(secrets));
+    const expiresAt = Date.now() + SECRET_SESSION_TTL_MS;
+    const payload: Record<string, SecretEntry> = {};
+    Object.entries(secrets).forEach(([id, value]) => {
+      payload[id] = {
+        password: value.password,
+        connectionString: value.connectionString,
+        expiresAt
+      };
+    });
+    window.sessionStorage.setItem(SECRET_SESSION_KEY, JSON.stringify(payload));
   } catch {
     // ignore storage errors
   }

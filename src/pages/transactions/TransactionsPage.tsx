@@ -6,8 +6,10 @@ import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { exportTransactionsCsv } from '../../shared/lib/csv';
 import {
   applyBillImportMode,
+  ApplyBillImportModeResult,
   BillImportMode,
-  parseBillFileToTransactions
+  BillImportParseSummary,
+  parseBillFileToTransactionsDetailed
 } from '../../shared/lib/billImport';
 import { formatCurrency, formatDate } from '../../shared/lib/format';
 import { resolveImportDefaultAccountId } from '../../shared/lib/importAccount';
@@ -357,6 +359,21 @@ export function TransactionsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [aiRecategorizingId, setAiRecategorizingId] = useState<string | null>(null);
   const [bulkAiRecategorizing, setBulkAiRecategorizing] = useState(false);
+  const [bulkAiProgress, setBulkAiProgress] = useState<{
+    visible: boolean;
+    processed: number;
+    total: number;
+    changed: number;
+    fallbackChanged: number;
+    aborted: number;
+  }>({
+    visible: false,
+    processed: 0,
+    total: 0,
+    changed: 0,
+    fallbackChanged: 0,
+    aborted: 0
+  });
   const [bulkSelectionEnabled, setBulkSelectionEnabled] = useState(false);
   const [highlightId, setHighlightId] = useState<string>('');
   const [importNotice, setImportNotice] = useState<{
@@ -373,6 +390,14 @@ export function TransactionsPage() {
     message: '',
     variant: 'success'
   });
+  const [pendingImport, setPendingImport] = useState<{
+    fileName: string;
+    source: BillSource;
+    mode: BillImportMode;
+    normalizedParsed: Omit<TransactionItem, 'id'>[];
+    result: ApplyBillImportModeResult;
+    parseSummary: BillImportParseSummary;
+  } | null>(null);
 
   const [quickFilters, setQuickFilters] = useState<TransactionQuickFilters>(DEFAULT_QUICK_FILTERS);
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
@@ -771,15 +796,19 @@ export function TransactionsPage() {
         return;
       }
 
-      const parsed = await parseBillFileToTransactions({
+      const parsedResult = await parseBillFileToTransactionsDetailed({
         file,
         source: activeSource,
         defaultCategoryId,
         defaultAccountId
       });
+      const parsed = parsedResult.rows;
 
       if (parsed.length === 0) {
-        const message = '未识别到可导入账单。';
+        const summary = parsedResult.summary;
+        const message = summary.headerDetected
+          ? `未识别到可导入账单（数据行 ${summary.dataLines}，跳过 ${summary.skippedCount}）。`
+          : '未识别到可导入账单：未找到有效表头，请检查账单格式。';
         showToast(message, 'warning');
         showImportNotice(message, 'warning');
         return;
@@ -796,38 +825,21 @@ export function TransactionsPage() {
         incoming: normalizedParsed
       });
 
-      if (result.shouldClearBeforeImport) {
-        clearAllAccountBills();
-      }
+      setPendingImport({
+        fileName: file.name,
+        source: activeSource,
+        mode: importMode,
+        normalizedParsed,
+        result,
+        parseSummary: parsedResult.summary
+      });
 
-      result.update.forEach((row) => updateTransaction(row.id, row.payload));
-      const insertedIds = result.append.map((item) => addTransaction(item));
-      const newestId = insertedIds[insertedIds.length - 1];
-      const changedCount = result.append.length + result.update.length;
-      const expectedIndex = Math.max(0, filteredRows.length + result.append.length - 1);
-      const expectedPage = Math.floor(expectedIndex / pageSize) + 1;
-      setPage(expectedPage);
-
-      if (changedCount === 0) {
-        const message = `导入完成：${result.skipped} 条重复记录已跳过（增量模式）。`;
-        showToast(message, 'warning');
-        showImportNotice(message, 'warning');
-        return;
-      }
-
-      const actionLabel =
-        importMode === 'overwrite' ? '覆盖' : importMode === 'merge' ? '合并' : '增量导入';
-      const message = `导入成功（${actionLabel}）：新增 ${result.append.length} 条，更新 ${result.update.length} 条${result.skipped ? `，跳过 ${result.skipped} 条` : ''}。`;
-      showToast(message, 'success');
-      showImportNotice(`${message} 已自动定位到最新一条。`, 'success');
-
-      if (newestId) {
-        const next = new URLSearchParams(searchParams);
-        next.set('highlight', newestId);
-        setSearchParams(next, { replace: true });
-      }
-    } catch {
-      const message = '导入失败：文件解析异常。';
+      const previewMessage = `已完成导入预览：识别 ${normalizedParsed.length} 条（数据行 ${parsedResult.summary.dataLines}，跳过 ${parsedResult.summary.skippedCount}）。请确认后写入。`;
+      showToast(previewMessage, 'success');
+      showImportNotice(previewMessage, 'success');
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : '未知异常';
+      const message = `导入失败：${detail}`;
       showToast(message, 'error');
       showImportNotice(message, 'error');
     } finally {
@@ -835,6 +847,47 @@ export function TransactionsPage() {
       setImportSource(null);
       importSourceRef.current = null;
     }
+  };
+
+  const handleConfirmPendingImport = () => {
+    if (!pendingImport) {
+      return;
+    }
+
+    const { result, mode } = pendingImport;
+
+    if (result.shouldClearBeforeImport) {
+      clearAllAccountBills();
+    }
+
+    result.update.forEach((row) => updateTransaction(row.id, row.payload));
+    const insertedIds = result.append.map((item) => addTransaction(item));
+    const newestId = insertedIds[insertedIds.length - 1];
+    const changedCount = result.append.length + result.update.length;
+    const expectedIndex = Math.max(0, filteredRows.length + result.append.length - 1);
+    const expectedPage = Math.floor(expectedIndex / pageSize) + 1;
+    setPage(expectedPage);
+
+    if (changedCount === 0) {
+      const message = `导入完成：${result.skipped} 条重复记录已跳过（增量模式）。`;
+      showToast(message, 'warning');
+      showImportNotice(message, 'warning');
+      setPendingImport(null);
+      return;
+    }
+
+    const actionLabel = mode === 'overwrite' ? '覆盖' : mode === 'merge' ? '合并' : '增量导入';
+    const message = `导入成功（${actionLabel}）：新增 ${result.append.length} 条，更新 ${result.update.length} 条${result.skipped ? `，跳过 ${result.skipped} 条` : ''}。`;
+    showToast(message, 'success');
+    showImportNotice(`${message} 已自动定位到最新一条。`, 'success');
+
+    if (newestId) {
+      const next = new URLSearchParams(searchParams);
+      next.set('highlight', newestId);
+      setSearchParams(next, { replace: true });
+    }
+
+    setPendingImport(null);
   };
 
   const handleDeleteConfirm = () => {
@@ -1035,9 +1088,20 @@ export function TransactionsPage() {
     if (selectedTransactions.length === 0) {
       bulkAiRecategorizingRef.current = false;
       setBulkAiRecategorizing(false);
+      setBulkAiProgress((prev) => ({ ...prev, visible: false }));
       return;
     }
 
+    setBulkAiProgress({
+      visible: true,
+      processed: 0,
+      total: selectedTransactions.length,
+      changed: 0,
+      fallbackChanged: 0,
+      aborted: 0
+    });
+
+    let processed = 0;
     let changed = 0;
     let fallbackChanged = 0;
     let aborted = 0;
@@ -1064,6 +1128,15 @@ export function TransactionsPage() {
           if (result === 'aborted') {
             aborted += 1;
           }
+          processed += 1;
+          setBulkAiProgress({
+            visible: true,
+            processed,
+            total: selectedTransactions.length,
+            changed,
+            fallbackChanged,
+            aborted
+          });
         } finally {
           bulkAiAbortControllersRef.current.delete(controller);
         }
@@ -1093,6 +1166,7 @@ export function TransactionsPage() {
       bulkAiCancelRequestedRef.current = false;
       bulkAiRecategorizingRef.current = false;
       setBulkAiRecategorizing(false);
+      setBulkAiProgress((prev) => ({ ...prev, visible: false }));
     }
   };
 
@@ -1301,6 +1375,38 @@ export function TransactionsPage() {
         maxAvailableDate={availableDateBounds.max}
       />
 
+      {bulkAiProgress.visible ? (
+        <section
+          className="import-result-banner ai-progress-banner"
+          role="status"
+          aria-live="polite"
+        >
+          <strong>AI 重分类：</strong>
+          <div className="ai-progress-main">
+            <div className="ai-progress-text">
+              <span>
+                已处理 {bulkAiProgress.processed} / {bulkAiProgress.total}
+              </span>
+              <span>
+                大模型 {bulkAiProgress.changed} · 回退 {bulkAiProgress.fallbackChanged}
+                {bulkAiProgress.aborted > 0 ? ` · 已取消 ${bulkAiProgress.aborted}` : ''}
+              </span>
+            </div>
+            <div className="ai-progress-track" aria-label="AI 重分类进度">
+              <span
+                className="ai-progress-fill"
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.round((bulkAiProgress.processed / Math.max(1, bulkAiProgress.total)) * 100)
+                  )}%`
+                }}
+              />
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {importNotice.visible ? (
         <section
           className={`import-result-banner import-result-${importNotice.variant}`}
@@ -1321,6 +1427,7 @@ export function TransactionsPage() {
       <input
         ref={fileInputRef}
         type="file"
+        aria-label="导入账单文件"
         accept=".csv,text/csv,.txt,text/plain,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         style={{ display: 'none' }}
         onChange={(event) => void handleImportFile(event)}
@@ -1512,6 +1619,21 @@ export function TransactionsPage() {
         aiRecategorizing={selected ? aiRecategorizingId === selected.id : false}
         visibleSections={visibleDetailSections}
         onToggleSection={handleToggleDetailSection}
+      />
+
+      <ConfirmDialog
+        open={Boolean(pendingImport)}
+        title="确认导入账单"
+        description={
+          pendingImport
+            ? `文件：${pendingImport.fileName}\n来源：${pendingImport.source === 'wechat' ? '微信' : '支付宝'}\n模式：${pendingImport.mode === 'overwrite' ? '覆盖（清空后导入）' : pendingImport.mode === 'merge' ? '合并（覆盖重复）' : '增量（跳过重复）'}\n识别：${pendingImport.parseSummary.parsedCount} 条（数据行 ${pendingImport.parseSummary.dataLines}，跳过 ${pendingImport.parseSummary.skippedCount}）\n待写入：新增 ${pendingImport.result.append.length} 条，更新 ${pendingImport.result.update.length} 条，跳过重复 ${pendingImport.result.skipped} 条。`
+            : ''
+        }
+        confirmText={pendingImport?.mode === 'overwrite' ? '确认覆盖导入' : '确认导入'}
+        cancelText="取消"
+        danger={pendingImport?.mode === 'overwrite'}
+        onConfirm={handleConfirmPendingImport}
+        onCancel={() => setPendingImport(null)}
       />
 
       <ConfirmDialog

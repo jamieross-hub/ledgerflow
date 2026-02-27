@@ -2,15 +2,44 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Account } from '../../entities/account/types';
 import { Category } from '../../entities/category/types';
-import { TransactionItem } from '../../entities/transaction/types';
+import { TransactionItem, TransactionType } from '../../entities/transaction/types';
 import { syncChangeIfNeeded } from '../lib/dataSync';
 import { generateId } from '../lib/id';
+
+interface CategoryLearningRule {
+  id: string;
+  token: string;
+  type: TransactionType;
+  categoryId: string;
+  hitCount: number;
+  createdAt: string;
+  lastAppliedAt: string;
+}
+
+interface CategoryLearningEvent {
+  id: string;
+  createdAt: string;
+  type: TransactionType;
+  fromCategoryId: string;
+  toCategoryId: string;
+  tokens: string[];
+  ruleIds: string[];
+}
+
+interface CategoryLearningInput {
+  type: TransactionType;
+  note: string;
+  merchantOrderNo?: string;
+  orderNo?: string;
+}
 
 interface FinanceState {
   hasHydrated: boolean;
   transactions: TransactionItem[];
   categories: Category[];
   accounts: Account[];
+  categoryLearningRules: CategoryLearningRule[];
+  categoryLearningEvents: CategoryLearningEvent[];
   addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
   updateTransaction: (id: string, payload: Omit<TransactionItem, 'id'>) => void;
   removeTransaction: (id: string) => void;
@@ -25,6 +54,15 @@ interface FinanceState {
   updateAccountBalance: (id: string, balance: number) => void;
   removeAccount: (id: string) => void;
   clearAllAccountBills: () => void;
+  suggestCategoryByLearning: (input: CategoryLearningInput) => {
+    categoryId: string;
+    confidence: number;
+    token: string;
+  } | null;
+  recordCategoryCorrection: (
+    input: CategoryLearningInput & { fromCategoryId: string; toCategoryId: string }
+  ) => void;
+  undoLatestCategoryLearning: () => boolean;
   replaceAllData: (payload: {
     transactions: TransactionItem[];
     categories: Category[];
@@ -152,6 +190,8 @@ const defaultAccounts: Account[] = [
 ];
 
 const defaultTransactions: TransactionItem[] = [];
+const defaultCategoryLearningRules: CategoryLearningRule[] = [];
+const defaultCategoryLearningEvents: CategoryLearningEvent[] = [];
 
 function normalizeCategoryName(raw: string): string {
   return String(raw || '')
@@ -212,6 +252,39 @@ function sanitizeCategoriesAndTransactions(
   };
 }
 
+function normalizeLearningText(raw: string): string {
+  return String(raw || '')
+    .trim()
+    .toLocaleLowerCase('zh-CN');
+}
+
+function buildLearningTokens(input: CategoryLearningInput): string[] {
+  const tokens: string[] = [];
+  const merchant = normalizeLearningText(input.merchantOrderNo || '');
+  const order = normalizeLearningText(input.orderNo || '');
+  const note = normalizeLearningText(input.note || '');
+
+  if (merchant) tokens.push(`merchant:${merchant}`);
+  if (order) tokens.push(`order:${order}`);
+
+  if (note) {
+    const words = note
+      .split(/[\s,，。!！?？;；:：()（）【】{}"'“”‘’/\\|+-]+|\[|\]/)
+      .map((item) => item.trim())
+      .filter((item) => item.length >= 2)
+      .slice(0, 6);
+    words.forEach((word) => tokens.push(`kw:${word}`));
+  }
+
+  return Array.from(new Set(tokens)).slice(0, 8);
+}
+
+function getTokenWeight(token: string): number {
+  if (token.startsWith('merchant:')) return 5;
+  if (token.startsWith('order:')) return 4;
+  return 2;
+}
+
 function computeAccountBalances(accounts: Account[], transactions: TransactionItem[]): Account[] {
   return accounts.map((account) => {
     const base = Number(account.initialBalance ?? 0);
@@ -236,11 +309,13 @@ function computeAccountBalances(accounts: Account[], transactions: TransactionIt
 
 export const useFinanceStore = create<FinanceState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       hasHydrated: false,
       transactions: defaultTransactions,
       categories: defaultCategories,
       accounts: defaultAccounts,
+      categoryLearningRules: defaultCategoryLearningRules,
+      categoryLearningEvents: defaultCategoryLearningEvents,
       addTransaction: (payload) => {
         const id = generateId();
         const row = { ...payload, id };
@@ -409,6 +484,128 @@ export const useFinanceStore = create<FinanceState>()(
           accounts: computeAccountBalances(s.accounts, [])
         }));
       },
+      suggestCategoryByLearning: (input) => {
+        const tokens = buildLearningTokens(input);
+        if (tokens.length === 0) return null;
+
+        const { categoryLearningRules, categories } = get();
+        const validCategoryIds = new Set(categories.map((item) => item.id));
+        const scoreByCategory = new Map<string, { score: number; token: string }>();
+
+        categoryLearningRules.forEach((rule) => {
+          if (rule.type !== input.type) return;
+          if (!validCategoryIds.has(rule.categoryId)) return;
+          if (!tokens.includes(rule.token)) return;
+          const weight = getTokenWeight(rule.token) * Math.max(1, rule.hitCount);
+          const current = scoreByCategory.get(rule.categoryId);
+          if (!current || current.score < weight) {
+            scoreByCategory.set(rule.categoryId, { score: weight, token: rule.token });
+            return;
+          }
+          scoreByCategory.set(rule.categoryId, {
+            score: current.score + weight,
+            token: current.token
+          });
+        });
+
+        const sorted = Array.from(scoreByCategory.entries()).sort(
+          (a, b) => b[1].score - a[1].score
+        );
+        if (sorted.length === 0) return null;
+
+        const [categoryId, top] = sorted[0];
+        const secondScore = sorted[1]?.[1].score ?? 0;
+        const confidence = Math.min(1, top.score / Math.max(1, top.score + secondScore));
+
+        return {
+          categoryId,
+          confidence,
+          token: top.token
+        };
+      },
+      recordCategoryCorrection: (input) => {
+        if (input.fromCategoryId === input.toCategoryId) return;
+
+        const tokens = buildLearningTokens(input);
+        if (tokens.length === 0) return;
+
+        const now = new Date().toISOString();
+        set((s) => {
+          const nextRules = s.categoryLearningRules.slice();
+          const touchedRuleIds: string[] = [];
+
+          tokens.forEach((token) => {
+            const idx = nextRules.findIndex(
+              (rule) =>
+                rule.token === token &&
+                rule.type === input.type &&
+                rule.categoryId === input.toCategoryId
+            );
+            if (idx >= 0) {
+              const updated = {
+                ...nextRules[idx],
+                hitCount: nextRules[idx].hitCount + 1,
+                lastAppliedAt: now
+              };
+              nextRules[idx] = updated;
+              touchedRuleIds.push(updated.id);
+              return;
+            }
+
+            const inserted: CategoryLearningRule = {
+              id: generateId(),
+              token,
+              type: input.type,
+              categoryId: input.toCategoryId,
+              hitCount: 1,
+              createdAt: now,
+              lastAppliedAt: now
+            };
+            nextRules.push(inserted);
+            touchedRuleIds.push(inserted.id);
+          });
+
+          const nextEvents = [
+            ...s.categoryLearningEvents,
+            {
+              id: generateId(),
+              createdAt: now,
+              type: input.type,
+              fromCategoryId: input.fromCategoryId,
+              toCategoryId: input.toCategoryId,
+              tokens,
+              ruleIds: touchedRuleIds
+            }
+          ].slice(-30);
+
+          return {
+            categoryLearningRules: nextRules,
+            categoryLearningEvents: nextEvents
+          };
+        });
+      },
+      undoLatestCategoryLearning: () => {
+        let success = false;
+        set((s) => {
+          const latest = s.categoryLearningEvents[s.categoryLearningEvents.length - 1];
+          if (!latest) return s;
+          success = true;
+
+          const nextRules = s.categoryLearningRules
+            .map((rule) => {
+              if (!latest.ruleIds.includes(rule.id)) return rule;
+              const nextHit = rule.hitCount - 1;
+              return { ...rule, hitCount: nextHit };
+            })
+            .filter((rule) => rule.hitCount > 0);
+
+          return {
+            categoryLearningRules: nextRules,
+            categoryLearningEvents: s.categoryLearningEvents.slice(0, -1)
+          };
+        });
+        return success;
+      },
       replaceAllData: (payload) => {
         const incomingCategories = Array.isArray(payload.categories) ? payload.categories : [];
         const incomingTransactions = Array.isArray(payload.transactions)
@@ -428,7 +625,7 @@ export const useFinanceStore = create<FinanceState>()(
     }),
     {
       name: 'ledgerflow-finance',
-      version: 2,
+      version: 3,
       onRehydrateStorage: () => () => {
         useFinanceStore.setState({ hasHydrated: true });
       },
@@ -451,7 +648,17 @@ export const useFinanceStore = create<FinanceState>()(
           accounts: computeAccountBalances(
             Array.isArray(incoming.accounts) ? incoming.accounts : currentState.accounts,
             compacted.transactions
+          ),
+          categoryLearningRules: Array.isArray(
+            (incoming as Partial<FinanceState>).categoryLearningRules
           )
+            ? (incoming as Partial<FinanceState>).categoryLearningRules || []
+            : currentState.categoryLearningRules,
+          categoryLearningEvents: Array.isArray(
+            (incoming as Partial<FinanceState>).categoryLearningEvents
+          )
+            ? (incoming as Partial<FinanceState>).categoryLearningEvents || []
+            : currentState.categoryLearningEvents
         };
       }
     }

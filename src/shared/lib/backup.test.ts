@@ -34,6 +34,89 @@ describe('parseFinanceBackupPayload', () => {
     expect(payload.version).toBe(1);
     expect(payload.data.transactions).toEqual([]);
   });
+
+  it('当交易字段类型错误时应拒绝导入', () => {
+    expect(() =>
+      parseFinanceBackupPayload(
+        JSON.stringify({
+          version: 1,
+          data: {
+            transactions: [
+              {
+                id: 'tx-1',
+                type: 'expense',
+                categoryId: 'cat-1',
+                accountId: 'acc-1',
+                amount: '88.8',
+                date: '2026-02-10',
+                note: '午餐',
+                tags: ['餐饮']
+              }
+            ],
+            categories: [],
+            accounts: []
+          }
+        })
+      )
+    ).toThrow('data.transactions[0].amount 应为有限数字');
+  });
+
+  it('当枚举字段不合法时应拒绝导入', () => {
+    expect(() =>
+      parseFinanceBackupPayload(
+        JSON.stringify({
+          version: 1,
+          data: {
+            transactions: [
+              {
+                id: 'tx-1',
+                type: 'oops',
+                categoryId: 'cat-1',
+                accountId: 'acc-1',
+                amount: 88.8,
+                date: '2026-02-10',
+                note: '午餐',
+                tags: ['餐饮']
+              }
+            ],
+            categories: [],
+            accounts: []
+          }
+        })
+      )
+    ).toThrow('data.transactions[0].type 枚举值不合法');
+  });
+
+  it('当分类与账户字段类型合法时可正常通过并归一化', () => {
+    const payload = parseFinanceBackupPayload(
+      JSON.stringify({
+        version: 1,
+        exportedAt: '2026-02-26T10:00:00.000Z',
+        data: {
+          transactions: [
+            {
+              id: 'tx-1',
+              type: 'expense',
+              categoryId: 'cat-1',
+              accountId: 'acc-1',
+              amount: 88.8,
+              date: '2026-02-10',
+              note: '午餐',
+              tags: ['餐饮', '  工作日  '],
+              source: 'manual',
+              status: 'completed'
+            }
+          ],
+          categories: [{ id: 'cat-1', name: ' 餐饮 ', kind: 'expense', sortOrder: 1 }],
+          accounts: [{ id: 'acc-1', name: ' 招商银行卡 ', type: 'debit', balance: 1000 }]
+        }
+      })
+    );
+
+    expect(payload.data.transactions[0].tags).toEqual(['餐饮', '工作日']);
+    expect(payload.data.categories[0].name).toBe('餐饮');
+    expect(payload.data.accounts[0].name).toBe('招商银行卡');
+  });
 });
 
 describe('webdav config storage hardening', () => {

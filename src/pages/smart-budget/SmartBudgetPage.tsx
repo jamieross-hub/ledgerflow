@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatCurrency } from '../../shared/lib/format';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { useAiSettings } from '../../shared/store/useAiSettings';
@@ -72,6 +72,15 @@ const COMMON_CATEGORY_PRESETS = [
   '其他'
 ];
 
+type BudgetActionLog = {
+  id: string;
+  createdAt: string;
+  type: 'apply-next-month' | 'set-month-reminder';
+  category: string;
+  delta: number;
+  message: string;
+};
+
 export function SmartBudgetPage() {
   const confirmedPlan = useSmartBudgetStore((s) => s.confirmedPlan);
   const confirmPlan = useSmartBudgetStore((s) => s.confirmPlan);
@@ -108,6 +117,8 @@ export function SmartBudgetPage() {
       reason: string;
     }>;
   }>(null);
+  const [actionLogs, setActionLogs] = useState<BudgetActionLog[]>([]);
+  const [actionFeedback, setActionFeedback] = useState('');
 
   const monthOptions = useMemo(() => getRecentMonthOptions(transactions), [transactions]);
 
@@ -492,6 +503,57 @@ export function SmartBudgetPage() {
     setMode('management');
   };
 
+  const executeApplyToNextMonth = useCallback(() => {
+    if (!confirmedPlan || !topOverspentItem) {
+      return;
+    }
+
+    const nextAmount = Math.round(topOverspentItem.budgetAmount + topOverspentItem.diff * 0.5);
+    const nextRecommendation = applyCategoryBudgetEdits(confirmedPlan.recommendation, {
+      [topOverspentItem.category]: Math.max(0, nextAmount)
+    });
+
+    confirmPlan({ answers: confirmedPlan.answers, recommendation: nextRecommendation });
+
+    const message = `已将「${topOverspentItem.category}」下月预算调整为 ${formatCurrency(
+      Math.max(0, nextAmount)
+    )}`;
+    setActionFeedback(message);
+    setActionLogs((prev): BudgetActionLog[] => {
+      const nextItem: BudgetActionLog = {
+        id: `${Date.now()}-apply-${topOverspentItem.category}`,
+        createdAt: new Date().toISOString(),
+        type: 'apply-next-month',
+        category: topOverspentItem.category,
+        delta: Math.max(0, nextAmount - topOverspentItem.budgetAmount),
+        message
+      };
+      return [nextItem, ...prev].slice(0, 12);
+    });
+  }, [confirmPlan, confirmedPlan, topOverspentItem]);
+
+  const executeSetMonthReminder = useCallback(() => {
+    if (!topOverspentItem) {
+      return;
+    }
+
+    const message = `已为「${topOverspentItem.category}」设置本月超支提醒，建议至少压降 ${formatCurrency(
+      topOverspentItem.diff
+    )}`;
+    setActionFeedback(message);
+    setActionLogs((prev): BudgetActionLog[] => {
+      const nextItem: BudgetActionLog = {
+        id: `${Date.now()}-reminder-${topOverspentItem.category}`,
+        createdAt: new Date().toISOString(),
+        type: 'set-month-reminder',
+        category: topOverspentItem.category,
+        delta: -Math.abs(topOverspentItem.diff),
+        message
+      };
+      return [nextItem, ...prev].slice(0, 12);
+    });
+  }, [topOverspentItem]);
+
   const progressPercent = (ratio: number) => {
     if (!Number.isFinite(ratio) || ratio <= 0) {
       return 0;
@@ -520,11 +582,9 @@ export function SmartBudgetPage() {
         ) : null}
       </header>
 
-      <div className="smart-budget-mode-switch" role="tablist" aria-label="智能预算模式">
+      <div className="smart-budget-mode-switch" aria-label="智能预算模式">
         <button
           type="button"
-          role="tab"
-          aria-selected={mode === 'setup'}
           className={mode === 'setup' ? 'active' : ''}
           onClick={() => {
             setMode('setup');
@@ -535,8 +595,6 @@ export function SmartBudgetPage() {
         </button>
         <button
           type="button"
-          role="tab"
-          aria-selected={mode === 'management'}
           className={mode === 'management' ? 'active' : ''}
           onClick={() => {
             setMode('management');
@@ -663,8 +721,12 @@ export function SmartBudgetPage() {
                     或减少当前支出 <strong>{formatCurrency(topOverspentItem.diff)}</strong>
                   </p>
                   <div className="smart-budget-ai-actions">
-                    <button type="button">应用到下月预算</button>
-                    <button type="button">设为本月提醒</button>
+                    <button type="button" onClick={executeApplyToNextMonth}>
+                      应用到下月预算
+                    </button>
+                    <button type="button" onClick={executeSetMonthReminder}>
+                      设为本月提醒
+                    </button>
                   </div>
                 </div>
               ) : null}
@@ -738,6 +800,27 @@ export function SmartBudgetPage() {
                       {(item.riskRatio * 100).toFixed(0)}%。建议优先减少非必要消费
                       {formatCurrency(item.suggestedSaving)}，或将该分类预算上调到
                       {formatCurrency(item.projectedSpent)}。
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {actionFeedback ? (
+              <p className="smart-budget-ai-summary" aria-live="polite">
+                {actionFeedback}
+              </p>
+            ) : null}
+
+            {actionLogs.length ? (
+              <section className="smart-budget-anomaly-card" aria-label="建议动作执行记录">
+                <h4>建议动作执行记录</h4>
+                <ul>
+                  {actionLogs.slice(0, 5).map((item) => (
+                    <li key={item.id}>
+                      <strong>{item.category}</strong> ·
+                      {item.type === 'apply-next-month' ? ' 已应用到下月预算' : ' 已设为本月提醒'} ·
+                      影响金额 {formatCurrency(item.delta)}
                     </li>
                   ))}
                 </ul>

@@ -131,6 +131,207 @@ export interface FinanceBackupPayload {
   };
 }
 
+const TRANSACTION_TYPES = new Set<TransactionItem['type']>([
+  'expense',
+  'income',
+  'budget',
+  'repayment'
+]);
+const TRANSACTION_SOURCES = new Set<NonNullable<TransactionItem['source']>>([
+  'manual',
+  'wechat',
+  'alipay',
+  'ai'
+]);
+const TRANSACTION_STATUS = new Set<NonNullable<TransactionItem['status']>>([
+  'pending',
+  'completed',
+  'refunded',
+  'closed',
+  'failed'
+]);
+const CATEGORY_KINDS = new Set<NonNullable<Category['kind']>>(['income', 'expense']);
+const ACCOUNT_TYPES = new Set<NonNullable<Account['type']>>([
+  'cash',
+  'debit',
+  'savings',
+  'credit',
+  'virtual',
+  'liability',
+  'receivable'
+]);
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function asSafeString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function assertString(
+  value: unknown,
+  path: string,
+  { required = true }: { required?: boolean } = {}
+) {
+  if (typeof value === 'string') {
+    return;
+  }
+  if (!required && (value === undefined || value === null)) {
+    return;
+  }
+  throw new Error(`备份文件字段无效：${path} 应为字符串`);
+}
+
+function assertNumber(value: unknown, path: string): asserts value is number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return;
+  }
+  throw new Error(`备份文件字段无效：${path} 应为有限数字`);
+}
+
+function assertDateString(
+  value: unknown,
+  path: string,
+  { required = true }: { required?: boolean } = {}
+) {
+  if (!required && (value === undefined || value === null)) {
+    return;
+  }
+  assertString(value, path, { required });
+  const text = String(value).trim();
+  if (!/^\d{4}-\d{2}-\d{2}/.test(text)) {
+    throw new Error(`备份文件字段无效：${path} 应为日期字符串（YYYY-MM-DD）`);
+  }
+}
+
+function assertStringArray(value: unknown, path: string): asserts value is string[] {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
+    throw new Error(`备份文件字段无效：${path} 应为字符串数组`);
+  }
+}
+
+function validateTransactionItem(item: unknown, index: number): TransactionItem {
+  if (!isObjectRecord(item)) {
+    throw new Error(`备份文件字段无效：data.transactions[${index}] 应为对象`);
+  }
+
+  assertString(item.id, `data.transactions[${index}].id`);
+  assertString(item.categoryId, `data.transactions[${index}].categoryId`);
+  assertString(item.accountId, `data.transactions[${index}].accountId`);
+  assertString(item.note, `data.transactions[${index}].note`);
+  assertDateString(item.date, `data.transactions[${index}].date`);
+  assertNumber(item.amount, `data.transactions[${index}].amount`);
+  assertStringArray(item.tags, `data.transactions[${index}].tags`);
+
+  if (
+    typeof item.type !== 'string' ||
+    !TRANSACTION_TYPES.has(item.type as TransactionItem['type'])
+  ) {
+    throw new Error(`备份文件字段无效：data.transactions[${index}].type 枚举值不合法`);
+  }
+
+  if (
+    item.source !== undefined &&
+    (typeof item.source !== 'string' ||
+      !TRANSACTION_SOURCES.has(item.source as NonNullable<TransactionItem['source']>))
+  ) {
+    throw new Error(`备份文件字段无效：data.transactions[${index}].source 枚举值不合法`);
+  }
+
+  if (
+    item.status !== undefined &&
+    (typeof item.status !== 'string' ||
+      !TRANSACTION_STATUS.has(item.status as NonNullable<TransactionItem['status']>))
+  ) {
+    throw new Error(`备份文件字段无效：data.transactions[${index}].status 枚举值不合法`);
+  }
+
+  assertString(item.orderNo, `data.transactions[${index}].orderNo`, { required: false });
+  assertString(item.merchantOrderNo, `data.transactions[${index}].merchantOrderNo`, {
+    required: false
+  });
+
+  return {
+    id: asSafeString(item.id),
+    type: item.type as TransactionItem['type'],
+    categoryId: asSafeString(item.categoryId),
+    accountId: asSafeString(item.accountId),
+    amount: Number(item.amount),
+    date: asSafeString(item.date),
+    note: asSafeString(item.note),
+    tags: (item.tags as string[]).map((tag) => tag.trim()).filter(Boolean),
+    source: item.source as TransactionItem['source'] | undefined,
+    orderNo: asSafeString(item.orderNo) || undefined,
+    merchantOrderNo: asSafeString(item.merchantOrderNo) || undefined,
+    status: item.status as TransactionItem['status'] | undefined
+  };
+}
+
+function validateCategoryItem(item: unknown, index: number): Category {
+  if (!isObjectRecord(item)) {
+    throw new Error(`备份文件字段无效：data.categories[${index}] 应为对象`);
+  }
+
+  assertString(item.id, `data.categories[${index}].id`);
+  assertString(item.name, `data.categories[${index}].name`);
+  assertString(item.color, `data.categories[${index}].color`, { required: false });
+  assertString(item.icon, `data.categories[${index}].icon`, { required: false });
+
+  if (item.sortOrder !== undefined) {
+    assertNumber(item.sortOrder, `data.categories[${index}].sortOrder`);
+  }
+
+  if (
+    item.kind !== undefined &&
+    (typeof item.kind !== 'string' ||
+      !CATEGORY_KINDS.has(item.kind as NonNullable<Category['kind']>))
+  ) {
+    throw new Error(`备份文件字段无效：data.categories[${index}].kind 枚举值不合法`);
+  }
+
+  return {
+    id: asSafeString(item.id),
+    name: asSafeString(item.name),
+    kind: item.kind as Category['kind'] | undefined,
+    color: asSafeString(item.color) || undefined,
+    icon: asSafeString(item.icon) || undefined,
+    sortOrder: typeof item.sortOrder === 'number' ? Number(item.sortOrder) : undefined
+  };
+}
+
+function validateAccountItem(item: unknown, index: number): Account {
+  if (!isObjectRecord(item)) {
+    throw new Error(`备份文件字段无效：data.accounts[${index}] 应为对象`);
+  }
+
+  assertString(item.id, `data.accounts[${index}].id`);
+  assertString(item.name, `data.accounts[${index}].name`);
+
+  if (item.initialBalance !== undefined) {
+    assertNumber(item.initialBalance, `data.accounts[${index}].initialBalance`);
+  }
+  if (item.balance !== undefined) {
+    assertNumber(item.balance, `data.accounts[${index}].balance`);
+  }
+
+  if (
+    item.type !== undefined &&
+    (typeof item.type !== 'string' || !ACCOUNT_TYPES.has(item.type as NonNullable<Account['type']>))
+  ) {
+    throw new Error(`备份文件字段无效：data.accounts[${index}].type 枚举值不合法`);
+  }
+
+  return {
+    id: asSafeString(item.id),
+    name: asSafeString(item.name),
+    type: item.type as Account['type'] | undefined,
+    initialBalance:
+      typeof item.initialBalance === 'number' ? Number(item.initialBalance) : undefined,
+    balance: typeof item.balance === 'number' ? Number(item.balance) : undefined
+  };
+}
+
 export function createFinanceBackupPayload(input: {
   transactions: TransactionItem[];
   categories: Category[];
@@ -149,32 +350,44 @@ export function createFinanceBackupPayload(input: {
 
 export function parseFinanceBackupPayload(raw: string): FinanceBackupPayload {
   const normalizedRaw = raw.replace(/^\uFEFF/, '').trim();
-  const parsed = JSON.parse(normalizedRaw) as Partial<FinanceBackupPayload>;
-  if (!parsed || typeof parsed !== 'object') {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(normalizedRaw);
+  } catch {
+    throw new Error('备份文件格式无效：JSON 解析失败');
+  }
+
+  if (!isObjectRecord(parsed)) {
     throw new Error('备份文件格式无效');
   }
 
   const data = parsed.data;
-  if (!data || typeof data !== 'object') {
+  if (!isObjectRecord(data)) {
     throw new Error('备份文件缺少 data 字段');
   }
 
-  const transactions = Array.isArray(data.transactions) ? data.transactions : null;
-  const categories = Array.isArray(data.categories) ? data.categories : null;
-  const accounts = Array.isArray(data.accounts) ? data.accounts : null;
-
-  if (!transactions || !categories || !accounts) {
+  if (
+    !Array.isArray(data.transactions) ||
+    !Array.isArray(data.categories) ||
+    !Array.isArray(data.accounts)
+  ) {
     throw new Error('备份文件缺少必要数据（transactions/categories/accounts）');
   }
 
+  const transactions = data.transactions.map((item, index) => validateTransactionItem(item, index));
+  const categories = data.categories.map((item, index) => validateCategoryItem(item, index));
+  const accounts = data.accounts.map((item, index) => validateAccountItem(item, index));
+
   return {
-    version: typeof parsed.version === 'number' ? parsed.version : 1,
+    version:
+      typeof parsed.version === 'number' && Number.isFinite(parsed.version) ? parsed.version : 1,
     exportedAt:
       typeof parsed.exportedAt === 'string' ? parsed.exportedAt : new Date().toISOString(),
     data: {
-      transactions: transactions as TransactionItem[],
-      categories: categories as Category[],
-      accounts: accounts as Account[]
+      transactions,
+      categories,
+      accounts
     }
   };
 }

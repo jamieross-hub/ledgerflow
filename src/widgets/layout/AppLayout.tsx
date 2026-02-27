@@ -215,9 +215,11 @@ export function AppLayout() {
     >
       <aside className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
         <div className="sidebar-header">
-          <Link to="/" className="brand" title="LedgerFlow">
-            {collapsed ? 'LF' : 'LedgerFlow'}
-          </Link>
+          {!collapsed ? (
+            <Link to="/" className="brand" title="LedgerFlow">
+              LedgerFlow
+            </Link>
+          ) : null}
           <button
             type="button"
             className="icon-btn"

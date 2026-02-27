@@ -4,10 +4,35 @@ import { ENV } from '../config/env';
 
 const AI_SETTINGS_STORAGE_KEY = 'ledgerflow-ai-settings';
 const AI_SETTINGS_API_KEY_SESSION_KEY = 'ledgerflow-ai-settings-api-key';
+const AI_SETTINGS_API_KEY_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+interface ApiKeySessionPayload {
+  value: string;
+  expiresAt: number;
+}
 
 function readSessionApiKey() {
   try {
-    return window.sessionStorage.getItem(AI_SETTINGS_API_KEY_SESSION_KEY) || '';
+    const raw = window.sessionStorage.getItem(AI_SETTINGS_API_KEY_SESSION_KEY);
+    if (!raw) return '';
+
+    const now = Date.now();
+    const parsed = JSON.parse(raw) as Partial<ApiKeySessionPayload>;
+    if (
+      !parsed ||
+      typeof parsed.value !== 'string' ||
+      typeof parsed.expiresAt !== 'number' ||
+      parsed.expiresAt <= now
+    ) {
+      window.sessionStorage.removeItem(AI_SETTINGS_API_KEY_SESSION_KEY);
+      return '';
+    }
+
+    window.sessionStorage.setItem(
+      AI_SETTINGS_API_KEY_SESSION_KEY,
+      JSON.stringify({ value: parsed.value, expiresAt: now + AI_SETTINGS_API_KEY_SESSION_TTL_MS })
+    );
+    return parsed.value;
   } catch {
     return '';
   }
@@ -16,7 +41,13 @@ function readSessionApiKey() {
 function writeSessionApiKey(apiKey: string) {
   try {
     if (apiKey) {
-      window.sessionStorage.setItem(AI_SETTINGS_API_KEY_SESSION_KEY, apiKey);
+      window.sessionStorage.setItem(
+        AI_SETTINGS_API_KEY_SESSION_KEY,
+        JSON.stringify({
+          value: apiKey,
+          expiresAt: Date.now() + AI_SETTINGS_API_KEY_SESSION_TTL_MS
+        })
+      );
       return;
     }
     window.sessionStorage.removeItem(AI_SETTINGS_API_KEY_SESSION_KEY);
@@ -133,7 +164,7 @@ export const useAiSettings = create<AiSettingsState>()(
       }),
       merge: (persisted: unknown, current: AiSettingsState) => {
         const next = { ...current, ...(persisted as Partial<PersistedAiSettingsState>) };
-        next.apiKey = readSessionApiKey() || next.apiKey || ENV.aiApiKey;
+        next.apiKey = readSessionApiKey() || ENV.aiApiKey;
         if (!next.model?.trim()) {
           next.model = ENV.aiDefaultModel;
         }

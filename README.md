@@ -78,12 +78,14 @@ npm run dev
 ### 直接拉镜像运行
 
 ```bash
-docker run -d --name ledgerflow -p 18080:80 34v0wphix/ledgerflow:latest
+docker run -d --name ledgerflow -p 8080:80 34v0wphix/ledgerflow:latest
 ```
 
-打开：`http://localhost:18080`
+打开：`http://localhost:8080`
 
 ### 使用 compose
+
+默认映射：`8080 -> 80`。如需改端口，可通过环境变量覆盖：`LEDGERFLOW_PORT=18080`。
 
 ```bash
 docker compose up -d
