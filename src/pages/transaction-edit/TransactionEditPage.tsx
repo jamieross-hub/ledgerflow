@@ -241,6 +241,30 @@ export function TransactionEditPage() {
     );
   }, [categoryId, categoryNameMap, categoryTouched, id, learningSuggestion]);
 
+  const handleAmountKeypadInput = useCallback(
+    (key: string) => {
+      setAmount((prev) => {
+        if (key === 'clear') return '';
+        if (key === 'backspace') return prev.slice(0, -1);
+        if (key === '.') {
+          if (!prev) return '0.';
+          if (prev.includes('.')) return prev;
+          return `${prev}.`;
+        }
+        if (key === '00') {
+          if (!prev || prev === '0') return prev;
+          return `${prev}00`;
+        }
+        if (prev === '0') return key;
+        return `${prev}${key}`;
+      });
+      if (amountError) {
+        setAmountError('');
+      }
+    },
+    [amountError]
+  );
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setAmountError('');
@@ -310,7 +334,7 @@ export function TransactionEditPage() {
   }
 
   return (
-    <section className="panel">
+    <section className="panel transaction-edit-panel">
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
         <button type="button" onClick={handleBack} aria-label="返回交易列表">
           ← 返回
@@ -323,215 +347,273 @@ export function TransactionEditPage() {
           快速模式：仅需填写金额与必要字段，保存后自动返回交易页。
         </small>
       ) : null}
-      <form onSubmit={handleSubmit}>
-        <div className="field">
-          <label htmlFor="tx-type">类型</label>
-          <select
-            id="tx-type"
-            aria-label="交易类型"
-            value={type}
-            onChange={(e) =>
-              setType(e.target.value as 'income' | 'expense' | 'budget' | 'repayment')
-            }
-          >
-            <option value="expense">支出</option>
-            <option value="income">收入</option>
-            <option value="budget">预算</option>
-            <option value="repayment">还款</option>
-          </select>
-        </div>
+      <form onSubmit={handleSubmit} className="transaction-edit-form">
+        <div className="transaction-edit-layout">
+          <div className="transaction-edit-main">
+            <section className="transaction-edit-group" aria-label="基础信息">
+              <h3>基础信息</h3>
+              <div className="field">
+                <label htmlFor="tx-type">类型</label>
+                <select
+                  id="tx-type"
+                  aria-label="交易类型"
+                  value={type}
+                  onChange={(e) =>
+                    setType(e.target.value as 'income' | 'expense' | 'budget' | 'repayment')
+                  }
+                >
+                  <option value="expense">支出</option>
+                  <option value="income">收入</option>
+                  <option value="budget">预算</option>
+                  <option value="repayment">还款</option>
+                </select>
+              </div>
 
-        <div className="field">
-          <label htmlFor="tx-category">分类</label>
-          <select
-            id="tx-category"
-            aria-label="交易分类"
-            value={categoryId}
-            onChange={(e) => {
-              setCategoryTouched(true);
-              setCategoryId(e.target.value);
-            }}
-            required
-          >
-            {categories.map((item) => (
-              <option key={item.id} value={item.id}>
-                {(item.icon || '📁') + ' ' + item.name}
-              </option>
-            ))}
-          </select>
-        </div>
+              <div className="field">
+                <label htmlFor="tx-category">分类</label>
+                <select
+                  id="tx-category"
+                  aria-label="交易分类"
+                  value={categoryId}
+                  onChange={(e) => {
+                    setCategoryTouched(true);
+                    setCategoryId(e.target.value);
+                  }}
+                  required
+                >
+                  {categories.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {(item.icon || '📁') + ' ' + item.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-        <div className="field">
-          <label htmlFor="tx-account">账户</label>
-          <select
-            id="tx-account"
-            aria-label="交易账户"
-            value={accountId}
-            onChange={(e) => setAccountId(e.target.value)}
-          >
-            {accounts.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </div>
+              <div className="field">
+                <label htmlFor="tx-account">账户</label>
+                <select
+                  id="tx-account"
+                  aria-label="交易账户"
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.target.value)}
+                >
+                  {accounts.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-        <div className="field">
-          <label htmlFor="tx-amount">金额</label>
-          <input
-            id="tx-amount"
-            aria-label="交易金额"
-            ref={amountInputRef}
-            value={amount}
-            onChange={(e) => {
-              setAmount(e.target.value);
-              if (amountError) {
-                setAmountError('');
-              }
-            }}
-            type="text"
-            inputMode="decimal"
-            placeholder="例如 88.50"
-            maxLength={16}
-          />
-          {amountError ? <small className="error">{amountError}</small> : null}
-        </div>
+              <div className="field">
+                <label htmlFor="tx-status">交易状态</label>
+                <select
+                  id="tx-status"
+                  aria-label="交易状态"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as TransactionStatus)}
+                >
+                  <option value="pending">待处理</option>
+                  <option value="completed">已完成</option>
+                  <option value="refunded">已退款</option>
+                  <option value="closed">已关闭</option>
+                  <option value="failed">失败</option>
+                </select>
+              </div>
+            </section>
 
-        <div className="field">
-          <label htmlFor="tx-date">日期时间</label>
-          <input
-            id="tx-date"
-            aria-label="交易日期时间"
-            value={date}
-            onChange={(e) => {
-              setDate(e.target.value);
-              if (dateError) {
-                setDateError('');
-              }
-            }}
-            type="datetime-local"
-            min={MIN_DATE}
-            max={MAX_DATE}
-          />
-          {dateError ? <small className="error">{dateError}</small> : null}
-        </div>
+            <section className="transaction-edit-group" aria-label="金额与时间">
+              <h3>金额与时间</h3>
+              <div className="field">
+                <label htmlFor="tx-amount">金额</label>
+                <input
+                  id="tx-amount"
+                  aria-label="交易金额"
+                  ref={amountInputRef}
+                  value={amount}
+                  onChange={(e) => {
+                    setAmount(e.target.value);
+                    if (amountError) {
+                      setAmountError('');
+                    }
+                  }}
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="例如 88.50"
+                  maxLength={16}
+                />
+                {amountError ? <small className="error">{amountError}</small> : null}
+              </div>
 
-        <div className="field">
-          <label htmlFor="tx-order-no">交易订单号</label>
-          <input
-            id="tx-order-no"
-            aria-label="交易订单号"
-            value={orderNo}
-            onChange={(e) => setOrderNo(e.target.value)}
-            placeholder="如：202602100001"
-          />
-        </div>
+              <div className="field">
+                <label htmlFor="tx-date">日期时间</label>
+                <input
+                  id="tx-date"
+                  aria-label="交易日期时间"
+                  value={date}
+                  onChange={(e) => {
+                    setDate(e.target.value);
+                    if (dateError) {
+                      setDateError('');
+                    }
+                  }}
+                  type="datetime-local"
+                  min={MIN_DATE}
+                  max={MAX_DATE}
+                />
+                {dateError ? <small className="error">{dateError}</small> : null}
+              </div>
 
-        <div className="field">
-          <label htmlFor="tx-merchant-order-no">商家订单号</label>
-          <input
-            id="tx-merchant-order-no"
-            aria-label="商家订单号"
-            value={merchantOrderNo}
-            onChange={(e) => setMerchantOrderNo(e.target.value)}
-            placeholder="如：MCH-20260210-01"
-          />
-        </div>
+              <div className="field">
+                <label htmlFor="tx-order-no">交易订单号</label>
+                <input
+                  id="tx-order-no"
+                  aria-label="交易订单号"
+                  value={orderNo}
+                  onChange={(e) => setOrderNo(e.target.value)}
+                  placeholder="如：202602100001"
+                />
+              </div>
 
-        <div className="field">
-          <label htmlFor="tx-status">交易状态</label>
-          <select
-            id="tx-status"
-            aria-label="交易状态"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as TransactionStatus)}
-          >
-            <option value="pending">待处理</option>
-            <option value="completed">已完成</option>
-            <option value="refunded">已退款</option>
-            <option value="closed">已关闭</option>
-            <option value="failed">失败</option>
-          </select>
-        </div>
+              <div className="field">
+                <label htmlFor="tx-merchant-order-no">商家订单号</label>
+                <input
+                  id="tx-merchant-order-no"
+                  aria-label="商家订单号"
+                  value={merchantOrderNo}
+                  onChange={(e) => setMerchantOrderNo(e.target.value)}
+                  placeholder="如：MCH-20260210-01"
+                />
+              </div>
+            </section>
 
-        <div className="field">
-          <label htmlFor="tx-note">备注</label>
-          <textarea
-            id="tx-note"
-            aria-label="交易备注"
-            placeholder="例如：工作日午餐"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
-          <div className="row" style={{ marginTop: 8 }}>
-            <button type="button" onClick={() => void recognizeMerchant()} disabled={recognizing}>
-              {recognizing ? 'AI 识别中...' : 'AI 识别商户与分类'}
+            <section className="transaction-edit-group" aria-label="备注与标签">
+              <h3>备注与标签</h3>
+              <div className="field">
+                <label htmlFor="tx-note">备注</label>
+                <textarea
+                  id="tx-note"
+                  aria-label="交易备注"
+                  placeholder="例如：工作日午餐"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+                <div className="row" style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => void recognizeMerchant()}
+                    disabled={recognizing}
+                  >
+                    {recognizing ? 'AI 识别中...' : 'AI 识别商户与分类'}
+                  </button>
+                </div>
+                {suggestion ? (
+                  <small>
+                    建议：商户「{suggestion.merchant || '未识别'}」，分类「
+                    {suggestion.category || '未识别'}」。
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (suggestion.merchant) {
+                          setNote((prev) =>
+                            prev.includes(suggestion.merchant)
+                              ? prev
+                              : `${suggestion.merchant} ${prev}`.trim()
+                          );
+                        }
+                        if (suggestion.category) {
+                          const matched = categories.find((item) =>
+                            item.name.includes(suggestion.category)
+                          );
+                          if (matched) setCategoryId(matched.id);
+                        }
+                      }}
+                    >
+                      应用建议
+                    </button>
+                  </small>
+                ) : null}
+              </div>
+
+              <div className="field">
+                <label htmlFor="tx-tags">标签（逗号分隔）</label>
+                <input
+                  id="tx-tags"
+                  aria-label="交易标签"
+                  placeholder="如：餐饮,工作日"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                />
+                {suggestedTags.length > 0 ? (
+                  <small style={{ color: 'var(--color-text-secondary)' }}>
+                    自动建议：
+                    {suggestedTags.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className="tag-count-chip"
+                        onClick={() => setTags((prev) => [...parseTags(prev), tag].join(','))}
+                        style={{ marginLeft: 6 }}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </small>
+                ) : null}
+              </div>
+            </section>
+
+            {formError ? <p className="error">{formError}</p> : null}
+            {learningFeedback ? (
+              <p style={{ color: 'var(--color-text-secondary)', marginTop: 8 }}>
+                {learningFeedback}
+              </p>
+            ) : null}
+
+            <button className="primary" type="submit">
+              保存
             </button>
           </div>
-          {suggestion ? (
-            <small>
-              建议：商户「{suggestion.merchant || '未识别'}」，分类「
-              {suggestion.category || '未识别'}」。
-              <button
-                type="button"
-                onClick={() => {
-                  if (suggestion.merchant) {
-                    setNote((prev) =>
-                      prev.includes(suggestion.merchant)
-                        ? prev
-                        : `${suggestion.merchant} ${prev}`.trim()
-                    );
-                  }
-                  if (suggestion.category) {
-                    const matched = categories.find((item) =>
-                      item.name.includes(suggestion.category)
-                    );
-                    if (matched) setCategoryId(matched.id);
-                  }
-                }}
+
+          <aside className="transaction-edit-keypad-panel" aria-label="金额快捷输入">
+            <div className="transaction-edit-keypad-sticky">
+              <small className="transaction-edit-keypad-title">金额快捷输入</small>
+              <div className="quick-add-amount-display transaction-edit-amount-display">
+                ¥{amount || '0'}
+              </div>
+              <div
+                className="quick-add-keypad transaction-edit-keypad"
+                role="group"
+                aria-label="金额数字键盘"
               >
-                应用建议
-              </button>
-            </small>
-          ) : null}
-        </div>
-
-        <div className="field">
-          <label htmlFor="tx-tags">标签（逗号分隔）</label>
-          <input
-            id="tx-tags"
-            aria-label="交易标签"
-            placeholder="如：餐饮,工作日"
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-          />
-          {suggestedTags.length > 0 ? (
-            <small style={{ color: 'var(--color-text-secondary)' }}>
-              自动建议：
-              {suggestedTags.map((tag) => (
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '00'].map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className="quick-add-key"
+                    onClick={() => handleAmountKeypadInput(key)}
+                  >
+                    {key}
+                  </button>
+                ))}
                 <button
-                  key={tag}
                   type="button"
-                  className="tag-count-chip"
-                  onClick={() => setTags((prev) => [...parseTags(prev), tag].join(','))}
-                  style={{ marginLeft: 6 }}
+                  className="quick-add-key quick-add-key-muted"
+                  onClick={() => handleAmountKeypadInput('backspace')}
                 >
-                  {tag}
+                  退格
                 </button>
-              ))}
-            </small>
-          ) : null}
+                <button
+                  type="button"
+                  className="quick-add-key quick-add-key-muted"
+                  onClick={() => handleAmountKeypadInput('clear')}
+                >
+                  清空
+                </button>
+              </div>
+            </div>
+          </aside>
         </div>
-
-        {formError ? <p className="error">{formError}</p> : null}
-        {learningFeedback ? (
-          <p style={{ color: 'var(--color-text-secondary)', marginTop: 8 }}>{learningFeedback}</p>
-        ) : null}
-
-        <button className="primary" type="submit">
-          保存
-        </button>
       </form>
 
       <section
