@@ -14,6 +14,7 @@ import {
   normalizeAiBill,
   readImageAsDataUrl,
   readPdfAsDataUrl,
+  splitPdfFileByPages,
   toDraftEntries,
   validateDraft
 } from './workbenchUtils';
@@ -37,6 +38,9 @@ const MIN_ALLOWED_DATE = '2000-01-01';
 const MAX_ALLOWED_DATE = '2100-12-31';
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const MAX_PDF_SIZE_BYTES = 20 * 1024 * 1024;
+const PDF_SPLIT_TRIGGER_BYTES = 6 * 1024 * 1024;
+const PDF_SPLIT_PAGES_PER_CHUNK = 8;
+const PDF_SPLIT_MAX_CHUNKS = 12;
 
 function normalizeEntryDate(inputDate?: string) {
   const fallback = new Date().toISOString();
@@ -195,6 +199,34 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
         setToast({ visible: true, variant: 'warning', message });
         return;
       }
+
+      if (file.size >= PDF_SPLIT_TRIGGER_BYTES) {
+        try {
+          const splitDataUrls = await splitPdfFileByPages(file, {
+            pagesPerChunk: PDF_SPLIT_PAGES_PER_CHUNK,
+            maxChunks: PDF_SPLIT_MAX_CHUNKS
+          });
+          setPdfDataUrls((prev) => [...prev, ...splitDataUrls]);
+          if (splitDataUrls.length > 1) {
+            setToast({
+              visible: true,
+              variant: 'success',
+              message: `PDF 已按页拆分为 ${splitDataUrls.length} 份后发送。`
+            });
+          }
+          return;
+        } catch {
+          const fallbackUrl = await readPdfAsDataUrl(file);
+          setPdfDataUrls((prev) => [...prev, fallbackUrl]);
+          setToast({
+            visible: true,
+            variant: 'warning',
+            message: 'PDF 分片失败，已按原文件继续发送。'
+          });
+          return;
+        }
+      }
+
       const dataUrl = await readPdfAsDataUrl(file);
       setPdfDataUrls((prev) => [...prev, dataUrl]);
       return;
@@ -257,10 +289,15 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
    * 2) 请求模型并回写原始内容
    * 3) 尝试提取 JSON 账单；若失败则按“纯分析文本”处理
    */
-  const runRecognize = async (promptText: string) => {
+  const runRecognize = async (
+    promptText: string,
+    payload?: { imageDataUrls?: string[]; pdfDataUrls?: string[] }
+  ) => {
     const cleanPrompt = promptText.trim();
+    const effectiveImageDataUrls = payload?.imageDataUrls ?? imageDataUrls;
+    const effectivePdfDataUrls = payload?.pdfDataUrls ?? pdfDataUrls;
     const hasPromptInput =
-      Boolean(cleanPrompt) || imageDataUrls.length > 0 || pdfDataUrls.length > 0;
+      Boolean(cleanPrompt) || effectiveImageDataUrls.length > 0 || effectivePdfDataUrls.length > 0;
     if (!hasApiKey || !input.model.trim() || !hasPromptInput) return;
     setStatus('recognizing');
     setError('');
@@ -282,7 +319,14 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
         apiKey: input.apiKey,
         model: input.model,
         systemPrompt: prompt,
-        messages: [{ role: 'user', text: cleanPrompt, imageDataUrls, pdfDataUrls }],
+        messages: [
+          {
+            role: 'user',
+            text: cleanPrompt,
+            imageDataUrls: effectiveImageDataUrls,
+            pdfDataUrls: effectivePdfDataUrls
+          }
+        ],
         signal: controller.signal
       });
       setRawContent(reply.content);
@@ -327,7 +371,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
         return;
       }
       const message =
-        pdfDataUrls.length > 0
+        effectivePdfDataUrls.length > 0
           ? 'PDF 直传模型失败，请重试或改传图片。'
           : err instanceof Error
             ? mapAssistantErrorMessage(err.message)
@@ -347,8 +391,11 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     await runRecognize(textInput);
   };
 
-  const handleRecognizeWithPrompt = async (promptText: string) => {
-    await runRecognize(promptText);
+  const handleRecognizeWithPrompt = async (
+    promptText: string,
+    payload?: { imageDataUrls?: string[]; pdfDataUrls?: string[] }
+  ) => {
+    await runRecognize(promptText, payload);
   };
 
   const updateEntry = (id: string, patch: Partial<DraftBillEntry>) => {

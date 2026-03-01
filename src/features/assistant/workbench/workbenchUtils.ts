@@ -1,3 +1,4 @@
+import { PDFDocument, PDFPage } from 'pdf-lib';
 import type { Account } from '../../../entities/account/types';
 import type { Category } from '../../../entities/category/types';
 import type { TransactionItem, TransactionType } from '../../../entities/transaction/types';
@@ -295,7 +296,7 @@ export function toDraftEntries(payload: AiBillResult): DraftBillEntry[] {
   });
 }
 
-function readFileAsDataUrl(file: File, errorMessage: string): Promise<string> {
+function readFileAsDataUrl(file: Blob, errorMessage: string): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ''));
@@ -310,6 +311,42 @@ export async function readImageAsDataUrl(file: File): Promise<string> {
 
 export async function readPdfAsDataUrl(file: File): Promise<string> {
   return readFileAsDataUrl(file, 'PDF 读取失败');
+}
+
+export async function splitPdfFileByPages(
+  file: File,
+  options?: {
+    pagesPerChunk?: number;
+    maxChunks?: number;
+  }
+): Promise<string[]> {
+  const sourceBytes = await file.arrayBuffer();
+  const sourcePdf = await PDFDocument.load(sourceBytes);
+  const totalPages = sourcePdf.getPageCount();
+  if (totalPages <= 1) return [await readPdfAsDataUrl(file)];
+
+  const pagesPerChunk = Math.max(1, Math.floor(options?.pagesPerChunk || 8));
+  const maxChunks = Math.max(1, Math.floor(options?.maxChunks || 12));
+  const chunks: string[] = [];
+
+  for (
+    let pageStart = 0;
+    pageStart < totalPages && chunks.length < maxChunks;
+    pageStart += pagesPerChunk
+  ) {
+    const pageEnd = Math.min(totalPages, pageStart + pagesPerChunk);
+    const targetPdf = await PDFDocument.create();
+    const sourceIndexes = Array.from({ length: pageEnd - pageStart }, (_, idx) => pageStart + idx);
+    const copiedPages = await targetPdf.copyPages(sourcePdf, sourceIndexes);
+    copiedPages.forEach((page: PDFPage) => targetPdf.addPage(page));
+
+    const chunkBytes = await targetPdf.save();
+    const chunkBlob = new Blob([chunkBytes], { type: 'application/pdf' });
+    chunks.push(await readFileAsDataUrl(chunkBlob, 'PDF 分片失败'));
+  }
+
+  if (chunks.length === 0) return [await readPdfAsDataUrl(file)];
+  return chunks;
 }
 
 function formatChinaTimeText(date: Date): string {

@@ -65,4 +65,40 @@ describe('openaiCompatibleClient baseUrl validation', () => {
     expect(warnPayload?.detail || '').not.toContain('abc123');
     expect(warnPayload?.detail || '').not.toContain('internal.example.com');
   });
+  it('发送 PDF 附件时应使用 file_data 字段而不是 file_url', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }), { status: 200 })
+      );
+
+    await sendAiChat({
+      baseUrl: 'https://api.example.com/v1',
+      model: 'test-model',
+      messages: [
+        {
+          role: 'user',
+          text: '',
+          pdfDataUrls: ['data:application/pdf;base64,ZmFrZS1wZGY=']
+        }
+      ]
+    });
+
+    const call = fetchMock.mock.calls[0];
+    const options = call?.[1] as RequestInit;
+    const body = JSON.parse(String(options.body || '{}')) as {
+      messages?: Array<{
+        content?: Array<{ type: string; file?: { file_data?: string; filename?: string } }>;
+      }>;
+    };
+
+    const userContent = body.messages?.[0]?.content || [];
+    const filePart = userContent.find((part) => part.type === 'file');
+
+    expect(filePart?.file?.file_data).toBe('data:application/pdf;base64,ZmFrZS1wZGY=');
+    expect(filePart?.file?.filename).toBe('attachment-1.pdf');
+    expect(JSON.stringify(body)).not.toContain('file_url');
+
+    fetchMock.mockRestore();
+  });
 });

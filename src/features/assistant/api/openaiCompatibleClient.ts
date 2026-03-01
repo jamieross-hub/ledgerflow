@@ -112,7 +112,13 @@ function toOutboundMessage(message: ChatMessageInput) {
       content: [
         { type: 'text' as const, text: message.text || '请基于图片/PDF 进行记账建议分析。' },
         ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } })),
-        ...pdfUrls.map((url) => ({ type: 'file_url' as const, file_url: { url } }))
+        ...pdfUrls.map((url, index) => ({
+          type: 'file' as const,
+          file: {
+            file_data: url,
+            filename: `attachment-${index + 1}.pdf`
+          }
+        }))
       ]
     };
   }

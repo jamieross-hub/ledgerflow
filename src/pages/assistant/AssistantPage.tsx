@@ -197,6 +197,8 @@ interface ChatHistoryItem {
   id: string;
   role: 'user' | 'assistant';
   text: string;
+  imageDataUrls?: string[];
+  pdfDataUrls?: string[];
   usageText?: string;
   reasoningText?: string;
 }
@@ -318,13 +320,27 @@ function readChatHistory(mode: AssistantMode): ChatHistoryItem[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as ChatHistoryItem[];
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (item): item is ChatHistoryItem =>
-        Boolean(item) &&
-        typeof item.id === 'string' &&
-        (item.role === 'user' || item.role === 'assistant') &&
-        typeof item.text === 'string'
-    );
+    return parsed
+      .filter(
+        (item): item is ChatHistoryItem =>
+          Boolean(item) &&
+          typeof item.id === 'string' &&
+          (item.role === 'user' || item.role === 'assistant') &&
+          typeof item.text === 'string'
+      )
+      .map((item) => ({
+        ...item,
+        imageDataUrls: Array.isArray(item.imageDataUrls)
+          ? item.imageDataUrls.filter(
+              (url): url is string => typeof url === 'string' && url.length > 0
+            )
+          : [],
+        pdfDataUrls: Array.isArray(item.pdfDataUrls)
+          ? item.pdfDataUrls.filter(
+              (url): url is string => typeof url === 'string' && url.length > 0
+            )
+          : []
+      }));
   } catch {
     return [];
   }
@@ -665,13 +681,33 @@ export function AssistantPage() {
 
   const submitPrompt = (prompt: string) => {
     const clean = prompt.trim();
-    if (!clean || wb.status === 'recognizing') return;
+    const hasAttachments = wb.imageDataUrls.length > 0 || wb.pdfDataUrls.length > 0;
+    if (wb.status === 'recognizing' || (!clean && !hasAttachments)) return;
+
+    const requestQuestion = clean || '请根据我上传的附件完成识别与提炼。';
     const requestPrompt =
-      mode === 'assistant' ? buildAssistantConversationPrompt(clean, chatHistory) : clean;
+      mode === 'assistant'
+        ? buildAssistantConversationPrompt(requestQuestion, chatHistory)
+        : requestQuestion;
+    const imagePayload = [...wb.imageDataUrls];
+    const pdfPayload = [...wb.pdfDataUrls];
+
     pendingRequestModeRef.current = mode;
-    setChatHistory((prev) => [...prev, { id: `${Date.now()}-user`, role: 'user', text: clean }]);
+    setChatHistory((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}-user`,
+        role: 'user',
+        text: clean || '（仅发送附件）',
+        imageDataUrls: imagePayload,
+        pdfDataUrls: pdfPayload
+      }
+    ]);
     wb.setTextInput('');
-    void wb.handleRecognizeWithPrompt(requestPrompt);
+    void wb.handleRecognizeWithPrompt(requestPrompt, {
+      imageDataUrls: imagePayload,
+      pdfDataUrls: pdfPayload
+    });
   };
 
   const onSubmit = (event: FormEvent) => {
@@ -715,15 +751,19 @@ export function AssistantPage() {
       .reverse()
       .find((item) => item.role === 'user');
     if (!previousUser) return;
-    wb.setTextInput(previousUser.text);
-    submitPrompt(previousUser.text);
+    wb.setTextInput(previousUser.text === '（仅发送附件）' ? '' : previousUser.text);
+    wb.setImageDataUrls(previousUser.imageDataUrls || []);
+    wb.setPdfDataUrls(previousUser.pdfDataUrls || []);
+    submitPrompt(previousUser.text === '（仅发送附件）' ? '' : previousUser.text);
   };
 
   const retryLastPrompt = () => {
     const latestUser = [...chatHistory].reverse().find((item) => item.role === 'user');
     if (!latestUser) return;
-    wb.setTextInput(latestUser.text);
-    submitPrompt(latestUser.text);
+    wb.setTextInput(latestUser.text === '（仅发送附件）' ? '' : latestUser.text);
+    wb.setImageDataUrls(latestUser.imageDataUrls || []);
+    wb.setPdfDataUrls(latestUser.pdfDataUrls || []);
+    submitPrompt(latestUser.text === '（仅发送附件）' ? '' : latestUser.text);
   };
 
   const todayLabel = new Intl.DateTimeFormat('zh-CN', {
@@ -1099,6 +1139,32 @@ export function AssistantPage() {
                 <div className="chat-msg-content chat-msg-content-rich">
                   {renderMarkdownContent(item.text)}
                 </div>
+                {item.role === 'user' &&
+                ((item.imageDataUrls && item.imageDataUrls.length > 0) ||
+                  (item.pdfDataUrls && item.pdfDataUrls.length > 0)) ? (
+                  <div className="chat-image-strip chat-msg-attachments">
+                    <div className="chat-thumb-list">
+                      {(item.imageDataUrls || []).map((url, idx) => (
+                        <div className="chat-thumb-item" key={`sent-img-${item.id}-${idx}`}>
+                          <img className="chat-thumb" src={url} alt={`发送图片${idx + 1}`} />
+                        </div>
+                      ))}
+                      {(item.pdfDataUrls || []).map((url, idx) => (
+                        <div
+                          className="chat-thumb-item"
+                          key={`sent-pdf-${item.id}-${idx}-${url.slice(0, 12)}`}
+                        >
+                          <div
+                            className="chat-thumb"
+                            style={{ display: 'grid', placeItems: 'center' }}
+                          >
+                            📄 PDF
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 {item.role === 'assistant' && item.reasoningText ? (
                   <details className="chat-reasoning-collapse">
                     <summary>模型思考过程（点击展开）</summary>
