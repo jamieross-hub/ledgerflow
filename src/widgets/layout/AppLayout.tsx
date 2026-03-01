@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { ThemeSwitcher } from '../../features/theme-switcher/ThemeSwitcher';
 import { formatCurrency } from '../../shared/lib/format';
+import { summarizeTransactions } from '../../shared/lib/transactionMetrics';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 
 type NavItem = {
@@ -117,13 +118,10 @@ export function AppLayout() {
       date.getMonth() === thisMonth.getMonth() && date.getFullYear() === thisMonth.getFullYear()
     );
   });
-  const monthIncome = monthTransactions
-    .filter((item) => item.type === 'income')
-    .reduce((sum, item) => sum + item.amount, 0);
-  const monthExpense = monthTransactions
-    .filter((item) => item.type !== 'income')
-    .reduce((sum, item) => sum + item.amount, 0);
-  const monthBalance = monthIncome - monthExpense;
+  const monthSummary = summarizeTransactions(monthTransactions);
+  const monthIncome = monthSummary.incomeTotal;
+  const monthExpense = monthSummary.expenseTotal;
+  const monthBalance = monthSummary.netTotal;
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {

@@ -52,4 +52,35 @@ describe('TransactionDetailDrawer', () => {
     fireEvent.click(screen.getByRole('button', { name: '复制 JSON' }));
     expect(onCopyJson).toHaveBeenCalledTimes(1);
   });
+
+  it('应显示收支圆圈标签，并在支付宝账户显示图标', () => {
+    render(
+      <MemoryRouter>
+        <TransactionDetailDrawer
+          open
+          transaction={sample}
+          categoryName="餐饮"
+          accountName="支付宝"
+          source="manual"
+          onClose={() => undefined}
+          onCopyNote={() => undefined}
+          onCopyJson={() => undefined}
+          onDelete={() => undefined}
+          onAiRecategorize={() => undefined}
+          visibleSections={{
+            base: true,
+            source: true,
+            note: true,
+            tags: true,
+            json: false
+          }}
+          onToggleSection={() => undefined}
+          onQuickAdd={() => undefined}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('支')).toBeInTheDocument();
+    expect(document.querySelectorAll('.alipay-icon').length).toBeGreaterThan(0);
+  });
 });

@@ -9,6 +9,42 @@ import { TableSkeleton } from '../../../shared/ui/TableSkeleton';
 const NOTE_MAX_LENGTH = 22;
 const DEFAULT_MIN_COLUMN_WIDTH = 90;
 const AMOUNT_COLUMN_MIN_WIDTH = 64;
+const ALIPAY_ACCOUNT_PATTERN = /(支付宝|alipay)/i;
+
+function isAlipayAccountName(name: string): boolean {
+  return ALIPAY_ACCOUNT_PATTERN.test(name);
+}
+
+function AlipayBrandIcon() {
+  return (
+    <svg
+      className="alipay-icon"
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <rect x="1.5" y="1.5" width="21" height="21" rx="5" fill="#1677ff" />
+      <text x="12" y="16" textAnchor="middle" fontSize="11" fontWeight="700" fill="#ffffff">
+        支
+      </text>
+    </svg>
+  );
+}
+
+function renderAccountLabel(accountName: string) {
+  if (!isAlipayAccountName(accountName)) {
+    return accountName;
+  }
+
+  return (
+    <span className="transaction-account-with-icon">
+      <AlipayBrandIcon />
+      <span>{accountName}</span>
+    </span>
+  );
+}
 
 function getMinColumnWidth(key: TransactionColumnKey): number {
   return key === 'amount' ? AMOUNT_COLUMN_MIN_WIDTH : DEFAULT_MIN_COLUMN_WIDTH;
@@ -259,7 +295,7 @@ export function TransactionTable({
       case 'status':
         return formatStatus(item.status);
       case 'account':
-        return accountName;
+        return renderAccountLabel(accountName);
       case 'amount':
         return privacyMode ? maskAmount() : formatCurrency(item.amount);
       case 'orderNo':
@@ -695,9 +731,11 @@ export function TransactionTable({
                               return (
                                 <td key={`${item.id}-${column.key}`}>
                                   <span
-                                    className={`transaction-type-dot transaction-type-dot-${item.type}`}
-                                    aria-hidden="true"
-                                  />
+                                    className={`transaction-type-badge transaction-type-badge-${item.type}`}
+                                    aria-label={item.type === 'income' ? '收入' : '支出'}
+                                  >
+                                    {item.type === 'income' ? '收' : '支'}
+                                  </span>
                                 </td>
                               );
                             }
@@ -833,7 +871,7 @@ export function TransactionTable({
                         </small>
                       ) : null}
                       <small>
-                        {formatDate(item.date)} · {categoryName} · {accountName}
+                        {formatDate(item.date)} · {categoryName} · {renderAccountLabel(accountName)}
                       </small>
                     </div>
                     <button

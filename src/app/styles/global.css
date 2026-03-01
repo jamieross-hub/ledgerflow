@@ -1298,24 +1298,46 @@ tr:hover td {
   vertical-align: middle;
 }
 
-.transaction-type-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.transaction-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  line-height: 1;
+  border: 1px solid transparent;
 }
 
-.transaction-type-dot-income {
-  background: #1f7a3f;
+.transaction-type-badge-income {
+  color: #1f7a3f;
+  background: rgba(31, 122, 63, 0.12);
+  border-color: rgba(31, 122, 63, 0.32);
 }
 
-.transaction-type-dot-expense {
-  background: #9f2b2b;
+.transaction-type-badge-expense {
+  color: #9f2b2b;
+  background: rgba(159, 43, 43, 0.12);
+  border-color: rgba(159, 43, 43, 0.32);
 }
 
 .transaction-type-text {
   color: var(--color-text-secondary);
   font-weight: 500;
+}
+
+.transaction-account-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+
+.alipay-icon {
+  flex: 0 0 auto;
+  display: block;
 }
 
 .transaction-amount-cell {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   TransactionItem,
@@ -29,6 +29,57 @@ function sourceLabel(source: TransactionSource): string {
 export type TransactionDetailSectionKey = 'base' | 'source' | 'note' | 'tags' | 'json';
 type DetailMode = 'professional' | 'timeline';
 const DETAIL_MODE_STORAGE_KEY = 'ledgerflow.transactions.detailMode';
+const ALIPAY_ACCOUNT_PATTERN = /(支付宝|alipay)/i;
+
+function isAlipayAccountName(name: string): boolean {
+  return ALIPAY_ACCOUNT_PATTERN.test(name);
+}
+
+function AlipayBrandIcon() {
+  return (
+    <svg
+      className="alipay-icon"
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <rect x="1.5" y="1.5" width="21" height="21" rx="5" fill="#1677ff" />
+      <text x="12" y="16" textAnchor="middle" fontSize="11" fontWeight="700" fill="#ffffff">
+        支
+      </text>
+    </svg>
+  );
+}
+
+function renderAccountLabel(accountName: string): ReactNode {
+  if (!isAlipayAccountName(accountName)) {
+    return accountName;
+  }
+
+  return (
+    <span className="transaction-account-with-icon">
+      <AlipayBrandIcon />
+      <span>{accountName}</span>
+    </span>
+  );
+}
+
+function renderTypeLabel(type: TransactionItem['type']) {
+  if (type === 'income' || type === 'expense') {
+    return (
+      <span
+        className={`transaction-type-badge transaction-type-badge-${type}`}
+        aria-label={type === 'income' ? '收入' : '支出'}
+      >
+        {type === 'income' ? '收' : '支'}
+      </span>
+    );
+  }
+
+  return type === 'budget' ? '预算' : '还款';
+}
 
 function maskAmount(): string {
   return '¥••••';
@@ -153,7 +204,15 @@ export function TransactionDetailDrawer({
             <section className="drawer-timeline" aria-label="交易时间轴">
               {[
                 { label: '交易创建', value: formatDateTime(transaction.date), icon: '🧾' },
-                { label: '分类与账户', value: `${categoryName} · ${accountName}`, icon: '🗂️' },
+                {
+                  label: '分类与账户',
+                  value: (
+                    <span>
+                      {categoryName} · {renderAccountLabel(accountName)}
+                    </span>
+                  ),
+                  icon: '🗂️'
+                },
                 {
                   label: '交易金额',
                   value: privacyMode
@@ -207,15 +266,7 @@ export function TransactionDetailDrawer({
               </div>
               <div className="drawer-kv">
                 <span>类型</span>
-                <strong className={transaction.type === 'income' ? 'text-income' : 'text-expense'}>
-                  {transaction.type === 'income'
-                    ? '收入'
-                    : transaction.type === 'budget'
-                      ? '预算'
-                      : transaction.type === 'repayment'
-                        ? '还款'
-                        : '支出'}
-                </strong>
+                <strong>{renderTypeLabel(transaction.type)}</strong>
               </div>
               <div className="drawer-kv">
                 <span>分类</span>
@@ -223,7 +274,7 @@ export function TransactionDetailDrawer({
               </div>
               <div className="drawer-kv">
                 <span>账户</span>
-                <strong>{accountName}</strong>
+                <strong>{renderAccountLabel(accountName)}</strong>
               </div>
               <div className="drawer-kv">
                 <span>金额</span>

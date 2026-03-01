@@ -14,6 +14,10 @@ import { useAssistantWorkbench } from '../../features/assistant/workbench/useAss
 import { BillPreviewCard } from '../../features/assistant/ui/BillPreviewCard';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
+import {
+  getTransactionDirection,
+  summarizeTransactions
+} from '../../shared/lib/transactionMetrics';
 import { Toast } from '../../shared/ui/Toast';
 import type { DraftBillEntry } from '../../features/assistant/workbench/workbenchTypes';
 import type { TransactionItem } from '../../entities/transaction/types';
@@ -567,28 +571,19 @@ export function AssistantPage() {
       (item) => item.type === 'income' || item.type === 'expense'
     );
     const todayRows = validRows.filter((item) => item.date.slice(0, 10) === todayKey);
-    const todayIncome = todayRows
-      .filter((item) => item.type === 'income')
-      .reduce((sum, item) => sum + item.amount, 0);
-    const todayExpense = todayRows
-      .filter((item) => item.type === 'expense')
-      .reduce((sum, item) => sum + item.amount, 0);
-    const todayNet = todayIncome - todayExpense;
+    const todaySummary = summarizeTransactions(todayRows);
+    const todayIncome = todaySummary.incomeTotal;
+    const todayExpense = todaySummary.expenseTotal;
+    const todayNet = todaySummary.netTotal;
 
     const monthRows = validRows.filter((item) => item.date.startsWith(thisMonthKey));
     const prevMonthRows = validRows.filter((item) => item.date.startsWith(previousMonthKey));
-    const monthExpense = monthRows
-      .filter((item) => item.type === 'expense')
-      .reduce((sum, item) => sum + item.amount, 0);
-    const prevMonthExpense = prevMonthRows
-      .filter((item) => item.type === 'expense')
-      .reduce((sum, item) => sum + item.amount, 0);
-    const monthIncome = monthRows
-      .filter((item) => item.type === 'income')
-      .reduce((sum, item) => sum + item.amount, 0);
-    const prevMonthIncome = prevMonthRows
-      .filter((item) => item.type === 'income')
-      .reduce((sum, item) => sum + item.amount, 0);
+    const monthSummary = summarizeTransactions(monthRows);
+    const prevMonthSummary = summarizeTransactions(prevMonthRows);
+    const monthExpense = monthSummary.expenseTotal;
+    const prevMonthExpense = prevMonthSummary.expenseTotal;
+    const monthIncome = monthSummary.incomeTotal;
+    const prevMonthIncome = prevMonthSummary.incomeTotal;
 
     const expenseDeltaPct =
       prevMonthExpense > 0 ? ((monthExpense - prevMonthExpense) / prevMonthExpense) * 100 : 0;
@@ -596,7 +591,7 @@ export function AssistantPage() {
       prevMonthIncome > 0 ? ((monthIncome - prevMonthIncome) / prevMonthIncome) * 100 : 0;
 
     const recentExpenseRows = [...validRows]
-      .filter((item) => item.type === 'expense')
+      .filter((item) => item.type === 'expense' && item.adjustmentKind !== 'refund')
       .sort((a, b) => +new Date(b.date) - +new Date(a.date))
       .slice(0, 30);
     const avgExpense =
@@ -612,14 +607,12 @@ export function AssistantPage() {
       const gap = Math.floor((Date.now() - new Date(item.date).getTime()) / (1000 * 60 * 60 * 24));
       return gap >= 0 && gap < 14;
     });
-    const thisWeekExpense = weeklyRows
-      .filter((item) => item.type === 'expense')
-      .slice(0, 7)
-      .reduce((sum, item) => sum + item.amount, 0);
-    const lastWeekExpense = weeklyRows
-      .filter((item) => item.type === 'expense')
-      .slice(7, 14)
-      .reduce((sum, item) => sum + item.amount, 0);
+    const thisWeekExpense = summarizeTransactions(
+      weeklyRows.filter((item) => item.type === 'expense').slice(0, 7)
+    ).expenseTotal;
+    const lastWeekExpense = summarizeTransactions(
+      weeklyRows.filter((item) => item.type === 'expense').slice(7, 14)
+    ).expenseTotal;
     const weeklyExpenseDeltaPct =
       lastWeekExpense > 0 ? ((thisWeekExpense - lastWeekExpense) / lastWeekExpense) * 100 : 0;
 
@@ -1375,7 +1368,7 @@ export function AssistantPage() {
             <span>最近一笔</span>
             <strong>
               {latestTransaction.note || '未备注'} ·
-              {latestTransaction.type === 'income' ? ' +' : ' -'}¥
+              {getTransactionDirection(latestTransaction) === 'inflow' ? ' +' : ' -'}¥
               {latestTransaction.amount.toFixed(2)}
             </strong>
           </div>

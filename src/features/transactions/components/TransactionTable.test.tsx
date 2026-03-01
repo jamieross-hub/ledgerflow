@@ -417,4 +417,60 @@ describe('TransactionTable', () => {
     expect(screen.getAllByText('¥••••').length).toBeGreaterThan(0);
     expect(screen.getByText(/商家订单：ME\*\*\*66/)).toBeInTheDocument();
   });
+
+  it('应将收支显示为圆圈标签，并在支付宝账户展示图标', () => {
+    render(
+      <TransactionTable
+        rows={[
+          {
+            item: {
+              id: 'tx-income',
+              date: '2026-03-12',
+              type: 'income',
+              categoryId: 'cat-1',
+              accountId: 'acc-1',
+              amount: 300,
+              note: '工资',
+              tags: []
+            },
+            categoryName: '收入',
+            accountName: '支付宝'
+          },
+          {
+            item: {
+              id: 'tx-expense',
+              date: '2026-03-13',
+              type: 'expense',
+              categoryId: 'cat-2',
+              accountId: 'acc-2',
+              amount: 42,
+              note: '午餐',
+              tags: []
+            },
+            categoryName: '餐饮',
+            accountName: '现金'
+          }
+        ]}
+        total={2}
+        filteredTotal={2}
+        page={1}
+        pages={1}
+        pageSize={8}
+        pageSizeOptions={[8, 20]}
+        loading={false}
+        hasFilters
+        selectedIds={[]}
+        bulkSelectionEnabled={false}
+        canSelectAllOnPage={false}
+        allPageSelected={false}
+        sortKey="date"
+        sortDirection="desc"
+        {...baseProps}
+      />
+    );
+
+    expect(screen.getByText('收')).toBeInTheDocument();
+    expect(screen.getByText('支')).toBeInTheDocument();
+    expect(document.querySelectorAll('.alipay-icon').length).toBeGreaterThan(0);
+  });
 });

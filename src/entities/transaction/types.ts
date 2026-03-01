@@ -4,6 +4,8 @@ export type TransactionType = 'expense' | 'income' | 'budget' | 'repayment';
 
 export type TransactionStatus = 'pending' | 'completed' | 'refunded' | 'closed' | 'failed';
 
+export type TransactionAdjustmentKind = 'normal' | 'refund' | 'reversal';
+
 export interface TransactionItem {
   id: string;
   type: TransactionType;
@@ -17,4 +19,6 @@ export interface TransactionItem {
   orderNo?: string;
   merchantOrderNo?: string;
   status?: TransactionStatus;
+  adjustmentKind?: TransactionAdjustmentKind;
+  refundOfTransactionId?: string;
 }

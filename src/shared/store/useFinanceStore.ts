@@ -2,9 +2,14 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Account } from '../../entities/account/types';
 import { Category } from '../../entities/category/types';
-import { TransactionItem, TransactionType } from '../../entities/transaction/types';
+import {
+  TransactionAdjustmentKind,
+  TransactionItem,
+  TransactionType
+} from '../../entities/transaction/types';
 import { syncChangeIfNeeded } from '../lib/dataSync';
 import { generateId } from '../lib/id';
+import { getSignedAmount } from '../lib/transactionMetrics';
 
 interface CategoryLearningRule {
   id: string;
@@ -193,11 +198,55 @@ const defaultTransactions: TransactionItem[] = [];
 const defaultCategoryLearningRules: CategoryLearningRule[] = [];
 const defaultCategoryLearningEvents: CategoryLearningEvent[] = [];
 
+const REFUND_HINT_PATTERN = /(退款|退回|退货|冲正)/i;
+
 function normalizeCategoryName(raw: string): string {
   return String(raw || '')
     .replace(/[\u00A0\u3000]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function normalizeAdjustmentKind(
+  tx: TransactionItem,
+  categoryName: string
+): TransactionAdjustmentKind {
+  if (
+    tx.adjustmentKind === 'normal' ||
+    tx.adjustmentKind === 'refund' ||
+    tx.adjustmentKind === 'reversal'
+  ) {
+    return tx.adjustmentKind;
+  }
+
+  const note = String(tx.note || '');
+  if (
+    tx.status === 'refunded' ||
+    REFUND_HINT_PATTERN.test(categoryName) ||
+    REFUND_HINT_PATTERN.test(note)
+  ) {
+    return 'refund';
+  }
+
+  return 'normal';
+}
+
+function normalizeTransactionSemantic(
+  tx: TransactionItem,
+  categoryName: string,
+  fallbackCategoryId?: string
+): TransactionItem {
+  const nextCategoryId = tx.categoryId || fallbackCategoryId || tx.categoryId;
+  const adjustmentKind = normalizeAdjustmentKind(tx, categoryName);
+  const nextType =
+    adjustmentKind === 'normal' ? tx.type : tx.type === 'income' ? 'expense' : tx.type;
+
+  return {
+    ...tx,
+    type: nextType,
+    categoryId: nextCategoryId,
+    adjustmentKind
+  };
 }
 
 function categoryNameKey(raw: string): string {
@@ -232,18 +281,22 @@ function sanitizeCategoriesAndTransactions(
   });
 
   const fallbackCategoryId = mergedCategories[0]?.id;
+  const categoryNameById = new Map(mergedCategories.map((item) => [item.id, item.name]));
   const nextTransactions = transactions.map((tx) => {
     const remappedCategoryId = categoryIdAlias.get(tx.categoryId);
-    if (remappedCategoryId) {
-      return { ...tx, categoryId: remappedCategoryId };
-    }
-    if (tx.categoryId && mergedCategories.some((category) => category.id === tx.categoryId)) {
-      return tx;
-    }
-    if (fallbackCategoryId) {
-      return { ...tx, categoryId: fallbackCategoryId };
-    }
-    return tx;
+    const resolvedCategoryId =
+      remappedCategoryId ||
+      (tx.categoryId && mergedCategories.some((category) => category.id === tx.categoryId)
+        ? tx.categoryId
+        : fallbackCategoryId || tx.categoryId);
+
+    const categoryName = categoryNameById.get(resolvedCategoryId) || '';
+
+    return normalizeTransactionSemantic(
+      { ...tx, categoryId: resolvedCategoryId },
+      categoryName,
+      fallbackCategoryId
+    );
   });
 
   return {
@@ -293,11 +346,7 @@ function computeAccountBalances(accounts: Account[], transactions: TransactionIt
       if (item.accountId !== account.id) {
         return sum;
       }
-      const amount = Number(item.amount);
-      if (!Number.isFinite(amount)) {
-        return sum;
-      }
-      return item.type === 'income' ? sum + amount : sum - amount;
+      return sum + getSignedAmount(item);
     }, 0);
 
     return {
@@ -318,7 +367,11 @@ export const useFinanceStore = create<FinanceState>()(
       categoryLearningEvents: defaultCategoryLearningEvents,
       addTransaction: (payload) => {
         const id = generateId();
-        const row = { ...payload, id };
+        const row = {
+          ...payload,
+          adjustmentKind: payload.adjustmentKind || 'normal',
+          id
+        };
         set((s) => {
           const transactions = [...s.transactions, row];
           return {
@@ -330,7 +383,11 @@ export const useFinanceStore = create<FinanceState>()(
         return id;
       },
       updateTransaction: (id, payload) => {
-        const row = { ...payload, id };
+        const row = {
+          ...payload,
+          adjustmentKind: payload.adjustmentKind || 'normal',
+          id
+        };
         set((s) => {
           const transactions = s.transactions.map((item) => (item.id === id ? row : item));
           return {
@@ -450,11 +507,7 @@ export const useFinanceStore = create<FinanceState>()(
               if (tx.accountId !== id) {
                 return sum;
               }
-              const amount = Number(tx.amount);
-              if (!Number.isFinite(amount)) {
-                return sum;
-              }
-              return tx.type === 'income' ? sum + amount : sum - amount;
+              return sum + getSignedAmount(tx);
             }, 0);
 
             const nextInitial = balance - txDelta;
