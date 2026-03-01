@@ -4413,6 +4413,32 @@ small.mono {
   min-height: 46px;
 }
 
+.transaction-edit-calculator-screen {
+  font-size: clamp(20px, 2.5vw, 32px);
+  font-weight: 600;
+  text-align: right;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-subtle);
+  margin-bottom: var(--space-2);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.transaction-edit-calc-equal {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary-border);
+}
+.transaction-edit-calc-equal:hover {
+  background: var(--color-primary-hover);
+}
+
+.transaction-edit-calculator-keypad {
+  grid-template-columns: repeat(4, 1fr);
+}
+
 @media (max-width: 1024px) {
   .transaction-edit-layout {
     grid-template-columns: 1fr;

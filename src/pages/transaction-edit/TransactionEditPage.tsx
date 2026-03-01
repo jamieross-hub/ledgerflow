@@ -15,6 +15,95 @@ interface RecognitionSuggestion {
 const MAX_AMOUNT = 999999999.99;
 const MIN_DATE = '2000-01-01T00:00';
 const MAX_DATE = '2100-12-31T23:59';
+const CALCULATOR_KEYS = [
+  'C',
+  '⌫',
+  '÷',
+  '×',
+  '7',
+  '8',
+  '9',
+  '-',
+  '4',
+  '5',
+  '6',
+  '+',
+  '1',
+  '2',
+  '3',
+  '.',
+  '0',
+  '='
+] as const;
+
+type CalculatorKey = (typeof CALCULATOR_KEYS)[number];
+
+function normalizeExpression(input: string): string {
+  return input.replace(/×/g, '*').replace(/÷/g, '/');
+}
+
+function evaluateExpression(input: string): number | null {
+  const expression = normalizeExpression(input).trim();
+  if (!expression) {
+    return null;
+  }
+
+  if (!/^[0-9+\-*/().\s]+$/.test(expression)) {
+    return null;
+  }
+
+  try {
+    const result = Function(`"use strict"; return (${expression});`)() as unknown;
+    if (typeof result !== 'number' || !Number.isFinite(result)) {
+      return null;
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+function formatAmountFromNumber(value: number): string {
+  const rounded = Math.round(value * 100) / 100;
+  const fixed = rounded.toFixed(2);
+  return fixed.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+}
+
+function isCalculatorOperator(token: string): boolean {
+  return token === '+' || token === '-' || token === '×' || token === '÷';
+}
+
+function appendCalculatorToken(prev: string, token: CalculatorKey): string {
+  if (/^\d$/.test(token)) {
+    if (prev === '0') {
+      return token;
+    }
+    return `${prev}${token}`;
+  }
+
+  if (token === '.') {
+    if (!prev || isCalculatorOperator(prev.slice(-1))) {
+      return `${prev}0.`;
+    }
+    const lastSegment = prev.split(/[+\-×÷]/).pop() || '';
+    if (lastSegment.includes('.')) {
+      return prev;
+    }
+    return `${prev}.`;
+  }
+
+  if (isCalculatorOperator(token)) {
+    if (!prev) {
+      return token === '-' ? '-' : `0${token}`;
+    }
+    if (isCalculatorOperator(prev.slice(-1))) {
+      return `${prev.slice(0, -1)}${token}`;
+    }
+    return `${prev}${token}`;
+  }
+
+  return prev;
+}
 
 function parseTags(raw: string) {
   return raw
@@ -139,6 +228,10 @@ export function TransactionEditPage() {
   const [merchantOrderNo, setMerchantOrderNo] = useState(current?.merchantOrderNo ?? '');
   const [status, setStatus] = useState<TransactionStatus>(current?.status ?? 'completed');
   const [amountError, setAmountError] = useState('');
+  const [calculatorError, setCalculatorError] = useState('');
+  const [calculatorExpression, setCalculatorExpression] = useState(
+    current?.amount ? String(current.amount) : '0'
+  );
   const [dateError, setDateError] = useState('');
   const [formError, setFormError] = useState('');
   const [recognizing, setRecognizing] = useState(false);
@@ -242,27 +335,52 @@ export function TransactionEditPage() {
   }, [categoryId, categoryNameMap, categoryTouched, id, learningSuggestion]);
 
   const handleAmountKeypadInput = useCallback(
-    (key: string) => {
-      setAmount((prev) => {
-        if (key === 'clear') return '';
-        if (key === 'backspace') return prev.slice(0, -1);
-        if (key === '.') {
-          if (!prev) return '0.';
-          if (prev.includes('.')) return prev;
-          return `${prev}.`;
+    (key: CalculatorKey) => {
+      if (key === 'C') {
+        setCalculatorExpression('0');
+        setCalculatorError('');
+        setAmount('');
+        if (amountError) {
+          setAmountError('');
         }
-        if (key === '00') {
-          if (!prev || prev === '0') return prev;
-          return `${prev}00`;
-        }
-        if (prev === '0') return key;
-        return `${prev}${key}`;
-      });
-      if (amountError) {
-        setAmountError('');
+        return;
       }
+
+      if (key === '⌫') {
+        setCalculatorError('');
+        setCalculatorExpression((prev) => {
+          const next = prev.length <= 1 ? '0' : prev.slice(0, -1);
+          if (!isCalculatorOperator(next.slice(-1))) {
+            setAmount(next === '0' ? '' : next);
+            if (amountError) {
+              setAmountError('');
+            }
+          }
+          return next;
+        });
+        return;
+      }
+
+      if (key === '=') {
+        const value = evaluateExpression(calculatorExpression);
+        if (value === null) {
+          setCalculatorError('表达式无效，无法计算');
+          return;
+        }
+        const normalized = formatAmountFromNumber(value);
+        setCalculatorError('');
+        setCalculatorExpression(normalized || '0');
+        setAmount(normalized);
+        if (amountError) {
+          setAmountError('');
+        }
+        return;
+      }
+
+      setCalculatorError('');
+      setCalculatorExpression((prev) => appendCalculatorToken(prev, key));
     },
-    [amountError]
+    [amountError, calculatorExpression]
   );
 
   function handleSubmit(event: FormEvent) {
@@ -432,7 +550,10 @@ export function TransactionEditPage() {
                   ref={amountInputRef}
                   value={amount}
                   onChange={(e) => {
-                    setAmount(e.target.value);
+                    const next = e.target.value;
+                    setAmount(next);
+                    setCalculatorExpression(next || '0');
+                    setCalculatorError('');
                     if (amountError) {
                       setAmountError('');
                     }
@@ -577,39 +698,35 @@ export function TransactionEditPage() {
 
           <aside className="transaction-edit-keypad-panel" aria-label="金额快捷输入">
             <div className="transaction-edit-keypad-sticky">
-              <small className="transaction-edit-keypad-title">金额快捷输入</small>
+              <small className="transaction-edit-keypad-title">金额计算器</small>
+              <div className="transaction-edit-calculator-screen mono-inline" aria-live="polite">
+                {calculatorExpression}
+              </div>
+              {calculatorError ? <small className="error">{calculatorError}</small> : null}
               <div className="quick-add-amount-display transaction-edit-amount-display">
-                ¥{amount || '0'}
+                当前金额：¥{amount || '0'}
               </div>
               <div
-                className="quick-add-keypad transaction-edit-keypad"
+                className="quick-add-keypad transaction-edit-keypad transaction-edit-calculator-keypad"
                 role="group"
-                aria-label="金额数字键盘"
+                aria-label="金额计算器键盘"
               >
-                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '00'].map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    className="quick-add-key"
-                    onClick={() => handleAmountKeypadInput(key)}
-                  >
-                    {key}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className="quick-add-key quick-add-key-muted"
-                  onClick={() => handleAmountKeypadInput('backspace')}
-                >
-                  退格
-                </button>
-                <button
-                  type="button"
-                  className="quick-add-key quick-add-key-muted"
-                  onClick={() => handleAmountKeypadInput('clear')}
-                >
-                  清空
-                </button>
+                {CALCULATOR_KEYS.map((key) => {
+                  const isOperator = ['÷', '×', '-', '+'].includes(key);
+                  const isDanger = key === 'C' || key === '⌫';
+                  const isEqual = key === '=';
+                  const isZero = key === '0';
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`quick-add-key ${isOperator || isDanger ? 'quick-add-key-muted' : ''} ${isEqual ? 'primary transaction-edit-calc-equal' : ''} ${isZero ? 'transaction-edit-calc-zero' : ''}`.trim()}
+                      onClick={() => handleAmountKeypadInput(key)}
+                    >
+                      {key}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </aside>
