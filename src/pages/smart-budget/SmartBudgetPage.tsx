@@ -18,6 +18,99 @@ import {
   getRecentMonthOptions
 } from '../../features/smart-budget/model/budgetInsights';
 
+const CORE_BUDGET_CATEGORIES = ['固定支出', '储蓄/投资'] as const;
+
+function normalizeBudgetCategoryName(raw: string): string {
+  return raw.trim().toLocaleLowerCase('zh-CN');
+}
+
+function buildBudgetSignature(recommendation: BudgetRecommendation): string {
+  return recommendation.categoryBudgets
+    .map((item) => `${normalizeBudgetCategoryName(item.category)}:${Math.round(item.amount)}`)
+    .join('|');
+}
+
+function syncRecommendationWithExpenseCategories(
+  recommendation: BudgetRecommendation,
+  categories: Array<{ name: string; kind?: 'income' | 'expense' }>
+): BudgetRecommendation {
+  const expenseCategoryNames = Array.from(
+    new Map(
+      categories
+        .filter((item) => item.kind !== 'income')
+        .map((item) => item.name.trim())
+        .filter(Boolean)
+        .map((name) => [normalizeBudgetCategoryName(name), name])
+    ).values()
+  );
+
+  if (expenseCategoryNames.length === 0) {
+    return recommendation;
+  }
+
+  const monthlyIncome = recommendation.monthlyIncome;
+  const fixedAmount =
+    recommendation.categoryBudgets.find((item) => item.category === CORE_BUDGET_CATEGORIES[0])
+      ?.amount || 0;
+  const savingsAmount =
+    recommendation.categoryBudgets.find((item) => item.category === CORE_BUDGET_CATEGORIES[1])
+      ?.amount || 0;
+
+  const sourceFlexibleRows = recommendation.categoryBudgets.filter(
+    (item) =>
+      !CORE_BUDGET_CATEGORIES.includes(item.category as (typeof CORE_BUDGET_CATEGORIES)[number])
+  );
+  const sourceWeightMap = new Map(
+    sourceFlexibleRows.map((item) => [
+      normalizeBudgetCategoryName(item.category),
+      Math.max(0, item.amount)
+    ])
+  );
+
+  const rawWeights = expenseCategoryNames.map(
+    (name) => sourceWeightMap.get(normalizeBudgetCategoryName(name)) || 0
+  );
+  const hasWeight = rawWeights.some((weight) => weight > 0);
+  const weights = hasWeight ? rawWeights : expenseCategoryNames.map(() => 1);
+  const weightTotal = weights.reduce((sum, weight) => sum + weight, 0) || 1;
+
+  const baseFlexibleBudget = Math.max(0, Math.round(recommendation.flexibleBudget));
+  const flexibleRows = expenseCategoryNames.map((name, index) => ({
+    category: name,
+    amount: Math.round((baseFlexibleBudget * weights[index]) / weightTotal),
+    ratio: 0
+  }));
+
+  const allocatedFlexibleBudget = flexibleRows.reduce((sum, item) => sum + item.amount, 0);
+  const delta = baseFlexibleBudget - allocatedFlexibleBudget;
+  if (flexibleRows.length > 0 && delta !== 0) {
+    flexibleRows[0] = {
+      ...flexibleRows[0],
+      amount: Math.max(0, flexibleRows[0].amount + delta)
+    };
+  }
+
+  const normalizedFlexibleBudget = flexibleRows.reduce((sum, item) => sum + item.amount, 0);
+
+  const categoryBudgets = [
+    { category: CORE_BUDGET_CATEGORIES[0], amount: fixedAmount, ratio: 0 },
+    { category: CORE_BUDGET_CATEGORIES[1], amount: savingsAmount, ratio: 0 },
+    ...flexibleRows
+  ].map((item) => ({
+    ...item,
+    ratio: monthlyIncome > 0 ? item.amount / monthlyIncome : 0
+  }));
+
+  return {
+    ...recommendation,
+    monthlyFixedExpense: fixedAmount,
+    savingsAmount,
+    flexibleBudget: normalizedFlexibleBudget,
+    disposableIncome: monthlyIncome - fixedAmount,
+    categoryBudgets
+  };
+}
+
 const identityOptions: Array<{ value: UserIdentity; label: string; helper: string }> = [
   { value: 'student', label: '学生', helper: '课程、成长和生活费通常占比较高。' },
   { value: 'employee', label: '上班族', helper: '通勤、家庭与长期储蓄需要更平衡。' },
@@ -124,18 +217,26 @@ export function SmartBudgetPage() {
 
   const activeMonthKey = selectedMonthKey || monthOptions[0]?.key || '';
 
+  const linkedRecommendation = useMemo(() => {
+    if (!confirmedPlan) {
+      return null;
+    }
+
+    return syncRecommendationWithExpenseCategories(confirmedPlan.recommendation, categories);
+  }, [confirmedPlan, categories]);
+
   const trackingRows = useMemo(() => {
-    if (!confirmedPlan || !activeMonthKey) {
+    if (!linkedRecommendation || !activeMonthKey) {
       return [];
     }
 
     return buildBudgetTrackingRows({
-      recommendation: confirmedPlan.recommendation,
+      recommendation: linkedRecommendation,
       transactions,
       categories,
       monthKey: activeMonthKey
     });
-  }, [confirmedPlan, transactions, categories, activeMonthKey]);
+  }, [linkedRecommendation, transactions, categories, activeMonthKey]);
 
   const visibleRows = useMemo(() => {
     if (statusFilter === 'overspent') {
@@ -199,7 +300,7 @@ export function SmartBudgetPage() {
   }, [managementOverview.executionRate]);
 
   const categoryTrendRows = useMemo(() => {
-    if (!confirmedPlan) return [];
+    if (!linkedRecommendation) return [];
 
     const recentKeys = getRecentMonthOptions(transactions, 6)
       .map((item) => item.key)
@@ -208,14 +309,17 @@ export function SmartBudgetPage() {
       getRecentMonthOptions(transactions, 6).map((item) => [item.key, item.label])
     );
 
-    const trackedCategories = confirmedPlan.recommendation.categoryBudgets
-      .filter((item) => !['固定支出', '储蓄/投资'].includes(item.category))
+    const trackedCategories = linkedRecommendation.categoryBudgets
+      .filter(
+        (item) =>
+          !CORE_BUDGET_CATEGORIES.includes(item.category as (typeof CORE_BUDGET_CATEGORIES)[number])
+      )
       .slice(0, 6);
 
     const monthRows = recentKeys.map((key) => ({
       key,
       rows: buildBudgetTrackingRows({
-        recommendation: confirmedPlan.recommendation,
+        recommendation: linkedRecommendation,
         categories,
         transactions,
         monthKey: key
@@ -233,7 +337,7 @@ export function SmartBudgetPage() {
         };
       })
     }));
-  }, [confirmedPlan, transactions, categories]);
+  }, [linkedRecommendation, transactions, categories]);
 
   const anomalyAlerts = useMemo(() => {
     if (!activeMonthKey || !trackingRows.length) return [];
@@ -308,7 +412,23 @@ export function SmartBudgetPage() {
   }, [transactions.length, categories, addCategory]);
 
   useEffect(() => {
-    if (!confirmedPlan || !activeMonthKey || trackingRows.length === 0) {
+    if (!confirmedPlan) {
+      return;
+    }
+
+    const synced = syncRecommendationWithExpenseCategories(
+      confirmedPlan.recommendation,
+      categories
+    );
+    if (buildBudgetSignature(synced) === buildBudgetSignature(confirmedPlan.recommendation)) {
+      return;
+    }
+
+    confirmPlan({ answers: confirmedPlan.answers, recommendation: synced });
+  }, [confirmedPlan, categories, confirmPlan]);
+
+  useEffect(() => {
+    if (!confirmedPlan || !linkedRecommendation || !activeMonthKey || trackingRows.length === 0) {
       setAiStatus('idle');
       setAiError('');
       setAiAdvice(null);
@@ -342,9 +462,9 @@ export function SmartBudgetPage() {
                   monthKey: activeMonthKey,
                   profile: {
                     identity: getIdentityLabel(confirmedPlan.answers.identity),
-                    income: confirmedPlan.recommendation.monthlyIncome,
-                    fixedExpense: confirmedPlan.recommendation.monthlyFixedExpense,
-                    savingsAmount: confirmedPlan.recommendation.savingsAmount
+                    income: linkedRecommendation.monthlyIncome,
+                    fixedExpense: linkedRecommendation.monthlyFixedExpense,
+                    savingsAmount: linkedRecommendation.savingsAmount
                   },
                   availableCategories: categories.map((item) => item.name),
                   rows: trackingRows.map((item) => ({
@@ -422,6 +542,7 @@ export function SmartBudgetPage() {
     };
   }, [
     confirmedPlan,
+    linkedRecommendation,
     activeMonthKey,
     trackingRows,
     hasAiConfig,
@@ -473,7 +594,8 @@ export function SmartBudgetPage() {
     if (step === 4) {
       try {
         const result = generateBudgetRecommendation(answers);
-        setDraftRecommendation(result);
+        const synced = syncRecommendationWithExpenseCategories(result, categories);
+        setDraftRecommendation(synced);
       } catch (validationError) {
         setError(validationError instanceof Error ? validationError.message : '预算生成失败。');
         return;
@@ -498,7 +620,8 @@ export function SmartBudgetPage() {
       return;
     }
 
-    confirmPlan({ answers, recommendation: draftRecommendation });
+    const syncedDraft = syncRecommendationWithExpenseCategories(draftRecommendation, categories);
+    confirmPlan({ answers, recommendation: syncedDraft });
     setSetupOpen(false);
     setMode('management');
   };
@@ -509,9 +632,13 @@ export function SmartBudgetPage() {
     }
 
     const nextAmount = Math.round(topOverspentItem.budgetAmount + topOverspentItem.diff * 0.5);
-    const nextRecommendation = applyCategoryBudgetEdits(confirmedPlan.recommendation, {
-      [topOverspentItem.category]: Math.max(0, nextAmount)
-    });
+    const baseRecommendation = linkedRecommendation || confirmedPlan.recommendation;
+    const nextRecommendation = syncRecommendationWithExpenseCategories(
+      applyCategoryBudgetEdits(baseRecommendation, {
+        [topOverspentItem.category]: Math.max(0, nextAmount)
+      }),
+      categories
+    );
 
     confirmPlan({ answers: confirmedPlan.answers, recommendation: nextRecommendation });
 
@@ -530,7 +657,7 @@ export function SmartBudgetPage() {
       };
       return [nextItem, ...prev].slice(0, 12);
     });
-  }, [confirmPlan, confirmedPlan, topOverspentItem]);
+  }, [confirmPlan, confirmedPlan, topOverspentItem, linkedRecommendation, categories]);
 
   const executeSetMonthReminder = useCallback(() => {
     if (!topOverspentItem) {

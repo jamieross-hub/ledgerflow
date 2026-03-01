@@ -6799,6 +6799,7 @@ body.categories-accounts-resizing {
   border-radius: var(--radius-pill);
   background: var(--color-bg-elevated);
   padding: 2px;
+  overflow: hidden;
 }
 
 .smart-budget-filter-group button {
@@ -6807,6 +6808,18 @@ body.categories-accounts-resizing {
   border-radius: var(--radius-pill);
   background: transparent;
   padding: 0 12px;
+  appearance: none;
+  -webkit-appearance: none;
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.smart-budget-filter-group button::before,
+.smart-budget-filter-group button::after {
+  content: none;
 }
 
 .smart-budget-filter-group button.active {
