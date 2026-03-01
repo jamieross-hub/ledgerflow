@@ -4,7 +4,7 @@ interface BillPreviewCardProps {
   entries: DraftBillEntry[];
   duplicateCount: number;
   onCheckDuplicates: () => number;
-  onSave: () => boolean;
+  onSave: (options?: { overwriteDuplicateEntryIds?: string[] }) => boolean;
   onSaved?: () => void;
 }
 

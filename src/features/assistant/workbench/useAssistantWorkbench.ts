@@ -417,7 +417,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
   const removeEntry = (id: string) => setEntries((prev) => prev.filter((item) => item.id !== id));
 
   /** 将当前勾选且校验通过的草稿条目写入账本。 */
-  const saveSelected = () => {
+  const saveSelected = (options?: { overwriteDuplicateEntryIds?: string[] }) => {
     const rows = entries.filter((item) => item.selected && item.issues.length === 0);
     if (rows.length === 0) {
       setToast({ visible: true, variant: 'warning', message: '没有可保存的有效账单' });
@@ -427,15 +427,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     addLog({ action: 'assistant.save', status: 'pending', message: `准备保存 ${rows.length} 条` });
 
     try {
-      const duplicateRows = rows.filter((item) => item.duplicateTxId);
-      let overwriteDuplicates = false;
-      if (duplicateRows.length > 0) {
-        overwriteDuplicates = window.confirm(
-          `检测到 ${duplicateRows.length} 条疑似重复账单。
-点击“确定”将覆盖旧账单；点击“取消”将保留旧账单并新增。`
-        );
-      }
-
+      const overwriteSet = new Set(options?.overwriteDuplicateEntryIds || []);
       const categoryCache = [...input.categories];
       const accountCache = [...input.accounts];
       rows.forEach((item) => {
@@ -540,7 +532,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
           source
         };
 
-        if (overwriteDuplicates && item.duplicateTxId) {
+        if (item.duplicateTxId && overwriteSet.has(item.id)) {
           input.updateTransaction(item.duplicateTxId, payload);
         } else {
           input.addTransaction(payload);

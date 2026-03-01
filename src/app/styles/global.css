@@ -6191,6 +6191,88 @@ body.categories-accounts-resizing {
   font-size: 11px;
 }
 
+.chat-dup-compare-dialog {
+  width: min(980px, 100%);
+}
+
+.chat-dup-compare-body {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.chat-dup-compare-tip {
+  margin: 0;
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+}
+
+.chat-dup-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.chat-dup-compare-card {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.chat-dup-compare-card.is-new {
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+}
+
+.chat-dup-compare-card.is-existing {
+  border-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+}
+
+.chat-dup-compare-card h4 {
+  margin: 0;
+  font-size: var(--font-sm);
+}
+
+.chat-dup-compare-card dl {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.chat-dup-compare-card dl > div {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.chat-dup-compare-card dt {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-xs);
+}
+
+.chat-dup-compare-card dd {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-sm);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-dup-compare-footer {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  .chat-dup-compare-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .chat-dup-compare-card dl > div {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+}
+
 /* --- 2026-02 UI refresh patches --- */
 .topbar-left {
   min-width: 0;

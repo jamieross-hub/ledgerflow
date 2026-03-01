@@ -15,6 +15,7 @@ import { BillPreviewCard } from '../../features/assistant/ui/BillPreviewCard';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { Toast } from '../../shared/ui/Toast';
+import type { DraftBillEntry } from '../../features/assistant/workbench/workbenchTypes';
 import type { TransactionItem } from '../../entities/transaction/types';
 import type { Category } from '../../entities/category/types';
 
@@ -216,6 +217,11 @@ interface PushInsight {
   title: string;
   detail: string;
   level?: 'default' | 'warning';
+}
+
+interface DuplicateReviewPair {
+  entry: DraftBillEntry;
+  existing: TransactionItem;
 }
 
 const ANALYSIS_SHORTCUT_SEEDS = [
@@ -475,6 +481,10 @@ export function AssistantPage() {
   });
   const pendingRequestModeRef = useRef<AssistantMode>('assistant');
   const messageEndRef = useRef<HTMLDivElement | null>(null);
+  const [duplicateReviewOpen, setDuplicateReviewOpen] = useState(false);
+  const [duplicateReviewPairs, setDuplicateReviewPairs] = useState<DuplicateReviewPair[]>([]);
+  const [duplicateReviewIndex, setDuplicateReviewIndex] = useState(0);
+  const [overwriteEntryIds, setOverwriteEntryIds] = useState<string[]>([]);
 
   // 仅保留“被勾选且通过校验”的条目，作为一键保存候选。
   const selectedValidEntries = useMemo(
@@ -487,6 +497,70 @@ export function AssistantPage() {
     () => wb.entries.filter((item) => item.duplicateTxId).length,
     [wb.entries]
   );
+
+  const currentDuplicateReview =
+    duplicateReviewPairs.length > 0 ? duplicateReviewPairs[duplicateReviewIndex] : null;
+
+  const startDuplicateReview = () => {
+    const selectedRows = wb.entries.filter((item) => item.selected && item.issues.length === 0);
+    if (selectedRows.length === 0) {
+      return wb.saveSelected();
+    }
+
+    const pairs = selectedRows
+      .filter((item) => item.duplicateTxId)
+      .map((item) => {
+        const existing = transactions.find((tx) => tx.id === item.duplicateTxId);
+        if (!existing) return null;
+        return { entry: item, existing };
+      })
+      .filter((item): item is DuplicateReviewPair => Boolean(item));
+
+    if (pairs.length === 0) {
+      return wb.saveSelected();
+    }
+
+    setDuplicateReviewPairs(pairs);
+    setDuplicateReviewIndex(0);
+    setOverwriteEntryIds([]);
+    setDuplicateReviewOpen(true);
+    return false;
+  };
+
+  const commitDuplicateReview = (nextOverwriteIds: string[]) => {
+    const ok = wb.saveSelected({ overwriteDuplicateEntryIds: nextOverwriteIds });
+    if (ok) {
+      wb.setToastState('账单已写入账本', 'success');
+    }
+    setDuplicateReviewOpen(false);
+    setDuplicateReviewPairs([]);
+    setDuplicateReviewIndex(0);
+    setOverwriteEntryIds([]);
+  };
+
+  const handleDuplicateDecision = (shouldOverwrite: boolean) => {
+    if (!currentDuplicateReview) return;
+    const entryId = currentDuplicateReview.entry.id;
+    const nextOverwriteIds = shouldOverwrite
+      ? Array.from(new Set([...overwriteEntryIds, entryId]))
+      : overwriteEntryIds.filter((id) => id !== entryId);
+
+    if (duplicateReviewIndex >= duplicateReviewPairs.length - 1) {
+      commitDuplicateReview(nextOverwriteIds);
+      return;
+    }
+
+    setOverwriteEntryIds(nextOverwriteIds);
+    setDuplicateReviewIndex((prev) => prev + 1);
+  };
+
+  const handleCancelDuplicateReview = () => {
+    setDuplicateReviewOpen(false);
+    setDuplicateReviewPairs([]);
+    setDuplicateReviewIndex(0);
+    setOverwriteEntryIds([]);
+    wb.setToastState('已取消重复账单处理，本次未保存', 'warning');
+  };
 
   const assistantOverview = useMemo(() => {
     const validRows = transactions.filter(
@@ -1206,8 +1280,7 @@ export function AssistantPage() {
                   entries={wb.entries}
                   duplicateCount={duplicateEntriesCount}
                   onCheckDuplicates={wb.checkDuplicates}
-                  onSave={wb.saveSelected}
-                  onSaved={() => wb.setToastState('账单已写入账本', 'success')}
+                  onSave={startDuplicateReview}
                 />
               </div>
             </article>
@@ -1351,6 +1424,114 @@ export function AssistantPage() {
           </button>
         </form>
       </section>
+
+      {duplicateReviewOpen && currentDuplicateReview ? (
+        <div className="dialog-overlay" role="presentation" onClick={handleCancelDuplicateReview}>
+          <section
+            className="dialog chat-dup-compare-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="重复账单对比确认"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="dialog-header">
+              重复账单确认（{duplicateReviewIndex + 1}/{duplicateReviewPairs.length}）
+            </header>
+            <div className="dialog-body chat-dup-compare-body">
+              <p className="chat-dup-compare-tip">
+                请核对左侧新识别数据与右侧已有账单，确认是否覆盖旧账单。
+              </p>
+              <div className="chat-dup-compare-grid">
+                <article className="chat-dup-compare-card is-new">
+                  <h4>新数据（AI 识别）</h4>
+                  <dl>
+                    <div>
+                      <dt>日期</dt>
+                      <dd>{currentDuplicateReview.entry.date.slice(0, 10)}</dd>
+                    </div>
+                    <div>
+                      <dt>类型</dt>
+                      <dd>{currentDuplicateReview.entry.type}</dd>
+                    </div>
+                    <div>
+                      <dt>金额</dt>
+                      <dd>¥{currentDuplicateReview.entry.amount.toFixed(2)}</dd>
+                    </div>
+                    <div>
+                      <dt>分类</dt>
+                      <dd>{currentDuplicateReview.entry.category || '未分类'}</dd>
+                    </div>
+                    <div>
+                      <dt>账户</dt>
+                      <dd>{currentDuplicateReview.entry.account || '未指定账户'}</dd>
+                    </div>
+                    <div>
+                      <dt>备注</dt>
+                      <dd>{currentDuplicateReview.entry.note || '—'}</dd>
+                    </div>
+                  </dl>
+                </article>
+                <article className="chat-dup-compare-card is-existing">
+                  <h4>已有账单（命中重复）</h4>
+                  <dl>
+                    <div>
+                      <dt>日期</dt>
+                      <dd>{currentDuplicateReview.existing.date.slice(0, 10)}</dd>
+                    </div>
+                    <div>
+                      <dt>类型</dt>
+                      <dd>{currentDuplicateReview.existing.type}</dd>
+                    </div>
+                    <div>
+                      <dt>金额</dt>
+                      <dd>¥{currentDuplicateReview.existing.amount.toFixed(2)}</dd>
+                    </div>
+                    <div>
+                      <dt>分类</dt>
+                      <dd>
+                        {categories.find(
+                          (item) => item.id === currentDuplicateReview.existing.categoryId
+                        )?.name || '未分类'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>账户</dt>
+                      <dd>
+                        {accounts.find(
+                          (item) => item.id === currentDuplicateReview.existing.accountId
+                        )?.name || '未指定账户'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>备注</dt>
+                      <dd>{currentDuplicateReview.existing.note || '—'}</dd>
+                    </div>
+                  </dl>
+                </article>
+              </div>
+            </div>
+            <footer className="dialog-footer chat-dup-compare-footer">
+              <button type="button" onClick={handleCancelDuplicateReview}>
+                取消本次保存
+              </button>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => handleDuplicateDecision(false)}
+              >
+                保留旧账单并新增
+              </button>
+              <button
+                type="button"
+                className="danger"
+                onClick={() => handleDuplicateDecision(true)}
+              >
+                覆盖旧账单
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
 
       <Toast
         message={wb.toast.message}
