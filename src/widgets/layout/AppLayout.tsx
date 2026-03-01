@@ -45,6 +45,7 @@ const navSections: Array<{ title: string; items: NavItem[] }> = [
     title: '工具资讯',
     items: [
       { to: '/settings', label: '设置', icon: '⚙️' },
+      { to: '/database-settings', label: '备份设置', icon: '🗄️' },
       { to: '/exchange', label: '汇率工具', icon: '💱' },
       { to: '/finance', label: '市场资讯', icon: '📰' },
       { to: '/about', label: '关于', icon: 'ℹ️' }

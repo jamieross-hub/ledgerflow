@@ -27,7 +27,10 @@ export function inferCategoryFromText(type: TransactionType, text: string): stri
     if (/兼职|副业|part[-\s]?time|freelance/.test(normalized)) return '兼职';
     return '收入';
   }
-  if (type === 'repayment' || /还款|贷款|房贷|车贷|按揭|月供|花呗|白条|信用卡还款/.test(normalized)) {
+  if (
+    type === 'repayment' ||
+    /还款|贷款|房贷|车贷|按揭|月供|花呗|白条|信用卡还款/.test(normalized)
+  ) {
     return '还款';
   }
   if (/餐|外卖|奶茶|咖啡|food|meal|restaurant/.test(normalized)) return '餐饮';
@@ -187,7 +190,10 @@ export function inferAccountNameFromText(
 
 export type AccountResolveSource = TransactionSource | 'bank' | 'cash' | 'unknown';
 
-function inferDefaultAccountName(options?: { source?: AccountResolveSource; type?: TransactionType }): string {
+function inferDefaultAccountName(options?: {
+  source?: AccountResolveSource;
+  type?: TransactionType;
+}): string {
   if (options?.source === 'wechat') return '微信钱包';
   if (options?.source === 'alipay') return '支付宝';
   if (options?.source === 'cash') return '现金';
@@ -283,6 +289,15 @@ export function ensureAccountId(
 
 export function mapAssistantErrorMessage(raw: string): string {
   const text = raw.toLowerCase();
+  if (
+    text.includes('pdf') ||
+    text.includes('file_url') ||
+    text.includes('application/pdf') ||
+    text.includes('unsupported file') ||
+    text.includes('unsupported media type')
+  ) {
+    return 'PDF 直传模型失败，请重试或改传图片。';
+  }
   if (
     text.includes('http 400') ||
     text.includes('improperly formed request') ||

@@ -95,6 +95,17 @@ export type TransactionColumnKey =
   | 'merchantOrderNo'
   | 'note';
 
+function maskAmount(): string {
+  return '¥••••';
+}
+
+function maskMerchant(value: string): string {
+  if (!value || value === '-') return '-';
+  if (value.length <= 2) return '••';
+  if (value.length <= 6) return `${value.slice(0, 1)}•••${value.slice(-1)}`;
+  return `${value.slice(0, 2)}***${value.slice(-2)}`;
+}
+
 interface TransactionTableProps {
   rows: TransactionRowView[];
   total: number;
@@ -107,6 +118,7 @@ interface TransactionTableProps {
   errorMessage?: string;
   hasFilters: boolean;
   highlightId?: string;
+  privacyMode?: boolean;
   selectedIds: string[];
   bulkSelectionEnabled: boolean;
   canSelectAllOnPage: boolean;
@@ -159,6 +171,7 @@ export function TransactionTable({
   errorMessage,
   hasFilters,
   highlightId,
+  privacyMode = false,
   selectedIds,
   bulkSelectionEnabled,
   canSelectAllOnPage,
@@ -248,11 +261,13 @@ export function TransactionTable({
       case 'account':
         return accountName;
       case 'amount':
-        return formatCurrency(item.amount);
+        return privacyMode ? maskAmount() : formatCurrency(item.amount);
       case 'orderNo':
         return item.orderNo || '-';
       case 'merchantOrderNo':
-        return item.merchantOrderNo || '-';
+        return privacyMode
+          ? maskMerchant(item.merchantOrderNo || '-')
+          : item.merchantOrderNo || '-';
       case 'note':
         return truncateNote(item.note || '-');
       default:
@@ -748,10 +763,10 @@ export function TransactionTable({
                   <tr className="transaction-summary-row">
                     <td colSpan={visibleColumnCount} className="transaction-summary-amount">
                       汇总（当前页 {rows.length} 条）｜ 金额合计{' '}
-                      {formatCurrency(pageSummary.overallTotal)} ｜ 收入{' '}
-                      {formatCurrency(pageSummary.incomeTotal)} ｜ 支出{' '}
-                      {formatCurrency(pageSummary.expenseTotal)} ｜ 净额{' '}
-                      {formatCurrency(pageSummary.netTotal)}
+                      {privacyMode ? maskAmount() : formatCurrency(pageSummary.overallTotal)} ｜
+                      收入 {privacyMode ? maskAmount() : formatCurrency(pageSummary.incomeTotal)} ｜
+                      支出 {privacyMode ? maskAmount() : formatCurrency(pageSummary.expenseTotal)}{' '}
+                      ｜ 净额 {privacyMode ? maskAmount() : formatCurrency(pageSummary.netTotal)}
                     </td>
                   </tr>
                 </tfoot>
@@ -805,13 +820,16 @@ export function TransactionTable({
                               : 'transaction-amount-expense'
                           }`}
                         >
-                          {formatCurrency(item.amount)}
+                          {privacyMode ? maskAmount() : formatCurrency(item.amount)}
                         </strong>
                       </header>
                       <p>{note}</p>
                       {item.orderNo || item.merchantOrderNo ? (
                         <small>
-                          交易订单：{item.orderNo || '-'} · 商家订单：{item.merchantOrderNo || '-'}
+                          交易订单：{item.orderNo || '-'} · 商家订单：
+                          {privacyMode
+                            ? maskMerchant(item.merchantOrderNo || '-')
+                            : item.merchantOrderNo || '-'}
                         </small>
                       ) : null}
                       <small>

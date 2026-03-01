@@ -1,6 +1,70 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { TransactionTable } from './TransactionTable';
+import { TransactionTable, type TransactionColumnKey } from './TransactionTable';
+
+const baseProps = {
+  onRetry: vi.fn(),
+  onClearFilters: vi.fn(),
+  onFirstPage: vi.fn(),
+  onPrevPage: vi.fn(),
+  onNextPage: vi.fn(),
+  onLastPage: vi.fn(),
+  onPageSizeChange: vi.fn(),
+  onOpenDetail: vi.fn(),
+  onDelete: vi.fn(),
+  onDeleteSelected: vi.fn(),
+  onBulkEditCategory: vi.fn(),
+  onBulkAiRecategorize: vi.fn(),
+  bulkAiRecategorizing: false,
+  onBulkEditAccount: vi.fn(),
+  onClearSelection: vi.fn(),
+  onToggleSelect: vi.fn(),
+  onToggleSelectPage: vi.fn(),
+  onSortChange: vi.fn(),
+  onQuickFilterChange: vi.fn(),
+  columnWidths: {},
+  onColumnReorder: vi.fn(),
+  onColumnResize: vi.fn(),
+  quickFilters: {
+    date: '',
+    type: 'all' as const,
+    status: 'all' as const,
+    category: '',
+    account: '',
+    amountMin: '',
+    amountMax: '',
+    tags: '',
+    merchant: '',
+    location: '',
+    orderNo: '',
+    merchantOrderNo: '',
+    note: ''
+  },
+  visibleColumns: {
+    date: true,
+    type: true,
+    status: true,
+    category: true,
+    account: true,
+    amount: true,
+    orderNo: true,
+    merchantOrderNo: true,
+    note: true
+  },
+  columnOrder: [
+    'date',
+    'type',
+    'status',
+    'category',
+    'account',
+    'amount',
+    'orderNo',
+    'merchantOrderNo',
+    'note'
+  ] as TransactionColumnKey[],
+  categoryOptions: [],
+  accountOptions: []
+};
 
 describe('TransactionTable', () => {
   it('日期快捷筛选输入应用可用日期范围', () => {
@@ -308,5 +372,49 @@ describe('TransactionTable', () => {
     expect(screen.getByRole('button', { name: '最后一页' })).toBeInTheDocument();
     expect(screen.getByText(/汇总（当前页 2 条）/)).toBeInTheDocument();
     expect(screen.getByText(/金额合计 ¥250.00/)).toBeInTheDocument();
+  });
+
+  it('隐私模式下应隐藏金额与商家订单号', () => {
+    render(
+      <TransactionTable
+        rows={[
+          {
+            item: {
+              id: 'tx-mask',
+              date: '2026-03-12',
+              type: 'expense',
+              categoryId: 'cat-2',
+              accountId: 'acc-1',
+              amount: 188.66,
+              note: '晚餐',
+              orderNo: 'ORDER-12345678',
+              merchantOrderNo: 'MERCHANT-99887766',
+              tags: []
+            },
+            categoryName: '餐饮',
+            accountName: '银行卡'
+          }
+        ]}
+        total={1}
+        filteredTotal={1}
+        page={1}
+        pages={1}
+        pageSize={8}
+        pageSizeOptions={[8, 20]}
+        loading={false}
+        hasFilters
+        privacyMode
+        selectedIds={[]}
+        bulkSelectionEnabled={false}
+        canSelectAllOnPage={false}
+        allPageSelected={false}
+        sortKey="date"
+        sortDirection="desc"
+        {...baseProps}
+      />
+    );
+
+    expect(screen.getAllByText('¥••••').length).toBeGreaterThan(0);
+    expect(screen.getByText(/商家订单：ME\*\*\*66/)).toBeInTheDocument();
   });
 });

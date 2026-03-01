@@ -1187,7 +1187,7 @@ export function AssistantPage() {
           </div>
         ) : null}
 
-        {wb.imageDataUrls.length > 0 ? (
+        {wb.imageDataUrls.length > 0 || wb.pdfDataUrls.length > 0 ? (
           <div className="chat-image-strip">
             <div className="chat-thumb-list">
               {wb.imageDataUrls.map((url, idx) => (
@@ -1202,9 +1202,29 @@ export function AssistantPage() {
                   </button>
                 </div>
               ))}
+              {wb.pdfDataUrls.map((url, idx) => (
+                <div className="chat-thumb-item" key={`pending-pdf-${idx}-${url.slice(0, 12)}`}>
+                  <div className="chat-thumb" style={{ display: 'grid', placeItems: 'center' }}>
+                    📄 PDF
+                  </div>
+                  <button
+                    type="button"
+                    className="chat-thumb-remove"
+                    onClick={() => wb.setPdfDataUrls((prev) => prev.filter((_, i) => i !== idx))}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
             </div>
-            <button type="button" onClick={() => wb.setImageDataUrls([])}>
-              清空图片
+            <button
+              type="button"
+              onClick={() => {
+                wb.setImageDataUrls([]);
+                wb.setPdfDataUrls([]);
+              }}
+            >
+              清空附件
             </button>
           </div>
         ) : null}
@@ -1226,7 +1246,7 @@ export function AssistantPage() {
           <button
             type="button"
             className="chat-upload-btn"
-            title="上传图片"
+            title="上传图片/PDF"
             onClick={() => wb.fileInputRef.current?.click()}
             disabled={wb.status === 'recognizing'}
           >
@@ -1248,10 +1268,10 @@ export function AssistantPage() {
             ref={wb.fileInputRef}
             className="chat-file-input-hidden"
             type="file"
-            accept="image/*"
-            title="上传账单图片"
-            aria-label="上传账单图片"
-            onChange={(e) => void wb.handleSetImage(e.target.files?.[0])}
+            accept="image/*,application/pdf"
+            title="上传账单图片或 PDF"
+            aria-label="上传账单图片或 PDF"
+            onChange={(e) => void wb.handleSetFile(e.target.files?.[0])}
           />
 
           <button

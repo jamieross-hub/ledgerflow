@@ -30,6 +30,17 @@ export type TransactionDetailSectionKey = 'base' | 'source' | 'note' | 'tags' | 
 type DetailMode = 'professional' | 'timeline';
 const DETAIL_MODE_STORAGE_KEY = 'ledgerflow.transactions.detailMode';
 
+function maskAmount(): string {
+  return '¥••••';
+}
+
+function maskMerchant(value: string): string {
+  if (!value) return '-';
+  if (value.length <= 2) return '••';
+  if (value.length <= 6) return `${value.slice(0, 1)}•••${value.slice(-1)}`;
+  return `${value.slice(0, 2)}***${value.slice(-2)}`;
+}
+
 interface TransactionDetailDrawerProps {
   open: boolean;
   transaction: TransactionItem | null;
@@ -42,8 +53,10 @@ interface TransactionDetailDrawerProps {
   onDelete: () => void;
   onAiRecategorize: () => void;
   aiRecategorizing?: boolean;
+  privacyMode?: boolean;
   visibleSections: Record<TransactionDetailSectionKey, boolean>;
   onToggleSection: (key: TransactionDetailSectionKey) => void;
+  onQuickAdd: () => void;
 }
 
 export function TransactionDetailDrawer({
@@ -58,8 +71,10 @@ export function TransactionDetailDrawer({
   onDelete,
   onAiRecategorize,
   aiRecategorizing = false,
+  privacyMode = false,
   visibleSections,
-  onToggleSection
+  onToggleSection,
+  onQuickAdd
 }: TransactionDetailDrawerProps) {
   const [mode, setMode] = useState<DetailMode>(() => {
     const saved = window.localStorage.getItem(DETAIL_MODE_STORAGE_KEY);
@@ -112,7 +127,7 @@ export function TransactionDetailDrawer({
             <button
               type="button"
               role="tab"
-              aria-selected={mode === 'professional'}
+              aria-selected={mode === 'professional' ? 'true' : 'false'}
               className={mode === 'professional' ? 'active' : ''}
               onClick={() => setDetailMode('professional')}
             >
@@ -121,7 +136,7 @@ export function TransactionDetailDrawer({
             <button
               type="button"
               role="tab"
-              aria-selected={mode === 'timeline'}
+              aria-selected={mode === 'timeline' ? 'true' : 'false'}
               className={mode === 'timeline' ? 'active' : ''}
               onClick={() => setDetailMode('timeline')}
             >
@@ -141,7 +156,9 @@ export function TransactionDetailDrawer({
                 { label: '分类与账户', value: `${categoryName} · ${accountName}`, icon: '🗂️' },
                 {
                   label: '交易金额',
-                  value: `${transaction.type === 'income' ? '+' : '-'}${formatCurrency(transaction.amount)}`,
+                  value: privacyMode
+                    ? maskAmount()
+                    : `${transaction.type === 'income' ? '+' : '-'}${formatCurrency(transaction.amount)}`,
                   icon: transaction.type === 'income' ? '🟢' : '🔴'
                 },
                 { label: '记录来源', value: sourceLabel(source), icon: '🤖' },
@@ -211,8 +228,9 @@ export function TransactionDetailDrawer({
               <div className="drawer-kv">
                 <span>金额</span>
                 <strong className={transaction.type === 'income' ? 'text-income' : 'text-expense'}>
-                  {transaction.type === 'income' ? '+' : '-'}
-                  {formatCurrency(transaction.amount)}
+                  {privacyMode
+                    ? maskAmount()
+                    : `${transaction.type === 'income' ? '+' : '-'}${formatCurrency(transaction.amount)}`}
                 </strong>
               </div>
               {transaction.status ? (
@@ -236,7 +254,11 @@ export function TransactionDetailDrawer({
               {transaction.merchantOrderNo ? (
                 <div className="drawer-kv">
                   <span>商家订单号</span>
-                  <strong>{transaction.merchantOrderNo}</strong>
+                  <strong>
+                    {privacyMode
+                      ? maskMerchant(transaction.merchantOrderNo)
+                      : transaction.merchantOrderNo}
+                  </strong>
                 </div>
               ) : null}
             </>
@@ -312,9 +334,14 @@ export function TransactionDetailDrawer({
           <button type="button" className="danger" onClick={onDelete}>
             🗑️ 删除
           </button>
-          <Link to="/transactions/new" className="drawer-add-link" aria-label="新增账目">
+          <button
+            type="button"
+            className="drawer-add-link"
+            aria-label="新增账目"
+            onClick={onQuickAdd}
+          >
             ＋
-          </Link>
+          </button>
         </footer>
       </aside>
     </div>

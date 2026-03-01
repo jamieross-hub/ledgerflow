@@ -295,13 +295,21 @@ export function toDraftEntries(payload: AiBillResult): DraftBillEntry[] {
   });
 }
 
-export async function readImageAsDataUrl(file: File): Promise<string> {
+function readFileAsDataUrl(file: File, errorMessage: string): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('图片读取失败'));
+    reader.onerror = () => reject(new Error(errorMessage));
     reader.readAsDataURL(file);
   });
+}
+
+export async function readImageAsDataUrl(file: File): Promise<string> {
+  return readFileAsDataUrl(file, '图片读取失败');
+}
+
+export async function readPdfAsDataUrl(file: File): Promise<string> {
+  return readFileAsDataUrl(file, 'PDF 读取失败');
 }
 
 function formatChinaTimeText(date: Date): string {

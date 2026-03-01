@@ -11,7 +11,8 @@ const sample = {
   amount: 100,
   date: new Date('2026-01-01').toISOString(),
   note: '午餐',
-  tags: ['餐饮']
+  tags: ['餐饮'],
+  merchantOrderNo: 'MERCHANT-123456'
 };
 
 describe('TransactionDetailDrawer', () => {
@@ -39,9 +40,14 @@ describe('TransactionDetailDrawer', () => {
             json: true
           }}
           onToggleSection={() => undefined}
+          privacyMode
+          onQuickAdd={() => undefined}
         />
       </MemoryRouter>
     );
+
+    expect(screen.getAllByText('¥••••').length).toBeGreaterThan(0);
+    expect(screen.getByText('ME***56')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '复制 JSON' }));
     expect(onCopyJson).toHaveBeenCalledTimes(1);

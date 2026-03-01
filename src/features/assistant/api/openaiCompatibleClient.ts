@@ -24,6 +24,8 @@ interface ChatMessageInput {
   text: string;
   imageDataUrl?: string;
   imageDataUrls?: string[];
+  pdfDataUrl?: string;
+  pdfDataUrls?: string[];
 }
 
 interface ChatCompletionResponse {
@@ -94,6 +96,33 @@ async function throwSanitizedHttpError(response: Response, scene: AiRequestScene
   throw new Error(`AI 服务请求失败（错误码：${code}）`);
 }
 
+function normalizeUrls(primary?: string[], fallback?: string): string[] {
+  if (Array.isArray(primary) && primary.length > 0) return primary;
+  if (fallback) return [fallback];
+  return [];
+}
+
+function toOutboundMessage(message: ChatMessageInput) {
+  const imageUrls = normalizeUrls(message.imageDataUrls, message.imageDataUrl);
+  const pdfUrls = normalizeUrls(message.pdfDataUrls, message.pdfDataUrl);
+
+  if (message.role === 'user' && (imageUrls.length > 0 || pdfUrls.length > 0)) {
+    return {
+      role: message.role,
+      content: [
+        { type: 'text' as const, text: message.text || '请基于图片/PDF 进行记账建议分析。' },
+        ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } })),
+        ...pdfUrls.map((url) => ({ type: 'file_url' as const, file_url: { url } }))
+      ]
+    };
+  }
+
+  return {
+    role: message.role,
+    content: message.text
+  };
+}
+
 export async function sendAiChatStream(
   input: ChatRequestInput,
   handlers: {
@@ -113,29 +142,7 @@ export async function sendAiChatStream(
     body: JSON.stringify({
       model: input.model,
       stream: true,
-      messages: outboundMessages.map((message) => {
-        const imageUrls =
-          Array.isArray(message.imageDataUrls) && message.imageDataUrls.length > 0
-            ? message.imageDataUrls
-            : message.imageDataUrl
-              ? [message.imageDataUrl]
-              : [];
-
-        if (message.role === 'user' && imageUrls.length > 0) {
-          return {
-            role: message.role,
-            content: [
-              { type: 'text', text: message.text || '请基于图片进行记账建议分析。' },
-              ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } }))
-            ]
-          };
-        }
-
-        return {
-          role: message.role,
-          content: message.text
-        };
-      })
+      messages: outboundMessages.map((message) => toOutboundMessage(message))
     })
   });
 
@@ -277,29 +284,7 @@ export async function sendAiChat(input: ChatRequestInput): Promise<SendAiChatRes
     signal: input.signal,
     body: JSON.stringify({
       model: input.model,
-      messages: outboundMessages.map((message) => {
-        const imageUrls =
-          Array.isArray(message.imageDataUrls) && message.imageDataUrls.length > 0
-            ? message.imageDataUrls
-            : message.imageDataUrl
-              ? [message.imageDataUrl]
-              : [];
-
-        if (message.role === 'user' && imageUrls.length > 0) {
-          return {
-            role: message.role,
-            content: [
-              { type: 'text', text: message.text || '请基于图片进行记账建议分析。' },
-              ...imageUrls.map((url) => ({ type: 'image_url' as const, image_url: { url } }))
-            ]
-          };
-        }
-
-        return {
-          role: message.role,
-          content: message.text
-        };
-      })
+      messages: outboundMessages.map((message) => toOutboundMessage(message))
     })
   });
 

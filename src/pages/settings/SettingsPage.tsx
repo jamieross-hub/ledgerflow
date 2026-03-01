@@ -96,11 +96,6 @@ function ModelSelector({
           {loading ? '拉取中…' : '刷新模型'}
         </button>
       </div>
-      <input
-        value={value}
-        placeholder="可手动输入模型名称"
-        onChange={(e) => onChange(e.target.value)}
-      />
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   TransactionDatePreset,
   TransactionFilterState,
@@ -31,6 +30,7 @@ interface TransactionFiltersProps {
   onToggleBulkSelection: () => void;
   minAvailableDate?: string;
   maxAvailableDate?: string;
+  onQuickAdd: () => void;
 }
 
 export function TransactionFilters({
@@ -54,7 +54,8 @@ export function TransactionFilters({
   bulkSelectionEnabled,
   onToggleBulkSelection,
   minAvailableDate,
-  maxAvailableDate
+  maxAvailableDate,
+  onQuickAdd
 }: TransactionFiltersProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -106,9 +107,9 @@ export function TransactionFilters({
 
         <div className="transaction-filters-primary-cta">
           <label style={{ visibility: 'hidden' }}>操作</label>
-          <Link to="/transactions/new">
-            <button className="primary">新增账目</button>
-          </Link>
+          <button type="button" className="primary" onClick={onQuickAdd}>
+            新增账目
+          </button>
         </div>
       </div>
 

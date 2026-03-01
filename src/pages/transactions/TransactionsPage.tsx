@@ -11,7 +11,7 @@ import {
   BillImportParseSummary,
   parseBillFileToTransactionsDetailed
 } from '../../shared/lib/billImport';
-import { formatCurrency, formatDate } from '../../shared/lib/format';
+import { formatDate } from '../../shared/lib/format';
 import { resolveImportDefaultAccountId } from '../../shared/lib/importAccount';
 import { Toast, ToastVariant } from '../../shared/ui/Toast';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
@@ -34,7 +34,11 @@ import {
   useTransactionFilters
 } from '../../features/transactions/hooks/useTransactionFilters';
 import { Category } from '../../entities/category/types';
-import { TransactionItem, TransactionSource } from '../../entities/transaction/types';
+import {
+  TransactionItem,
+  TransactionSource,
+  TransactionType
+} from '../../entities/transaction/types';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 
 const DEFAULT_PAGE_SIZE = 8;
@@ -59,18 +63,6 @@ const DEFAULT_QUICK_FILTERS: TransactionQuickFilters = {
 };
 
 const TX_SEARCH_HISTORY_KEY = 'ledgerflow.transactions.searchHistory';
-
-function getWeekRange(offsetWeeks = 0): { from: Date; to: Date } {
-  const now = new Date();
-  const day = now.getDay() || 7;
-  const monday = new Date(now);
-  monday.setHours(0, 0, 0, 0);
-  monday.setDate(now.getDate() - day + 1 + offsetWeeks * 7);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23, 59, 59, 999);
-  return { from: monday, to: sunday };
-}
 
 function extractLocation(note: string): string {
   const match = note.match(/(?:@|在|于|地点[:：])\s*([\u4e00-\u9fa5A-Za-z0-9·\-\s]{2,20})/);
@@ -376,6 +368,7 @@ export function TransactionsPage() {
   });
   const [bulkSelectionEnabled, setBulkSelectionEnabled] = useState(false);
   const [highlightId, setHighlightId] = useState<string>('');
+  const [privacyMode, setPrivacyMode] = useState(false);
   const [importNotice, setImportNotice] = useState<{
     visible: boolean;
     message: string;
@@ -427,6 +420,14 @@ export function TransactionsPage() {
   );
   // 页大小允许用户按账单密度自由切换，长列表下减少翻页成本。
   const [pageSize, setPageSize] = useState<number>(() => restorePageSize());
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddType, setQuickAddType] = useState<TransactionType>('expense');
+  const [quickAddCategoryId, setQuickAddCategoryId] = useState('');
+  const [quickAddAccountId, setQuickAddAccountId] = useState('');
+  const [quickAddAmount, setQuickAddAmount] = useState('');
+  const [quickAddDate, setQuickAddDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [quickAddNote, setQuickAddNote] = useState('');
+  const [quickAddError, setQuickAddError] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const importSourceRef = useRef<BillSource | null>(null);
@@ -634,60 +635,6 @@ export function TransactionsPage() {
     });
   }, [mappedRows, quickFilters]);
 
-  const monthlySummary = useMemo(() => {
-    const now = new Date();
-    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    return quickFilteredRows.reduce(
-      (acc, row) => {
-        if (!row.item.date.startsWith(monthKey)) return acc;
-        if (row.item.type === 'income') acc.income += row.item.amount;
-        else acc.expense += row.item.amount;
-        return acc;
-      },
-      { income: 0, expense: 0 }
-    );
-  }, [quickFilteredRows]);
-
-  const groupedRows = useMemo(() => {
-    const now = new Date();
-    const today = now.toISOString().slice(0, 10);
-    const thisWeek = getWeekRange(0);
-    const lastWeek = getWeekRange(-1);
-    const result: Record<'today' | 'thisWeek' | 'lastWeek', TransactionRowView[]> = {
-      today: [],
-      thisWeek: [],
-      lastWeek: []
-    };
-
-    quickFilteredRows.forEach((row) => {
-      const d = new Date(row.item.date);
-      const day = row.item.date.slice(0, 10);
-      if (day === today) {
-        result.today.push(row);
-      } else if (d >= thisWeek.from && d <= thisWeek.to) {
-        result.thisWeek.push(row);
-      } else if (d >= lastWeek.from && d <= lastWeek.to) {
-        result.lastWeek.push(row);
-      }
-    });
-
-    return result;
-  }, [quickFilteredRows]);
-
-  const tagCloud = useMemo(() => {
-    const freq = new Map<string, number>();
-    quickFilteredRows.forEach((row) => {
-      (row.item.tags || []).forEach((tag) => {
-        if (!tag) return;
-        freq.set(tag, (freq.get(tag) || 0) + 1);
-      });
-    });
-    return [...freq.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([tag, count]) => ({ tag, count }));
-  }, [quickFilteredRows]);
-
   const sortedRows = useMemo(() => {
     const rows = [...quickFilteredRows];
 
@@ -767,6 +714,106 @@ export function TransactionsPage() {
 
   const showToast = (message: string, variant: ToastVariant) => {
     setToast({ visible: true, message, variant });
+  };
+
+  const quickAddCategoryOptions = useMemo(() => {
+    const matched = categories.filter(
+      (item) => !item.kind || item.kind === (quickAddType === 'income' ? 'income' : 'expense')
+    );
+    return matched.length > 0 ? matched : categories;
+  }, [categories, quickAddType]);
+
+  useEffect(() => {
+    if (quickAddCategoryOptions.length === 0) {
+      setQuickAddCategoryId('');
+      return;
+    }
+    if (!quickAddCategoryOptions.some((item) => item.id === quickAddCategoryId)) {
+      setQuickAddCategoryId(quickAddCategoryOptions[0].id);
+    }
+  }, [quickAddCategoryId, quickAddCategoryOptions]);
+
+  useEffect(() => {
+    if (!accounts.length) {
+      setQuickAddAccountId('');
+      return;
+    }
+    if (!accounts.some((item) => item.id === quickAddAccountId)) {
+      setQuickAddAccountId(accounts[0].id);
+    }
+  }, [accounts, quickAddAccountId]);
+
+  const resetQuickAddForm = () => {
+    setQuickAddType('expense');
+    setQuickAddAmount('');
+    setQuickAddDate(new Date().toISOString().slice(0, 10));
+    setQuickAddNote('');
+    setQuickAddError('');
+  };
+
+  const openQuickAddDrawer = () => {
+    setSelectedId(null);
+    setQuickAddError('');
+    setQuickAddOpen(true);
+  };
+
+  const closeQuickAddDrawer = () => {
+    setQuickAddOpen(false);
+    setQuickAddError('');
+  };
+
+  const handleQuickAddKeypadInput = (key: string) => {
+    setQuickAddAmount((prev) => {
+      if (key === 'clear') return '';
+      if (key === 'backspace') return prev.slice(0, -1);
+      if (key === '.') {
+        if (!prev) return '0.';
+        if (prev.includes('.')) return prev;
+        return `${prev}.`;
+      }
+      if (key === '00') {
+        if (!prev || prev === '0') return prev;
+        return `${prev}00`;
+      }
+      if (prev === '0') return key;
+      return `${prev}${key}`;
+    });
+    if (quickAddError) {
+      setQuickAddError('');
+    }
+  };
+
+  const handleSaveQuickAdd = () => {
+    if (!quickAddCategoryId) {
+      setQuickAddError('请选择分类。');
+      return;
+    }
+    if (!quickAddAccountId) {
+      setQuickAddError('请选择账户。');
+      return;
+    }
+    const amount = Number(quickAddAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setQuickAddError('请输入有效金额（大于 0）。');
+      return;
+    }
+
+    addTransaction({
+      type: quickAddType,
+      categoryId: quickAddCategoryId,
+      accountId: quickAddAccountId,
+      amount: Math.round(amount * 100) / 100,
+      date: quickAddDate,
+      note: quickAddNote.trim() || '快速记账',
+      tags: [],
+      source: 'manual',
+      status: 'completed'
+    });
+
+    closeQuickAddDrawer();
+    resetQuickAddForm();
+    setPage(1);
+    showToast('已保存', 'success');
   };
 
   const showImportNotice = (message: string, variant: ToastVariant) => {
@@ -1373,6 +1420,7 @@ export function TransactionsPage() {
         onToggleBulkSelection={() => setBulkSelectionEnabled((prev) => !prev)}
         minAvailableDate={availableDateBounds.min}
         maxAvailableDate={availableDateBounds.max}
+        onQuickAdd={openQuickAddDrawer}
       />
 
       {bulkAiProgress.visible ? (
@@ -1433,99 +1481,16 @@ export function TransactionsPage() {
         onChange={(event) => void handleImportFile(event)}
       />
 
-      <section className="panel transaction-insight-panel">
-        <div className="transaction-monthly-summary">
-          <div>
-            <span>本月支出</span>
-            <strong>{formatCurrency(monthlySummary.expense)}</strong>
-          </div>
-          <div>
-            <span>本月收入</span>
-            <strong>{formatCurrency(monthlySummary.income)}</strong>
-          </div>
-          <div>
-            <span>本月净额</span>
-            <strong>{formatCurrency(monthlySummary.income - monthlySummary.expense)}</strong>
-          </div>
-        </div>
-
-        <div className="transaction-advanced-filters">
-          <input
-            value={quickFilters.amountMin}
-            onChange={(event) => handleQuickFilterChange('amountMin', event.target.value)}
-            placeholder="最小金额"
-            type="number"
-          />
-          <input
-            value={quickFilters.amountMax}
-            onChange={(event) => handleQuickFilterChange('amountMax', event.target.value)}
-            placeholder="最大金额"
-            type="number"
-          />
-          <input
-            value={quickFilters.merchant}
-            onChange={(event) => handleQuickFilterChange('merchant', event.target.value)}
-            placeholder="商户名"
-          />
-          <input
-            value={quickFilters.location}
-            onChange={(event) => handleQuickFilterChange('location', event.target.value)}
-            placeholder="消费地点"
-          />
-        </div>
-
-        {searchHistory.length > 0 ? (
-          <div className="transaction-search-history">
-            <span>历史搜索：</span>
-            {searchHistory.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => handleQuickFilterChange('merchant', item)}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-        ) : null}
-
-        {tagCloud.length > 0 ? (
-          <div className="transaction-tag-cloud">
-            {tagCloud.map((entry) => (
-              <button
-                key={entry.tag}
-                type="button"
-                onClick={() => handleQuickFilterChange('tags', entry.tag)}
-              >
-                #{entry.tag} ({entry.count})
-              </button>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="transaction-group-grid">
-          {(
-            [
-              ['today', '今天'],
-              ['thisWeek', '本周'],
-              ['lastWeek', '上周']
-            ] as const
-          ).map(([key, label]) => (
-            <article key={key} className="transaction-group-card">
-              <h4>{label}</h4>
-              <small>{groupedRows[key].length} 笔</small>
-              <ul>
-                {groupedRows[key].slice(0, 4).map((row) => (
-                  <li key={row.item.id}>
-                    <span>{row.item.note || row.categoryName}</span>
-                    <strong>{formatCurrency(row.item.amount)}</strong>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </div>
-      </section>
+      <div className="row" style={{ justifyContent: 'flex-end' }}>
+        <button
+          type="button"
+          aria-pressed={privacyMode}
+          aria-label="切换交易隐私模式（隐藏金额与商户名）"
+          onClick={() => setPrivacyMode((prev) => !prev)}
+        >
+          {privacyMode ? '🙈 关闭隐私模式' : '🕶️ 开启隐私模式'}
+        </button>
+      </div>
 
       <TransactionTable
         pageSize={pageSize}
@@ -1540,6 +1505,7 @@ export function TransactionsPage() {
         hasFilters={isFiltered || hasQuickFilters}
         highlightId={highlightId}
         onRetry={() => setErrorMessage('')}
+        privacyMode={privacyMode}
         onClearFilters={clearAllFilters}
         sortKey={sortKey}
         sortDirection={sortDirection}
@@ -1617,9 +1583,140 @@ export function TransactionsPage() {
             });
         }}
         aiRecategorizing={selected ? aiRecategorizingId === selected.id : false}
+        privacyMode={privacyMode}
         visibleSections={visibleDetailSections}
         onToggleSection={handleToggleDetailSection}
+        onQuickAdd={openQuickAddDrawer}
       />
+
+      {quickAddOpen ? (
+        <div className="quick-add-overlay" role="presentation" onClick={closeQuickAddDrawer}>
+          <aside
+            className="quick-add-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="快速新增账目"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="quick-add-header">
+              <h3>记一笔</h3>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={closeQuickAddDrawer}
+                aria-label="关闭快速记账"
+              >
+                ✕
+              </button>
+            </header>
+
+            <div className="quick-add-body">
+              <div className="quick-add-amount-display">{quickAddAmount || '0'}</div>
+              <div className="quick-add-row">
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label htmlFor="quick-add-type">类型</label>
+                  <select
+                    id="quick-add-type"
+                    value={quickAddType}
+                    onChange={(event) => setQuickAddType(event.target.value as TransactionType)}
+                  >
+                    <option value="expense">支出</option>
+                    <option value="income">收入</option>
+                  </select>
+                </div>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label htmlFor="quick-add-date">日期</label>
+                  <input
+                    id="quick-add-date"
+                    type="date"
+                    value={quickAddDate}
+                    onChange={(event) => setQuickAddDate(event.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="quick-add-row">
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label htmlFor="quick-add-category">分类</label>
+                  <select
+                    id="quick-add-category"
+                    value={quickAddCategoryId}
+                    onChange={(event) => setQuickAddCategoryId(event.target.value)}
+                  >
+                    {quickAddCategoryOptions.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label htmlFor="quick-add-account">账户</label>
+                  <select
+                    id="quick-add-account"
+                    value={quickAddAccountId}
+                    onChange={(event) => setQuickAddAccountId(event.target.value)}
+                  >
+                    {accounts.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label htmlFor="quick-add-note">备注</label>
+                <input
+                  id="quick-add-note"
+                  placeholder="可选，默认快速记账"
+                  value={quickAddNote}
+                  onChange={(event) => setQuickAddNote(event.target.value)}
+                />
+              </div>
+
+              <div className="quick-add-keypad" role="group" aria-label="金额数字键盘">
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '00'].map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className="quick-add-key"
+                    onClick={() => handleQuickAddKeypadInput(key)}
+                  >
+                    {key}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="quick-add-key quick-add-key-muted"
+                  onClick={() => handleQuickAddKeypadInput('backspace')}
+                >
+                  退格
+                </button>
+                <button
+                  type="button"
+                  className="quick-add-key quick-add-key-muted"
+                  onClick={() => handleQuickAddKeypadInput('clear')}
+                >
+                  清空
+                </button>
+              </div>
+
+              {quickAddError ? <small className="error">{quickAddError}</small> : null}
+            </div>
+
+            <footer className="quick-add-footer">
+              <button type="button" onClick={closeQuickAddDrawer}>
+                取消
+              </button>
+              <button type="button" className="primary" onClick={handleSaveQuickAdd}>
+                保存
+              </button>
+            </footer>
+          </aside>
+        </div>
+      ) : null}
 
       <ConfirmDialog
         open={Boolean(pendingImport)}

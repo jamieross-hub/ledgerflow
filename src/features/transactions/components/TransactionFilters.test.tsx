@@ -47,6 +47,7 @@ describe('TransactionFilters', () => {
           onToggleBulkSelection={() => undefined}
           minAvailableDate="2026-02-01"
           maxAvailableDate="2026-02-28"
+          onQuickAdd={() => undefined}
         />
       </MemoryRouter>
     );

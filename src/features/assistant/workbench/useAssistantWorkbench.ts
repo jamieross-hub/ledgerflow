@@ -13,6 +13,7 @@ import {
   JSON_AGENT_PROMPT,
   normalizeAiBill,
   readImageAsDataUrl,
+  readPdfAsDataUrl,
   toDraftEntries,
   validateDraft
 } from './workbenchUtils';
@@ -35,6 +36,7 @@ const MODEL_CACHE_KEY = 'ledgerflow-assistant-model-cache-v1';
 const MIN_ALLOWED_DATE = '2000-01-01';
 const MAX_ALLOWED_DATE = '2100-12-31';
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_PDF_SIZE_BYTES = 20 * 1024 * 1024;
 
 function normalizeEntryDate(inputDate?: string) {
   const fallback = new Date().toISOString();
@@ -79,6 +81,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
   const [status, setStatus] = useState<WorkbenchStatus>('idle');
   const [textInput, setTextInput] = useState('');
   const [imageDataUrls, setImageDataUrls] = useState<string[]>([]);
+  const [pdfDataUrls, setPdfDataUrls] = useState<string[]>([]);
   const [models, setModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -98,7 +101,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
   });
 
   const hasApiKey = Boolean(input.apiKey.trim());
-  const hasInput = Boolean(textInput.trim()) || imageDataUrls.length > 0;
+  const hasInput = Boolean(textInput.trim()) || imageDataUrls.length > 0 || pdfDataUrls.length > 0;
   const canRecognize = hasApiKey && Boolean(input.model.trim()) && hasInput;
   const transactionContext = useMemo(
     () => buildTransactionPromptContext(input.transactions, input.categories, input.accounts),
@@ -166,38 +169,65 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     }
   }, []);
 
-  const handleSetImage = async (file?: File) => {
+  const handleSetFile = async (file?: File) => {
     if (!file) return;
-    if (file.size > MAX_IMAGE_SIZE_BYTES) {
-      const maxSizeMb = Math.round(MAX_IMAGE_SIZE_BYTES / (1024 * 1024));
-      const currentMb = (file.size / (1024 * 1024)).toFixed(1);
-      const message = `图片过大（${currentMb}MB），请上传小于 ${maxSizeMb}MB 的图片。`;
-      setError(message);
-      setToast({ visible: true, variant: 'warning', message });
+
+    if (file.type.startsWith('image/')) {
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        const maxSizeMb = Math.round(MAX_IMAGE_SIZE_BYTES / (1024 * 1024));
+        const currentMb = (file.size / (1024 * 1024)).toFixed(1);
+        const message = `图片过大（${currentMb}MB），请上传小于 ${maxSizeMb}MB 的图片。`;
+        setError(message);
+        setToast({ visible: true, variant: 'warning', message });
+        return;
+      }
+      const dataUrl = await readImageAsDataUrl(file);
+      setImageDataUrls((prev) => [...prev, dataUrl]);
       return;
     }
-    const dataUrl = await readImageAsDataUrl(file);
-    setImageDataUrls((prev) => [...prev, dataUrl]);
+
+    if (file.type === 'application/pdf') {
+      if (file.size > MAX_PDF_SIZE_BYTES) {
+        const maxSizeMb = Math.round(MAX_PDF_SIZE_BYTES / (1024 * 1024));
+        const currentMb = (file.size / (1024 * 1024)).toFixed(1);
+        const message = `PDF 过大（${currentMb}MB），请上传小于 ${maxSizeMb}MB 的 PDF。`;
+        setError(message);
+        setToast({ visible: true, variant: 'warning', message });
+        return;
+      }
+      const dataUrl = await readPdfAsDataUrl(file);
+      setPdfDataUrls((prev) => [...prev, dataUrl]);
+      return;
+    }
+
+    const message = '仅支持上传图片或 PDF 文件。';
+    setError(message);
+    setToast({ visible: true, variant: 'warning', message });
+  };
+
+  const handleSetImage = async (file?: File) => {
+    await handleSetFile(file);
   };
 
   const handlePasteImage = async (event: ClipboardEvent<HTMLTextAreaElement>) => {
     const items = event.clipboardData?.items;
     if (!items) return;
     for (let i = 0; i < items.length; i += 1) {
-      if (!items[i].type.startsWith('image/')) continue;
-      const file = items[i].getAsFile();
+      const item = items[i];
+      if (!item.type.startsWith('image/') && item.type !== 'application/pdf') continue;
+      const file = item.getAsFile();
       if (!file) continue;
       event.preventDefault();
-      await handleSetImage(file);
+      await handleSetFile(file);
     }
   };
 
   const handleDropImage = async (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    const files = Array.from(event.dataTransfer.files || []).filter((file) =>
-      file.type.startsWith('image/')
+    const files = Array.from(event.dataTransfer.files || []).filter(
+      (file) => file.type.startsWith('image/') || file.type === 'application/pdf'
     );
-    for (const file of files) await handleSetImage(file);
+    for (const file of files) await handleSetFile(file);
   };
 
   // 主动刷新模型：远端拉取成功后同步覆盖本地缓存。
@@ -229,7 +259,8 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
    */
   const runRecognize = async (promptText: string) => {
     const cleanPrompt = promptText.trim();
-    const hasPromptInput = Boolean(cleanPrompt) || imageDataUrls.length > 0;
+    const hasPromptInput =
+      Boolean(cleanPrompt) || imageDataUrls.length > 0 || pdfDataUrls.length > 0;
     if (!hasApiKey || !input.model.trim() || !hasPromptInput) return;
     setStatus('recognizing');
     setError('');
@@ -251,7 +282,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
         apiKey: input.apiKey,
         model: input.model,
         systemPrompt: prompt,
-        messages: [{ role: 'user', text: cleanPrompt, imageDataUrls }],
+        messages: [{ role: 'user', text: cleanPrompt, imageDataUrls, pdfDataUrls }],
         signal: controller.signal
       });
       setRawContent(reply.content);
@@ -270,6 +301,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
 
       setTextInput('');
       setImageDataUrls([]);
+      setPdfDataUrls([]);
 
       if (parsed && parsed.transactions.length > 0) {
         setEntries(attachDuplicateMeta(toDraftEntries(parsed)));
@@ -294,7 +326,12 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
         addLog({ action: 'assistant.recognize', status: 'info', message: '用户已停止本次回答' });
         return;
       }
-      const message = err instanceof Error ? mapAssistantErrorMessage(err.message) : '识别失败';
+      const message =
+        pdfDataUrls.length > 0
+          ? 'PDF 直传模型失败，请重试或改传图片。'
+          : err instanceof Error
+            ? mapAssistantErrorMessage(err.message)
+            : '识别失败';
       setError(message);
       setStatus('error');
       addLog({ action: 'assistant.recognize', status: 'error', message });
@@ -485,6 +522,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     recognizeAbortRef.current = null;
     setTextInput('');
     setImageDataUrls([]);
+    setPdfDataUrls([]);
     setEntries([]);
     setRawContent('');
     setRawReasoning('');
@@ -506,6 +544,8 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     setTextInput,
     imageDataUrls,
     setImageDataUrls,
+    pdfDataUrls,
+    setPdfDataUrls,
     models,
     loadingModels,
     drawerOpen,
@@ -520,6 +560,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     hasApiKey,
     canRecognize,
     handleSetImage,
+    handleSetFile,
     handlePasteImage,
     handleDropImage,
     handleLoadModels,
