@@ -80,7 +80,60 @@ describe('TransactionDetailDrawer', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('支')).toBeInTheDocument();
+    expect(screen.getByLabelText('支出')).toBeInTheDocument();
     expect(document.querySelectorAll('.alipay-icon').length).toBeGreaterThan(0);
+  });
+
+  it('应展示退款冲正关系，并可在时间轴模式显示关联原单', () => {
+    render(
+      <MemoryRouter>
+        <TransactionDetailDrawer
+          open
+          transaction={{
+            ...sample,
+            id: 'tx-refund',
+            amount: 25,
+            adjustmentKind: 'refund',
+            refundOfTransactionId: 'tx-origin'
+          }}
+          categoryName="餐饮"
+          accountName="支付宝"
+          source="alipay"
+          relatedOrigin={{
+            id: 'tx-origin',
+            type: 'expense',
+            categoryId: 'cat-1',
+            accountId: 'acc-1',
+            amount: 88,
+            date: new Date('2026-01-02').toISOString(),
+            note: '原始订单',
+            tags: []
+          }}
+          relatedRefunds={[]}
+          onClose={() => undefined}
+          onCopyNote={() => undefined}
+          onCopyJson={() => undefined}
+          onDelete={() => undefined}
+          onAiRecategorize={() => undefined}
+          visibleSections={{
+            base: true,
+            source: true,
+            note: true,
+            tags: true,
+            json: false
+          }}
+          onToggleSection={() => undefined}
+          onQuickAdd={() => undefined}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByLabelText('退款冲正关系')).toBeInTheDocument();
+    expect(screen.getByText('退款单')).toBeInTheDocument();
+    expect(screen.getByText(/原始订单/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: '时间轴模式' }));
+    expect(screen.getByLabelText('交易时间轴')).toBeInTheDocument();
+    expect(screen.getByText(/关联原单：原始订单/)).toBeInTheDocument();
   });
 });

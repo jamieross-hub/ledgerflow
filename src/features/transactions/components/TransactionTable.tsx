@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { TransactionItem, TransactionStatus } from '../../../entities/transaction/types';
 import { EMPTY_CATEGORY_FILTER_VALUE } from '../model/categoryQuickFilter';
 import { formatCurrency, formatDate } from '../../../shared/lib/format';
+import { summarizeTransactions } from '../../../shared/lib/transactionMetrics';
 import { EmptyState } from '../../../shared/ui/EmptyState';
 import { TableSkeleton } from '../../../shared/ui/TableSkeleton';
 
@@ -341,6 +342,39 @@ export function TransactionTable({
     };
   }, [rows]);
 
+  const taskSummary = useMemo(() => {
+    const pendingRows = rows.filter((row) => row.item.status === 'pending');
+    const refundRows = rows.filter(
+      (row) =>
+        row.item.adjustmentKind === 'refund' ||
+        row.item.adjustmentKind === 'reversal' ||
+        row.item.status === 'refunded'
+    );
+    const failedRows = rows.filter((row) => row.item.status === 'failed');
+    const doneRows = rows.filter(
+      (row) => row.item.status === 'completed' || row.item.status === 'closed'
+    );
+
+    return {
+      pending: {
+        count: pendingRows.length,
+        amount: summarizeTransactions(pendingRows.map((row) => row.item)).overallTotal
+      },
+      refund: {
+        count: refundRows.length,
+        amount: summarizeTransactions(refundRows.map((row) => row.item)).overallTotal
+      },
+      failed: {
+        count: failedRows.length,
+        amount: summarizeTransactions(failedRows.map((row) => row.item)).overallTotal
+      },
+      done: {
+        count: doneRows.length,
+        amount: summarizeTransactions(doneRows.map((row) => row.item)).overallTotal
+      }
+    };
+  }, [rows]);
+
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
       if (!resizeStateRef.current) return;
@@ -485,6 +519,31 @@ export function TransactionTable({
                 </button>
               </div>
             </div>
+          ) : null}
+
+          {rows.length > 0 ? (
+            <section className="transaction-task-strip" aria-label="交易任务概览">
+              <article className="transaction-task-item is-pending">
+                <strong>{taskSummary.pending.count}</strong>
+                <span>待处理</span>
+                <small>{taskSummary.pending.amount.toFixed(2)}</small>
+              </article>
+              <article className="transaction-task-item is-refund">
+                <strong>{taskSummary.refund.count}</strong>
+                <span>退款 / 冲正</span>
+                <small>{taskSummary.refund.amount.toFixed(2)}</small>
+              </article>
+              <article className="transaction-task-item is-failed">
+                <strong>{taskSummary.failed.count}</strong>
+                <span>失败单</span>
+                <small>{taskSummary.failed.amount.toFixed(2)}</small>
+              </article>
+              <article className="transaction-task-item is-done">
+                <strong>{taskSummary.done.count}</strong>
+                <span>已完成</span>
+                <small>{taskSummary.done.amount.toFixed(2)}</small>
+              </article>
+            </section>
           ) : null}
 
           <div className="transaction-table-wrap">
@@ -699,7 +758,13 @@ export function TransactionTable({
                       <tr
                         key={item.id}
                         id={`transaction-row-${item.id}`}
-                        className={`transaction-row-clickable ${highlightId === item.id ? 'transaction-row-highlight' : ''}`.trim()}
+                        className={`transaction-row-clickable ${
+                          highlightId === item.id ? 'transaction-row-highlight' : ''
+                        } ${
+                          item.adjustmentKind === 'refund' || item.adjustmentKind === 'reversal'
+                            ? 'transaction-row-refund-like'
+                            : ''
+                        }`.trim()}
                         onClick={() => onOpenDetail(item.id)}
                         onContextMenu={(event) => {
                           event.preventDefault();

@@ -540,6 +540,25 @@ export function TransactionsPage() {
     };
   }, [searchParams, setSearchParams]);
 
+  useEffect(() => {
+    if (quickAddOpen) {
+      return;
+    }
+
+    const quickAddFlag = searchParams.get('quickAdd');
+    if (quickAddFlag !== '1') {
+      return;
+    }
+
+    setSelectedId(null);
+    setQuickAddError('');
+    setQuickAddOpen(true);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('quickAdd');
+    setSearchParams(next, { replace: true });
+  }, [quickAddOpen, searchParams, setSearchParams]);
+
   const filteredRows = useMemo(() => {
     return transactions.filter((item) => {
       const byType = filters.type === 'all' ? true : item.type === filters.type;
@@ -694,6 +713,24 @@ export function TransactionsPage() {
     () => transactions.find((item) => item.id === selectedId) ?? null,
     [transactions, selectedId]
   );
+
+  const selectedRelatedOrigin = useMemo(() => {
+    if (!selected?.refundOfTransactionId) {
+      return null;
+    }
+    return transactions.find((item) => item.id === selected.refundOfTransactionId) ?? null;
+  }, [selected, transactions]);
+
+  const selectedRefundChildren = useMemo(() => {
+    if (!selected) {
+      return [];
+    }
+    return transactions.filter(
+      (item) =>
+        item.refundOfTransactionId === selected.id &&
+        (item.adjustmentKind === 'refund' || item.adjustmentKind === 'reversal')
+    );
+  }, [selected, transactions]);
 
   const selectedCategoryName = selected
     ? (categories.find((item) => item.id === selected.categoryId)?.name ?? '-')
@@ -1552,6 +1589,8 @@ export function TransactionsPage() {
         categoryName={selectedCategoryName}
         accountName={selectedAccountName}
         source={selectedSource}
+        relatedOrigin={selectedRelatedOrigin}
+        relatedRefunds={selectedRefundChildren}
         onClose={() => setSelectedId(null)}
         onCopyNote={() => void copyText(selected?.note ?? '', '备注已复制')}
         onCopyJson={() => void copyText(JSON.stringify(selected, null, 2), 'JSON 已复制')}

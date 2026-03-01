@@ -98,6 +98,8 @@ interface TransactionDetailDrawerProps {
   categoryName: string;
   accountName: string;
   source: TransactionSource;
+  relatedOrigin?: TransactionItem | null;
+  relatedRefunds?: TransactionItem[];
   onClose: () => void;
   onCopyNote: () => void;
   onCopyJson: () => void;
@@ -116,6 +118,8 @@ export function TransactionDetailDrawer({
   categoryName,
   accountName,
   source,
+  relatedOrigin = null,
+  relatedRefunds = [],
   onClose,
   onCopyNote,
   onCopyJson,
@@ -221,6 +225,19 @@ export function TransactionDetailDrawer({
                   icon: transaction.type === 'income' ? '🟢' : '🔴'
                 },
                 { label: '记录来源', value: sourceLabel(source), icon: '🤖' },
+                {
+                  label: '冲正关系',
+                  value:
+                    transaction.adjustmentKind === 'refund' ||
+                    transaction.adjustmentKind === 'reversal'
+                      ? relatedOrigin
+                        ? `关联原单：${relatedOrigin.note || relatedOrigin.id}`
+                        : '退款/冲正（原单缺失）'
+                      : relatedRefunds.length > 0
+                        ? `已关联 ${relatedRefunds.length} 条退款/冲正`
+                        : '普通交易',
+                  icon: '🔁'
+                },
                 { label: '备注', value: transaction.note || '（无）', icon: '📝' }
               ].map((item) => (
                 <article key={item.label} className="drawer-timeline-item">
@@ -312,6 +329,65 @@ export function TransactionDetailDrawer({
                   </strong>
                 </div>
               ) : null}
+              {(transaction.adjustmentKind === 'refund' ||
+                transaction.adjustmentKind === 'reversal' ||
+                relatedRefunds.length > 0) && (
+                <section
+                  className="drawer-section drawer-adjustment-section"
+                  aria-label="退款冲正关系"
+                >
+                  <h4>退款 / 冲正关系</h4>
+                  <div className="drawer-kv">
+                    <span>当前语义</span>
+                    <strong>
+                      {transaction.adjustmentKind === 'refund'
+                        ? '退款单'
+                        : transaction.adjustmentKind === 'reversal'
+                          ? '冲正单'
+                          : '原始交易'}
+                    </strong>
+                  </div>
+                  {relatedOrigin ? (
+                    <div className="drawer-kv">
+                      <span>关联原单</span>
+                      <strong>
+                        {relatedOrigin.note || '（无备注）'} · {formatDateTime(relatedOrigin.date)}
+                      </strong>
+                    </div>
+                  ) : null}
+                  {relatedRefunds.length > 0 ? (
+                    <div className="drawer-kv">
+                      <span>关联退款/冲正</span>
+                      <strong>{relatedRefunds.length} 条</strong>
+                    </div>
+                  ) : null}
+                  {(transaction.adjustmentKind === 'refund' ||
+                    transaction.adjustmentKind === 'reversal') &&
+                  relatedOrigin ? (
+                    <div className="drawer-kv">
+                      <span>影响金额</span>
+                      <strong className="text-income">
+                        {privacyMode ? maskAmount() : `+${formatCurrency(transaction.amount)}`}
+                      </strong>
+                    </div>
+                  ) : null}
+                  {relatedRefunds.length > 0 ? (
+                    <div className="drawer-kv">
+                      <span>累计冲回</span>
+                      <strong className="text-income">
+                        {privacyMode
+                          ? maskAmount()
+                          : `+${formatCurrency(
+                              relatedRefunds.reduce(
+                                (sum, item) => sum + (Number(item.amount) || 0),
+                                0
+                              )
+                            )}`}
+                      </strong>
+                    </div>
+                  ) : null}
+                </section>
+              )}
             </>
           ) : null}
 

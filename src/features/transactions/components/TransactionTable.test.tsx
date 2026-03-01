@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { TransactionTable, type TransactionColumnKey } from './TransactionTable';
 
@@ -469,8 +469,109 @@ describe('TransactionTable', () => {
       />
     );
 
-    expect(screen.getByText('收')).toBeInTheDocument();
-    expect(screen.getByText('支')).toBeInTheDocument();
+    expect(screen.getByLabelText('收入')).toBeInTheDocument();
+    expect(screen.getByLabelText('支出')).toBeInTheDocument();
     expect(document.querySelectorAll('.alipay-icon').length).toBeGreaterThan(0);
+  });
+
+  it('应展示任务条统计并高亮退款/冲正行', () => {
+    render(
+      <TransactionTable
+        rows={[
+          {
+            item: {
+              id: 'tx-pending',
+              date: '2026-03-10',
+              type: 'expense',
+              categoryId: 'cat-1',
+              accountId: 'acc-1',
+              amount: 100,
+              note: '待处理支出',
+              status: 'pending',
+              tags: []
+            },
+            categoryName: '餐饮',
+            accountName: '银行卡'
+          },
+          {
+            item: {
+              id: 'tx-refund',
+              date: '2026-03-11',
+              type: 'expense',
+              categoryId: 'cat-1',
+              accountId: 'acc-1',
+              amount: 20,
+              note: '退款单',
+              status: 'refunded',
+              adjustmentKind: 'refund',
+              refundOfTransactionId: 'tx-origin',
+              tags: []
+            },
+            categoryName: '餐饮',
+            accountName: '银行卡'
+          },
+          {
+            item: {
+              id: 'tx-failed',
+              date: '2026-03-12',
+              type: 'expense',
+              categoryId: 'cat-2',
+              accountId: 'acc-1',
+              amount: 30,
+              note: '失败单',
+              status: 'failed',
+              tags: []
+            },
+            categoryName: '交通',
+            accountName: '银行卡'
+          },
+          {
+            item: {
+              id: 'tx-done',
+              date: '2026-03-13',
+              type: 'income',
+              categoryId: 'cat-3',
+              accountId: 'acc-1',
+              amount: 200,
+              note: '已完成入账',
+              status: 'completed',
+              tags: []
+            },
+            categoryName: '工资',
+            accountName: '银行卡'
+          }
+        ]}
+        total={4}
+        filteredTotal={4}
+        page={1}
+        pages={1}
+        pageSize={8}
+        pageSizeOptions={[8, 20]}
+        loading={false}
+        hasFilters
+        selectedIds={[]}
+        bulkSelectionEnabled={false}
+        canSelectAllOnPage={false}
+        allPageSelected={false}
+        sortKey="date"
+        sortDirection="desc"
+        {...baseProps}
+      />
+    );
+
+    const taskStrip = screen.getByLabelText('交易任务概览');
+    expect(taskStrip).toBeInTheDocument();
+    expect(within(taskStrip).getByText('待处理')).toBeInTheDocument();
+    expect(within(taskStrip).getByText('退款 / 冲正')).toBeInTheDocument();
+    expect(within(taskStrip).getByText('失败单')).toBeInTheDocument();
+    expect(within(taskStrip).getByText('已完成')).toBeInTheDocument();
+    expect(within(taskStrip).getByText('100.00')).toBeInTheDocument();
+    expect(within(taskStrip).getByText('20.00')).toBeInTheDocument();
+    expect(within(taskStrip).getByText('30.00')).toBeInTheDocument();
+    expect(within(taskStrip).getByText('200.00')).toBeInTheDocument();
+
+    expect(document.querySelector('#transaction-row-tx-refund')).toHaveClass(
+      'transaction-row-refund-like'
+    );
   });
 });

@@ -160,7 +160,7 @@ export function AppLayout() {
 
       if (event.key === 'N' || event.key === 'n') {
         event.preventDefault();
-        navigate('/transactions/new?quick=1');
+        navigate('/transactions?quickAdd=1&entry=layout');
       }
 
       if (event.key === 'B' || event.key === 'b') {
@@ -232,16 +232,16 @@ export function AppLayout() {
         {collapsed ? null : (
           <section className="sidebar-overview-card">
             <h3>{monthLabel}</h3>
-            <p>① 添加账目 ② 设置预算 ③ 查看分析</p>
+            <p>① AI 识别入账 ② 快速补录 ③ 进入任务清单</p>
             <div className="sidebar-overview-actions">
-              <Link to="/transactions/new?quick=1" className="sidebar-overview-action">
-                记一笔
+              <Link to="/assistant" className="sidebar-overview-action">
+                AI 识别记账
               </Link>
-              <Link to="/smart-budget" className="sidebar-overview-action">
-                去预算
+              <Link to="/transactions?quickAdd=1&entry=layout" className="sidebar-overview-action">
+                快速记一笔
               </Link>
-              <Link to="/" className="sidebar-overview-action">
-                看分析
+              <Link to="/transactions" className="sidebar-overview-action">
+                看任务清单
               </Link>
             </div>
           </section>
@@ -380,7 +380,7 @@ export function AppLayout() {
             </section>
 
             <div className="mobile-nav-tip-banner">
-              💡 小提示：先用 AI 助手录入，再去统计页看趋势。
+              💡 小提示：先 AI 识别，再补一笔，最后在交易任务清单里收口。
             </div>
 
             {mobileQuickGroups.map((group) => (
