@@ -429,6 +429,9 @@ export function TransactionsPage() {
   const [quickAddNote, setQuickAddNote] = useState('');
   const [quickAddError, setQuickAddError] = useState('');
   const [tablePanelWidth, setTablePanelWidth] = useState(860);
+  const [splitLayoutStacked, setSplitLayoutStacked] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 1100px)').matches : false
+  );
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const splitLayoutRef = useRef<HTMLDivElement | null>(null);
@@ -1264,6 +1267,11 @@ export function TransactionsPage() {
 
     const resizeObserver = new ResizeObserver(() => {
       const total = container.getBoundingClientRect().width;
+      const shouldStack = total <= 1100;
+      setSplitLayoutStacked(shouldStack);
+      if (shouldStack) {
+        return;
+      }
       const maxLeft = Math.max(560, total - 320);
       setTablePanelWidth((prev) => Math.min(Math.max(prev, 560), maxLeft));
     });
@@ -1273,6 +1281,9 @@ export function TransactionsPage() {
   }, []);
 
   const handleSplitDividerMouseDown = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (splitLayoutStacked) {
+      return;
+    }
     event.preventDefault();
     const container = splitLayoutRef.current;
     if (!container) {
@@ -1618,7 +1629,11 @@ export function TransactionsPage() {
       <div className="transactions-split-layout" ref={splitLayoutRef}>
         <section
           className="transactions-split-main"
-          style={{ width: tablePanelWidth, maxWidth: '100%', minWidth: 560 }}
+          style={
+            splitLayoutStacked
+              ? { width: '100%', maxWidth: '100%', minWidth: 0 }
+              : { width: tablePanelWidth, maxWidth: '100%', minWidth: 560 }
+          }
         >
           <TransactionTable
             pageSize={pageSize}

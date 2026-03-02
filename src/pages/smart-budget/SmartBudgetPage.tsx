@@ -695,31 +695,21 @@ export function SmartBudgetPage() {
           <h2>智能预算</h2>
           <p>通过 4 个问题快速生成预算，确认后进入预算管理查看近期预算执行是否超支。</p>
         </div>
-        {confirmedPlan && mode === 'management' && !setupOpen ? (
+      </header>
+
+      <div className="smart-budget-mode-switch" aria-label="智能预算模式">
+        {!confirmedPlan ? (
           <button
             type="button"
-            className="smart-budget-inline-link"
+            className={mode === 'setup' ? 'active' : ''}
             onClick={() => {
               setMode('setup');
               setSetupOpen(true);
             }}
           >
-            展开预算设置
+            预算设置
           </button>
         ) : null}
-      </header>
-
-      <div className="smart-budget-mode-switch" aria-label="智能预算模式">
-        <button
-          type="button"
-          className={mode === 'setup' ? 'active' : ''}
-          onClick={() => {
-            setMode('setup');
-            setSetupOpen(true);
-          }}
-        >
-          预算设置
-        </button>
         <button
           type="button"
           className={mode === 'management' ? 'active' : ''}
