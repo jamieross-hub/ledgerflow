@@ -92,6 +92,158 @@ function maskMerchant(value: string): string {
   return `${value.slice(0, 2)}***${value.slice(-2)}`;
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildPrintStyles(): string {
+  return `
+    @page {
+      size: A4;
+      margin: 12mm;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      font-size: 12px;
+      line-height: 1.6;
+      background: #fff;
+    }
+
+    .sheet {
+      width: 100%;
+      min-height: calc(297mm - 24mm);
+      border: 1px solid #dbe3f0;
+      border-radius: 10px;
+      padding: 14mm;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .sub {
+      margin: 4px 0 0;
+      color: #64748b;
+      font-size: 11px;
+    }
+
+    .amount {
+      text-align: right;
+      font-size: 20px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .amount.income {
+      color: #16a34a;
+    }
+
+    .amount.expense {
+      color: #dc2626;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 14px;
+      margin-bottom: 12px;
+    }
+
+    .kv {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: #f8fafc;
+    }
+
+    .kv label {
+      display: block;
+      color: #64748b;
+      font-size: 11px;
+      margin-bottom: 2px;
+    }
+
+    .kv strong {
+      font-weight: 600;
+      color: #0f172a;
+      word-break: break-word;
+    }
+
+    .section {
+      margin-top: 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff;
+    }
+
+    .section h3 {
+      margin: 0 0 8px;
+      font-size: 13px;
+    }
+
+    .section p {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tag {
+      border: 1px solid #c7d2fe;
+      color: #1d4ed8;
+      background: #eff6ff;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 11px;
+    }
+
+    .footer {
+      margin-top: 16px;
+      color: #94a3b8;
+      font-size: 10px;
+      text-align: right;
+    }
+
+    @media print {
+      .sheet {
+        border: none;
+        border-radius: 0;
+        padding: 0;
+      }
+    }
+  `;
+}
+
 interface TransactionDetailDrawerProps {
   open: boolean;
   transaction: TransactionItem | null;
@@ -139,6 +291,85 @@ export function TransactionDetailDrawer({
   const setDetailMode = (next: DetailMode) => {
     setMode(next);
     window.localStorage.setItem(DETAIL_MODE_STORAGE_KEY, next);
+  };
+
+  const handlePrint = () => {
+    if (!transaction) {
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=980,height=760');
+    if (!printWindow) {
+      return;
+    }
+
+    const amountText = `${transaction.type === 'income' ? '+' : '-'}${formatCurrency(transaction.amount)}`;
+    const typeText =
+      transaction.type === 'income'
+        ? '收入'
+        : transaction.type === 'expense'
+          ? '支出'
+          : transaction.type === 'budget'
+            ? '预算'
+            : '还款';
+
+    const statusText = transaction.status ? statusLabel(transaction.status) : '—';
+    const noteText = transaction.note?.trim() || '（无）';
+    const tagsHtml =
+      transaction.tags.length > 0
+        ? transaction.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('')
+        : '<span>（无）</span>';
+
+    const html = `
+      <!doctype html>
+      <html lang="zh-CN">
+        <head>
+          <meta charset="utf-8" />
+          <title>账单详情打印 - ${escapeHtml(transaction.id)}</title>
+          <style>${buildPrintStyles()}</style>
+        </head>
+        <body>
+          <main class="sheet">
+            <header class="header">
+              <div>
+                <h1 class="title">账单详情</h1>
+                <p class="sub">交易编号：${escapeHtml(transaction.id)}</p>
+              </div>
+              <div class="amount ${transaction.type === 'income' ? 'income' : 'expense'}">${escapeHtml(amountText)}</div>
+            </header>
+
+            <section class="grid">
+              <div class="kv"><label>日期时间</label><strong>${escapeHtml(formatDateTime(transaction.date))}</strong></div>
+              <div class="kv"><label>类型</label><strong>${escapeHtml(typeText)}</strong></div>
+              <div class="kv"><label>分类</label><strong>${escapeHtml(categoryName)}</strong></div>
+              <div class="kv"><label>账户</label><strong>${escapeHtml(accountName)}</strong></div>
+              <div class="kv"><label>来源</label><strong>${escapeHtml(sourceLabel(source))}</strong></div>
+              <div class="kv"><label>交易状态</label><strong>${escapeHtml(statusText)}</strong></div>
+              <div class="kv"><label>订单号</label><strong>${escapeHtml(transaction.orderNo || '—')}</strong></div>
+              <div class="kv"><label>商家订单号</label><strong>${escapeHtml(transaction.merchantOrderNo || '—')}</strong></div>
+            </section>
+
+            <section class="section">
+              <h3>备注</h3>
+              <p>${escapeHtml(noteText)}</p>
+            </section>
+
+            <section class="section">
+              <h3>标签</h3>
+              <div class="tags">${tagsHtml}</div>
+            </section>
+
+            <footer class="footer">打印时间：${escapeHtml(new Date().toLocaleString('zh-CN', { hour12: false }))}</footer>
+          </main>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
   };
 
   // 打开时禁止 body 滚动
@@ -451,6 +682,9 @@ export function TransactionDetailDrawer({
           </button>
           <button type="button" onClick={onCopyJson}>
             复制 JSON
+          </button>
+          <button type="button" onClick={handlePrint}>
+            🖨️ 打印 A4
           </button>
           <Link to={`/transactions/${transaction.id}`} style={{ textDecoration: 'none' }}>
             <button type="button">✏️ 编辑</button>
