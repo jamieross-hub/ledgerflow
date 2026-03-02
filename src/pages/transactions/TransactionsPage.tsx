@@ -64,6 +64,26 @@ const DEFAULT_QUICK_FILTERS: TransactionQuickFilters = {
 
 const TX_SEARCH_HISTORY_KEY = 'ledgerflow.transactions.searchHistory';
 
+function easeOutCubic(t: number) {
+  const p = Math.min(Math.max(t, 0), 1);
+  return 1 - (1 - p) ** 3;
+}
+
+function buildPieGradient(
+  segments: Array<{ color: string; percent: number }>,
+  minPercent = 0.05
+): string {
+  let cursor = 0;
+  const gradientSegments = segments
+    .filter((item) => item.percent > minPercent)
+    .map((item) => {
+      const start = cursor;
+      cursor += item.percent;
+      return `${item.color} ${start}% ${cursor}%`;
+    });
+  return gradientSegments.length ? `conic-gradient(${gradientSegments.join(',')})` : 'none';
+}
+
 function extractLocation(note: string): string {
   const match = note.match(/(?:@|在|于|地点[:：])\s*([\u4e00-\u9fa5A-Za-z0-9·\-\s]{2,20})/);
   return match?.[1]?.trim() || '';
@@ -429,6 +449,7 @@ export function TransactionsPage() {
   const [quickAddNote, setQuickAddNote] = useState('');
   const [quickAddError, setQuickAddError] = useState('');
   const [tablePanelWidth, setTablePanelWidth] = useState(860);
+  const [pieAnimationProgress, setPieAnimationProgress] = useState(1);
   const [splitLayoutStacked, setSplitLayoutStacked] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 1100px)').matches : false
   );
@@ -1509,6 +1530,27 @@ export function TransactionsPage() {
       .slice(0, 7);
   }, [viewRows]);
 
+  useEffect(() => {
+    let raf = 0;
+    let start = 0;
+    const duration = 420;
+    setPieAnimationProgress(0);
+
+    const tick = (now: number) => {
+      if (!start) {
+        start = now;
+      }
+      const progress = Math.min(1, (now - start) / duration);
+      setPieAnimationProgress(easeOutCubic(progress));
+      if (progress < 1) {
+        raf = window.requestAnimationFrame(tick);
+      }
+    };
+
+    raf = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(raf);
+  }, [categoryPieData]);
+
   const curveData = useMemo(() => {
     let running = 0;
     return [...viewRows]
@@ -1530,14 +1572,12 @@ export function TransactionsPage() {
   }, [curveData]);
 
   const pieGradient = useMemo(() => {
-    let cursor = 0;
-    const segments = categoryPieData.map((item) => {
-      const start = cursor;
-      cursor += item.percent;
-      return `${item.color} ${start}% ${cursor}%`;
-    });
-    return segments.length ? `conic-gradient(${segments.join(',')})` : 'none';
-  }, [categoryPieData]);
+    const animatedSegments = categoryPieData.map((item) => ({
+      color: item.color,
+      percent: item.percent * pieAnimationProgress
+    }));
+    return buildPieGradient(animatedSegments);
+  }, [categoryPieData, pieAnimationProgress]);
 
   return (
     <div className="transactions-page">
@@ -1703,7 +1743,10 @@ export function TransactionsPage() {
           <div className="transactions-side-chart-card">
             <h4>分类占比饼图（当前列表）</h4>
             <div className="transactions-pie-wrap">
-              <div className="transactions-pie" style={{ background: pieGradient }} />
+              <div
+                className="transactions-pie"
+                style={{ background: pieGradient, opacity: 0.7 + pieAnimationProgress * 0.3 }}
+              />
               <div className="transactions-pie-legend">
                 {categoryPieData.length === 0 ? <p className="muted">暂无数据</p> : null}
                 {categoryPieData.map((item) => (
