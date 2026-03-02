@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { extractJsonString } from '../../features/assistant/workbench/workbenchUtils';
@@ -11,7 +11,7 @@ import {
   BillImportParseSummary,
   parseBillFileToTransactionsDetailed
 } from '../../shared/lib/billImport';
-import { formatDate } from '../../shared/lib/format';
+import { formatCurrency, formatDate } from '../../shared/lib/format';
 import { resolveImportDefaultAccountId } from '../../shared/lib/importAccount';
 import { Toast, ToastVariant } from '../../shared/ui/Toast';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
@@ -428,8 +428,10 @@ export function TransactionsPage() {
   const [quickAddDate, setQuickAddDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [quickAddNote, setQuickAddNote] = useState('');
   const [quickAddError, setQuickAddError] = useState('');
+  const [tablePanelWidth, setTablePanelWidth] = useState(860);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const splitLayoutRef = useRef<HTMLDivElement | null>(null);
   const importSourceRef = useRef<BillSource | null>(null);
   const bulkAiRecategorizingRef = useRef(false);
   const bulkAiCancelRequestedRef = useRef(false);
@@ -1254,20 +1256,49 @@ export function TransactionsPage() {
     }
   };
 
-  const hasQuickFilters =
-    quickFilters.date.trim().length > 0 ||
-    quickFilters.type !== 'all' ||
-    quickFilters.status !== 'all' ||
-    quickFilters.category.trim().length > 0 ||
-    quickFilters.account.trim().length > 0 ||
-    quickFilters.amountMin.trim().length > 0 ||
-    quickFilters.amountMax.trim().length > 0 ||
-    quickFilters.tags.trim().length > 0 ||
-    quickFilters.merchant.trim().length > 0 ||
-    quickFilters.location.trim().length > 0 ||
-    quickFilters.orderNo.trim().length > 0 ||
-    quickFilters.merchantOrderNo.trim().length > 0 ||
-    quickFilters.note.trim().length > 0;
+  useEffect(() => {
+    if (!splitLayoutRef.current) {
+      return;
+    }
+    const container = splitLayoutRef.current;
+
+    const resizeObserver = new ResizeObserver(() => {
+      const total = container.getBoundingClientRect().width;
+      const maxLeft = Math.max(560, total - 320);
+      setTablePanelWidth((prev) => Math.min(Math.max(prev, 560), maxLeft));
+    });
+
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  const handleSplitDividerMouseDown = (event: ReactMouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const container = splitLayoutRef.current;
+    if (!container) {
+      return;
+    }
+
+    const rect = container.getBoundingClientRect();
+    const minLeft = 560;
+    const minRight = 320;
+    const maxLeft = Math.max(minLeft, rect.width - minRight);
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const nextWidth = Math.min(Math.max(moveEvent.clientX - rect.left, minLeft), maxLeft);
+      setTablePanelWidth(nextWidth);
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      document.body.classList.remove('transactions-split-resizing');
+    };
+
+    document.body.classList.add('transactions-split-resizing');
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
 
   const handleQuickFilterChange = <K extends keyof TransactionQuickFilters>(
     key: K,
@@ -1411,6 +1442,21 @@ export function TransactionsPage() {
     });
   };
 
+  const hasQuickFilters =
+    quickFilters.date.trim().length > 0 ||
+    quickFilters.type !== 'all' ||
+    quickFilters.status !== 'all' ||
+    quickFilters.category.trim().length > 0 ||
+    quickFilters.account.trim().length > 0 ||
+    quickFilters.amountMin.trim().length > 0 ||
+    quickFilters.amountMax.trim().length > 0 ||
+    quickFilters.tags.trim().length > 0 ||
+    quickFilters.merchant.trim().length > 0 ||
+    quickFilters.location.trim().length > 0 ||
+    quickFilters.orderNo.trim().length > 0 ||
+    quickFilters.merchantOrderNo.trim().length > 0 ||
+    quickFilters.note.trim().length > 0;
+
   const selectedSource = selected
     ? detectSource(selected.source, selected.note, selected.tags)
     : 'manual';
@@ -1432,6 +1478,55 @@ export function TransactionsPage() {
     });
     return { min, max };
   }, [transactions]);
+
+  const categoryPieData = useMemo(() => {
+    const map = new Map<string, number>();
+    viewRows.forEach((row) => {
+      const amount = Math.abs(Number(row.item.amount) || 0);
+      map.set(row.categoryName || '未分类', (map.get(row.categoryName || '未分类') || 0) + amount);
+    });
+    const total = Array.from(map.values()).reduce((sum, value) => sum + value, 0);
+    const colors = ['#4f8cff', '#6ad7b9', '#f6a623', '#ff6b6b', '#9b6bff', '#14b8a6', '#64748b'];
+    return Array.from(map.entries())
+      .map(([name, amount], index) => ({
+        name,
+        amount,
+        percent: total > 0 ? (amount / total) * 100 : 0,
+        color: colors[index % colors.length]
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 7);
+  }, [viewRows]);
+
+  const curveData = useMemo(() => {
+    let running = 0;
+    return [...viewRows]
+      .map((row) => row.item)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .map((item) => {
+        const signed = item.type === 'income' ? item.amount : -item.amount;
+        running += Number.isFinite(signed) ? signed : 0;
+        return {
+          label: formatDate(item.date),
+          value: running
+        };
+      });
+  }, [viewRows]);
+
+  const curveMaxAbs = useMemo(() => {
+    const values = curveData.map((item) => Math.abs(item.value));
+    return Math.max(1, ...values);
+  }, [curveData]);
+
+  const pieGradient = useMemo(() => {
+    let cursor = 0;
+    const segments = categoryPieData.map((item) => {
+      const start = cursor;
+      cursor += item.percent;
+      return `${item.color} ${start}% ${cursor}%`;
+    });
+    return segments.length ? `conic-gradient(${segments.join(',')})` : 'none';
+  }, [categoryPieData]);
 
   return (
     <div className="transactions-page">
@@ -1458,6 +1553,8 @@ export function TransactionsPage() {
         minAvailableDate={availableDateBounds.min}
         maxAvailableDate={availableDateBounds.max}
         onQuickAdd={openQuickAddDrawer}
+        privacyMode={privacyMode}
+        onTogglePrivacy={() => setPrivacyMode((prev) => !prev)}
       />
 
       {bulkAiProgress.visible ? (
@@ -1518,70 +1615,113 @@ export function TransactionsPage() {
         onChange={(event) => void handleImportFile(event)}
       />
 
-      <div className="row" style={{ justifyContent: 'flex-end' }}>
-        <button
-          type="button"
-          aria-pressed={privacyMode}
-          aria-label="切换交易隐私模式（隐藏金额与商户名）"
-          onClick={() => setPrivacyMode((prev) => !prev)}
+      <div className="transactions-split-layout" ref={splitLayoutRef}>
+        <section
+          className="transactions-split-main"
+          style={{ width: tablePanelWidth, maxWidth: '100%', minWidth: 560 }}
         >
-          {privacyMode ? '🙈 关闭隐私模式' : '🕶️ 开启隐私模式'}
-        </button>
-      </div>
+          <TransactionTable
+            pageSize={pageSize}
+            pageSizeOptions={[...PAGE_SIZE_OPTIONS]}
+            rows={viewRows}
+            total={transactions.length}
+            filteredTotal={sortedRows.length}
+            page={page}
+            pages={pages}
+            loading={loading}
+            errorMessage={errorMessage}
+            hasFilters={isFiltered || hasQuickFilters}
+            highlightId={highlightId}
+            onRetry={() => setErrorMessage('')}
+            privacyMode={privacyMode}
+            onClearFilters={clearAllFilters}
+            sortKey={sortKey}
+            sortDirection={sortDirection}
+            quickFilters={quickFilters}
+            onSortChange={handleSortChange}
+            onQuickFilterChange={handleQuickFilterChange}
+            onFirstPage={() => setPage(1)}
+            onPrevPage={() => setPage(Math.max(1, page - 1))}
+            onNextPage={() => setPage(Math.min(pages, page + 1))}
+            onLastPage={() => setPage(pages)}
+            onPageSizeChange={(size) => {
+              // 切换页大小后重置到第一页，避免超页码导致用户误解“数据丢失”。
+              setPageSize(size);
+              setPage(1);
+            }}
+            onOpenDetail={setSelectedId}
+            selectedIds={selectedIds}
+            bulkSelectionEnabled={bulkSelectionEnabled}
+            canSelectAllOnPage={canSelectAllOnPage}
+            allPageSelected={allPageSelected}
+            onDelete={(id) => setPendingDeleteIds([id])}
+            onDeleteSelected={handleDeleteSelected}
+            onBulkEditCategory={handleBulkEditCategory}
+            onBulkAiRecategorize={() => void handleBulkAiRecategorize()}
+            bulkAiRecategorizing={bulkAiRecategorizing}
+            onBulkEditAccount={handleBulkEditAccount}
+            categoryOptions={categories.map((item) => ({ id: item.id, name: item.name }))}
+            accountOptions={accounts.map((item) => ({ id: item.id, name: item.name }))}
+            onClearSelection={() => setSelectedIds([])}
+            onToggleSelect={handleToggleSelect}
+            onToggleSelectPage={handleToggleSelectPage}
+            visibleColumns={visibleColumns}
+            columnOrder={columnOrder}
+            onColumnReorder={handleColumnReorder}
+            columnWidths={columnWidths}
+            onColumnResize={handleColumnResize}
+            minAvailableDate={availableDateBounds.min}
+            maxAvailableDate={availableDateBounds.max}
+          />
+        </section>
 
-      <TransactionTable
-        pageSize={pageSize}
-        pageSizeOptions={[...PAGE_SIZE_OPTIONS]}
-        rows={viewRows}
-        total={transactions.length}
-        filteredTotal={sortedRows.length}
-        page={page}
-        pages={pages}
-        loading={loading}
-        errorMessage={errorMessage}
-        hasFilters={isFiltered || hasQuickFilters}
-        highlightId={highlightId}
-        onRetry={() => setErrorMessage('')}
-        privacyMode={privacyMode}
-        onClearFilters={clearAllFilters}
-        sortKey={sortKey}
-        sortDirection={sortDirection}
-        quickFilters={quickFilters}
-        onSortChange={handleSortChange}
-        onQuickFilterChange={handleQuickFilterChange}
-        onFirstPage={() => setPage(1)}
-        onPrevPage={() => setPage(Math.max(1, page - 1))}
-        onNextPage={() => setPage(Math.min(pages, page + 1))}
-        onLastPage={() => setPage(pages)}
-        onPageSizeChange={(size) => {
-          // 切换页大小后重置到第一页，避免超页码导致用户误解“数据丢失”。
-          setPageSize(size);
-          setPage(1);
-        }}
-        onOpenDetail={setSelectedId}
-        selectedIds={selectedIds}
-        bulkSelectionEnabled={bulkSelectionEnabled}
-        canSelectAllOnPage={canSelectAllOnPage}
-        allPageSelected={allPageSelected}
-        onDelete={(id) => setPendingDeleteIds([id])}
-        onDeleteSelected={handleDeleteSelected}
-        onBulkEditCategory={handleBulkEditCategory}
-        onBulkAiRecategorize={() => void handleBulkAiRecategorize()}
-        bulkAiRecategorizing={bulkAiRecategorizing}
-        onBulkEditAccount={handleBulkEditAccount}
-        categoryOptions={categories.map((item) => ({ id: item.id, name: item.name }))}
-        accountOptions={accounts.map((item) => ({ id: item.id, name: item.name }))}
-        onClearSelection={() => setSelectedIds([])}
-        onToggleSelect={handleToggleSelect}
-        onToggleSelectPage={handleToggleSelectPage}
-        visibleColumns={visibleColumns}
-        columnOrder={columnOrder}
-        onColumnReorder={handleColumnReorder}
-        columnWidths={columnWidths}
-        onColumnResize={handleColumnResize}
-        minAvailableDate={availableDateBounds.min}
-        maxAvailableDate={availableDateBounds.max}
-      />
+        <div
+          className="transactions-split-divider"
+          role="separator"
+          aria-label="调整账单列表与图表区域宽度"
+          aria-orientation="vertical"
+          onMouseDown={handleSplitDividerMouseDown}
+        />
+
+        <aside className="transactions-split-side panel" aria-label="当前账单图表视图">
+          <h3 style={{ marginTop: 0 }}>当前账单视图</h3>
+          <div className="transactions-side-chart-card">
+            <h4>分类占比饼图（当前列表）</h4>
+            <div className="transactions-pie-wrap">
+              <div className="transactions-pie" style={{ background: pieGradient }} />
+              <div className="transactions-pie-legend">
+                {categoryPieData.length === 0 ? <p className="muted">暂无数据</p> : null}
+                {categoryPieData.map((item) => (
+                  <p key={item.name}>
+                    <span style={{ color: item.color }}>●</span> {item.name} · {item.percent.toFixed(1)}% ·{' '}
+                    {formatCurrency(item.amount)}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="transactions-side-chart-card">
+            <h4>累计净额曲线（当前列表）</h4>
+            <div className="transactions-curve-list">
+              {curveData.length === 0 ? <p className="muted">暂无数据</p> : null}
+              {curveData.map((point, index) => (
+                <div key={`${point.label}-${index}`} className="transactions-curve-row">
+                  <span>{point.label}</span>
+                  <div>
+                    <i
+                      style={{
+                        width: `${(Math.abs(point.value) / curveMaxAbs) * 100}%`
+                      }}
+                    />
+                  </div>
+                  <strong>{formatCurrency(point.value)}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </div>
 
       <TransactionDetailDrawer
         open={Boolean(selected)}

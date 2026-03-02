@@ -1,7 +1,6 @@
 import { Account } from '../../entities/account/types';
 import { Category } from '../../entities/category/types';
 import { TransactionItem } from '../../entities/transaction/types';
-import { DebtItem } from '../../features/debt/model/debtMetrics';
 
 const BACKUP_KEY = 'ledgerflow-backup-webdav-v1';
 const BACKUP_PASSWORD_SESSION_KEY = 'ledgerflow-backup-webdav-password';

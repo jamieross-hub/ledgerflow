@@ -31,6 +31,8 @@ interface TransactionFiltersProps {
   minAvailableDate?: string;
   maxAvailableDate?: string;
   onQuickAdd: () => void;
+  privacyMode: boolean;
+  onTogglePrivacy: () => void;
 }
 
 export function TransactionFilters({
@@ -55,7 +57,9 @@ export function TransactionFilters({
   onToggleBulkSelection,
   minAvailableDate,
   maxAvailableDate,
-  onQuickAdd
+  onQuickAdd,
+  privacyMode,
+  onTogglePrivacy
 }: TransactionFiltersProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -177,6 +181,9 @@ export function TransactionFilters({
           onClick={onToggleBulkSelection}
         >
           批量操作
+        </button>
+        <button type="button" className="transaction-filter-trigger" onClick={onTogglePrivacy}>
+          {privacyMode ? '🙈 关闭隐私模式' : '🕶️ 开启隐私模式'}
         </button>
         <div className={`transaction-filter-popover ${menuOpen ? 'open' : ''}`}>
           <button

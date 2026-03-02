@@ -48,6 +48,8 @@ describe('TransactionFilters', () => {
           minAvailableDate="2026-02-01"
           maxAvailableDate="2026-02-28"
           onQuickAdd={() => undefined}
+          privacyMode={false}
+          onTogglePrivacy={() => undefined}
         />
       </MemoryRouter>
     );

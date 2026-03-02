@@ -123,6 +123,17 @@ export function AppLayout() {
   const monthExpense = monthSummary.expenseTotal;
   const monthBalance = monthSummary.netTotal;
 
+  const todayTransactions = transactions.filter((item) => {
+    const date = new Date(item.date);
+    const now = new Date();
+    return (
+      date.getDate() === now.getDate() &&
+      date.getMonth() === now.getMonth() &&
+      date.getFullYear() === now.getFullYear()
+    );
+  });
+  const todaySummary = summarizeTransactions(todayTransactions);
+
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
       if (!draggingRef.current || collapsed) {
@@ -228,6 +239,26 @@ export function AppLayout() {
             {collapsed ? '»' : '«'}
           </button>
         </div>
+
+        {collapsed ? null : (
+          <section className="sidebar-assistant-today-card" aria-label="AI 助手今日概览">
+            <h4>AI 助手 · 今日概览</h4>
+            <p>
+              <span>今日收入</span>
+              <strong>{formatCurrency(todaySummary.incomeTotal)}</strong>
+            </p>
+            <p>
+              <span>今日支出</span>
+              <strong>{formatCurrency(todaySummary.expenseTotal)}</strong>
+            </p>
+            <p>
+              <span>今日净额</span>
+              <strong className={todaySummary.netTotal >= 0 ? 'text-income' : 'text-expense'}>
+                {formatCurrency(todaySummary.netTotal)}
+              </strong>
+            </p>
+          </section>
+        )}
 
         {collapsed ? null : (
           <section className="sidebar-overview-card">

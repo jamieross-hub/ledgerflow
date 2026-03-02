@@ -1091,20 +1091,6 @@ export function AssistantPage() {
                 <h2>🤖 你好，我是你的财务助手</h2>
                 <p>先看关键数据，再像聊天一样提问，我会主动给你可执行建议。</p>
               </div>
-              <div className="chat-overview-grid" aria-label="今日概览">
-                <article className="chat-overview-card">
-                  <span>今日收入</span>
-                  <strong>¥{assistantOverview.todayIncome.toFixed(2)}</strong>
-                </article>
-                <article className="chat-overview-card">
-                  <span>今日支出</span>
-                  <strong>¥{assistantOverview.todayExpense.toFixed(2)}</strong>
-                </article>
-                <article className="chat-overview-card">
-                  <span>今日净额</span>
-                  <strong>¥{assistantOverview.todayNet.toFixed(2)}</strong>
-                </article>
-              </div>
               <div className="chat-auto-insight-block">
                 <p>
                   <strong>本月消费总结：</strong>
