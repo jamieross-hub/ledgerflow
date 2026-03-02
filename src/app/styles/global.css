@@ -4638,6 +4638,12 @@ small.mono {
   background: var(--color-bg-subtle);
 }
 
+.quick-add-key-primary {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary-border);
+}
+
 .quick-add-footer {
   display: flex;
   justify-content: flex-end;

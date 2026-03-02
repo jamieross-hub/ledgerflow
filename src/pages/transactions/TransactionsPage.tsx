@@ -84,6 +84,80 @@ function buildPieGradient(
   return gradientSegments.length ? `conic-gradient(${gradientSegments.join(',')})` : 'none';
 }
 
+const CALCULATOR_ALLOWED_FUNCS = new Set([
+  'sin',
+  'cos',
+  'tan',
+  'asin',
+  'acos',
+  'atan',
+  'sqrt',
+  'log',
+  'ln',
+  'abs',
+  'floor',
+  'ceil',
+  'round',
+  'pow',
+  'PI',
+  'E'
+]);
+
+function evaluateCalculatorExpression(rawExpression: string): number | null {
+  const normalized = rawExpression.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const canonical = normalized
+    .replace(/[×xX]/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/，/g, ',')
+    .replace(/π/gi, 'PI')
+    .replace(/\bpi\b/gi, 'PI')
+    .replace(/\blog\(/gi, 'Math.log10(')
+    .replace(/\bln\(/gi, 'Math.log(')
+    .replace(/\bsin\(/gi, 'Math.sin(')
+    .replace(/\bcos\(/gi, 'Math.cos(')
+    .replace(/\btan\(/gi, 'Math.tan(')
+    .replace(/\basin\(/gi, 'Math.asin(')
+    .replace(/\bacos\(/gi, 'Math.acos(')
+    .replace(/\batan\(/gi, 'Math.atan(')
+    .replace(/\bsqrt\(/gi, 'Math.sqrt(')
+    .replace(/\babs\(/gi, 'Math.abs(')
+    .replace(/\bfloor\(/gi, 'Math.floor(')
+    .replace(/\bceil\(/gi, 'Math.ceil(')
+    .replace(/\bround\(/gi, 'Math.round(')
+    .replace(/\bpow\(/gi, 'Math.pow(')
+    .replace(/\bE\b/g, 'Math.E')
+    .replace(/\bPI\b/g, 'Math.PI')
+    .replace(/\^/g, '**');
+
+  if (!/^[0-9+\-*/%().,\sA-Za-z]*$/.test(canonical)) {
+    return null;
+  }
+
+  const words = canonical.match(/[A-Za-z_]+/g) || [];
+  const isSafe = words.every((word) =>
+    ['Math', ...Array.from(CALCULATOR_ALLOWED_FUNCS)].some(
+      (allowed) => allowed.toLowerCase() === word.toLowerCase()
+    )
+  );
+  if (!isSafe) {
+    return null;
+  }
+
+  try {
+    const result = Function(`"use strict"; return (${canonical});`)() as number;
+    if (!Number.isFinite(result)) {
+      return null;
+    }
+    return Math.round(result * 1000000) / 1000000;
+  } catch {
+    return null;
+  }
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, '&amp;')
@@ -487,6 +561,8 @@ export function TransactionsPage() {
   const [quickAddCategoryId, setQuickAddCategoryId] = useState('');
   const [quickAddAccountId, setQuickAddAccountId] = useState('');
   const [quickAddAmount, setQuickAddAmount] = useState('');
+  const [quickAddExpression, setQuickAddExpression] = useState('');
+  const [quickAddCalculatedAmount, setQuickAddCalculatedAmount] = useState<number | null>(null);
   const [quickAddDate, setQuickAddDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [quickAddNote, setQuickAddNote] = useState('');
   const [quickAddError, setQuickAddError] = useState('');
@@ -851,6 +927,8 @@ export function TransactionsPage() {
   const resetQuickAddForm = () => {
     setQuickAddType('expense');
     setQuickAddAmount('');
+    setQuickAddExpression('');
+    setQuickAddCalculatedAmount(null);
     setQuickAddDate(new Date().toISOString().slice(0, 10));
     setQuickAddNote('');
     setQuickAddError('');
@@ -868,25 +946,88 @@ export function TransactionsPage() {
   };
 
   const handleQuickAddKeypadInput = (key: string) => {
-    setQuickAddAmount((prev) => {
+    setQuickAddExpression((prev) => {
       if (key === 'clear') return '';
       if (key === 'backspace') return prev.slice(0, -1);
-      if (key === '.') {
-        if (!prev) return '0.';
-        if (prev.includes('.')) return prev;
-        return `${prev}.`;
+      if (key === '=') {
+        const evaluated = evaluateCalculatorExpression(prev);
+        return evaluated === null ? prev : String(evaluated);
       }
       if (key === '00') {
         if (!prev || prev === '0') return prev;
         return `${prev}00`;
       }
-      if (prev === '0') return key;
       return `${prev}${key}`;
     });
     if (quickAddError) {
       setQuickAddError('');
     }
   };
+
+  useEffect(() => {
+    const evaluated = evaluateCalculatorExpression(quickAddExpression);
+    setQuickAddCalculatedAmount(evaluated);
+    if (evaluated === null) {
+      setQuickAddAmount(quickAddExpression.trim());
+      return;
+    }
+    setQuickAddAmount(String(evaluated));
+  }, [quickAddExpression]);
+
+  useEffect(() => {
+    if (!quickAddOpen) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA' || active?.tagName === 'SELECT') {
+        const id = active.getAttribute('id') || '';
+        if (id && id !== 'quick-add-expression') {
+          return;
+        }
+      }
+
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        handleQuickAddKeypadInput('=');
+        return;
+      }
+      if (event.key === 'Backspace') {
+        event.preventDefault();
+        handleQuickAddKeypadInput('backspace');
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeQuickAddDrawer();
+        return;
+      }
+      if (event.key === '=') {
+        event.preventDefault();
+        handleQuickAddKeypadInput('=');
+        return;
+      }
+
+      if (/^[0-9.+\-*/()%]$/.test(event.key)) {
+        event.preventDefault();
+        handleQuickAddKeypadInput(event.key);
+        return;
+      }
+
+      if (event.key === '^') {
+        event.preventDefault();
+        handleQuickAddKeypadInput('^');
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [quickAddOpen, closeQuickAddDrawer, handleQuickAddKeypadInput]);
 
   const handleSaveQuickAdd = () => {
     if (!quickAddCategoryId) {
@@ -1968,7 +2109,21 @@ export function TransactionsPage() {
             </header>
 
             <div className="quick-add-body">
-              <div className="quick-add-amount-display">{quickAddAmount || '0'}</div>
+              <div className="quick-add-amount-display">
+                {quickAddCalculatedAmount !== null ? quickAddCalculatedAmount : quickAddAmount || '0'}
+              </div>
+              <div className="field" style={{ marginBottom: 10 }}>
+                <label htmlFor="quick-add-expression">金额表达式（支持科学计算）</label>
+                <input
+                  id="quick-add-expression"
+                  placeholder="例如：100+20*3 或 sqrt(81)+sin(0)"
+                  value={quickAddExpression}
+                  onChange={(event) => setQuickAddExpression(event.target.value)}
+                />
+                <small style={{ color: 'var(--color-text-secondary)' }}>
+                  支持：+ - * / % ( ) ^、sqrt/log/ln/sin/cos/tan、PI、E，回车可快速计算。
+                </small>
+              </div>
               <div className="quick-add-row">
                 <div className="field" style={{ marginBottom: 0 }}>
                   <label htmlFor="quick-add-type">类型</label>
@@ -2033,8 +2188,37 @@ export function TransactionsPage() {
                 />
               </div>
 
-              <div className="quick-add-keypad" role="group" aria-label="金额数字键盘">
-                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '00'].map((key) => (
+              <div className="quick-add-keypad" role="group" aria-label="金额科学键盘">
+                {[
+                  'sin(',
+                  'cos(',
+                  'tan(',
+                  'log(',
+                  'ln(',
+                  'sqrt(',
+                  '(',
+                  ')',
+                  '^',
+                  '%',
+                  '7',
+                  '8',
+                  '9',
+                  '/',
+                  '4',
+                  '5',
+                  '6',
+                  '*',
+                  '1',
+                  '2',
+                  '3',
+                  '-',
+                  '0',
+                  '.',
+                  '00',
+                  '+',
+                  'PI',
+                  'E'
+                ].map((key) => (
                   <button
                     key={key}
                     type="button"
@@ -2057,6 +2241,13 @@ export function TransactionsPage() {
                   onClick={() => handleQuickAddKeypadInput('clear')}
                 >
                   清空
+                </button>
+                <button
+                  type="button"
+                  className="quick-add-key quick-add-key-primary"
+                  onClick={() => handleQuickAddKeypadInput('=')}
+                >
+                  =
                 </button>
               </div>
 
