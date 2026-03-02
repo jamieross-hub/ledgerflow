@@ -232,12 +232,23 @@ export function applyBillImportMode(input: ApplyBillImportModeInput): ApplyBillI
   };
 }
 
-function parseType(row: Record<string, string>, amountRaw: string): TransactionItem['type'] {
+function parseType(
+  row: Record<string, string>,
+  amountRaw: string,
+  source: BillSource
+): TransactionItem['type'] {
   const cashflowText = pickByKeys(row, ['收/支', '收支类型']).trim();
   const typeText = pickByKeys(row, TYPE_KEYS);
   const statusText = pickByKeys(row, STATUS_KEYS);
   const noteText = buildNote(row);
+  const refundAmountRaw =
+    pickByKeys(row, ['成功退款（元）', '成功退款(元)', '退款金额']) || row['成功退款（元）'] || '';
+  const refundAmount = parseAmount(refundAmountRaw);
   const all = `${cashflowText} ${typeText} ${statusText} ${noteText} ${amountRaw}`;
+
+  if (refundAmount > 0) {
+    return 'income';
+  }
 
   if (/花呗还款|信用卡还款|借呗还款|还款|自动还款/i.test(all)) {
     return 'repayment';
@@ -251,7 +262,7 @@ function parseType(row: Record<string, string>, amountRaw: string): TransactionI
     return 'expense';
   }
 
-  if (/支出|付款|消费|转出|支付|扣款|支/i.test(cashflowText)) {
+  if (/支出|付款|消费|转出|支付|扣款|支|֧��/i.test(cashflowText)) {
     return 'expense';
   }
 
@@ -265,6 +276,10 @@ function parseType(row: Record<string, string>, amountRaw: string): TransactionI
 
   if (/收入|收款|入账|转入|收入到账|到账/i.test(all)) {
     return 'income';
+  }
+
+  if (source === 'alipay') {
+    return 'expense';
   }
 
   return amountRaw.trim().startsWith('-') ? 'expense' : 'income';
@@ -426,7 +441,7 @@ function buildTransactionFromLine(
   const status = parseStatus(row);
 
   return {
-    type: parseType(row, amountRaw),
+    type: parseType(row, amountRaw, input.source),
     amount,
     date: parseDate(dateRaw),
     note: buildNote(row),

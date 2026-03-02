@@ -88,6 +88,26 @@ describe('parseBillCsvToTransactions', () => {
     expect(rows[1].type).toBe('repayment');
   });
 
+  it('支付宝乱码头部下应仍按默认规则识别为支出，且退款金额列优先识别收入', () => {
+    const csvText = [
+      '支付宝交易记录明细查询',
+      '交易号,金额（元）,收/支,交易状态,成功退款（元）,交易对方,商品名称',
+      'A1,16.99,֧��,交易成功,0,淘宝,Gemini 3 Pro',
+      'A2,1.80,֧��,交易关闭,1.80,淘宝,Gemini 3 Pro API'
+    ].join('\n');
+
+    const rows = parseBillCsvToTransactions({
+      csvText,
+      source: 'alipay',
+      defaultCategoryId: 'cat-default',
+      defaultAccountId: 'acc-default'
+    });
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0].type).toBe('expense');
+    expect(rows[1].type).toBe('income');
+  });
+
   it('异步解析在大体量账单下与同步解析结果一致', async () => {
     const header = '交易号,商家订单号,交易创建时间,金额（元）,收/支,交易状态,交易对方,商品名称';
     const body = Array.from({ length: 1200 }, (_, index) => {
