@@ -72,6 +72,33 @@ body {
   box-shadow: 8px 0 20px color-mix(in srgb, var(--color-text) 8%, transparent);
 }
 
+.sidebar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -6px;
+  width: 12px;
+  height: 100%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  pointer-events: none;
+}
+
+.sidebar::before {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 60%, var(--color-border));
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--color-primary) 45%, transparent),
+    0 0 16px color-mix(in srgb, var(--color-primary) 28%, transparent);
+  pointer-events: none;
+}
+
 .sidebar.collapsed {
   padding: var(--space-3) var(--space-2);
 }
@@ -1023,6 +1050,9 @@ button.danger:hover:not(:disabled) {
   border-radius: 999px;
   background: color-mix(in srgb, var(--color-primary) 60%, var(--color-border));
   transform: translateX(-50%);
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--color-primary) 45%, transparent),
+    0 0 16px color-mix(in srgb, var(--color-primary) 28%, transparent);
 }
 
 .transactions-side-chart-card {
@@ -1624,7 +1654,9 @@ tr:hover td {
   line-height: 1;
 }
 
-.alipay-icon {
+.alipay-icon,
+.wechat-icon,
+.bank-icon {
   flex: 0 0 auto;
   display: block;
 }

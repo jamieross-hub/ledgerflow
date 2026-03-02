@@ -11,9 +11,16 @@ const NOTE_MAX_LENGTH = 22;
 const DEFAULT_MIN_COLUMN_WIDTH = 90;
 const AMOUNT_COLUMN_MIN_WIDTH = 64;
 const ALIPAY_ACCOUNT_PATTERN = /(支付宝|alipay)/i;
+const WECHAT_ACCOUNT_PATTERN = /(微信|wechat|weixin)/i;
+const BANK_ACCOUNT_PATTERN = /(银行|bank|信用卡|储蓄卡|借记卡|icbc|abc|ccb|boc|cmb|psbc|交通银行|招商银行|建设银行|工商银行|农业银行|中国银行)/i;
 
-function isAlipayAccountName(name: string): boolean {
-  return ALIPAY_ACCOUNT_PATTERN.test(name);
+type AccountBrand = 'alipay' | 'wechat' | 'bank';
+
+function detectAccountBrand(name: string): AccountBrand | null {
+  if (ALIPAY_ACCOUNT_PATTERN.test(name)) return 'alipay';
+  if (WECHAT_ACCOUNT_PATTERN.test(name)) return 'wechat';
+  if (BANK_ACCOUNT_PATTERN.test(name)) return 'bank';
+  return null;
 }
 
 function AlipayBrandIcon() {
@@ -26,22 +33,64 @@ function AlipayBrandIcon() {
       aria-hidden="true"
       focusable="false"
     >
-      <rect x="1.5" y="1.5" width="21" height="21" rx="5" fill="#1677ff" />
-      <text x="12" y="16" textAnchor="middle" fontSize="11" fontWeight="700" fill="#ffffff">
-        支
-      </text>
+      <rect x="1.5" y="1.5" width="21" height="21" rx="5" fill="#1677FF" />
+      <path
+        d="M7.2 8.1h9.6v1.4H7.2zm2 2.7h7.5v1.3H9.2zm-2 2.4h10.2v1.35H7.2zm3.8-6.2h2v7.2h-2z"
+        fill="#fff"
+      />
+    </svg>
+  );
+}
+
+function WechatBrandIcon() {
+  return (
+    <svg
+      className="wechat-icon"
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle cx="11" cy="11" r="8.8" fill="#07C160" />
+      <circle cx="15.9" cy="15.2" r="5.1" fill="#07C160" />
+      <circle cx="8.3" cy="10.1" r="1" fill="#fff" />
+      <circle cx="12.1" cy="10.1" r="1" fill="#fff" />
+      <circle cx="14.4" cy="14.7" r="0.9" fill="#fff" />
+      <circle cx="17.4" cy="14.7" r="0.9" fill="#fff" />
+      <path d="M5.4 17.3l2.2-1.2" stroke="#07C160" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function BankBrandIcon() {
+  return (
+    <svg
+      className="bank-icon"
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <rect x="2" y="4" width="20" height="16" rx="4" fill="#475569" />
+      <path d="M5 10h14M7 13.5h2.6M11 13.5h2.6M15 13.5h2" stroke="#fff" strokeWidth="1.5" />
+      <rect x="5.2" y="6.2" width="4.2" height="2" rx="1" fill="#94A3B8" />
     </svg>
   );
 }
 
 function renderAccountLabel(accountName: string) {
-  if (!isAlipayAccountName(accountName)) {
+  const brand = detectAccountBrand(accountName);
+  if (!brand) {
     return accountName;
   }
 
   return (
     <span className="transaction-account-with-icon">
-      <AlipayBrandIcon />
+      {brand === 'alipay' ? <AlipayBrandIcon /> : null}
+      {brand === 'wechat' ? <WechatBrandIcon /> : null}
+      {brand === 'bank' ? <BankBrandIcon /> : null}
       <span>{accountName}</span>
     </span>
   );

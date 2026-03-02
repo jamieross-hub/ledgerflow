@@ -207,7 +207,8 @@ export function DashboardPage() {
     label: string;
     value: number;
   } | null>(null);
-  const [trendGranularity, setTrendGranularity] = useState<'week' | 'month'>('week');
+  const [trendGranularity, setTrendGranularity] = useState<'week' | 'month' | 'year'>('week');
+  const [cashflowView, setCashflowView] = useState<'expense' | 'cashflow'>('expense');
   const [moduleOrder, setModuleOrder] = useState<DashboardModuleId[]>(() =>
     DASHBOARD_MODULE_CATALOG.map((item) => item.id)
   );
@@ -837,6 +838,24 @@ export function DashboardPage() {
   }, [moduleOrder, moduleVisibility]);
 
   const trendSeries = useMemo(() => {
+    if (trendGranularity === 'year') {
+      return Array.from({ length: 6 }).map((_, index) => {
+        const targetYear = currentYear - (5 - index);
+        const rows = transactions.filter((item) => new Date(item.date).getFullYear() === targetYear);
+        const yearIncome = rows
+          .filter((item) => item.type === 'income')
+          .reduce((sum, item) => sum + item.amount, 0);
+        const yearExpense = rows
+          .filter((item) => isActualExpenseType(item.type))
+          .reduce((sum, item) => sum + item.amount, 0);
+        return {
+          label: `${String(targetYear).slice(-2)}年`,
+          income: yearIncome,
+          expense: yearExpense
+        };
+      });
+    }
+
     if (trendGranularity === 'month') {
       return recentMonths.map((item) => ({
         label: item.shortLabel,
@@ -869,25 +888,6 @@ export function DashboardPage() {
       };
     });
   }, [currentDay, currentMonth, currentYear, recentMonths, transactions, trendGranularity]);
-
-  const categoryExpensePie = useMemo(() => {
-    const map = new Map<string, number>();
-    monthly
-      .filter((item) => isActualExpenseType(item.type))
-      .forEach((item) => {
-        const name = categoryNameMap.get(item.categoryId) || item.categoryId || '未分类';
-        map.set(name, (map.get(name) || 0) + item.amount);
-      });
-    const total = Array.from(map.values()).reduce((sum, value) => sum + value, 0);
-    return Array.from(map.entries())
-      .map(([name, amount]) => ({
-        name,
-        amount,
-        percent: total > 0 ? (amount / total) * 100 : 0
-      }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 6);
-  }, [categoryNameMap, monthly]);
 
   const netAssetCurve = useMemo(() => {
     const balances = recentMonths.map((item) => item.balance);
@@ -962,6 +962,97 @@ export function DashboardPage() {
       highlights
     };
   }, [categoryNameMap, monthly, monthlyInsight?.highlights, transactions]);
+
+  const trendMaxValue = useMemo(
+    () => Math.max(...trendSeries.flatMap((item) => [item.income, item.expense]), 1),
+    [trendSeries]
+  );
+
+  const expenseTrendAverage = useMemo(() => {
+    if (!trendSeries.length) return 0;
+    return trendSeries.reduce((sum, item) => sum + item.expense, 0) / trendSeries.length;
+  }, [trendSeries]);
+
+  const budgetWarningLine = expenseTrendAverage * 1.12;
+
+  const cashflowCategoryRows = useMemo(() => {
+    const map = new Map<string, { amount: number; prevAmount: number }>();
+
+    const thisMonthRows = transactions.filter((item) => {
+      const d = new Date(item.date);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+
+    const prevMonthDate = new Date(currentYear, currentMonth - 1, 1);
+    const prevMonth = prevMonthDate.getMonth();
+    const prevYear = prevMonthDate.getFullYear();
+    const prevMonthRows = transactions.filter((item) => {
+      const d = new Date(item.date);
+      return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+    });
+
+    const includeRow = (type: string) =>
+      cashflowView === 'cashflow' ? type !== 'income' : type === 'expense';
+
+    thisMonthRows.forEach((item) => {
+      if (!includeRow(item.type)) return;
+      const name = categoryNameMap.get(item.categoryId) || item.categoryId || '未分类';
+      const current = map.get(name) || { amount: 0, prevAmount: 0 };
+      current.amount += item.amount;
+      map.set(name, current);
+    });
+
+    prevMonthRows.forEach((item) => {
+      if (!includeRow(item.type)) return;
+      const name = categoryNameMap.get(item.categoryId) || item.categoryId || '未分类';
+      const current = map.get(name) || { amount: 0, prevAmount: 0 };
+      current.prevAmount += item.amount;
+      map.set(name, current);
+    });
+
+    const rows = Array.from(map.entries())
+      .map(([name, value]) => ({
+        name,
+        amount: value.amount,
+        prevAmount: value.prevAmount
+      }))
+      .sort((a, b) => b.amount - a.amount);
+
+    const top = rows.slice(0, 5);
+    const other = rows.slice(5).reduce(
+      (acc, item) => {
+        acc.amount += item.amount;
+        acc.prevAmount += item.prevAmount;
+        return acc;
+      },
+      { amount: 0, prevAmount: 0 }
+    );
+    if (other.amount > 0) {
+      top.push({ name: '其他', amount: other.amount, prevAmount: other.prevAmount });
+    }
+
+    const total = top.reduce((sum, item) => sum + item.amount, 0);
+    return top.map((item) => ({
+      ...item,
+      percent: total > 0 ? (item.amount / total) * 100 : 0,
+      diffRate: item.prevAmount > 0 ? ((item.amount - item.prevAmount) / item.prevAmount) * 100 : null
+    }));
+  }, [cashflowView, categoryNameMap, currentMonth, currentYear, transactions]);
+
+  const netAssetRows = useMemo(() => {
+    return netAssetCurve.map((item, index) => {
+      const prev = index > 0 ? netAssetCurve[index - 1].value : item.value;
+      return { ...item, delta: item.value - prev };
+    });
+  }, [netAssetCurve]);
+
+  const netAssetWorstDrop = useMemo(() => {
+    const candidates = netAssetRows.filter((_, index) => index > 0);
+    if (!candidates.length) return null;
+    return candidates.reduce((worst, current) =>
+      current.delta < worst.delta ? current : worst
+    );
+  }, [netAssetRows]);
 
   const moveModule = (from: DashboardModuleId, to: DashboardModuleId) => {
     if (from === to) return;
@@ -1097,26 +1188,11 @@ export function DashboardPage() {
         {moduleOrder.map((moduleId) => {
           if (!moduleVisibility[moduleId]) return null;
           if (moduleId === 'dynamic-charts') {
-            const maxValue = Math.max(
-              ...trendSeries.flatMap((item) => [item.income, item.expense]),
-              1
-            );
-            const pieGradient = (() => {
-              let cursor = 0;
-              const colors = ['#4f8cff', '#6ad7b9', '#f6a623', '#ff6b6b', '#9b6bff', '#14b8a6'];
-              const segments = categoryExpensePie.map((item, index) => {
-                const start = cursor;
-                cursor += item.percent;
-                return `${colors[index % colors.length]} ${start}% ${cursor}%`;
-              });
-              return segments.length ? `conic-gradient(${segments.join(',')})` : 'none';
-            })();
-            const netMax = Math.max(...netAssetCurve.map((item) => item.value), 1);
             return (
               <section key={moduleId} className="dashboard-dynamic-grid">
                 <article className="panel" style={{ margin: 0 }}>
                   <div className="dashboard-section-header">
-                    <h4>收支趋势（{trendGranularity === 'week' ? '按周' : '按月'}）</h4>
+                    <h4>收支趋势（决策视图）</h4>
                     <div className="dashboard-segment-control">
                       <button
                         type="button"
@@ -1132,81 +1208,186 @@ export function DashboardPage() {
                       >
                         月
                       </button>
+                      <button
+                        type="button"
+                        className={trendGranularity === 'year' ? 'active' : ''}
+                        onClick={() => setTrendGranularity('year')}
+                      >
+                        年
+                      </button>
                     </div>
                   </div>
                   <div className="dashboard-mini-bars-legend" aria-label="收支图例">
                     <span className="legend-income">收入</span>
                     <span className="legend-expense">支出</span>
+                    <span className="legend-budget">预警线</span>
                   </div>
                   <div className="dashboard-mini-bars">
                     {trendSeries.map((item) => (
-                      <div key={item.label}>
+                      <button
+                        key={item.label}
+                        type="button"
+                        className="dashboard-mini-bars-item"
+                        onClick={() => {
+                          if (trendGranularity === 'month') {
+                            const targetMonth = Number(item.label.replace('月', ''));
+                            if (!Number.isFinite(targetMonth)) return;
+                            const from = `${currentYear}-${String(targetMonth).padStart(2, '0')}-01`;
+                            const to = new Date(currentYear, targetMonth, 0).toISOString().slice(0, 10);
+                            navigate(`/transactions?datePreset=custom&dateFrom=${from}&dateTo=${to}`);
+                            return;
+                          }
+                          navigate('/transactions');
+                        }}
+                        title={`${item.label} 收入 ${formatCurrency(item.income)}，支出 ${formatCurrency(item.expense)}`}
+                      >
                         <strong>{item.label}</strong>
                         <span
-                          style={{ height: `${(item.income / maxValue) * 100}%` }}
+                          style={{ height: `${(item.income / trendMaxValue) * 100}%` }}
                           className="income"
                         />
                         <span
-                          style={{ height: `${(item.expense / maxValue) * 100}%` }}
+                          style={{ height: `${(item.expense / trendMaxValue) * 100}%` }}
                           className="expense"
                         />
-                      </div>
+                        <small>
+                          {formatCurrency(item.income)} / {formatCurrency(item.expense)}
+                        </small>
+                        {item.expense > budgetWarningLine ? (
+                          <em className="dashboard-mini-bar-warning">超预警</em>
+                        ) : null}
+                      </button>
                     ))}
                   </div>
                 </article>
                 <article className="panel" style={{ margin: 0 }}>
-                  <h4>分类支出占比</h4>
-                  <div className="dashboard-pie-wrap">
-                    <div className="dashboard-pie" style={{ background: pieGradient }} />
-                    <div>
-                      {categoryExpensePie.map((item) => (
-                        <p key={item.name}>
-                          {item.name}：{item.percent.toFixed(1)}%
-                        </p>
-                      ))}
+                  <div className="dashboard-section-header">
+                    <h4>分类结构（Top5 + 其他）</h4>
+                    <div className="dashboard-segment-control">
+                      <button
+                        type="button"
+                        className={cashflowView === 'expense' ? 'active' : ''}
+                        onClick={() => setCashflowView('expense')}
+                      >
+                        支出结构
+                      </button>
+                      <button
+                        type="button"
+                        className={cashflowView === 'cashflow' ? 'active' : ''}
+                        onClick={() => setCashflowView('cashflow')}
+                      >
+                        现金流结构
+                      </button>
                     </div>
                   </div>
+                  <div className="dashboard-category-bars" role="list" aria-label="分类占比条形图">
+                    {cashflowCategoryRows.map((item) => (
+                      <article key={item.name} role="listitem" className="dashboard-category-bar-item">
+                        <header>
+                          <strong>{item.name}</strong>
+                          <span>
+                            {formatCurrency(item.amount)} · {item.percent.toFixed(1)}%
+                          </span>
+                        </header>
+                        <div className="dashboard-category-bar-track">
+                          <span style={{ width: `${item.percent}%` }} />
+                        </div>
+                        <p>
+                          环比：
+                          {item.diffRate === null
+                            ? '—'
+                            : `${item.diffRate >= 0 ? '↑' : '↓'}${Math.abs(item.diffRate).toFixed(1)}%`}
+                        </p>
+                      </article>
+                    ))}
+                    {cashflowCategoryRows.length === 0 ? <p className="muted">暂无可视化数据</p> : null}
+                  </div>
                 </article>
                 <article className="panel" style={{ margin: 0 }}>
-                  <h4>累计净资产曲线</h4>
+                  <h4>累计净资产曲线（含每月Δ）</h4>
                   <div className="dashboard-net-curve">
-                    {netAssetCurve.map((item) => (
-                      <div key={item.label}>
+                    {netAssetRows.map((item) => (
+                      <button
+                        key={item.label}
+                        type="button"
+                        className={`dashboard-net-row ${
+                          netAssetWorstDrop && netAssetWorstDrop.label === item.label ? 'is-worst-drop' : ''
+                        }`}
+                        onClick={() => {
+                          const targetMonth = Number(item.label.replace('月', ''));
+                          if (!Number.isFinite(targetMonth)) return;
+                          const from = `${currentYear}-${String(targetMonth).padStart(2, '0')}-01`;
+                          const to = new Date(currentYear, targetMonth, 0).toISOString().slice(0, 10);
+                          navigate(`/transactions?datePreset=custom&dateFrom=${from}&dateTo=${to}`);
+                        }}
+                      >
                         <span>{item.label}</span>
-                        <i style={{ width: `${(item.value / netMax) * 100}%` }} />
+                        <i style={{ width: `${(item.value / Math.max(...netAssetRows.map((x) => x.value), 1)) * 100}%` }} />
                         <strong>{formatCurrency(item.value)}</strong>
-                      </div>
+                        <small className={item.delta >= 0 ? 'up' : 'down'}>
+                          Δ {item.delta >= 0 ? '+' : ''}
+                          {formatCurrency(item.delta)}
+                        </small>
+                      </button>
                     ))}
                   </div>
+                  {netAssetWorstDrop ? (
+                    <p className="dashboard-net-worst-hint">
+                      最大回撤：{netAssetWorstDrop.label}（Δ{formatCurrency(netAssetWorstDrop.delta)}），可点击查看该月流水。
+                    </p>
+                  ) : null}
                 </article>
               </section>
             );
           }
 
           if (moduleId === 'anomaly-insights') {
+            const insightCards = [
+              ...anomalyInsight.anomalies.map((text) => ({ kind: 'warning' as const, text })),
+              ...anomalyInsight.highlights.map((text) => ({ kind: 'highlight' as const, text }))
+            ].slice(0, 6);
+
             return (
               <section key={moduleId} className="panel" style={{ marginTop: 12 }}>
                 <div className="dashboard-section-header">
                   <h4>异常提醒与亮点分析</h4>
-                  <span>每日/每周消费模式</span>
+                  <span>卡片滚动 · 可直接执行动作</span>
                 </div>
-                <div className="dashboard-anomaly-grid">
-                  <article>
-                    <h5>异常提醒</h5>
-                    <ul>
-                      {anomalyInsight.anomalies.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </article>
-                  <article>
-                    <h5>节省亮点</h5>
-                    <ul>
-                      {anomalyInsight.highlights.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </article>
+                <div className="dashboard-anomaly-carousel" role="list" aria-label="异常提醒与亮点卡片">
+                  {insightCards.map((card, index) => (
+                    <article key={`${card.kind}-${index}`} role="listitem" className="dashboard-anomaly-card">
+                      <p className="dashboard-anomaly-card-title">
+                        {card.kind === 'warning' ? '⚠️ 异常提醒' : '✨ 节省亮点'}
+                      </p>
+                      <p className="dashboard-anomaly-card-text">{card.text}</p>
+                      <div className="dashboard-anomaly-card-actions">
+                        <button type="button" onClick={() => navigate('/smart-budget')}>
+                          生成节支任务
+                        </button>
+                        <button type="button" onClick={() => navigate('/transactions')}>
+                          查看关联账单
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                <div className="dashboard-scenario-entries" role="list" aria-label="智能场景入口">
+                  <button type="button" role="listitem" onClick={() => navigate('/repayment-management')}>
+                    <strong>本月还款压力</strong>
+                    <span>AI 发现近期还款占比偏高，建议优先排期高息负债。</span>
+                    <em>AI评估</em>
+                  </button>
+                  <button type="button" role="listitem" onClick={() => navigate('/dashboard')}>
+                    <strong>下个月账单预测</strong>
+                    <span>结合趋势预测，提前预留现金流避免月中吃紧。</span>
+                    <em>AI评估</em>
+                  </button>
+                  <button type="button" role="listitem" onClick={() => navigate('/transactions')}>
+                    <strong>近期大额支出提醒</strong>
+                    <span>发现可疑大额支出，建议核查是否重复记账。</span>
+                    <em>手动可复核</em>
+                  </button>
                 </div>
               </section>
             );

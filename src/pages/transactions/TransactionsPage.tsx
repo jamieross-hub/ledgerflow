@@ -1776,17 +1776,20 @@ export function TransactionsPage() {
       const amount = Math.abs(Number(row.item.amount) || 0);
       map.set(row.categoryName || '未分类', (map.get(row.categoryName || '未分类') || 0) + amount);
     });
-    const total = Array.from(map.values()).reduce((sum, value) => sum + value, 0);
     const colors = ['#4f8cff', '#6ad7b9', '#f6a623', '#ff6b6b', '#9b6bff', '#14b8a6', '#64748b'];
-    return Array.from(map.entries())
+    const ranked = Array.from(map.entries())
       .map(([name, amount], index) => ({
         name,
         amount,
-        percent: total > 0 ? (amount / total) * 100 : 0,
         color: colors[index % colors.length]
       }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 7);
+    const total = ranked.reduce((sum, value) => sum + value.amount, 0);
+    return ranked.map((item) => ({
+      ...item,
+      percent: total > 0 ? (item.amount / total) * 100 : 0
+    }));
   }, [viewRows]);
 
   useEffect(() => {
