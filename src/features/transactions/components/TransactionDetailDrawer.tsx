@@ -405,6 +405,72 @@ export function TransactionDetailDrawer({
   if (!open || !transaction) return null;
 
   const abnormalAlert = buildAbnormalAlert(transaction);
+  const timelineEvents = [
+    {
+      key: 'created',
+      icon: '🧾',
+      title: transaction.source === 'manual' ? '手工创建' : '导入创建',
+      detail: `${formatDateTime(transaction.date)} 创建交易`,
+      meta: `来源：${sourceLabel(source)}`
+    },
+    {
+      key: 'ai-recognize',
+      icon: '🤖',
+      title: 'AI识别',
+      detail:
+        source === 'ai'
+          ? '该笔交易来自上传账单/截图后的 AI 识别结果'
+          : '本笔交易未经过 AI 识别流程',
+      meta: source === 'ai' ? '状态：已识别入账' : '状态：跳过'
+    },
+    {
+      key: 'manual-adjust',
+      icon: '✍️',
+      title: '人工修改',
+      detail:
+        transaction.status === 'pending'
+          ? '当前仍为待处理，建议人工核对字段后确认'
+          : '已完成人工确认或无需二次修改',
+      meta: `交易状态：${transaction.status ? statusLabel(transaction.status) : '未标记'}`
+    },
+    {
+      key: 'refund-link',
+      icon: '🔁',
+      title: '退款关联',
+      detail:
+        transaction.adjustmentKind === 'refund' || transaction.adjustmentKind === 'reversal'
+          ? relatedOrigin
+            ? `已关联原单：${relatedOrigin.note || relatedOrigin.id}`
+            : '识别为退款/冲正，但原单缺失'
+          : relatedRefunds.length > 0
+            ? `该笔交易已关联 ${relatedRefunds.length} 条退款/冲正`
+            : '暂无退款关联',
+      meta:
+        transaction.adjustmentKind === 'refund' || transaction.adjustmentKind === 'reversal'
+          ? '关联类型：退款/冲正单'
+          : '关联类型：普通交易'
+    },
+    {
+      key: 'reconcile',
+      icon: '✅',
+      title: '对账确认',
+      detail:
+        transaction.status === 'completed' || transaction.status === 'closed'
+          ? '该笔交易已进入完成态，可作为对账基准'
+          : '该笔交易尚未完成，建议纳入今日待处理清单',
+      meta:
+        transaction.status === 'completed' || transaction.status === 'closed'
+          ? '对账：已确认'
+          : '对账：未确认'
+    },
+    {
+      key: 'export-sync',
+      icon: '📤',
+      title: '导出 / 同步',
+      detail: '可通过列表页导出 CSV 或发起同步，将该交易纳入外部账单流。',
+      meta: '提示：当前页面未展示具体同步日志'
+    }
+  ];
 
   return (
     <div className="drawer-overlay" role="presentation" onClick={onClose}>
@@ -420,25 +486,34 @@ export function TransactionDetailDrawer({
             <h3>交易详情</h3>
             <small className="drawer-subtitle">支持模块化显示</small>
           </div>
-          <div className="drawer-mode-switch" role="tablist" aria-label="交易详情显示模式">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'professional' ? 'true' : 'false'}
-              className={mode === 'professional' ? 'active' : ''}
-              onClick={() => setDetailMode('professional')}
-            >
-              专业模式
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'timeline' ? 'true' : 'false'}
-              className={mode === 'timeline' ? 'active' : ''}
-              onClick={() => setDetailMode('timeline')}
-            >
-              时间轴模式
-            </button>
+          <div className="drawer-mode-wrap">
+            <div className="drawer-mode-switch" role="tablist" aria-label="交易详情显示模式">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'professional' ? 'true' : 'false'}
+                className={mode === 'professional' ? 'active' : ''}
+                title="适合编辑、对账：字段齐全、可快速修改"
+                onClick={() => setDetailMode('professional')}
+              >
+                专业模式
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'timeline' ? 'true' : 'false'}
+                className={mode === 'timeline' ? 'active' : ''}
+                title="适合审计溯源：识别→清洗→入账→后续调整事件流"
+                onClick={() => setDetailMode('timeline')}
+              >
+                时间轴模式
+              </button>
+            </div>
+            <p className="drawer-mode-hint">
+              {mode === 'professional'
+                ? '专业模式：适合编辑、对账（字段齐全、可快速修改）'
+                : '时间轴模式：适合审计溯源（识别→清洗→入账→后续调整）'}
+            </p>
           </div>
           <button type="button" className="icon-btn" onClick={onClose} aria-label="关闭详情">
             ✕
@@ -447,49 +522,39 @@ export function TransactionDetailDrawer({
 
         <div className="drawer-body">
           {mode === 'timeline' ? (
-            <section className="drawer-timeline" aria-label="交易时间轴">
-              {[
-                { label: '交易创建', value: formatDateTime(transaction.date), icon: '🧾' },
-                {
-                  label: '分类与账户',
-                  value: (
-                    <span>
-                      {categoryName} · {renderAccountLabel(accountName)}
-                    </span>
-                  ),
-                  icon: '🗂️'
-                },
-                {
-                  label: '交易金额',
-                  value: privacyMode
-                    ? maskAmount()
-                    : `${transaction.type === 'income' ? '+' : '-'}${formatCurrency(transaction.amount)}`,
-                  icon: transaction.type === 'income' ? '🟢' : '🔴'
-                },
-                { label: '记录来源', value: sourceLabel(source), icon: '🤖' },
-                {
-                  label: '冲正关系',
-                  value:
-                    transaction.adjustmentKind === 'refund' ||
-                    transaction.adjustmentKind === 'reversal'
-                      ? relatedOrigin
-                        ? `关联原单：${relatedOrigin.note || relatedOrigin.id}`
-                        : '退款/冲正（原单缺失）'
-                      : relatedRefunds.length > 0
-                        ? `已关联 ${relatedRefunds.length} 条退款/冲正`
-                        : '普通交易',
-                  icon: '🔁'
-                },
-                { label: '备注', value: transaction.note || '（无）', icon: '📝' }
-              ].map((item) => (
-                <article key={item.label} className="drawer-timeline-item">
-                  <span className="drawer-timeline-icon">{item.icon}</span>
-                  <div>
-                    <p>{item.label}</p>
-                    <strong>{item.value}</strong>
-                  </div>
-                </article>
-              ))}
+            <section className="drawer-timeline-layout" aria-label="交易时间轴">
+              <div className="drawer-timeline">
+                {timelineEvents.map((item) => (
+                  <article key={item.key} className="drawer-timeline-item">
+                    <span className="drawer-timeline-icon">{item.icon}</span>
+                    <div>
+                      <p>{item.title}</p>
+                      <strong>{item.detail}</strong>
+                    </div>
+                  </article>
+                ))}
+              </div>
+              <aside className="drawer-timeline-side" aria-label="时间轴事件详情">
+                <h4>事件详情</h4>
+                <ul>
+                  {timelineEvents.map((item) => (
+                    <li key={`meta-${item.key}`}>
+                      <strong>{item.title}</strong>
+                      <p>{item.meta}</p>
+                    </li>
+                  ))}
+                </ul>
+                <div className="drawer-timeline-raw">
+                  <h5>原始记录摘录</h5>
+                  <p>
+                    备注：{transaction.note || '（无）'}
+                    <br />
+                    订单号：{transaction.orderNo || '—'}
+                    <br />
+                    商家订单号：{transaction.merchantOrderNo || '—'}
+                  </p>
+                </div>
+              </aside>
             </section>
           ) : null}
 

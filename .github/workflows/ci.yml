@@ -2,35 +2,15 @@ name: ci
 
 on:
   push:
-    branches: [main, master]
-  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 env:
   IMAGE_NAME: 34v0wphix/ledgerflow
 
 jobs:
-  build-test:
+  docker-latest:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run test
-      - run: npm run build
-      - name: Upload dist artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ledgerflow-dist
-          path: dist
-
-  docker-publish:
-    runs-on: ubuntu-latest
-    needs: build-test
-    if: github.event_name == 'push'
     permissions:
       contents: read
     steps:
@@ -49,20 +29,10 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha
-
-      - name: Build and push image
+      - name: Build and push latest image
         uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ env.IMAGE_NAME }}:latest
