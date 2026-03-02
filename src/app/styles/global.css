@@ -1323,6 +1323,18 @@ tr:hover td {
   border-color: rgba(159, 43, 43, 0.32);
 }
 
+.transaction-type-badge-budget {
+  color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.35);
+}
+
+.transaction-type-badge-repayment {
+  color: #0e7490;
+  background: rgba(14, 116, 144, 0.12);
+  border-color: rgba(14, 116, 144, 0.35);
+}
+
 .transaction-type-text {
   color: var(--color-text-secondary);
   font-weight: 500;

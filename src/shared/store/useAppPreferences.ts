@@ -35,6 +35,7 @@ interface AppPreferencesState {
   removeRssSubscription: (id: string) => void;
   toggleRssSubscription: (id: string) => void;
   setMonthlyIncome: (income: number) => void;
+  setRepaymentState: (payload: { debts: DebtItem[]; monthlyIncome: number }) => void;
   addDebt: (payload: Omit<DebtItem, 'id'>) => void;
   replaceDebts: (payload: Omit<DebtItem, 'id'>[]) => void;
   updateDebt: (id: string, payload: Omit<DebtItem, 'id'>) => void;
@@ -67,6 +68,16 @@ export const useAppPreferences = create<AppPreferencesState>()(
       monthlyIncome: 0,
       setTheme: (theme) => set({ theme }),
       setMonthlyIncome: (income) => set({ monthlyIncome: Number.isFinite(income) ? income : 0 }),
+      setRepaymentState: ({ debts, monthlyIncome }) =>
+        set({
+          debts: Array.isArray(debts)
+            ? debts.map((item) => ({
+                ...item,
+                id: item.id || createDebtId(item.type)
+              }))
+            : [],
+          monthlyIncome: Number.isFinite(monthlyIncome) ? monthlyIncome : 0
+        }),
       addRssSubscription: ({ title, url }) => {
         const normalizedUrl = normalizeFeedUrl(url);
         if (!normalizedUrl) return { ok: false, reason: '请输入 RSS 地址。' };

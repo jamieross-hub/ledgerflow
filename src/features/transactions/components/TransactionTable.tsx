@@ -792,14 +792,25 @@ export function TransactionTable({
                               categoryName,
                               accountName
                             });
-                            if (item.type === 'income' || item.type === 'expense') {
+                            const typeBadgeMap: Record<
+                              TransactionItem['type'],
+                              { short: string; label: string }
+                            > = {
+                              income: { short: '收', label: '收入' },
+                              expense: { short: '支', label: '支出' },
+                              budget: { short: '预', label: '预算' },
+                              repayment: { short: '还', label: '还款' }
+                            };
+                            const badge = typeBadgeMap[item.type];
+                            if (badge) {
                               return (
                                 <td key={`${item.id}-${column.key}`}>
                                   <span
                                     className={`transaction-type-badge transaction-type-badge-${item.type}`}
-                                    aria-label={item.type === 'income' ? '收入' : '支出'}
+                                    aria-label={badge.label}
+                                    title={badge.label}
                                   >
-                                    {item.type === 'income' ? '收' : '支'}
+                                    {badge.short}
                                   </span>
                                 </td>
                               );
