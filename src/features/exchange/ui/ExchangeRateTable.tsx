@@ -13,6 +13,30 @@ interface ExchangeRateTableProps {
 }
 
 const PAGE_SIZE = 20;
+const COMMON_CODES = [
+  'CNY',
+  'USD',
+  'EUR',
+  'GBP',
+  'JPY',
+  'HKD',
+  'SGD',
+  'AUD',
+  'CAD',
+  'CHF',
+  'KRW',
+  'INR',
+  'RUB',
+  'THB',
+  'MYR',
+  'IDR',
+  'PHP',
+  'VND',
+  'TWD',
+  'NZD',
+  'AED',
+  'SAR'
+];
 
 const TREND_ICON: Record<NonNullable<ExchangeRate['trend']>, string> = {
   up: '⬆️',
@@ -44,6 +68,7 @@ export function ExchangeRateTable({
     }
   });
   const [page, setPage] = useState(1);
+  const [showAll, setShowAll] = useState(false);
 
   const toggleFavorite = (code: string) => {
     setFavorites((prev) => {
@@ -66,9 +91,14 @@ export function ExchangeRateTable({
     return a.code.localeCompare(b.code);
   });
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const defaultVisible = sorted.filter(
+    (item) => favorites.includes(item.code) || COMMON_CODES.includes(item.code)
+  );
+  const displayRows = showAll ? sorted : defaultVisible;
+
+  const totalPages = Math.max(1, Math.ceil(displayRows.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const pageRows = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageRows = displayRows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   return (
     <div>
@@ -85,8 +115,18 @@ export function ExchangeRateTable({
         />
         <span className="exchange-meta">
           基准: {getCurrencyFlag(base)} {base} ({getCurrencyName(base)}){date ? ` · ${date}` : ''}
-          {fromCache ? ' · 📦 缓存' : ''}
+          {fromCache ? ' · 📦 缓存' : ' · 🌐 已同步最新'}
         </span>
+        <button
+          type="button"
+          onClick={() => {
+            setShowAll((prev) => !prev);
+            setPage(1);
+          }}
+          title={showAll ? '仅显示常见货币（含收藏）' : '展开显示全部货币'}
+        >
+          {showAll ? '收起非常见货币' : '展开全部货币'}
+        </button>
         <button onClick={onRefresh} disabled={loading} title="刷新汇率">
           🔄 {loading ? '加载中…' : '刷新'}
         </button>
@@ -119,7 +159,11 @@ export function ExchangeRateTable({
                 colSpan={4}
                 style={{ textAlign: 'center', padding: 24, color: 'var(--color-text-tertiary)' }}
               >
-                {loading ? '加载中…' : '无匹配货币'}
+                {loading
+                  ? '加载中…'
+                  : showAll
+                    ? '无匹配货币'
+                    : '当前仅展示常见货币（含收藏），可点击“展开全部货币”查看全部'}
               </td>
             </tr>
           ) : (

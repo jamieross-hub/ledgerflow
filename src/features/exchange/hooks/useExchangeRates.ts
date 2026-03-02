@@ -58,7 +58,7 @@ export function useExchangeRates(initialBase = 'CNY'): UseExchangeRatesReturn {
       setLoading(true);
       setError(null);
 
-      // 1. 尝试读缓存
+      // 1. 先读缓存用于秒开，同时继续后台拉取最新数据，避免“看起来没跟互联网同步”。
       if (!forceRefresh) {
         const cached = readCache(base);
         if (cached) {
@@ -66,12 +66,10 @@ export function useExchangeRates(initialBase = 'CNY'): UseExchangeRatesReturn {
           setRates(toSortedRates(cached.rates));
           setDate(cached.date);
           setFromCache(true);
-          setLoading(false);
-          return;
         }
       }
 
-      // 2. 请求 API
+      // 2. 请求 API（无论是否命中缓存，都尝试刷新）
       try {
         const data = await fetchLatestRates(base);
         if (!mountedRef.current) return;
@@ -82,7 +80,7 @@ export function useExchangeRates(initialBase = 'CNY'): UseExchangeRatesReturn {
         setFromCache(false);
       } catch (err) {
         if (!mountedRef.current) return;
-        // 3. 离线回退：尝试过期缓存
+        // 3. 离线回退：尝试缓存
         const stale = readCache(base);
         if (stale) {
           latestRatesMapRef.current = stale.rates;
