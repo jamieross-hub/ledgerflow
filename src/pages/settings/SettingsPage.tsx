@@ -349,18 +349,22 @@ export function SettingsPage() {
 
         <div className="field">
           <label>批量 AI 重分类并发数</label>
-          <input
-            type="number"
-            min={1}
-            max={12}
-            step={1}
-            value={bulkRecategorizeConcurrency}
-            onChange={(e) => {
-              setBulkRecategorizeConcurrency(Number(e.target.value));
-              showSaveToast();
-            }}
-          />
-          <small>建议 2~8。并发越高速度越快，但更容易触发模型限流。</small>
+          <div className="settings-concurrency-slider-row">
+            <input
+              type="range"
+              min={5}
+              max={30}
+              step={1}
+              value={bulkRecategorizeConcurrency}
+              onChange={(e) => {
+                setBulkRecategorizeConcurrency(Number(e.target.value));
+                showSaveToast();
+              }}
+              aria-label="批量 AI 重分类并发数"
+            />
+            <strong>{bulkRecategorizeConcurrency}</strong>
+          </div>
+          <small>可拉伸进度条调整并发（5~30）。并发越高速度越快，但更容易触发模型限流。</small>
         </div>
       </section>
 

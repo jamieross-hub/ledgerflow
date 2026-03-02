@@ -104,13 +104,17 @@ interface AiSettingsState {
   setBulkRecategorizeConcurrency: (value: number) => void;
 }
 
-const DEFAULT_BULK_RECATEGORIZE_CONCURRENCY = 4;
-const MAX_BULK_RECATEGORIZE_CONCURRENCY = 12;
+const DEFAULT_BULK_RECATEGORIZE_CONCURRENCY = 8;
+const MIN_BULK_RECATEGORIZE_CONCURRENCY = 5;
+const MAX_BULK_RECATEGORIZE_CONCURRENCY = 30;
 
 function normalizeBulkRecategorizeConcurrency(value: number): number {
   return Math.min(
     MAX_BULK_RECATEGORIZE_CONCURRENCY,
-    Math.max(1, Math.round(Number.isFinite(value) ? value : DEFAULT_BULK_RECATEGORIZE_CONCURRENCY))
+    Math.max(
+      MIN_BULK_RECATEGORIZE_CONCURRENCY,
+      Math.round(Number.isFinite(value) ? value : DEFAULT_BULK_RECATEGORIZE_CONCURRENCY)
+    )
   );
 }
 

@@ -7045,6 +7045,23 @@ body.categories-accounts-resizing {
   color: var(--color-expense);
 }
 
+.settings-concurrency-slider-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.settings-concurrency-slider-row input[type='range'] {
+  width: 100%;
+}
+
+.settings-concurrency-slider-row strong {
+  min-width: 2.5ch;
+  text-align: right;
+  color: var(--color-text-secondary);
+}
+
 .settings-accent-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));

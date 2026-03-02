@@ -18,16 +18,16 @@ describe('useAiSettings', () => {
       enableRerankModel: true,
       memoryDays: 3,
       memoryBackend: 'local',
-      bulkRecategorizeConcurrency: 4
+      bulkRecategorizeConcurrency: 8
     });
   });
 
   it('limits bulk recategorization concurrency into supported range', () => {
     useAiSettings.getState().setBulkRecategorizeConcurrency(0);
-    expect(useAiSettings.getState().bulkRecategorizeConcurrency).toBe(1);
+    expect(useAiSettings.getState().bulkRecategorizeConcurrency).toBe(5);
 
-    useAiSettings.getState().setBulkRecategorizeConcurrency(20);
-    expect(useAiSettings.getState().bulkRecategorizeConcurrency).toBe(12);
+    useAiSettings.getState().setBulkRecategorizeConcurrency(50);
+    expect(useAiSettings.getState().bulkRecategorizeConcurrency).toBe(30);
   });
 
   it('stores API Key in sessionStorage instead of localStorage', () => {
