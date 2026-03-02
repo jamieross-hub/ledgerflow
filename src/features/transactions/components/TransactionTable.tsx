@@ -377,6 +377,25 @@ export function TransactionTable({
     };
   }, [rows]);
 
+  const expenseAverage = useMemo(() => {
+    const sample = rows
+      .map((row) => row.item)
+      .filter(
+        (item) =>
+          item.type === 'expense' &&
+          item.adjustmentKind !== 'refund' &&
+          item.adjustmentKind !== 'reversal'
+      );
+    if (sample.length === 0) return 0;
+    return sample.reduce((sum, item) => sum + (Number(item.amount) || 0), 0) / sample.length;
+  }, [rows]);
+
+  const highExpenseThreshold = useMemo(
+    () => Math.max(expenseAverage * 2.2, 500),
+    [expenseAverage]
+  );
+
+
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
       if (!resizeStateRef.current) return;
@@ -807,16 +826,37 @@ export function TransactionTable({
                               repayment: { short: '还', label: '还款' }
                             };
                             const badge = typeBadgeMap[item.type];
+                            const isAiSource = item.source === 'ai';
+                            const isHighExpense =
+                              item.type === 'expense' && Number(item.amount) >= highExpenseThreshold;
+                            const shouldShowAnomaly = isHighExpense && highExpenseThreshold > 0;
+                            const anomalyHint = shouldShowAnomaly
+                              ? `该笔金额明显高于当前均值（均值约 ${formatCurrencyAuto(expenseAverage)}）。建议检查是否重复记账。`
+                              : '';
+
                             if (badge) {
                               return (
                                 <td key={`${item.id}-${column.key}`}>
-                                  <span
-                                    className={`transaction-type-badge transaction-type-badge-${item.type}`}
-                                    aria-label={badge.label}
-                                    title={badge.label}
-                                  >
-                                    {badge.short}
-                                  </span>
+                                  <div className="transaction-type-cell">
+                                    <span
+                                      className={`transaction-type-badge transaction-type-badge-${item.type}`}
+                                      aria-label={badge.label}
+                                      title={badge.label}
+                                    >
+                                      {badge.short}
+                                    </span>
+                                    {isAiSource ? (
+                                      <span className="transaction-inline-tag transaction-inline-tag-ai">AI</span>
+                                    ) : null}
+                                    {shouldShowAnomaly ? (
+                                      <details className="transaction-inline-alert" onClick={(e) => e.stopPropagation()}>
+                                        <summary title="高于平均">!</summary>
+                                        <div>
+                                          <p>{anomalyHint}</p>
+                                        </div>
+                                      </details>
+                                    ) : null}
+                                  </div>
                                 </td>
                               );
                             }
@@ -941,6 +981,16 @@ export function TransactionTable({
                         >
                           {privacyMode ? maskAmount() : formatCurrencyAuto(item.amount)}
                         </strong>
+                        <div className="transaction-mobile-badges">
+                          {item.source === 'ai' ? (
+                            <span className="transaction-inline-tag transaction-inline-tag-ai">AI</span>
+                          ) : null}
+                          {item.type === 'expense' && Number(item.amount) >= highExpenseThreshold ? (
+                            <span className="transaction-inline-tag transaction-inline-tag-warn" title="高于平均，建议检查是否重复记账。">
+                              ! 高于平均
+                            </span>
+                          ) : null}
+                        </div>
                       </header>
                       <p>{note}</p>
                       {item.orderNo || item.merchantOrderNo ? (

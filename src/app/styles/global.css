@@ -1496,6 +1496,82 @@ tr:hover td {
   border: 1px solid transparent;
 }
 
+.transaction-type-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.transaction-inline-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 6px;
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+}
+
+.transaction-inline-tag-ai {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary-bg) 70%, var(--color-bg-elevated));
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.transaction-inline-tag-warn {
+  border-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning-bg) 72%, var(--color-bg-elevated));
+  color: var(--color-warning);
+}
+
+.transaction-inline-alert {
+  display: inline-flex;
+  align-items: center;
+}
+
+.transaction-inline-alert summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--color-warning);
+  font-weight: 700;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, var(--color-border));
+  border-radius: 999px;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-warning-bg) 72%, var(--color-bg-elevated));
+}
+
+.transaction-inline-alert summary::-webkit-details-marker {
+  display: none;
+}
+
+.transaction-inline-alert > div {
+  position: absolute;
+  margin-top: 36px;
+  margin-left: -20px;
+  z-index: 8;
+  min-width: 220px;
+  max-width: 320px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-md);
+}
+
+.transaction-inline-alert > div p {
+  margin: 0;
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+}
+
 .transaction-type-badge-income {
   color: #1f7a3f;
   background: rgba(31, 122, 63, 0.12);
@@ -1677,6 +1753,14 @@ tr:hover td {
   justify-content: space-between;
   align-items: center;
   gap: var(--space-2);
+}
+
+.transaction-mobile-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .transaction-mobile-main p,
@@ -4539,6 +4623,11 @@ small.mono {
 .drawer-adjustment-section .drawer-kv:last-child {
   border-bottom: none;
   padding-bottom: 0;
+}
+
+.drawer-alert-section {
+  border-color: var(--color-warning-border);
+  background: color-mix(in srgb, var(--color-warning-bg) 72%, var(--color-bg-elevated));
 }
 
 .drawer-tags {

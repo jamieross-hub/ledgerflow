@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { extractJsonString } from '../../features/assistant/workbench/workbenchUtils';
@@ -940,12 +940,12 @@ export function TransactionsPage() {
     setQuickAddOpen(true);
   };
 
-  const closeQuickAddDrawer = () => {
+  const closeQuickAddDrawer = useCallback(() => {
     setQuickAddOpen(false);
     setQuickAddError('');
-  };
+  }, []);
 
-  const handleQuickAddKeypadInput = (key: string) => {
+  const handleQuickAddKeypadInput = useCallback((key: string) => {
     setQuickAddExpression((prev) => {
       if (key === 'clear') return '';
       if (key === 'backspace') return prev.slice(0, -1);
@@ -959,10 +959,9 @@ export function TransactionsPage() {
       }
       return `${prev}${key}`;
     });
-    if (quickAddError) {
-      setQuickAddError('');
-    }
-  };
+    setQuickAddError('');
+  }, []);
+
 
   useEffect(() => {
     const evaluated = evaluateCalculatorExpression(quickAddExpression);

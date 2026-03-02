@@ -101,6 +101,15 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
+function buildAbnormalAlert(input: TransactionItem): { title: string; detail: string } | null {
+  const amount = Number(input.amount) || 0;
+  if (input.type !== 'expense' || amount < 500) return null;
+  return {
+    title: '金额异常提醒',
+    detail: `该笔支出（${formatCurrency(amount)}）显著偏高，建议检查是否重复记账，或确认是否为一次性大额消费。`
+  };
+}
+
 function buildPrintStyles(): string {
   return `
     @page {
@@ -395,6 +404,8 @@ export function TransactionDetailDrawer({
 
   if (!open || !transaction) return null;
 
+  const abnormalAlert = buildAbnormalAlert(transaction);
+
   return (
     <div className="drawer-overlay" role="presentation" onClick={onClose}>
       <aside
@@ -620,6 +631,16 @@ export function TransactionDetailDrawer({
                 </section>
               )}
             </>
+          ) : null}
+
+          {mode === 'professional' && abnormalAlert ? (
+            <section className="drawer-section drawer-alert-section">
+              <h4>⚠️ {abnormalAlert.title}</h4>
+              <p>{abnormalAlert.detail}</p>
+              <p className="muted" style={{ marginTop: 6 }}>
+                AI 建议：如近期存在同金额/同备注流水，请优先核对是否重复入账。
+              </p>
+            </section>
           ) : null}
 
           {mode === 'professional' && visibleSections.source ? (
