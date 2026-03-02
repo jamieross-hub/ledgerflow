@@ -342,8 +342,15 @@ export function RepaymentManagementPage() {
   const [repaymentLoading, setRepaymentLoading] = useState(false);
   const [repaymentCacheHint, setRepaymentCacheHint] = useState('');
   const [extractLoading, setExtractLoading] = useState(false);
+  const [extractSuccess, setExtractSuccess] = useState(false);
   const [incomeLoading, setIncomeLoading] = useState(false);
   const [incomeHint, setIncomeHint] = useState('');
+  const [incomeSourceTag, setIncomeSourceTag] = useState<'manual' | 'ai' | 'unknown'>(
+    monthlyIncome > 0 ? 'manual' : 'unknown'
+  );
+  const [manualIncomeInput, setManualIncomeInput] = useState(
+    monthlyIncome > 0 ? String(Math.round(monthlyIncome)) : ''
+  );
   const [debtImagePreview, setDebtImagePreview] = useState('');
   const [debtFormError, setDebtFormError] = useState('');
   const [debtToastVisible, setDebtToastVisible] = useState(false);
@@ -454,6 +461,12 @@ export function RepaymentManagementPage() {
   }, [debts]);
 
   const isLoanType = debtType === 'loan';
+  const incomeConfidenceTag =
+    incomeSourceTag === 'manual'
+      ? '👤 你手动输入'
+      : incomeSourceTag === 'ai'
+        ? '📊 系统估算'
+        : '— 未确定';
   const trimmedDebtName = debtName.trim();
   const balance = Number(debtBalance);
   const annualRate = Number(debtAnnualRate);
@@ -510,6 +523,8 @@ export function RepaymentManagementPage() {
 
     if (!forceRefresh && cached?.value > 0) {
       setMonthlyIncome(cached.value);
+      setIncomeSourceTag('ai');
+      setManualIncomeInput(String(Math.round(cached.value)));
       setIncomeHint(
         `月收入已命中缓存：¥${cached.value.toFixed(2)}（${new Date(cached.createdAt).toLocaleString()}）`
       );
@@ -552,6 +567,8 @@ export function RepaymentManagementPage() {
       }
 
       setMonthlyIncome(payload.monthlyIncome);
+      setIncomeSourceTag('ai');
+      setManualIncomeInput(String(Math.round(payload.monthlyIncome)));
       setIncomeHint(`月收入已由大模型估算并写入缓存：¥${payload.monthlyIncome.toFixed(2)}`);
 
       writeIncomeCache({
@@ -624,6 +641,19 @@ export function RepaymentManagementPage() {
     setError('');
   }
 
+  const onManualIncomeSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const nextIncome = Number(manualIncomeInput || 0);
+    if (!Number.isFinite(nextIncome) || nextIncome <= 0) {
+      setError('请输入有效的月收入金额（大于 0）。');
+      return;
+    }
+    setMonthlyIncome(nextIncome);
+    setIncomeSourceTag('manual');
+    setIncomeHint(`已手动设置月收入：¥${nextIncome.toFixed(2)}。`);
+    setError('');
+  };
+
   async function onExtractDebtFromScreenshot(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -674,8 +704,12 @@ export function RepaymentManagementPage() {
       }
 
       replaceDebts(payload.debts);
+      setExtractSuccess(true);
+      window.setTimeout(() => setExtractSuccess(false), 1400);
       if (typeof payload.monthlyIncome === 'number') {
         setMonthlyIncome(payload.monthlyIncome);
+        setIncomeSourceTag('ai');
+        setManualIncomeInput(String(Math.round(payload.monthlyIncome)));
       }
 
       setRepaymentAdvice('');
@@ -781,6 +815,19 @@ export function RepaymentManagementPage() {
 
         <div className="card finance-overview-panel" style={{ marginTop: 12, padding: 12 }}>
           <h3 style={{ marginTop: 0 }}>📊 负债压力总览</h3>
+          {debts.length === 0 ? (
+            <div className="finance-empty-guide">
+              <p className="finance-empty-guide-title">先补齐基础信息，再生成策略</p>
+              <ol className="finance-empty-guide-steps">
+                <li>1分钟补全账单：手动添加 1-2 笔负债，或直接上传账单截图。</li>
+                <li>上传月度账单/图片后，系统会自动提取负债并估算月收入。</li>
+                <li>只需上传一次信用卡账单，即可看到最低还款与最优还款顺序。</li>
+              </ol>
+              <p className="muted" style={{ margin: 0 }}>
+                你也可以先手动输入月收入，后续再用 AI 刷新估算。
+              </p>
+            </div>
+          ) : null}
           <div className="finance-overview-hero">
             <div
               className="finance-pressure-ring"
@@ -845,7 +892,16 @@ export function RepaymentManagementPage() {
               </p>
             </article>
             <article className="finance-overview-metric-card finance-overview-health-card">
-              <p className="finance-overview-label">负债健康度</p>
+              <p className="finance-overview-label">
+                负债健康度
+                <span
+                  className="finance-metric-help"
+                  title="健康度≈(1-最低月还款/可用月收入)×100。数值越高，现金流压力越低。"
+                  aria-label="负债健康度说明"
+                >
+                  ⓘ
+                </span>
+              </p>
               <p className="finance-overview-value">
                 <span className="finance-overview-number">{debtHealthScore}</span>
                 <span className="finance-overview-unit">/100</span>
@@ -876,10 +932,11 @@ export function RepaymentManagementPage() {
 
         <div className="finance-income-inline">
           <div>
-            <p className="finance-income-inline-title">💡 月收入（由大模型接管）</p>
+            <p className="finance-income-inline-title">💡 月收入（AI辅助估算）</p>
             <p className="finance-income-inline-value">
               当前月收入：{monthlyIncome > 0 ? `¥${monthlyIncome.toFixed(2)}` : '尚未估算'}
             </p>
+            <p className="finance-income-inline-badge">收入可信度：{incomeConfidenceTag}</p>
           </div>
           <button
             type="button"
@@ -889,6 +946,35 @@ export function RepaymentManagementPage() {
           >
             {incomeLoading ? '估算中...' : '刷新 AI 月收入'}
           </button>
+          <div className="finance-income-inline-faq">
+            <details>
+              <summary>为什么估算会有误差？</summary>
+              <p className="muted" style={{ margin: '6px 0 0' }}>
+                AI 只基于已记录流水估算：若账单记录不完整、存在一次性收入或备注不清晰，估算会偏高/偏低。
+              </p>
+            </details>
+            <details>
+              <summary>我可以手动填入吗？</summary>
+              <p className="muted" style={{ margin: '6px 0 0' }}>
+                可以。手动输入会覆盖当前值，并标记为“你手动输入”，后续仍可随时刷新 AI 估算。
+              </p>
+            </details>
+          </div>
+          <form className="finance-income-inline-manual" onSubmit={onManualIncomeSubmit}>
+            <input
+              className="finance-debt-form-control"
+              type="number"
+              min={0}
+              step="1"
+              value={manualIncomeInput}
+              onChange={(event) => setManualIncomeInput(event.target.value)}
+              placeholder="手动填入月收入（¥）"
+              aria-label="手动填入月收入"
+            />
+            <button type="submit" className="finance-income-inline-action">
+              保存手动月收入
+            </button>
+          </form>
           {incomeHint ? <p className="muted finance-income-inline-hint">{incomeHint}</p> : null}
         </div>
 
@@ -915,7 +1001,11 @@ export function RepaymentManagementPage() {
               onClick={() => fileInputRef.current?.click()}
               disabled={extractLoading}
             >
-              {extractLoading ? '识别中...' : '📷 上传账单自动识别'}
+              {extractLoading
+                ? '正在生成AI建议中...' 
+                : extractSuccess
+                  ? '✅ 识别完成'
+                  : '📷 上传账单自动识别'}
             </button>
             <input
               ref={fileInputRef}
@@ -1137,7 +1227,7 @@ export function RepaymentManagementPage() {
               <h4 style={{ margin: '0 0 8px 0' }}>推荐还款优先级</h4>
               {repaymentPriority.length === 0 ? (
                 <p className="muted" style={{ margin: 0 }}>
-                  暂无负债数据。
+                  你还未创建负债，点击“添加负债”或“上传账单自动识别”继续。
                 </p>
               ) : (
                 <ol style={{ margin: 0, paddingInlineStart: 18 }}>
@@ -1146,6 +1236,13 @@ export function RepaymentManagementPage() {
                       key={item.id}
                       className={`finance-priority-item finance-priority-${item.recommendationTone}`}
                     >
+                      <span className="finance-priority-badge" aria-hidden>
+                        {item.recommendationTone === 'danger'
+                          ? '⚠️'
+                          : item.recommendationTone === 'warning'
+                            ? '💡'
+                            : '✅'}
+                      </span>
                       {item.name}（年化参考 {item.annualRate.toFixed(1)}%，余额 ¥
                       {item.balance.toFixed(0)}，最低 ¥{item.minimumPayment.toFixed(0)}）
                     </li>
@@ -1222,7 +1319,7 @@ export function RepaymentManagementPage() {
           </div>
 
           <button type="button" onClick={onGenerateRepaymentAdvice} disabled={repaymentLoading}>
-            {repaymentLoading ? '生成中...' : '生成 AI 还款建议'}
+            {repaymentLoading ? '正在生成AI建议...' : '生成 AI 还款建议'}
           </button>
           {repaymentCacheHint ? (
             <p className="muted" style={{ marginBottom: 0 }}>
@@ -1230,10 +1327,13 @@ export function RepaymentManagementPage() {
             </p>
           ) : null}
           {repaymentAdvice ? (
-            <pre className="finance-ai-result">{repaymentAdvice}</pre>
+            <>
+              <p className="finance-generate-done">✅ AI建议已生成，可继续调整参数后重新生成。</p>
+              <pre className="finance-ai-result">{repaymentAdvice}</pre>
+            </>
           ) : (
             <p className="muted" style={{ marginBottom: 0 }}>
-              暂无建议，点击上方按钮即可生成。
+              还没有策略建议，点击“生成 AI 还款建议”继续。
             </p>
           )}
           {repaymentReasoning ? (
