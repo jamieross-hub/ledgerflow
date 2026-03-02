@@ -232,16 +232,39 @@ export function applyBillImportMode(input: ApplyBillImportModeInput): ApplyBillI
   };
 }
 
-function parseType(row: Record<string, string>, amountRaw: string): 'income' | 'expense' {
+function parseType(row: Record<string, string>, amountRaw: string): TransactionItem['type'] {
+  const cashflowText = pickByKeys(row, ['收/支', '收支类型']).trim();
   const typeText = pickByKeys(row, TYPE_KEYS);
-  const all = `${typeText} ${amountRaw}`;
+  const statusText = pickByKeys(row, STATUS_KEYS);
+  const noteText = buildNote(row);
+  const all = `${cashflowText} ${typeText} ${statusText} ${noteText} ${amountRaw}`;
 
-  if (/收入|收款|入账|退款|退回|转入|收入到账|收/i.test(all)) {
+  if (/花呗还款|信用卡还款|借呗还款|还款|自动还款/i.test(all)) {
+    return 'repayment';
+  }
+
+  if (/退款|退回|退还|冲正|退票/i.test(all)) {
     return 'income';
   }
 
-  if (/支出|付款|消费|转出|支付|扣款|不计收支|支/i.test(all)) {
+  if (/不计收支/.test(cashflowText)) {
     return 'expense';
+  }
+
+  if (/支出|付款|消费|转出|支付|扣款|支/i.test(cashflowText)) {
+    return 'expense';
+  }
+
+  if (/收入|收款|入账|转入|收入到账|到账/i.test(cashflowText)) {
+    return 'income';
+  }
+
+  if (/支出|付款|消费|转出|支付|扣款|转账|支/i.test(all)) {
+    return 'expense';
+  }
+
+  if (/收入|收款|入账|转入|收入到账|到账/i.test(all)) {
+    return 'income';
   }
 
   return amountRaw.trim().startsWith('-') ? 'expense' : 'income';

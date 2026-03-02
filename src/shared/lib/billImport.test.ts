@@ -68,6 +68,26 @@ describe('parseBillCsvToTransactions', () => {
     expect(rows[0].orderNo).toBe('53010002489226202602144159140074');
     expect(rows[0].merchantOrderNo).toBe('1000050001202602140030491809117');
   });
+  it('应将支付宝不计收支中的退款识别为收入、还款识别为还款类型', () => {
+    const csvText = [
+      '支付宝交易记录明细查询',
+      '交易号,商家订单号,交易创建时间,金额（元）,收/支,交易状态,交易对方,商品名称,备注',
+      'R20260210,M20260210,2026/2/10 08:00,24.59,不计收支,退款成功,高德,退款-高德顺风车,',
+      'H20260210,MH20260210,2026/2/10 09:00,1200,不计收支,交易成功,蚂蚁花呗,花呗自动还款,本期还款'
+    ].join('\n');
+
+    const rows = parseBillCsvToTransactions({
+      csvText,
+      source: 'alipay',
+      defaultCategoryId: 'cat-default',
+      defaultAccountId: 'acc-default'
+    });
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0].type).toBe('income');
+    expect(rows[1].type).toBe('repayment');
+  });
+
   it('异步解析在大体量账单下与同步解析结果一致', async () => {
     const header = '交易号,商家订单号,交易创建时间,金额（元）,收/支,交易状态,交易对方,商品名称';
     const body = Array.from({ length: 1200 }, (_, index) => {
