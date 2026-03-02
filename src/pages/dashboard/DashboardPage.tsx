@@ -19,6 +19,12 @@ interface MonthlyInsightPayload {
   categoryBreakdown: Array<{ name: string; amount: number; percent: number }>;
   topTransactions: Array<{ date: string; category: string; amount: number; note: string }>;
   highlights: string[];
+  profile?: {
+    timePreference: string;
+    topMerchant: string;
+    personality: string;
+    crowdCompare: string;
+  };
 }
 
 function getGreeting(): string {
@@ -58,6 +64,17 @@ function extractJson(text: string): string {
 function toSafeNumber(value: unknown, fallback = 0): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function monthBounds(date = new Date()) {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const start = new Date(year, month, 1);
+  const end = new Date(year, month + 1, 0);
+  return {
+    from: start.toISOString().slice(0, 10),
+    to: end.toISOString().slice(0, 10)
+  };
 }
 
 function buildSmoothPath(points: Array<{ x: number; y: number }>): string {
@@ -272,28 +289,6 @@ export function DashboardPage() {
   );
 
   /** 本月趋势仅展示：上月、当月、下月 */
-  const trendMonths = useMemo(() => {
-    const offsets = [-1, 0, 1];
-    return offsets.map((offset) => {
-      const d = new Date(currentYear, currentMonth + offset, 1);
-      const key = monthKey(d);
-      const rows = transactions.filter((t) => monthKey(new Date(t.date)) === key);
-      const mIncome = rows.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-      const mExpense = rows
-        .filter((t) => isActualExpenseType(t.type))
-        .reduce((sum, t) => sum + t.amount, 0);
-      const label = offset === -1 ? '上月' : offset === 0 ? '本月' : '下月';
-      const shortLabel = `${label}（${d.getMonth() + 1}月）`;
-      return {
-        key,
-        shortLabel,
-        income: mIncome,
-        expense: mExpense,
-        balance: mIncome - mExpense,
-        isCurrent: offset === 0
-      };
-    });
-  }, [currentMonth, currentYear, transactions]);
 
   const aiInput = useMemo(() => {
     const txRows = transactions
@@ -486,7 +481,7 @@ export function DashboardPage() {
           apiKey,
           model,
           systemPrompt:
-            '你是财务洞察分析助手。只输出 JSON：{"summary":"字符串","categoryBreakdown":[{"name":"分类","amount":123,"percent":0.12}],"topTransactions":[{"date":"YYYY-MM-DD","category":"分类","amount":123,"note":""}],"highlights":["要点1","要点2"]}。内容简洁，避免冗长描述。',
+            '你是财务洞察分析助手。只输出 JSON：{"summary":"字符串","categoryBreakdown":[{"name":"分类","amount":123,"percent":12.3}],"topTransactions":[{"date":"YYYY-MM-DD","category":"分类","amount":123,"note":""}],"highlights":["要点1","要点2"],"profile":{"timePreference":"字符串","topMerchant":"字符串","personality":"字符串","crowdCompare":"字符串"}}。要求：1) categoryBreakdown.percent 是 0~100 的百分比数值，不带%符号；2) 占比必须基于“本月总交易额（收入+支出+还款）”，不能超过100；3) 若数据不足，明确写“暂无足够数据”，不要臆测。',
           messages: [
             {
               role: 'user',
@@ -502,7 +497,7 @@ export function DashboardPage() {
               .map((item) => ({
                 name: String(item?.name || '未分类'),
                 amount: toSafeNumber(item?.amount, 0),
-                percent: toSafeNumber(item?.percent, 0)
+                percent: Math.min(100, Math.max(0, toSafeNumber(item?.percent, 0)))
               }))
               .filter((item) => item.name)
           : [];
@@ -523,11 +518,29 @@ export function DashboardPage() {
           typeof parsed.summary === 'string' && parsed.summary.trim().length > 0
             ? parsed.summary.trim()
             : '本月洞察已生成，可结合分类与大额交易进行预算调整。';
+        const profile =
+          parsed.profile && typeof parsed.profile === 'object'
+            ? {
+                timePreference: String(
+                  (parsed.profile as Record<string, unknown>).timePreference || '暂无足够数据'
+                ),
+                topMerchant: String(
+                  (parsed.profile as Record<string, unknown>).topMerchant || '暂无足够数据'
+                ),
+                personality: String(
+                  (parsed.profile as Record<string, unknown>).personality || '暂无足够数据'
+                ),
+                crowdCompare: String(
+                  (parsed.profile as Record<string, unknown>).crowdCompare || '暂无足够数据'
+                )
+              }
+            : undefined;
         const next: MonthlyInsightPayload = {
           summary,
           categoryBreakdown,
           topTransactions,
-          highlights
+          highlights,
+          profile
         };
         setMonthlyInsight(next);
         setMonthlyInsightStatus('done');
@@ -649,20 +662,28 @@ export function DashboardPage() {
         ? '重新分析'
         : 'AI 待分析';
 
+  const monthlyTurnover = useMemo(
+    () => monthly.reduce((sum, item) => sum + Math.abs(toSafeNumber(item.amount, 0)), 0),
+    [monthly]
+  );
+
   const displayCategoryBreakdown = useMemo(
     () =>
       monthlyInsight?.categoryBreakdown?.length
         ? monthlyInsight.categoryBreakdown.map((item) => ({
             name: item.name,
             amount: item.amount,
-            percent: item.percent
+            percent: Math.min(100, Math.max(0, toSafeNumber(item.percent, 0)))
           }))
         : monthlyInsightInput.categories.map((item) => ({
             name: item.name,
             amount: item.total,
-            count: item.count
+            percent:
+              monthlyTurnover > 0
+                ? Math.min(100, Math.max(0, Math.round((Math.abs(item.total) / monthlyTurnover) * 1000) / 10))
+                : 0
           })),
-    [monthlyInsight, monthlyInsightInput]
+    [monthlyInsight, monthlyInsightInput, monthlyTurnover]
   );
 
   const displayTopTransactions = useMemo(
@@ -683,27 +704,6 @@ export function DashboardPage() {
     () => new Map(categories.map((item) => [item.id, item.name])),
     [categories]
   );
-  const timePreference = useMemo(() => {
-    const buckets = { 早晨: 0, 午间: 0, 晚间: 0, 深夜: 0 };
-    monthly.forEach((item) => {
-      const hour = new Date(item.date).getHours();
-      if (hour < 6) buckets.深夜 += 1;
-      else if (hour < 12) buckets.早晨 += 1;
-      else if (hour < 18) buckets.午间 += 1;
-      else buckets.晚间 += 1;
-    });
-    return Object.entries(buckets).sort((a, b) => b[1] - a[1])[0]?.[0] || '暂无';
-  }, [monthly]);
-  const topMerchant = useMemo(() => {
-    const counts = new Map<string, number>();
-    monthly.forEach((item) => {
-      const key = (item.note || '').trim().slice(0, 12) || '未知商家';
-      counts.set(key, (counts.get(key) || 0) + 1);
-    });
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || '暂无';
-  }, [monthly]);
-  const personalityTag = expense > income ? '冲动型消费者' : '稳健规划型';
-  const crowdCompare = monthlyBalance >= 0 ? '高于同类人群中位线' : '低于同类人群中位线';
 
   const mysticInsight = useMemo(() => {
     const expenseRows = monthly.filter((item) => isActualExpenseType(item.type));
@@ -1018,28 +1018,37 @@ export function DashboardPage() {
 
       <section className="panel">
         <h2>核心资产仪表盘</h2>
-        <div className="grid grid-3">
-          <div className="stat-card stat-balance stat-card-gradient">
+        <div className="grid grid-2">
+          <button
+            type="button"
+            className="stat-card stat-balance stat-card-gradient"
+            onClick={() => {
+              const { from, to } = monthBounds();
+              navigate(`/transactions?datePreset=custom&dateFrom=${from}&dateTo=${to}`);
+            }}
+            title="点击追溯本月交易"
+          >
             <span className="stat-icon">🧭</span>
             <div>
               <h3>净资产</h3>
               <strong className="stat-value">{formatCurrency(netAssets)}</strong>
             </div>
-          </div>
-          <div className="stat-card stat-income stat-card-gradient">
+          </button>
+          <button
+            type="button"
+            className="stat-card stat-income stat-card-gradient"
+            onClick={() => {
+              const { from, to } = monthBounds();
+              navigate(`/transactions?datePreset=custom&dateFrom=${from}&dateTo=${to}`);
+            }}
+            title="点击追溯本月交易"
+          >
             <span className="stat-icon">💎</span>
             <div>
               <h3>本月结余</h3>
               <strong className="stat-value">{formatCurrency(monthlyBalance)}</strong>
             </div>
-          </div>
-          <div className="stat-card stat-expense stat-card-gradient">
-            <span className="stat-icon">📄</span>
-            <div>
-              <h3>欠款负债</h3>
-              <strong className="stat-value">{formatCurrency(liabilities)}</strong>
-            </div>
-          </div>
+          </button>
         </div>
         <section className="dashboard-module-customizer" aria-label="首页模块自定义">
           <div className="dashboard-section-header">
@@ -1228,13 +1237,19 @@ export function DashboardPage() {
           }
 
           if (moduleId === 'profile') {
+            const profile = monthlyInsight?.profile;
             return (
               <article key={moduleId} className="panel" style={{ marginTop: 12 }}>
                 <h3>消费行为画像</h3>
-                <p>时段偏好：{timePreference}</p>
-                <p>高频商家：{topMerchant}</p>
-                <p>消费人格：{personalityTag}</p>
-                <p>同类人群对比：{crowdCompare}</p>
+                <p>时段偏好：{profile?.timePreference || '暂无足够数据'}</p>
+                <p>高频商家：{profile?.topMerchant || '暂无足够数据'}</p>
+                <p>消费人格：{profile?.personality || '暂无足够数据'}</p>
+                <p>同类人群对比：{profile?.crowdCompare || '暂无足够数据'}</p>
+                {monthlyInsightStatus !== 'done' ? (
+                  <p className="dashboard-ai-error" style={{ marginTop: 8 }}>
+                    当前画像优先由大模型生成，暂无结果时不做本地臆测。
+                  </p>
+                ) : null}
               </article>
             );
           }
@@ -1374,11 +1389,8 @@ export function DashboardPage() {
                 </div>
                 <div className="dashboard-breakdown-grid">
                   {displayCategoryBreakdown.map((item, index) => {
-                    const percentValue =
-                      'percent' in item
-                        ? item.percent
-                        : Math.round((item.amount / Math.max(expense, 1)) * 100);
-                    const percentText = `${percentValue}%`;
+                    const percentValue = Math.min(100, Math.max(0, toSafeNumber(item.percent, 0)));
+                    const percentText = `${percentValue.toFixed(1)}%`;
                     const emoji = item.amount >= 0 ? '📌' : '🔻';
                     return (
                       <article key={`${item.name}-${index}`} className="dashboard-breakdown-item">
@@ -1400,16 +1412,7 @@ export function DashboardPage() {
               </section>
             </div>
 
-            <div className="dashboard-trend-list" aria-label="上月、本月、下月收支结余趋势">
-              {trendMonths.map((item) => (
-                <article key={item.key} className="dashboard-trend-item">
-                  <strong>{item.shortLabel}</strong>
-                  <span className="mono-inline">收入 {formatCurrency(item.income)}</span>
-                  <span className="mono-inline">支出 {formatCurrency(item.expense)}</span>
-                  <span className="mono-inline">结余 {formatCurrency(item.balance)}</span>
-                </article>
-              ))}
-            </div>
+            {/* 已移除：上月/本月/下月三段趋势列表 */}
           </section>
 
           <section className="panel">

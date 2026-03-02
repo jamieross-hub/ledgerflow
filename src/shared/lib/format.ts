@@ -1,19 +1,28 @@
+function normalizeCurrencyInput(value: number, fractionDigits = 2) {
+  if (!Number.isFinite(value)) return 0;
+  const factor = 10 ** fractionDigits;
+  const rounded = Math.round(value * factor) / factor;
+  return Object.is(rounded, -0) ? 0 : rounded;
+}
+
 export function formatCurrency(value: number) {
+  const normalized = normalizeCurrencyInput(value, 2);
   return new Intl.NumberFormat('zh-CN', {
     style: 'currency',
     currency: 'CNY',
     maximumFractionDigits: 2
-  }).format(value);
+  }).format(normalized);
 }
 
 /** 货币格式化（固定两位小数） */
 export function formatCurrencyFixed2(value: number) {
+  const normalized = normalizeCurrencyInput(value, 2);
   return new Intl.NumberFormat('zh-CN', {
     style: 'currency',
     currency: 'CNY',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(value);
+  }).format(normalized);
 }
 
 /** 格式化日期（仅日期） */
