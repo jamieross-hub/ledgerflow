@@ -11,7 +11,7 @@ import {
   BillImportParseSummary,
   parseBillFileToTransactionsDetailed
 } from '../../shared/lib/billImport';
-import { formatCurrency, formatDate } from '../../shared/lib/format';
+import { formatCurrency, formatCurrencyAuto, formatDate } from '../../shared/lib/format';
 import { resolveImportDefaultAccountId } from '../../shared/lib/importAccount';
 import { Toast, ToastVariant } from '../../shared/ui/Toast';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
@@ -82,6 +82,48 @@ function buildPieGradient(
       return `${item.color} ${start}% ${cursor}%`;
     });
   return gradientSegments.length ? `conic-gradient(${gradientSegments.join(',')})` : 'none';
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function txTypeLabel(type: TransactionType) {
+  return type === 'income' ? '收入' : type === 'budget' ? '预算' : type === 'repayment' ? '还款' : '支出';
+}
+
+function txStatusLabel(status?: TransactionItem['status']) {
+  if (!status) return '—';
+  return (
+    {
+      pending: '待处理',
+      completed: '已完成',
+      refunded: '已退款',
+      closed: '已关闭',
+      failed: '失败'
+    }[status] || status
+  );
+}
+
+function buildBulkPrintStyles() {
+  return `
+    @page { size: A4; margin: 10mm; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #111827; }
+    .sheet { width: 100%; }
+    .title { margin: 0 0 8px 0; font-size: 18px; }
+    .meta { margin: 0 0 14px 0; color: #6b7280; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th, td { border: 1px solid #d1d5db; padding: 8px 6px; font-size: 12px; vertical-align: top; word-break: break-word; }
+    th { background: #f3f4f6; text-align: left; }
+    .amount-income { color: #059669; font-weight: 600; }
+    .amount-expense { color: #dc2626; font-weight: 600; }
+    .footer { margin-top: 12px; color: #6b7280; font-size: 11px; }
+  `;
 }
 
 function extractLocation(note: string): string {
@@ -1107,6 +1149,83 @@ export function TransactionsPage() {
     applyBulkUpdate({ accountId });
   };
 
+  const handleBulkPrintA4 = () => {
+    const selectedRows = viewRows.filter((row) => selectedIds.includes(row.item.id));
+    if (selectedRows.length === 0) {
+      showToast('请先勾选要打印的交易。', 'warning');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=1120,height=860');
+    if (!printWindow) {
+      showToast('未能打开打印窗口，请检查浏览器弹窗权限。', 'warning');
+      return;
+    }
+
+    const totalAmount = selectedRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
+
+    const tableRows = selectedRows
+      .map(({ item, categoryName, accountName }) => {
+        const amountText = `${item.type === 'income' ? '+' : '-'}${formatCurrency(item.amount)}`;
+        return `
+          <tr>
+            <td>${escapeHtml(formatDate(item.date))}</td>
+            <td>${escapeHtml(txTypeLabel(item.type))}</td>
+            <td>${escapeHtml(categoryName || '未分类')}</td>
+            <td>${escapeHtml(accountName || '未指定账户')}</td>
+            <td class="${item.type === 'income' ? 'amount-income' : 'amount-expense'}">${escapeHtml(amountText)}</td>
+            <td>${escapeHtml(txStatusLabel(item.status))}</td>
+            <td>${escapeHtml(item.note || '—')}</td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    const html = `
+      <!doctype html>
+      <html lang="zh-CN">
+        <head>
+          <meta charset="utf-8" />
+          <title>批量交易打印（A4）</title>
+          <style>${buildBulkPrintStyles()}</style>
+        </head>
+        <body>
+          <main class="sheet">
+            <h1 class="title">批量交易清单</h1>
+            <p class="meta">
+              共 ${selectedRows.length} 条 ｜ 金额合计 ${escapeHtml(formatCurrency(totalAmount))} ｜ 生成时间 ${escapeHtml(
+                new Date().toLocaleString('zh-CN', { hour12: false })
+              )}
+            </p>
+            <table>
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th>类型</th>
+                  <th>分类</th>
+                  <th>账户</th>
+                  <th>金额</th>
+                  <th>状态</th>
+                  <th>备注</th>
+                </tr>
+              </thead>
+              <tbody>${tableRows}</tbody>
+            </table>
+            <footer class="footer">提示：若未弹出系统打印框，请检查浏览器是否拦截弹窗或静默打印策略。</footer>
+          </main>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    window.setTimeout(() => {
+      printWindow.print();
+    }, 120);
+  };
+
   const recategorizeByAi = async (
     tx: TransactionItem,
     signal?: AbortSignal
@@ -1715,6 +1834,7 @@ export function TransactionsPage() {
             onBulkAiRecategorize={() => void handleBulkAiRecategorize()}
             bulkAiRecategorizing={bulkAiRecategorizing}
             onBulkEditAccount={handleBulkEditAccount}
+            onBulkPrintA4={handleBulkPrintA4}
             categoryOptions={categories.map((item) => ({ id: item.id, name: item.name }))}
             accountOptions={accounts.map((item) => ({ id: item.id, name: item.name }))}
             onClearSelection={() => setSelectedIds([])}
@@ -1752,7 +1872,7 @@ export function TransactionsPage() {
                 {categoryPieData.map((item) => (
                   <p key={item.name}>
                     <span style={{ color: item.color }}>●</span> {item.name} · {item.percent.toFixed(1)}% ·{' '}
-                    {formatCurrency(item.amount)}
+                    {formatCurrencyAuto(item.amount)}
                   </p>
                 ))}
               </div>
@@ -1773,7 +1893,7 @@ export function TransactionsPage() {
                       }}
                     />
                   </div>
-                  <strong>{formatCurrency(point.value)}</strong>
+                  <strong>{formatCurrencyAuto(point.value)}</strong>
                 </div>
               ))}
             </div>

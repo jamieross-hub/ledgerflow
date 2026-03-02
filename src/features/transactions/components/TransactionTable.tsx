@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TransactionItem, TransactionStatus } from '../../../entities/transaction/types';
 import { EMPTY_CATEGORY_FILTER_VALUE } from '../model/categoryQuickFilter';
-import { formatCurrency, formatDate } from '../../../shared/lib/format';
+import { formatCurrencyAuto, formatDate } from '../../../shared/lib/format';
 import { summarizeTransactions } from '../../../shared/lib/transactionMetrics';
 import { EmptyState } from '../../../shared/ui/EmptyState';
 import { TableSkeleton } from '../../../shared/ui/TableSkeleton';
@@ -177,6 +177,7 @@ interface TransactionTableProps {
   onBulkAiRecategorize: () => void;
   bulkAiRecategorizing: boolean;
   onBulkEditAccount: (accountId: string) => void;
+  onBulkPrintA4?: () => void;
   categoryOptions: Array<{ id: string; name: string }>;
   accountOptions: Array<{ id: string; name: string }>;
   onClearSelection: () => void;
@@ -230,6 +231,7 @@ export function TransactionTable({
   onBulkAiRecategorize,
   bulkAiRecategorizing,
   onBulkEditAccount,
+  onBulkPrintA4,
   categoryOptions,
   accountOptions,
   onClearSelection,
@@ -298,7 +300,7 @@ export function TransactionTable({
       case 'account':
         return renderAccountLabel(accountName);
       case 'amount':
-        return privacyMode ? maskAmount() : formatCurrency(item.amount);
+        return privacyMode ? maskAmount() : formatCurrencyAuto(item.amount);
       case 'orderNo':
         return item.orderNo || '-';
       case 'merchantOrderNo':
@@ -511,6 +513,9 @@ export function TransactionTable({
                     ))}
                   </select>
                 </label>
+                <button type="button" onClick={() => onBulkPrintA4?.()}>
+                  🖨️ 打印 A4
+                </button>
                 <button type="button" onClick={onDeleteSelected} className="danger">
                   批量删除
                 </button>
@@ -526,22 +531,22 @@ export function TransactionTable({
               <article className="transaction-task-item is-pending">
                 <strong>{taskSummary.pending.count}</strong>
                 <span>待处理</span>
-                <small>{taskSummary.pending.amount.toFixed(2)}</small>
+                <small>{formatCurrencyAuto(taskSummary.pending.amount)}</small>
               </article>
               <article className="transaction-task-item is-refund">
                 <strong>{taskSummary.refund.count}</strong>
                 <span>退款 / 冲正</span>
-                <small>{taskSummary.refund.amount.toFixed(2)}</small>
+                <small>{formatCurrencyAuto(taskSummary.refund.amount)}</small>
               </article>
               <article className="transaction-task-item is-failed">
                 <strong>{taskSummary.failed.count}</strong>
                 <span>失败单</span>
-                <small>{taskSummary.failed.amount.toFixed(2)}</small>
+                <small>{formatCurrencyAuto(taskSummary.failed.amount)}</small>
               </article>
               <article className="transaction-task-item is-done">
                 <strong>{taskSummary.done.count}</strong>
                 <span>已完成</span>
-                <small>{taskSummary.done.amount.toFixed(2)}</small>
+                <small>{formatCurrencyAuto(taskSummary.done.amount)}</small>
               </article>
             </section>
           ) : null}
@@ -877,10 +882,10 @@ export function TransactionTable({
                   <tr className="transaction-summary-row">
                     <td colSpan={visibleColumnCount} className="transaction-summary-amount">
                       汇总（当前页 {rows.length} 条）｜ 金额合计{' '}
-                      {privacyMode ? maskAmount() : formatCurrency(pageSummary.overallTotal)} ｜
-                      收入 {privacyMode ? maskAmount() : formatCurrency(pageSummary.incomeTotal)} ｜
-                      支出 {privacyMode ? maskAmount() : formatCurrency(pageSummary.expenseTotal)}{' '}
-                      ｜ 净额 {privacyMode ? maskAmount() : formatCurrency(pageSummary.netTotal)}
+                      {privacyMode ? maskAmount() : formatCurrencyAuto(pageSummary.overallTotal)} ｜
+                      收入 {privacyMode ? maskAmount() : formatCurrencyAuto(pageSummary.incomeTotal)} ｜
+                      支出 {privacyMode ? maskAmount() : formatCurrencyAuto(pageSummary.expenseTotal)}{' '}
+                      ｜ 净额 {privacyMode ? maskAmount() : formatCurrencyAuto(pageSummary.netTotal)}
                     </td>
                   </tr>
                 </tfoot>
@@ -934,7 +939,7 @@ export function TransactionTable({
                               : 'transaction-amount-expense'
                           }`}
                         >
-                          {privacyMode ? maskAmount() : formatCurrency(item.amount)}
+                          {privacyMode ? maskAmount() : formatCurrencyAuto(item.amount)}
                         </strong>
                       </header>
                       <p>{note}</p>
