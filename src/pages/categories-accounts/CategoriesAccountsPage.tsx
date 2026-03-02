@@ -40,6 +40,44 @@ const CATEGORY_COLORS = [
 ];
 const CATEGORY_ICONS = ['🍜', '💰', '🛍️', '🏠', '🚇', '🎁', '📚', '💡', '📦'];
 
+const CATEGORY_APPEARANCE_RULES: Array<{ pattern: RegExp; icon: string; color: string }> = [
+  { pattern: /(工资|薪资|奖金|收入|salary|bonus|income)/i, icon: '💰', color: '#22c55e' },
+  { pattern: /(餐|饭|外卖|奶茶|咖啡|food|meal|restaurant)/i, icon: '🍜', color: '#f97316' },
+  { pattern: /(交通|地铁|公交|打车|加油|停车|taxi|metro|bus)/i, icon: '🚇', color: '#06b6d4' },
+  { pattern: /(住房|房租|家居|物业|home|rent|house)/i, icon: '🏠', color: '#8b5cf6' },
+  { pattern: /(购物|网购|衣服|日用|shopping|mall|store)/i, icon: '🛍️', color: '#ec4899' },
+  { pattern: /(礼物|人情|gift|present|红包)/i, icon: '🎁', color: '#ef4444' },
+  { pattern: /(学习|教育|课程|书|study|book|course)/i, icon: '📚', color: '#6366f1' }
+];
+
+function hashString(value: string) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function inferCategoryAppearance(name: string, kind: 'income' | 'expense') {
+  const normalized = name.trim();
+  if (normalized) {
+    const matched = CATEGORY_APPEARANCE_RULES.find((rule) => rule.pattern.test(normalized));
+    if (matched) {
+      return { icon: matched.icon, color: matched.color };
+    }
+  }
+
+  if (kind === 'income') {
+    return { icon: '💰', color: '#22c55e' };
+  }
+
+  const seed = hashString(`${normalized}-${kind}`);
+  return {
+    icon: CATEGORY_ICONS[seed % CATEGORY_ICONS.length],
+    color: CATEGORY_COLORS[seed % CATEGORY_COLORS.length]
+  };
+}
+
 const MIN_CATEGORY_PANEL_WIDTH = 360;
 const MIN_ACCOUNTS_PANEL_WIDTH = 420;
 const DEFAULT_CATEGORY_PANEL_WIDTH = 520;
@@ -50,7 +88,6 @@ export function CategoriesAccountsPage() {
   const accounts = useFinanceStore((s) => s.accounts);
   const transactions = useFinanceStore((s) => s.transactions);
   const addCategory = useFinanceStore((s) => s.addCategory);
-  const updateCategory = useFinanceStore((s) => s.updateCategory);
   const reorderCategories = useFinanceStore((s) => s.reorderCategories);
   const removeCategory = useFinanceStore((s) => s.removeCategory);
   const addAccount = useFinanceStore((s) => s.addAccount);
@@ -61,8 +98,6 @@ export function CategoriesAccountsPage() {
 
   const [categoryName, setCategoryName] = useState('');
   const [categoryKind, setCategoryKind] = useState<'income' | 'expense'>('expense');
-  const categoryColor = CATEGORY_COLORS[0];
-  const categoryIcon = CATEGORY_ICONS[0];
   const [accountName, setAccountName] = useState('');
   const [accountType, setAccountType] = useState<AccountType | ''>('');
   const [accountInitialBalance, setAccountInitialBalance] = useState('0');
@@ -146,7 +181,12 @@ export function CategoriesAccountsPage() {
       setCategoryError('分类名称需为 1-24 个字符，且不能包含 < 或 >。');
       return;
     }
-    addCategory(normalized, { kind: categoryKind, color: categoryColor, icon: categoryIcon });
+    const appearance = inferCategoryAppearance(normalized, categoryKind);
+    addCategory(normalized, {
+      kind: categoryKind,
+      color: appearance.color,
+      icon: appearance.icon
+    });
     setCategoryName('');
     setCategoryError('');
   }
@@ -446,36 +486,6 @@ export function CategoriesAccountsPage() {
         >
           {item.icon || '📁'}
         </span>
-        <button
-          type="button"
-          className="tag-count-chip"
-          style={{ borderColor: item.color || 'transparent', color: item.color || undefined }}
-          onClick={() =>
-            updateCategory(item.id, {
-              color:
-                CATEGORY_COLORS[
-                  (CATEGORY_COLORS.indexOf(item.color || '') + 1) % CATEGORY_COLORS.length
-                ]
-            })
-          }
-          aria-label={`切换 ${item.name} 的颜色`}
-        >
-          颜色
-        </button>
-        <button
-          type="button"
-          className="tag-count-chip"
-          onClick={() =>
-            updateCategory(item.id, {
-              icon: CATEGORY_ICONS[
-                (CATEGORY_ICONS.indexOf(item.icon || '') + 1) % CATEGORY_ICONS.length
-              ]
-            })
-          }
-          aria-label={`切换 ${item.name} 的图标`}
-        >
-          图标
-        </button>
         <strong>{item.name}</strong>
         <button
           type="button"
