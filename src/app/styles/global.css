@@ -23,7 +23,10 @@ body {
   font-family: var(--font-sans);
   font-size: var(--font-base);
   line-height: var(--leading-normal);
-  background: var(--color-bg);
+  background:
+    radial-gradient(circle at 8% -12%, rgba(79, 110, 247, 0.08), transparent 36%),
+    radial-gradient(circle at 92% -22%, rgba(32, 201, 151, 0.06), transparent 30%),
+    var(--color-bg);
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -53,12 +56,16 @@ body {
   top: 0;
   height: 100vh;
   border-right: 1px solid var(--color-border);
-  background: var(--color-bg-elevated);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.72)),
+    var(--color-bg-elevated);
+  backdrop-filter: blur(8px);
   display: flex;
   flex-direction: column;
   padding: var(--space-3);
   transition: width var(--transition-base);
   z-index: 10;
+  box-shadow: 8px 0 20px rgba(15, 23, 42, 0.04);
 }
 
 .sidebar.collapsed {
@@ -340,7 +347,10 @@ body {
   top: 0;
   z-index: 220;
   border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-elevated);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.78)),
+    var(--color-bg-elevated);
+  backdrop-filter: blur(10px);
   padding: var(--space-3) var(--space-5);
   height: var(--topbar-height);
   display: flex;
@@ -529,6 +539,10 @@ body {
   padding: var(--space-6);
 }
 
+.content > .panel:first-child {
+  margin-top: var(--space-1);
+}
+
 @media (min-width: 1440px) {
   .content {
     max-width: none;
@@ -546,25 +560,29 @@ body {
    Card / Panel
    ============================================================ */
 .panel {
-  background: var(--color-bg-elevated);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.9)),
+    var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
   margin-bottom: var(--space-4);
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-sm);
   animation: panel-fade 0.25s ease both;
 }
 
 .panel h2 {
   margin: 0 0 var(--space-4) 0;
   font-size: var(--font-lg);
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: -0.2px;
 }
 
 .panel h3 {
   margin: 0 0 var(--space-3) 0;
   font-size: var(--font-md);
-  font-weight: 600;
+  font-weight: 650;
+  letter-spacing: -0.1px;
 }
 
 .panel p {
@@ -573,20 +591,40 @@ body {
   line-height: var(--leading-relaxed);
 }
 
-@keyframes panel-fade {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.table-wrap {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-elevated);
 }
 
-/* ============================================================
-   Grid Layouts
-   ============================================================ */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-sm);
+}
+
+.table thead th {
+  background: linear-gradient(180deg, var(--color-bg-subtle), color-mix(in srgb, var(--color-bg-subtle) 82%, #fff));
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: color-mix(in srgb, var(--color-primary-bg) 40%, transparent);
+}
 .grid {
   display: grid;
   gap: var(--space-4);
