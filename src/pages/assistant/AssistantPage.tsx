@@ -464,6 +464,9 @@ export function AssistantPage() {
 
   const [modelOpen, setModelOpen] = useState(false);
   const [presetQuestions, setPresetQuestions] = useState<PresetQuestion[]>([]);
+  const [isMobileView, setIsMobileView] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
+  );
   const [loadingPresets, setLoadingPresets] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(() => readChatHistory(mode));
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -717,6 +720,24 @@ export function AssistantPage() {
       }
     ];
   }, [categories, transactions]);
+
+  const displayBehaviorQuestions = useMemo(
+    () => behaviorRecommendedQuestions.slice(0, isMobileView ? 1 : 2),
+    [behaviorRecommendedQuestions, isMobileView]
+  );
+
+  const displayPresetQuestions = useMemo(
+    () => presetQuestions.slice(0, isMobileView ? 1 : 2),
+    [presetQuestions, isMobileView]
+  );
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 768px)');
+    const onChange = () => setIsMobileView(media.matches);
+    onChange();
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, []);
 
   // 每次状态或消息变化后，自动将视图滚动到底部，保持聊天体验。
   useEffect(() => {
@@ -1132,7 +1153,7 @@ export function AssistantPage() {
                 </button>
               </div>
               <div className="chat-preset-list chat-preset-list-smart">
-                {behaviorRecommendedQuestions.map((item) => (
+                {displayBehaviorQuestions.map((item) => (
                   <button
                     key={item.id}
                     type="button"
@@ -1146,7 +1167,7 @@ export function AssistantPage() {
                 ))}
               </div>
               <div className="chat-preset-list">
-                {presetQuestions.map((item) => (
+                {displayPresetQuestions.map((item) => (
                   <button
                     key={item.id}
                     type="button"
