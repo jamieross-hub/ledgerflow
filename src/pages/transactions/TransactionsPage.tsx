@@ -71,7 +71,7 @@ function easeOutCubic(t: number) {
 
 function buildPieGradient(
   segments: Array<{ color: string; percent: number }>,
-  minPercent = 0.05
+  minPercent = 0
 ): string {
   let cursor = 0;
   const gradientSegments = segments
