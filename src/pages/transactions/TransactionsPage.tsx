@@ -1853,6 +1853,11 @@ export function TransactionsPage() {
     return buildPieGradient(animatedSegments);
   }, [categoryPieData, pieAnimationProgress]);
 
+  const pieFallbackColor = categoryPieData[0]?.color || 'var(--color-bg-subtle)';
+  const pieOpacity = Number.isFinite(pieAnimationProgress)
+    ? 0.7 + Math.min(1, Math.max(0, pieAnimationProgress)) * 0.3
+    : 1;
+
   return (
     <div className="transactions-page">
       <TransactionFilters
@@ -2020,7 +2025,11 @@ export function TransactionsPage() {
             <div className="transactions-pie-wrap">
               <div
                 className="transactions-pie"
-                style={{ background: pieGradient, opacity: 0.7 + pieAnimationProgress * 0.3 }}
+                style={{
+                  backgroundImage: pieGradient !== 'none' ? pieGradient : undefined,
+                  backgroundColor: pieGradient === 'none' ? pieFallbackColor : undefined,
+                  opacity: pieOpacity
+                }}
               />
               <div className="transactions-pie-legend">
                 {categoryPieData.length === 0 ? <p className="muted">暂无数据</p> : null}
