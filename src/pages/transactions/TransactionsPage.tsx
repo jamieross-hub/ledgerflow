@@ -1784,7 +1784,7 @@ export function TransactionsPage() {
 
   const categoryPieData = useMemo(() => {
     const map = new Map<string, number>();
-    sortedRows.forEach((row) => {
+    viewRows.forEach((row) => {
       const amount = Math.abs(Number(row.item.amount) || 0);
       map.set(row.categoryName || '未分类', (map.get(row.categoryName || '未分类') || 0) + amount);
     });
@@ -1802,7 +1802,7 @@ export function TransactionsPage() {
       ...item,
       percent: total > 0 ? (item.amount / total) * 100 : 0
     }));
-  }, [sortedRows]);
+  }, [viewRows]);
 
   useEffect(() => {
     let raf = 0;
