@@ -57,7 +57,11 @@ body {
   height: 100vh;
   border-right: 1px solid var(--color-border);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.72)),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-bg-elevated) 94%, var(--color-bg-subtle)),
+      color-mix(in srgb, var(--color-bg-elevated) 82%, var(--color-bg))
+    ),
     var(--color-bg-elevated);
   backdrop-filter: blur(8px);
   display: flex;
@@ -65,7 +69,7 @@ body {
   padding: var(--space-3);
   transition: width var(--transition-base);
   z-index: 10;
-  box-shadow: 8px 0 20px rgba(15, 23, 42, 0.04);
+  box-shadow: 8px 0 20px color-mix(in srgb, var(--color-text) 8%, transparent);
 }
 
 .sidebar.collapsed {
@@ -348,7 +352,11 @@ body {
   z-index: 220;
   border-bottom: 1px solid var(--color-border);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.78)),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-bg-elevated) 94%, var(--color-bg-subtle)),
+      color-mix(in srgb, var(--color-bg-elevated) 84%, var(--color-bg))
+    ),
     var(--color-bg-elevated);
   backdrop-filter: blur(10px);
   padding: var(--space-3) var(--space-5);
@@ -561,7 +569,11 @@ body {
    ============================================================ */
 .panel {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.9)),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-bg-elevated) 97%, var(--color-bg-subtle)),
+      color-mix(in srgb, var(--color-bg-elevated) 90%, var(--color-bg))
+    ),
     var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -605,7 +617,11 @@ body {
 }
 
 .table thead th {
-  background: linear-gradient(180deg, var(--color-bg-subtle), color-mix(in srgb, var(--color-bg-subtle) 82%, #fff));
+  background: linear-gradient(
+    180deg,
+    var(--color-bg-subtle),
+    color-mix(in srgb, var(--color-bg-subtle) 82%, var(--color-bg-elevated))
+  );
   color: var(--color-text-secondary);
   font-weight: 600;
   padding: 10px 12px;
@@ -3570,7 +3586,7 @@ small.mono {
   border: 1px solid color-mix(in srgb, var(--color-primary-border) 70%, transparent);
   background: linear-gradient(
     155deg,
-    color-mix(in srgb, var(--color-primary-bg) 80%, #fff 20%),
+    color-mix(in srgb, var(--color-primary-bg) 80%, var(--color-bg-elevated) 20%),
     var(--color-bg-elevated)
   );
   border-radius: 20px;
@@ -7682,7 +7698,7 @@ body.categories-accounts-resizing {
   width: 100%;
   min-height: 2px;
   border-radius: 8px 8px 4px 4px;
-  background: color-mix(in srgb, var(--color-primary) 70%, #fff);
+  background: color-mix(in srgb, var(--color-primary) 70%, var(--color-bg-elevated));
 }
 
 .smart-budget-anomaly-card ul {
