@@ -96,43 +96,43 @@
 
 /* ---- 暗色模式 ---- */
 [data-theme='dark'] {
-  --color-bg: #111318;
-  --color-bg-elevated: #1a1d24;
-  --color-bg-subtle: #1e2128;
-  --color-bg-hover: #252830;
-  --color-bg-active: #2c3038;
+  --color-bg: #020617;
+  --color-bg-elevated: #0f172a;
+  --color-bg-subtle: #111c33;
+  --color-bg-hover: #172338;
+  --color-bg-active: #1c2a42;
 
-  --color-text: #e4e6ea;
-  --color-text-secondary: #9aa0a6;
-  --color-text-tertiary: #6b7280;
-  --color-text-placeholder: #4b5563;
+  --color-text: #e5e7eb;
+  --color-text-secondary: #cbd5e1;
+  --color-text-tertiary: #94a3b8;
+  --color-text-placeholder: #64748b;
 
-  --color-border: #2c3038;
-  --color-border-light: #252830;
-  --color-divider: #252830;
+  --color-border: #1e293b;
+  --color-border-light: #243247;
+  --color-divider: #243247;
 
   --color-primary: #7b93f7;
   --color-primary-hover: #6580f0;
-  --color-primary-bg: rgba(123, 147, 247, 0.1);
-  --color-primary-border: rgba(123, 147, 247, 0.25);
+  --color-primary-bg: rgba(123, 147, 247, 0.12);
+  --color-primary-border: rgba(123, 147, 247, 0.28);
 
   --color-success: #4ade80;
-  --color-success-bg: rgba(74, 222, 128, 0.1);
+  --color-success-bg: rgba(74, 222, 128, 0.12);
   --color-warning: #fbbf24;
-  --color-warning-bg: rgba(251, 191, 36, 0.1);
+  --color-warning-bg: rgba(251, 191, 36, 0.12);
   --color-danger: #f87171;
-  --color-danger-bg: rgba(248, 113, 113, 0.1);
-  --color-danger-border: rgba(248, 113, 113, 0.25);
+  --color-danger-bg: rgba(248, 113, 113, 0.12);
+  --color-danger-border: rgba(248, 113, 113, 0.3);
 
   --color-income: #4ade80;
   --color-expense: #f87171;
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.15);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.35);
-  --shadow-xl: 0 12px 36px rgba(0, 0, 0, 0.4);
-  --shadow-dropdown: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.16);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.26);
+  --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 14px 32px rgba(0, 0, 0, 0.34);
+  --shadow-dropdown: 0 8px 20px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 [data-accent-theme='emerald'] {

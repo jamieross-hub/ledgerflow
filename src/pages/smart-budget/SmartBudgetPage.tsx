@@ -212,6 +212,7 @@ export function SmartBudgetPage() {
   }>(null);
   const [actionLogs, setActionLogs] = useState<BudgetActionLog[]>([]);
   const [actionFeedback, setActionFeedback] = useState('');
+  const [budgetListExpanded, setBudgetListExpanded] = useState(false);
 
   const monthOptions = useMemo(() => getRecentMonthOptions(transactions), [transactions]);
 
@@ -247,6 +248,11 @@ export function SmartBudgetPage() {
     }
     return trackingRows;
   }, [statusFilter, trackingRows]);
+
+  const collapsedVisibleRows = useMemo(
+    () => (budgetListExpanded ? visibleRows : visibleRows.slice(0, 8)),
+    [budgetListExpanded, visibleRows]
+  );
 
   const overspentCount = trackingRows.filter((item) => item.isOverspent).length;
 
@@ -945,55 +951,65 @@ export function SmartBudgetPage() {
             ) : null}
 
             {visibleRows.length ? (
-              <div className="smart-budget-progress-list">
-                {visibleRows.map((item) => (
-                  <article
-                    key={item.category}
-                    className={`smart-budget-progress-card ${
-                      item.ratio > 1 ? 'overspent' : item.ratio >= 0.7 ? 'warning' : 'normal'
-                    }`}
-                    onClick={() => setSelectedCategory(item)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        setSelectedCategory(item);
-                      }
-                    }}
-                  >
-                    <header>
-                      <h4>{item.category}</h4>
-                      <span
-                        className={`status-tag ${item.ratio > 1 ? 'overspent' : item.ratio >= 0.7 ? 'warning' : 'normal'}`}
-                      >
-                        {item.ratio > 1 ? '超支' : item.ratio >= 0.7 ? '预警' : '正常'}
-                      </span>
-                    </header>
-                    <p>
-                      <strong>{formatCurrency(item.spentAmount)}</strong> / 预算{' '}
-                      <strong>{formatCurrency(item.budgetAmount)}</strong>
-                    </p>
-                    <p>
-                      剩余金额：
-                      <strong className={item.diff <= 0 ? 'safe' : 'warn'}>
-                        {formatCurrency(-item.diff)}
-                      </strong>
-                    </p>
-                    <p>执行率：{(item.ratio * 100).toFixed(1)}%</p>
-                    <div
-                      className="smart-budget-progress-track"
-                      title={`执行率 ${(item.ratio * 100).toFixed(1)}%`}
-                      aria-label={`执行率 ${(item.ratio * 100).toFixed(1)}%`}
+              <>
+                <div className="smart-budget-list-toolbar">
+                  <span className="muted">已显示 {collapsedVisibleRows.length} / {visibleRows.length} 个预算分类</span>
+                  {visibleRows.length > 8 ? (
+                    <button type="button" onClick={() => setBudgetListExpanded((prev) => !prev)}>
+                      {budgetListExpanded ? '收起分类' : '展开全部分类'}
+                    </button>
+                  ) : null}
+                </div>
+                <div className="smart-budget-progress-list">
+                  {collapsedVisibleRows.map((item) => (
+                    <article
+                      key={item.category}
+                      className={`smart-budget-progress-card ${
+                        item.ratio > 1 ? 'overspent' : item.ratio >= 0.7 ? 'warning' : 'normal'
+                      }`}
+                      onClick={() => setSelectedCategory(item)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setSelectedCategory(item);
+                        }
+                      }}
                     >
-                      <span
-                        className={item.isOverspent ? 'warn' : ''}
-                        style={{ width: `${progressPercent(item.ratio)}%` }}
-                      />
-                    </div>
-                  </article>
-                ))}
-              </div>
+                      <header>
+                        <h4>{item.category}</h4>
+                        <span
+                          className={`status-tag ${item.ratio > 1 ? 'overspent' : item.ratio >= 0.7 ? 'warning' : 'normal'}`}
+                        >
+                          {item.ratio > 1 ? '超支' : item.ratio >= 0.7 ? '预警' : '正常'}
+                        </span>
+                      </header>
+                      <p>
+                        <strong>{formatCurrency(item.spentAmount)}</strong> / 预算{' '}
+                        <strong>{formatCurrency(item.budgetAmount)}</strong>
+                      </p>
+                      <p>
+                        剩余金额：
+                        <strong className={item.diff <= 0 ? 'safe' : 'warn'}>
+                          {formatCurrency(-item.diff)}
+                        </strong>
+                      </p>
+                      <p>执行率：{(item.ratio * 100).toFixed(1)}%</p>
+                      <div
+                        className="smart-budget-progress-track"
+                        title={`执行率 ${(item.ratio * 100).toFixed(1)}%`}
+                        aria-label={`执行率 ${(item.ratio * 100).toFixed(1)}%`}
+                      >
+                        <span
+                          className={item.isOverspent ? 'warn' : ''}
+                          style={{ width: `${progressPercent(item.ratio)}%` }}
+                        />
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </>
             ) : (
               <p className="smart-budget-empty">当前筛选条件下暂无预算项，请切换月份或筛选条件。</p>
             )}

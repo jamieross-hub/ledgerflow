@@ -223,6 +223,13 @@ interface PushInsight {
   level?: 'default' | 'warning';
 }
 
+interface TodayTodoItem {
+  id: string;
+  label: string;
+  detail: string;
+  level?: 'default' | 'warning';
+}
+
 interface DuplicateReviewPair {
   entry: DraftBillEntry;
   existing: TransactionItem;
@@ -647,7 +654,58 @@ export function AssistantPage() {
         level: creditAccountCount > 0 ? 'warning' : 'default'
       }
     ];
-    const insights = [
+    const uncategorizedCount = validRows.filter((item) => item.categoryId === 'uncategorized').length;
+    const pendingCount = validRows.filter((item) => item.status === 'pending').length;
+    const pendingRefundCount = validRows.filter(
+      (item) =>
+        item.adjustmentKind === 'refund' ||
+        item.adjustmentKind === 'reversal' ||
+        item.status === 'refunded'
+    ).length;
+    const repaymentTodoCount = validRows.filter(
+      (item) => item.type === 'repayment' && (item.status === 'pending' || item.status === 'failed')
+    ).length;
+
+    const todayTodos: TodayTodoItem[] = [
+      {
+        id: 'todo-uncategorized',
+        label: '待分类交易',
+        detail:
+          uncategorizedCount > 0
+            ? `还有 ${uncategorizedCount} 笔交易未分类，建议今天先补齐。`
+            : '暂无待分类交易，分类状态良好。',
+        level: uncategorizedCount > 0 ? 'warning' : 'default'
+      },
+      {
+        id: 'todo-refund-link',
+        label: '待关联退款',
+        detail:
+          pendingRefundCount > 0
+            ? `检测到 ${pendingRefundCount} 笔退款/冲正相关记录，可核对原单关联。`
+            : '暂无待关联退款记录。',
+        level: pendingRefundCount > 0 ? 'warning' : 'default'
+      },
+      {
+        id: 'todo-pending',
+        label: '待处理流水',
+        detail:
+          pendingCount > 0
+            ? `当前有 ${pendingCount} 笔待处理交易，建议优先确认状态。`
+            : '暂无待处理流水。',
+        level: pendingCount > 0 ? 'warning' : 'default'
+      },
+      {
+        id: 'todo-repayment',
+        label: '到期还款检查',
+        detail:
+          repaymentTodoCount > 0
+            ? `当前有 ${repaymentTodoCount} 笔还款记录待确认，请核对到期日。`
+            : '暂无明显到期还款风险。',
+        level: repaymentTodoCount > 0 ? 'warning' : 'default'
+      }
+    ];
+
+    const monthlyInsights = [
       `本月累计支出 ¥${monthExpense.toFixed(2)}，较上月${expenseDeltaPct >= 0 ? '上升' : '下降'} ${Math.abs(expenseDeltaPct).toFixed(1)}%。`,
       `本月收入趋势${incomeDeltaPct >= 0 ? '向上' : '回落'}，变化幅度 ${Math.abs(incomeDeltaPct).toFixed(1)}%，建议同步调整预算。`,
       `当前月净额 ¥${monthBalance.toFixed(2)}，${monthBalance >= 0 ? '收支结构整体稳健。' : '建议关注可压缩支出项。'}`
@@ -668,7 +726,8 @@ export function AssistantPage() {
       abnormalReminder: abnormalRow
         ? `发现异常支出：${abnormalRow.note || '未备注'} ¥${abnormalRow.amount.toFixed(2)}（${abnormalRow.date.slice(5)}）。`
         : '暂无明显异常支出，当前波动在正常区间。',
-      insights,
+      monthlyInsights,
+      todayTodos,
       pushInsights,
       riskAlert:
         monthBalance < 0
@@ -1112,36 +1171,67 @@ export function AssistantPage() {
                 <h2>🤖 你好，我是你的财务助手</h2>
                 <p>先看关键数据，再像聊天一样提问，我会主动给你可执行建议。</p>
               </div>
-              <div className="chat-auto-insight-block">
-                <p>
-                  <strong>本月消费总结：</strong>
-                  {assistantOverview.monthlySummary}
-                </p>
-                <p>
-                  <strong>收入趋势变化：</strong>
-                  {assistantOverview.incomeTrend}
-                </p>
-                <p>
-                  <strong>异常支出提醒：</strong>
-                  {assistantOverview.abnormalReminder}
-                </p>
+              <div className="chat-insight-section" aria-label="今日要做">
+                <div className="chat-insight-section-head">
+                  <h3>🗓 今日要做</h3>
+                  <span>提醒 / 风险 / 待处理</span>
+                </div>
+                <div className="chat-push-insights">
+                  {assistantOverview.todayTodos.map((item) => (
+                    <article
+                      key={item.id}
+                      className={`chat-push-insight-item ${item.level === 'warning' ? 'warning' : ''}`}
+                    >
+                      <h4>{item.label}</h4>
+                      <p>{item.detail}</p>
+                    </article>
+                  ))}
+                </div>
               </div>
-              <div className="chat-insight-list" aria-label="主动洞察">
-                {assistantOverview.insights.map((insight) => (
-                  <p key={insight}>💡 {insight}</p>
-                ))}
-                <p className="chat-risk-alert">⚠️ {assistantOverview.riskAlert}</p>
+
+              <div className="chat-insight-section" aria-label="本月总结">
+                <div className="chat-insight-section-head">
+                  <h3>📈 本月总结</h3>
+                  <span>趋势 / 对比 / 结构</span>
+                </div>
+                <div className="chat-auto-insight-block">
+                  <p>
+                    <strong>本月消费总结：</strong>
+                    {assistantOverview.monthlySummary}
+                  </p>
+                  <p>
+                    <strong>收入趋势变化：</strong>
+                    {assistantOverview.incomeTrend}
+                  </p>
+                  <p>
+                    <strong>异常支出提醒：</strong>
+                    {assistantOverview.abnormalReminder}
+                  </p>
+                </div>
+                <div className="chat-insight-list" aria-label="本月洞察列表">
+                  {assistantOverview.monthlyInsights.map((insight) => (
+                    <p key={insight}>💡 {insight}</p>
+                  ))}
+                  <p className="chat-risk-alert">⚠️ {assistantOverview.riskAlert}</p>
+                </div>
               </div>
-              <div className="chat-push-insights" aria-label="主动洞察推送">
-                {assistantOverview.pushInsights.map((item) => (
-                  <article
-                    key={item.id}
-                    className={`chat-push-insight-item ${item.level === 'warning' ? 'warning' : ''}`}
-                  >
-                    <h4>{item.title}</h4>
-                    <p>{item.detail}</p>
-                  </article>
-                ))}
+
+              <div className="chat-insight-section" aria-label="主动洞察推送">
+                <div className="chat-insight-section-head">
+                  <h3>🧭 主动洞察</h3>
+                  <span>系统持续追踪</span>
+                </div>
+                <div className="chat-push-insights" aria-label="主动洞察推送">
+                  {assistantOverview.pushInsights.map((item) => (
+                    <article
+                      key={item.id}
+                      className={`chat-push-insight-item ${item.level === 'warning' ? 'warning' : ''}`}
+                    >
+                      <h4>{item.title}</h4>
+                      <p>{item.detail}</p>
+                    </article>
+                  ))}
+                </div>
               </div>
               <div className="chat-preset-head">
                 <strong>智能场景提问</strong>
