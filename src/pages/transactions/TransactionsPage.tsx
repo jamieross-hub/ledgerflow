@@ -755,7 +755,7 @@ export function TransactionsPage() {
     const noteFilter = quickFilters.note.trim().toLowerCase();
 
     return mappedRows.filter((row) => {
-      const dateText = formatDate(row.item.date).toLowerCase();
+      const rowDay = String(row.item.date || '').slice(0, 10);
       const typePass = quickFilters.type === 'all' ? true : row.item.type === quickFilters.type;
       const statusPass = statusFilter === 'all' ? true : row.item.status === statusFilter;
       const categoryPass = matchesCategoryQuickFilter(categoryFilter, row.item.categoryId);
@@ -782,7 +782,7 @@ export function TransactionsPage() {
         (!hasAmountMax || row.item.amount <= amountMax);
 
       return (
-        (!dateFilter || dateText.includes(dateFilter)) &&
+        (!dateFilter || rowDay === dateFilter) &&
         typePass &&
         statusPass &&
         categoryPass &&
