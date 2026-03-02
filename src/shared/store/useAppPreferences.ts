@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AppTheme } from '../types/app';
+import { AppAccentTheme, AppTheme } from '../types/app';
 import { DebtItem, DebtType } from '../../features/debt/model/debtMetrics';
 
 export type RssSubscription = {
@@ -27,10 +27,12 @@ const DEFAULT_RSS_SUBSCRIPTIONS: RssSubscription[] = [
 
 interface AppPreferencesState {
   theme: AppTheme;
+  accentTheme: AppAccentTheme;
   rssSubscriptions: RssSubscription[];
   debts: DebtItem[];
   monthlyIncome: number;
   setTheme: (theme: AppTheme) => void;
+  setAccentTheme: (accentTheme: AppAccentTheme) => void;
   addRssSubscription: (payload: { title: string; url: string }) => { ok: boolean; reason?: string };
   removeRssSubscription: (id: string) => void;
   toggleRssSubscription: (id: string) => void;
@@ -63,10 +65,12 @@ export const useAppPreferences = create<AppPreferencesState>()(
   persist(
     (set) => ({
       theme: 'system',
+      accentTheme: 'blue',
       rssSubscriptions: DEFAULT_RSS_SUBSCRIPTIONS,
       debts: [],
       monthlyIncome: 0,
       setTheme: (theme) => set({ theme }),
+      setAccentTheme: (accentTheme) => set({ accentTheme }),
       setMonthlyIncome: (income) => set({ monthlyIncome: Number.isFinite(income) ? income : 0 }),
       setRepaymentState: ({ debts, monthlyIncome }) =>
         set({

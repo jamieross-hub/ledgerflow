@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchAiModels } from '../../features/assistant/api/openaiCompatibleClient';
 import { useAiSettings } from '../../shared/store/useAiSettings';
+import { useAppPreferences } from '../../shared/store/useAppPreferences';
 import { Toast } from '../../shared/ui/Toast';
+import { AppAccentTheme } from '../../shared/types/app';
 
 const MODEL_PRESETS = [
   'gemini-2.5-flash-lite',
@@ -34,6 +36,14 @@ const RERANK_MODEL_PRESETS = [
   'bge-reranker-large',
   'gte-rerank-v2',
   'cohere-rerank-3.5'
+];
+
+const ACCENT_THEME_OPTIONS: Array<{ value: AppAccentTheme; label: string; preview: string }> = [
+  { value: 'blue', label: '默认蓝', preview: '#4f6ef7' },
+  { value: 'emerald', label: '翡翠绿', preview: '#10b981' },
+  { value: 'violet', label: '紫罗兰', preview: '#8b5cf6' },
+  { value: 'rose', label: '玫瑰粉', preview: '#f43f5e' },
+  { value: 'amber', label: '琥珀橙', preview: '#f59e0b' }
 ];
 
 interface ModelSelectorProps {
@@ -106,6 +116,7 @@ export function SettingsPage() {
   const baseUrl = useAiSettings((s) => s.baseUrl);
   const apiKey = useAiSettings((s) => s.apiKey);
   const model = useAiSettings((s) => s.model);
+  const accentTheme = useAppPreferences((s) => s.accentTheme);
   const embeddingModel = useAiSettings((s) => s.embeddingModel);
   const enableEmbeddingModel = useAiSettings((s) => s.enableEmbeddingModel);
   const rerankModel = useAiSettings((s) => s.rerankModel);
@@ -113,6 +124,7 @@ export function SettingsPage() {
   const setBaseUrl = useAiSettings((s) => s.setBaseUrl);
   const setApiKey = useAiSettings((s) => s.setApiKey);
   const setModel = useAiSettings((s) => s.setModel);
+  const setAccentTheme = useAppPreferences((s) => s.setAccentTheme);
   const setEmbeddingModel = useAiSettings((s) => s.setEmbeddingModel);
   const setEnableEmbeddingModel = useAiSettings((s) => s.setEnableEmbeddingModel);
   const setRerankModel = useAiSettings((s) => s.setRerankModel);
@@ -217,6 +229,29 @@ export function SettingsPage() {
           >
             {masked ? '👁 显示' : '🙈 隐藏'}
           </button>
+        </div>
+
+        <div className="field">
+          <label>全局 UI 主题色</label>
+          <div className="settings-accent-grid" role="radiogroup" aria-label="全局 UI 主题色">
+            {ACCENT_THEME_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`settings-accent-option ${accentTheme === option.value ? 'active' : ''}`}
+                onClick={() => {
+                  setAccentTheme(option.value);
+                  showSaveToast();
+                }}
+                role="radio"
+                aria-checked={accentTheme === option.value}
+              >
+                <span className="settings-accent-dot" style={{ background: option.preview }} />
+                <span>{option.label}</span>
+              </button>
+            ))}
+          </div>
+          <small>切换后立即生效，统一影响按钮、强调色、图标高亮等全局视觉风格。</small>
         </div>
 
         <div className="settings-model-grid">
