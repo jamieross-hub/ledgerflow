@@ -1935,25 +1935,53 @@ export function TransactionsPage() {
           ? '合并（覆盖重复）'
           : '增量（跳过重复）';
 
-    const sampleLines = pendingImport.normalizedParsed
+    const appendSample = pendingImport.result.append
+      .slice(0, 3)
+      .map((item, index) => {
+        const sign = item.type === 'income' ? '+' : '-';
+        return `  +${index + 1}. ${item.date.slice(0, 10)} ${sign}${formatCurrencyAuto(item.amount)} ${item.note || '无备注'}`;
+      })
+      .join('\n');
+
+    const updateSample = pendingImport.result.update
+      .slice(0, 3)
+      .map(({ payload }, index) => {
+        const sign = payload.type === 'income' ? '+' : '-';
+        return `  ~${index + 1}. ${payload.date.slice(0, 10)} ${sign}${formatCurrencyAuto(payload.amount)} ${payload.note || '无备注'}`;
+      })
+      .join('\n');
+
+    const previewLines = pendingImport.normalizedParsed
       .slice(0, 5)
       .map((item, index) => {
         const sign = item.type === 'income' ? '+' : '-';
-        return `${index + 1}. ${item.date.slice(0, 10)} ${sign}${formatCurrencyAuto(item.amount)} ${item.note || '无备注'}`;
+        return `  ${index + 1}. ${item.date.slice(0, 10)} ${sign}${formatCurrencyAuto(item.amount)} ${item.note || '无备注'}`;
       })
       .join('\n');
+
+    const modeHint =
+      pendingImport.mode === 'overwrite'
+        ? `⚠️ 覆盖模式将先清空当前账本的 ${transactions.length} 条交易，再导入新记录。`
+        : pendingImport.mode === 'merge'
+          ? '合并模式会覆盖已存在的重复账单。'
+          : '增量模式会跳过已存在的重复账单。';
 
     return [
       `文件：${pendingImport.fileName}`,
       `来源：${pendingImport.source === 'wechat' ? '微信' : '支付宝'}`,
       `模式：${modeLabel}`,
-      `识别：${pendingImport.parseSummary.parsedCount} 条（数据行 ${pendingImport.parseSummary.dataLines}，跳过 ${pendingImport.parseSummary.skippedCount}）`,
-      `待写入：新增 ${pendingImport.result.append.length} 条，更新 ${pendingImport.result.update.length} 条，跳过重复 ${pendingImport.result.skipped} 条。`,
-      sampleLines ? `\n预检样例（前 5 条）：\n${sampleLines}` : ''
+      modeHint,
+      '',
+      `识别结果：${pendingImport.parseSummary.parsedCount} 条（数据行 ${pendingImport.parseSummary.dataLines}，跳过 ${pendingImport.parseSummary.skippedCount}）`,
+      `执行影响：新增 ${pendingImport.result.append.length} 条，更新 ${pendingImport.result.update.length} 条，跳过重复 ${pendingImport.result.skipped} 条`,
+      '',
+      previewLines ? `预检样例（前 5 条）：\n${previewLines}` : '',
+      appendSample ? `\n将新增（前 3 条）：\n${appendSample}` : '',
+      updateSample ? `\n将更新（前 3 条）：\n${updateSample}` : ''
     ]
       .filter(Boolean)
       .join('\n');
-  }, [pendingImport]);
+  }, [pendingImport, transactions.length]);
 
   return (
     <div className="transactions-page">
