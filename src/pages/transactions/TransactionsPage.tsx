@@ -1923,6 +1923,38 @@ export function TransactionsPage() {
     ? 0.7 + Math.min(1, Math.max(0, pieAnimationProgress)) * 0.3
     : 1;
 
+  const pendingImportDescription = useMemo(() => {
+    if (!pendingImport) {
+      return '';
+    }
+
+    const modeLabel =
+      pendingImport.mode === 'overwrite'
+        ? '覆盖（清空后导入）'
+        : pendingImport.mode === 'merge'
+          ? '合并（覆盖重复）'
+          : '增量（跳过重复）';
+
+    const sampleLines = pendingImport.normalizedParsed
+      .slice(0, 5)
+      .map((item, index) => {
+        const sign = item.type === 'income' ? '+' : '-';
+        return `${index + 1}. ${item.date.slice(0, 10)} ${sign}${formatCurrencyAuto(item.amount)} ${item.note || '无备注'}`;
+      })
+      .join('\n');
+
+    return [
+      `文件：${pendingImport.fileName}`,
+      `来源：${pendingImport.source === 'wechat' ? '微信' : '支付宝'}`,
+      `模式：${modeLabel}`,
+      `识别：${pendingImport.parseSummary.parsedCount} 条（数据行 ${pendingImport.parseSummary.dataLines}，跳过 ${pendingImport.parseSummary.skippedCount}）`,
+      `待写入：新增 ${pendingImport.result.append.length} 条，更新 ${pendingImport.result.update.length} 条，跳过重复 ${pendingImport.result.skipped} 条。`,
+      sampleLines ? `\n预检样例（前 5 条）：\n${sampleLines}` : ''
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }, [pendingImport]);
+
   return (
     <div className="transactions-page">
       <div className="transactions-filter-sticky-wrap">
@@ -2417,12 +2449,8 @@ export function TransactionsPage() {
 
       <ConfirmDialog
         open={Boolean(pendingImport)}
-        title="确认导入账单"
-        description={
-          pendingImport
-            ? `文件：${pendingImport.fileName}\n来源：${pendingImport.source === 'wechat' ? '微信' : '支付宝'}\n模式：${pendingImport.mode === 'overwrite' ? '覆盖（清空后导入）' : pendingImport.mode === 'merge' ? '合并（覆盖重复）' : '增量（跳过重复）'}\n识别：${pendingImport.parseSummary.parsedCount} 条（数据行 ${pendingImport.parseSummary.dataLines}，跳过 ${pendingImport.parseSummary.skippedCount}）\n待写入：新增 ${pendingImport.result.append.length} 条，更新 ${pendingImport.result.update.length} 条，跳过重复 ${pendingImport.result.skipped} 条。`
-            : ''
-        }
+        title="导入预检确认"
+        description={pendingImportDescription}
         confirmText={pendingImport?.mode === 'overwrite' ? '确认覆盖导入' : '确认导入'}
         cancelText="取消"
         danger={pendingImport?.mode === 'overwrite'}
