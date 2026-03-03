@@ -865,6 +865,53 @@ export function TransactionsPage() {
 
   const viewRows = sortedRows.slice((page - 1) * pageSize, page * pageSize);
 
+  const currentBillSummary = useMemo<{
+    income: number;
+    expense: number;
+    net: number;
+    count: number;
+    maxExpense: TransactionRowView | null;
+  }>(() => {
+    let income = 0;
+    let expense = 0;
+    let maxExpense: TransactionRowView | null = null;
+
+    sortedRows.forEach((row) => {
+      const amount = Number(row.item.amount || 0);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return;
+      }
+      if (row.item.type === 'income') {
+        income += amount;
+        return;
+      }
+      if (row.item.type === 'expense' || row.item.type === 'repayment' || row.item.type === 'budget') {
+        expense += amount;
+        if (!maxExpense || amount > maxExpense.item.amount) {
+          maxExpense = row;
+        }
+      }
+    });
+
+    return {
+      income,
+      expense,
+      net: income - expense,
+      count: sortedRows.length,
+      maxExpense
+    };
+  }, [sortedRows]);
+
+  const currentPeriodLabel = useMemo(() => {
+    if (filters.datePreset === 'custom' && (filters.dateFrom || filters.dateTo)) {
+      return `${filters.dateFrom || '起始'} ~ ${filters.dateTo || '至今'}`;
+    }
+    if (filters.datePreset === 'thisMonth') return '本月';
+    if (filters.datePreset === 'last3Months') return '最近三月';
+    if (filters.datePreset === 'last30') return '最近 30 天';
+    return '全部时间';
+  }, [filters.dateFrom, filters.datePreset, filters.dateTo]);
+
   const selected = useMemo(
     () => transactions.find((item) => item.id === selectedId) ?? null,
     [transactions, selectedId]
@@ -1860,32 +1907,39 @@ export function TransactionsPage() {
 
   return (
     <div className="transactions-page">
-      <TransactionFilters
-        filters={filters}
-        onKeywordChange={setKeyword}
-        onTypeChange={setType}
-        onSourceChange={setSource}
-        onDatePresetChange={setDatePreset}
-        onDateFromChange={setDateFrom}
-        onDateToChange={setDateTo}
-        onClear={clearAllFilters}
-        onExport={() => exportTransactionsCsv(filteredRows)}
-        onImportWechat={() => openImport('wechat')}
-        onImportAlipay={() => openImport('alipay')}
-        importMode={importMode}
-        onImportModeChange={setImportMode}
-        onCheckDuplicates={handleCheckDuplicates}
-        columnOptions={COLUMN_OPTIONS}
-        visibleColumns={visibleColumns}
-        onToggleColumn={handleToggleColumn}
-        bulkSelectionEnabled={bulkSelectionEnabled}
-        onToggleBulkSelection={() => setBulkSelectionEnabled((prev) => !prev)}
-        minAvailableDate={availableDateBounds.min}
-        maxAvailableDate={availableDateBounds.max}
-        onQuickAdd={openQuickAddDrawer}
-        privacyMode={privacyMode}
-        onTogglePrivacy={() => setPrivacyMode((prev) => !prev)}
-      />
+      <div className="transactions-filter-sticky-wrap">
+        <TransactionFilters
+          filters={filters}
+          onKeywordChange={setKeyword}
+          onTypeChange={setType}
+          onSourceChange={setSource}
+          onDatePresetChange={setDatePreset}
+          onDateFromChange={setDateFrom}
+          onDateToChange={setDateTo}
+          onClear={clearAllFilters}
+          onExport={() => exportTransactionsCsv(filteredRows)}
+          onImportWechat={() => openImport('wechat')}
+          onImportAlipay={() => openImport('alipay')}
+          importMode={importMode}
+          onImportModeChange={setImportMode}
+          onCheckDuplicates={handleCheckDuplicates}
+          columnOptions={COLUMN_OPTIONS}
+          visibleColumns={visibleColumns}
+          onToggleColumn={handleToggleColumn}
+          bulkSelectionEnabled={bulkSelectionEnabled}
+          onToggleBulkSelection={() => setBulkSelectionEnabled((prev) => !prev)}
+          minAvailableDate={availableDateBounds.min}
+          maxAvailableDate={availableDateBounds.max}
+          onQuickAdd={openQuickAddDrawer}
+          privacyMode={privacyMode}
+          onTogglePrivacy={() => setPrivacyMode((prev) => !prev)}
+        />
+        <div className="transactions-current-bill-strip" aria-label="当前账单筛选状态">
+          <span>账单周期：{currentPeriodLabel}</span>
+          <span>筛选后：{sortedRows.length} 笔</span>
+          <span>总笔数：{transactions.length} 笔</span>
+        </div>
+      </div>
 
       {bulkAiProgress.visible ? (
         <section
@@ -2020,6 +2074,51 @@ export function TransactionsPage() {
 
         <aside className="transactions-split-side panel" aria-label="当前账单图表视图">
           <h3 style={{ marginTop: 0 }}>当前账单视图</h3>
+          <div className="transactions-side-chart-card transactions-current-bill-panel">
+            <h4>当前账单概览</h4>
+            <div className="transactions-current-bill-grid">
+              <div>
+                <small>本期收入</small>
+                <strong>{formatCurrencyAuto(currentBillSummary.income)}</strong>
+              </div>
+              <div>
+                <small>本期支出</small>
+                <strong>{formatCurrencyAuto(currentBillSummary.expense)}</strong>
+              </div>
+              <div>
+                <small>本期结余</small>
+                <strong>{formatCurrencyAuto(currentBillSummary.net)}</strong>
+              </div>
+              <div>
+                <small>交易笔数</small>
+                <strong>{currentBillSummary.count}</strong>
+              </div>
+            </div>
+            <div className="transactions-current-bill-actions">
+              <button type="button" className="primary" onClick={openQuickAddDrawer}>
+                新增交易
+              </button>
+              <button type="button" onClick={() => openImport('alipay')}>
+                导入账单
+              </button>
+              <button type="button" onClick={clearAllFilters}>
+                清除筛选
+              </button>
+            </div>
+            {currentBillSummary.maxExpense ? (
+              <button
+                type="button"
+                className="transactions-current-bill-max"
+                onClick={() => setSelectedId(currentBillSummary.maxExpense?.item.id || null)}
+              >
+                最大支出：{currentBillSummary.maxExpense.categoryName} ·{' '}
+                {formatCurrencyAuto(currentBillSummary.maxExpense.item.amount)}
+              </button>
+            ) : (
+              <small className="muted">暂无可识别的支出记录</small>
+            )}
+          </div>
+
           <div className="transactions-side-chart-card">
             <h4>分类占比饼图（当前列表）</h4>
             <div className="transactions-pie-wrap">

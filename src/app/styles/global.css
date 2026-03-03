@@ -1005,6 +1005,35 @@ button.danger:hover:not(:disabled) {
   overflow-x: hidden;
 }
 
+.transactions-filter-sticky-wrap {
+  position: sticky;
+  top: calc(var(--safe-top, 0px) + 8px);
+  z-index: 16;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.transactions-current-bill-strip {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-primary-soft) 35%, var(--color-bg-elevated));
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+}
+
+.transactions-current-bill-strip span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-bg-elevated) 82%, transparent);
+}
+
 .transactions-page > * {
   min-width: 0;
 }
@@ -1060,6 +1089,52 @@ button.danger:hover:not(:disabled) {
   border-radius: var(--radius-md);
   padding: var(--space-3);
   background: var(--color-bg-elevated);
+}
+
+.transactions-current-bill-panel {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.transactions-current-bill-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.transactions-current-bill-grid > div {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-subtle);
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.transactions-current-bill-grid small {
+  color: var(--color-text-secondary);
+  font-size: var(--font-xs);
+}
+
+.transactions-current-bill-grid strong {
+  font-size: var(--font-md);
+}
+
+.transactions-current-bill-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.transactions-current-bill-actions button {
+  width: 100%;
+}
+
+.transactions-current-bill-max {
+  text-align: left;
+  border: 1px solid var(--color-border-light);
+  background: color-mix(in srgb, var(--color-warning) 16%, var(--color-bg-elevated));
+  color: var(--color-text);
 }
 
 .transactions-side-chart-card h4 {
