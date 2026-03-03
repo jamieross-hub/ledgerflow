@@ -40,6 +40,24 @@ describe('debtMetrics', () => {
     expect(result).toBeLessThan(2300);
   });
 
+  it('infers loan annual rate from principal/total repayment/periods when annualRate missing', () => {
+    const loan: DebtItem = {
+      id: 'd4',
+      name: '房贷',
+      type: 'loan',
+      balance: 100000,
+      remainingMonths: 36,
+      totalPeriods: 36,
+      paidPeriods: 0,
+      loanPrincipal: 100000,
+      totalRepayment: 112000
+    };
+
+    const result = calculateDebtMinimumPayment(loan);
+    expect(result).toBeGreaterThan(2900);
+    expect(result).toBeLessThan(3200);
+  });
+
   it('returns debt pressure ratio by monthly income', () => {
     const summary = calculateDebtSummary(
       [

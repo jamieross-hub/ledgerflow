@@ -214,6 +214,93 @@ function parseIncomeExtraction(content: string): { monthlyIncome?: number; reaso
   };
 }
 
+function renderAiStructuredText(content: string): JSX.Element[] {
+  const lines = content
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line, index, arr) => !(line === '' && arr[index - 1] === ''));
+
+  const nodes: JSX.Element[] = [];
+  let listBuffer: string[] = [];
+  let listOrdered = false;
+
+  const flushList = () => {
+    if (listBuffer.length === 0) return;
+    if (listOrdered) {
+      nodes.push(
+        <ol key={`ol-${nodes.length}`} className="finance-ai-rich-list">
+          {listBuffer.map((item, index) => (
+            <li key={`${item}-${index}`}>{item}</li>
+          ))}
+        </ol>
+      );
+    } else {
+      nodes.push(
+        <ul key={`ul-${nodes.length}`} className="finance-ai-rich-list">
+          {listBuffer.map((item, index) => (
+            <li key={`${item}-${index}`}>{item}</li>
+          ))}
+        </ul>
+      );
+    }
+    listBuffer = [];
+    listOrdered = false;
+  };
+
+  lines.forEach((raw, index) => {
+    const line = raw.trim();
+    if (!line) {
+      flushList();
+      return;
+    }
+
+    const heading3 = line.match(/^###\s+(.+)/);
+    const heading2 = line.match(/^##\s+(.+)/);
+    const heading1 = line.match(/^#\s+(.+)/);
+    const ordered = line.match(/^\d+[\.、)]\s+(.+)/);
+    const unordered = line.match(/^[-*•]\s+(.+)/);
+
+    if (heading3 || heading2 || heading1) {
+      flushList();
+      const text = heading3?.[1] || heading2?.[1] || heading1?.[1] || line;
+      nodes.push(
+        <h4 key={`h-${index}`} className="finance-ai-rich-title">
+          {text}
+        </h4>
+      );
+      return;
+    }
+
+    if (ordered) {
+      if (listBuffer.length > 0 && !listOrdered) {
+        flushList();
+      }
+      listOrdered = true;
+      listBuffer.push(ordered[1]);
+      return;
+    }
+
+    if (unordered) {
+      if (listBuffer.length > 0 && listOrdered) {
+        flushList();
+      }
+      listOrdered = false;
+      listBuffer.push(unordered[1]);
+      return;
+    }
+
+    flushList();
+    nodes.push(
+      <p key={`p-${index}`} className="finance-ai-rich-paragraph">
+        {line}
+      </p>
+    );
+  });
+
+  flushList();
+  return nodes;
+}
+
 function getPressureLevel(ratio: number): {
   tone: 'safe' | 'warning' | 'danger';
   label: string;
@@ -227,9 +314,26 @@ function getPressureLevel(ratio: number): {
   return { tone: 'danger', label: '偏高' };
 }
 
-function getDebtAssumedAnnualRate(type: DebtType, annualRate?: number): number {
+function getDebtAssumedAnnualRate(
+  type: DebtType,
+  annualRate?: number,
+  loanPrincipal?: number,
+  totalRepayment?: number,
+  totalPeriods?: number
+): number {
   if (type === 'loan') {
-    return Math.max(0, Number(annualRate || 0));
+    const explicit = Math.max(0, Number(annualRate || 0));
+    if (explicit > 0) {
+      return explicit;
+    }
+    const principal = Number(loanPrincipal || 0);
+    const total = Number(totalRepayment || 0);
+    const periods = Number(totalPeriods || 0);
+    if (principal > 0 && total > principal && periods > 0) {
+      const inferred = ((total - principal) / principal) * (12 / periods) * 100;
+      return Number.isFinite(inferred) && inferred > 0 ? inferred : 0;
+    }
+    return 0;
   }
   return type === 'credit-card' ? 18 : 12;
 }
@@ -258,6 +362,9 @@ function simulateRepaymentPlan(input: {
     type: DebtType;
     balance: number;
     annualRate?: number;
+    loanPrincipal?: number;
+    totalRepayment?: number;
+    totalPeriods?: number;
   }[];
   extraPayment: number;
   strategy: RepaymentStrategyType;
@@ -268,7 +375,13 @@ function simulateRepaymentPlan(input: {
       name: item.name,
       type: item.type,
       balance: Math.max(0, Number(item.balance) || 0),
-      annualRate: getDebtAssumedAnnualRate(item.type, item.annualRate)
+      annualRate: getDebtAssumedAnnualRate(
+        item.type,
+        item.annualRate,
+        item.loanPrincipal,
+        item.totalRepayment,
+        item.totalPeriods
+      )
     }))
     .filter((item) => item.balance > 0);
 
@@ -335,6 +448,10 @@ export function RepaymentManagementPage() {
   const [debtBalance, setDebtBalance] = useState('');
   const [debtAnnualRate, setDebtAnnualRate] = useState('');
   const [debtMonths, setDebtMonths] = useState('');
+  const [debtTotalPeriods, setDebtTotalPeriods] = useState('');
+  const [debtPaidPeriods, setDebtPaidPeriods] = useState('');
+  const [debtLoanPrincipal, setDebtLoanPrincipal] = useState('');
+  const [debtTotalRepayment, setDebtTotalRepayment] = useState('');
   const [debtBillDay, setDebtBillDay] = useState('');
   const [debtRepaymentDay, setDebtRepaymentDay] = useState('');
   const [repaymentAdvice, setRepaymentAdvice] = useState('');
@@ -380,7 +497,13 @@ export function RepaymentManagementPage() {
   const repaymentPriority = useMemo(() => {
     const ranked = debts
       .map((item) => {
-        const annualRate = getDebtAssumedAnnualRate(item.type, item.annualRate);
+        const annualRate = getDebtAssumedAnnualRate(
+          item.type,
+          item.annualRate,
+          item.loanPrincipal,
+          item.totalRepayment,
+          item.totalPeriods
+        );
         const balance = Math.max(0, item.balance);
         return {
           id: item.id,
@@ -471,7 +594,15 @@ export function RepaymentManagementPage() {
   const balance = Number(debtBalance);
   const annualRate = Number(debtAnnualRate);
   const months = Number(debtMonths);
+  const totalPeriods = Number(debtTotalPeriods);
+  const paidPeriods = Number(debtPaidPeriods);
+  const loanPrincipal = Number(debtLoanPrincipal);
+  const totalRepayment = Number(debtTotalRepayment);
   const annualRateRaw = debtAnnualRate.trim();
+  const totalPeriodsRaw = debtTotalPeriods.trim();
+  const paidPeriodsRaw = debtPaidPeriods.trim();
+  const loanPrincipalRaw = debtLoanPrincipal.trim();
+  const totalRepaymentRaw = debtTotalRepayment.trim();
   const billDay = Number(debtBillDay);
   const repaymentDay = Number(debtRepaymentDay);
   const isAnnualRateNumeric = annualRateRaw === '' || /^\d+(\.\d+)?$/.test(annualRateRaw);
@@ -480,17 +611,40 @@ export function RepaymentManagementPage() {
   const repaymentDayValid =
     debtRepaymentDay.trim().length === 0 ||
     (Number.isInteger(repaymentDay) && repaymentDay >= 1 && repaymentDay <= 31);
+  const canInferAnnualRateByFormula =
+    isLoanType &&
+    loanPrincipalRaw.length > 0 &&
+    totalRepaymentRaw.length > 0 &&
+    totalPeriodsRaw.length > 0 &&
+    Number.isFinite(loanPrincipal) &&
+    Number.isFinite(totalRepayment) &&
+    Number.isFinite(totalPeriods) &&
+    loanPrincipal > 0 &&
+    totalRepayment > loanPrincipal &&
+    totalPeriods > 0;
+
+  const hasExplicitAnnualRate =
+    annualRateRaw.length > 0 &&
+    isAnnualRateNumeric &&
+    Number.isFinite(annualRate) &&
+    annualRate >= 0;
+
+  const totalPeriodsValid =
+    totalPeriodsRaw.length === 0 ||
+    (Number.isFinite(totalPeriods) && Number.isInteger(totalPeriods) && totalPeriods > 0);
+  const paidPeriodsValid =
+    paidPeriodsRaw.length === 0 ||
+    (Number.isFinite(paidPeriods) && Number.isInteger(paidPeriods) && paidPeriods >= 0);
+
   const canSubmitDebt =
     trimmedDebtName.length > 0 &&
     Number.isFinite(balance) &&
     balance > 0 &&
     billDayValid &&
     repaymentDayValid &&
-    (!isLoanType ||
-      (annualRateRaw.length > 0 &&
-        isAnnualRateNumeric &&
-        Number.isFinite(annualRate) &&
-        annualRate >= 0)) &&
+    totalPeriodsValid &&
+    paidPeriodsValid &&
+    (!isLoanType || hasExplicitAnnualRate || canInferAnnualRateByFormula) &&
     (!isLoanType ||
       (debtMonths.trim().length > 0 &&
         Number.isFinite(months) &&
@@ -601,20 +755,37 @@ export function RepaymentManagementPage() {
       setDebtFormError('“剩余本金(¥)”必须是大于 0 的数字。');
       return;
     }
-    if (isLoanType && !annualRateRaw) {
-      setDebtFormError('当前类型为贷款，请填写“年化利率(%)”。');
-      return;
-    }
-    if (isLoanType && !isAnnualRateNumeric) {
-      setDebtFormError('“年化利率(%)”只能输入数字。');
-      return;
-    }
     if (!billDayValid || !repaymentDayValid) {
       setDebtFormError('账单日和还款日需在 1~31 之间，可留空。');
       return;
     }
-    if (isLoanType && (!debtMonths.trim() || !Number.isInteger(months) || months <= 0)) {
+    if (!totalPeriodsValid || !paidPeriodsValid) {
+      setDebtFormError('“总期数/已还期数”需为非负整数，且总期数需大于 0。');
+      return;
+    }
+    if (paidPeriodsRaw && totalPeriodsRaw && paidPeriods > totalPeriods) {
+      setDebtFormError('“已还期数”不能大于“总期数”。');
+      return;
+    }
+    if (isLoanType && !debtMonths.trim()) {
+      setDebtFormError('当前类型为贷款，请填写“剩余期数(月)”。');
+      return;
+    }
+    if (isLoanType && (!Number.isInteger(months) || months <= 0)) {
       setDebtFormError('“剩余期数(月)”需为大于 0 的整数。');
+      return;
+    }
+    if (isLoanType && !hasExplicitAnnualRate && !canInferAnnualRateByFormula) {
+      setDebtFormError('贷款请填写年化利率，或补充借款/总还款/总期数用于自动反推。');
+      return;
+    }
+
+    if (loanPrincipalRaw && (!Number.isFinite(loanPrincipal) || loanPrincipal <= 0)) {
+      setDebtFormError('“借款金额(¥)”需为大于 0 的数字。');
+      return;
+    }
+    if (totalRepaymentRaw && (!Number.isFinite(totalRepayment) || totalRepayment <= 0)) {
+      setDebtFormError('“总还款(¥)”需为大于 0 的数字。');
       return;
     }
 
@@ -622,9 +793,13 @@ export function RepaymentManagementPage() {
       name: trimmedDebtName,
       type: debtType,
       balance,
-      annualRate: isLoanType ? annualRate : undefined,
+      annualRate: isLoanType && hasExplicitAnnualRate ? annualRate : undefined,
       remainingMonths: isLoanType ? months : undefined,
-      billDay: debtBillDay.trim().length > 0 ? billDay : undefined,
+      totalPeriods: totalPeriodsRaw.length > 0 ? totalPeriods : undefined,
+      paidPeriods: paidPeriodsRaw.length > 0 ? paidPeriods : undefined,
+      loanPrincipal: loanPrincipalRaw.length > 0 ? loanPrincipal : undefined,
+      totalRepayment: totalRepaymentRaw.length > 0 ? totalRepayment : undefined,
+      billDay: isLoanType ? undefined : debtBillDay.trim().length > 0 ? billDay : undefined,
       repaymentDay: debtRepaymentDay.trim().length > 0 ? repaymentDay : undefined
     });
 
@@ -632,6 +807,10 @@ export function RepaymentManagementPage() {
     setDebtBalance('');
     setDebtAnnualRate('');
     setDebtMonths('');
+    setDebtTotalPeriods('');
+    setDebtPaidPeriods('');
+    setDebtLoanPrincipal('');
+    setDebtTotalRepayment('');
     setDebtBillDay('');
     setDebtRepaymentDay('');
     setDebtFormError('');
@@ -1085,7 +1264,11 @@ export function RepaymentManagementPage() {
                   setDebtFormError('');
                 }}
                 inputMode="decimal"
-                placeholder={isLoanType ? '年化利率（%，如：4.35）' : '年化利率（贷款类型可填）'}
+                placeholder={
+                  isLoanType
+                    ? '年化利率（%，可留空并由公式反推）'
+                    : '年化利率（非贷款可留空）'
+                }
                 disabled={!isLoanType}
                 aria-label="年化利率"
               />
@@ -1106,13 +1289,64 @@ export function RepaymentManagementPage() {
                 className="finance-debt-form-control"
                 type="number"
                 min={1}
+                value={debtTotalPeriods}
+                onChange={(event) => {
+                  setDebtTotalPeriods(event.target.value);
+                  setDebtFormError('');
+                }}
+                placeholder="总期数（如：36）"
+                aria-label="总期数"
+              />
+              <input
+                className="finance-debt-form-control"
+                type="number"
+                min={0}
+                value={debtPaidPeriods}
+                onChange={(event) => {
+                  setDebtPaidPeriods(event.target.value);
+                  setDebtFormError('');
+                }}
+                placeholder="已还期数（如：12）"
+                aria-label="已还期数"
+              />
+              <input
+                className="finance-debt-form-control"
+                type="number"
+                min={0}
+                step="0.01"
+                value={debtLoanPrincipal}
+                onChange={(event) => {
+                  setDebtLoanPrincipal(event.target.value);
+                  setDebtFormError('');
+                }}
+                placeholder="借款金额（¥，用于反推利率）"
+                aria-label="借款金额"
+              />
+              <input
+                className="finance-debt-form-control"
+                type="number"
+                min={0}
+                step="0.01"
+                value={debtTotalRepayment}
+                onChange={(event) => {
+                  setDebtTotalRepayment(event.target.value);
+                  setDebtFormError('');
+                }}
+                placeholder="总还款（¥，用于反推利率）"
+                aria-label="总还款"
+              />
+              <input
+                className="finance-debt-form-control"
+                type="number"
+                min={1}
                 max={31}
                 value={debtBillDay}
                 onChange={(event) => {
                   setDebtBillDay(event.target.value);
                   setDebtFormError('');
                 }}
-                placeholder="账单日（1-31，可选）"
+                placeholder={isLoanType ? '贷款无账单日（留空）' : '账单日（1-31，可选）'}
+                disabled={isLoanType}
                 aria-label="账单日"
               />
               <input
@@ -1131,8 +1365,8 @@ export function RepaymentManagementPage() {
             </div>
             <p className="muted finance-debt-form-helper">
               {isLoanType
-                ? '当前为“贷款”类型：请填写年化利率(%)与剩余期数(月)，并建议补充账单日/还款日。'
-                : '当前为“非贷款”类型：可先填名称、类型、剩余本金，再补充账单日/还款日。'}
+                ? '贷款支持总期数、已还期数、借款金额、总还款；可自动反推年化利率。贷款仅需还款日，无账单日。'
+                : '信用卡/消费贷建议补充账单日与还款日；贷款字段可按需留空。'}
             </p>
             {debtFormError ? (
               <p className="muted finance-debt-form-error">{debtFormError}</p>
@@ -1203,8 +1437,10 @@ export function RepaymentManagementPage() {
                           : '贷款'}
                     </strong>
                     <p className="muted" style={{ margin: 0 }}>
-                      剩余本金 ¥{item.balance.toFixed(2)} · 最低还款 ¥{minimum.toFixed(2)} · 账单日{' '}
-                      {item.billDay || '--'} · 还款日 {item.repaymentDay || '--'}
+                      剩余本金 ¥{item.balance.toFixed(2)} · 最低还款 ¥{minimum.toFixed(2)}
+                      {item.type === 'loan'
+                        ? ` · 期数 ${item.paidPeriods || 0}/${item.totalPeriods || '--'} · 还款日 ${item.repaymentDay || '--'}`
+                        : ` · 账单日 ${item.billDay || '--'} · 还款日 ${item.repaymentDay || '--'}`}
                     </p>
                   </div>
                   <button type="button" onClick={() => removeDebt(item.id)}>
@@ -1318,9 +1554,11 @@ export function RepaymentManagementPage() {
             )}
           </div>
 
-          <button type="button" onClick={onGenerateRepaymentAdvice} disabled={repaymentLoading}>
-            {repaymentLoading ? '正在生成AI建议...' : '生成 AI 还款建议'}
-          </button>
+          <div className="finance-ai-action-row">
+            <button type="button" onClick={onGenerateRepaymentAdvice} disabled={repaymentLoading}>
+              {repaymentLoading ? '正在生成AI建议...' : '生成 AI 还款建议'}
+            </button>
+          </div>
           {repaymentCacheHint ? (
             <p className="muted" style={{ marginBottom: 0 }}>
               {repaymentCacheHint}
@@ -1329,7 +1567,7 @@ export function RepaymentManagementPage() {
           {repaymentAdvice ? (
             <>
               <p className="finance-generate-done">✅ AI建议已生成，可继续调整参数后重新生成。</p>
-              <pre className="finance-ai-result">{repaymentAdvice}</pre>
+              <div className="finance-ai-result">{renderAiStructuredText(repaymentAdvice)}</div>
             </>
           ) : (
             <p className="muted" style={{ marginBottom: 0 }}>
@@ -1339,7 +1577,7 @@ export function RepaymentManagementPage() {
           {repaymentReasoning ? (
             <details style={{ marginTop: 10 }}>
               <summary style={{ cursor: 'pointer' }}>查看模型思考摘要</summary>
-              <pre className="finance-ai-result">{repaymentReasoning}</pre>
+              <div className="finance-ai-result">{renderAiStructuredText(repaymentReasoning)}</div>
             </details>
           ) : null}
         </div>

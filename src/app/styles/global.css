@@ -8071,7 +8071,32 @@ body.categories-accounts-resizing {
 }
 
 .finance-debt-form-row-detail {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.finance-ai-action-row {
+  margin-top: 14px;
+  margin-bottom: 8px;
+}
+
+.finance-ai-rich-title {
+  margin: 10px 0 6px;
+  font-size: var(--font-base);
+  color: var(--color-text);
+}
+
+.finance-ai-rich-paragraph {
+  margin: 8px 0;
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+}
+
+.finance-ai-rich-list {
+  margin: 6px 0 10px;
+  padding-inline-start: 20px;
+  color: var(--color-text-secondary);
+  display: grid;
+  gap: 4px;
 }
 
 .finance-debt-form-actions {

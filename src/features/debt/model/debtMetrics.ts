@@ -7,6 +7,10 @@ export type DebtItem = {
   balance: number;
   annualRate?: number;
   remainingMonths?: number;
+  totalPeriods?: number;
+  paidPeriods?: number;
+  loanPrincipal?: number;
+  totalRepayment?: number;
   customMinPayment?: number;
   billDay?: number;
   repaymentDay?: number;
@@ -53,14 +57,60 @@ function toPositiveNumber(value: number | undefined): number {
   return safe;
 }
 
-function calcLoanAmortizedPayment(balance: number, annualRate?: number, months?: number): number {
-  const principal = toPositiveNumber(balance);
-  const safeMonths = Math.max(1, Math.floor(toPositiveNumber(months)));
+function inferAnnualRateFromTotals(input: {
+  principal?: number;
+  totalRepayment?: number;
+  totalPeriods?: number;
+}): number | undefined {
+  const principal = toPositiveNumber(input.principal);
+  const totalRepayment = toPositiveNumber(input.totalRepayment);
+  const totalPeriods = Math.max(1, Math.floor(toPositiveNumber(input.totalPeriods)));
+
+  if (principal <= 0 || totalRepayment <= principal || totalPeriods <= 0) {
+    return undefined;
+  }
+
+  const totalInterest = totalRepayment - principal;
+  const approxAnnualRate = (totalInterest / principal) * (12 / totalPeriods) * 100;
+  if (!Number.isFinite(approxAnnualRate) || approxAnnualRate < 0) {
+    return undefined;
+  }
+  return Math.max(0, approxAnnualRate);
+}
+
+function resolveLoanAnnualRate(debt: DebtItem): number {
+  const explicit = toPositiveNumber(debt.annualRate);
+  if (explicit > 0) {
+    return explicit;
+  }
+
+  const inferred = inferAnnualRateFromTotals({
+    principal: debt.loanPrincipal,
+    totalRepayment: debt.totalRepayment,
+    totalPeriods: debt.totalPeriods
+  });
+  return toPositiveNumber(inferred);
+}
+
+function resolveLoanRemainingMonths(debt: DebtItem): number {
+  const explicit = Math.max(1, Math.floor(toPositiveNumber(debt.remainingMonths)));
+  if (explicit > 0) {
+    return explicit;
+  }
+
+  const total = Math.max(1, Math.floor(toPositiveNumber(debt.totalPeriods)));
+  const paid = Math.max(0, Math.floor(toPositiveNumber(debt.paidPeriods)));
+  return Math.max(1, total - paid);
+}
+
+function calcLoanAmortizedPayment(debt: DebtItem): number {
+  const principal = toPositiveNumber(debt.balance);
+  const safeMonths = resolveLoanRemainingMonths(debt);
   if (principal === 0) {
     return 0;
   }
 
-  const monthlyRate = toPositiveNumber(annualRate) / 12 / 100;
+  const monthlyRate = resolveLoanAnnualRate(debt) / 12 / 100;
   if (monthlyRate === 0) {
     return principal / safeMonths;
   }
@@ -84,7 +134,7 @@ export function calculateDebtMinimumPayment(debt: DebtItem): number {
   const normalizedType = normalizeDebtType(debt.type);
 
   if (normalizedType === 'loan') {
-    return calcLoanAmortizedPayment(principal, debt.annualRate, debt.remainingMonths);
+    return calcLoanAmortizedPayment(debt);
   }
 
   const rule = debtRules[normalizedType];
