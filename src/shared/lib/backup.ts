@@ -516,8 +516,11 @@ function normalizeWebdavError(action: '上传' | '下载' | '创建目录', erro
   return new Error(`WebDAV ${action}失败，请稍后重试`);
 }
 
-async function ensureWebdavDirectories(config: BackupWebdavConfig): Promise<void> {
-  const normalizedPath = config.remoteFilePath.replace(/^\/+/, '').split('/').filter(Boolean);
+async function ensureWebdavDirectoriesByPath(
+  config: BackupWebdavConfig,
+  remoteFilePath: string
+): Promise<void> {
+  const normalizedPath = remoteFilePath.replace(/^\/+/, '').split('/').filter(Boolean);
   if (normalizedPath.length <= 1) {
     return;
   }
@@ -541,6 +544,10 @@ async function ensureWebdavDirectories(config: BackupWebdavConfig): Promise<void
       throw new Error(`WebDAV 目录创建失败（${current}，HTTP ${response.status}）`);
     }
   }
+}
+
+async function ensureWebdavDirectories(config: BackupWebdavConfig): Promise<void> {
+  await ensureWebdavDirectoriesByPath(config, config.remoteFilePath);
 }
 
 function buildBasicAuth(username: string, password: string): string {
