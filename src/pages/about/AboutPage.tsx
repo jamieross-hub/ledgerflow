@@ -1,11 +1,119 @@
-import { APP_GITHUB_URL } from '../../shared/config/app';
+import { useState } from 'react';
+import { APP_GITHUB_URL, APP_VERSION } from '../../shared/config/app';
+
+interface UpdateCheckResult {
+  status: 'idle' | 'checking' | 'error' | 'up-to-date' | 'update-available';
+  message: string;
+  latestVersion?: string;
+  latestUrl?: string;
+}
+
+function normalizeVersion(version: string) {
+  return version.trim().replace(/^v/i, '').split('-')[0] || '0';
+}
+
+function compareVersion(a: string, b: string) {
+  const left = normalizeVersion(a)
+    .split('.')
+    .map((item) => Number(item) || 0);
+  const right = normalizeVersion(b)
+    .split('.')
+    .map((item) => Number(item) || 0);
+
+  const maxLength = Math.max(left.length, right.length);
+  for (let i = 0; i < maxLength; i += 1) {
+    const l = left[i] ?? 0;
+    const r = right[i] ?? 0;
+    if (l > r) return 1;
+    if (l < r) return -1;
+  }
+  return 0;
+}
 
 export function AboutPage() {
+  const [updateResult, setUpdateResult] = useState<UpdateCheckResult>({
+    status: 'idle',
+    message: ''
+  });
+
+  const handleCheckUpdate = async () => {
+    setUpdateResult({ status: 'checking', message: '正在检查更新…' });
+    try {
+      const response = await fetch('https://api.github.com/repos/tempppw01/ledgerflow/releases/latest', {
+        headers: {
+          Accept: 'application/vnd.github+json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`检查失败（HTTP ${response.status}）`);
+      }
+
+      const data = (await response.json()) as {
+        tag_name?: string;
+        html_url?: string;
+      };
+
+      const latestTag = data.tag_name || '';
+      if (!latestTag) {
+        throw new Error('未读取到最新版本号');
+      }
+
+      const cmp = compareVersion(APP_VERSION, latestTag);
+      if (cmp >= 0) {
+        setUpdateResult({
+          status: 'up-to-date',
+          message: `当前已是最新版本（v${APP_VERSION}）`,
+          latestVersion: latestTag,
+          latestUrl: data.html_url
+        });
+        return;
+      }
+
+      setUpdateResult({
+        status: 'update-available',
+        message: `发现新版本 ${latestTag}，可前往发布页查看变更。`,
+        latestVersion: latestTag,
+        latestUrl: data.html_url
+      });
+    } catch (error) {
+      setUpdateResult({
+        status: 'error',
+        message: error instanceof Error ? error.message : '检查更新失败，请稍后重试。'
+      });
+    }
+  };
+
   return (
     <section className="panel about-page">
       <header className="about-header">
         <h2>关于 LedgerFlow</h2>
       </header>
+
+      <section className="about-block about-version-card">
+        <h3>版本信息</h3>
+        <p>
+          当前版本：<strong>v{APP_VERSION}</strong>
+        </p>
+        <div className="about-version-actions">
+          <button type="button" onClick={() => void handleCheckUpdate()}>
+            {updateResult.status === 'checking' ? '检查中…' : '检查更新'}
+          </button>
+          <a href={`${APP_GITHUB_URL}/releases`} target="_blank" rel="noreferrer">
+            查看 Releases
+          </a>
+        </div>
+        {updateResult.message ? (
+          <p className={`about-update-message ${updateResult.status}`}>{updateResult.message}</p>
+        ) : null}
+        {updateResult.status === 'update-available' && updateResult.latestUrl ? (
+          <p>
+            <a href={updateResult.latestUrl} target="_blank" rel="noreferrer">
+              前往最新版本页面（{updateResult.latestVersion}）
+            </a>
+          </p>
+        ) : null}
+      </section>
 
       <section className="about-block">
         <h3>项目主页</h3>

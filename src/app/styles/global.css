@@ -6631,6 +6631,39 @@ body.categories-accounts-resizing {
   padding-left: 20px;
   color: var(--color-text-secondary);
 }
+
+.about-version-card {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: var(--color-bg-subtle);
+}
+
+.about-version-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.about-update-message {
+  margin-top: var(--space-2);
+  margin-bottom: 0;
+  font-size: var(--font-sm);
+}
+
+.about-update-message.error {
+  color: var(--color-danger);
+}
+
+.about-update-message.up-to-date {
+  color: var(--color-success);
+}
+
+.about-update-message.update-available {
+  color: var(--color-warning);
+}
+
 .about-api-pre {
   background: var(--color-bg-subtle);
   border: 1px solid var(--color-border-light);
