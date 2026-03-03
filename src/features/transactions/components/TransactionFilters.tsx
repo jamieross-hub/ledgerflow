@@ -33,6 +33,8 @@ interface TransactionFiltersProps {
   onQuickAdd: () => void;
   privacyMode: boolean;
   onTogglePrivacy: () => void;
+  sidePanelVisible: boolean;
+  onToggleSidePanel: () => void;
 }
 
 export function TransactionFilters({
@@ -59,7 +61,9 @@ export function TransactionFilters({
   maxAvailableDate,
   onQuickAdd,
   privacyMode,
-  onTogglePrivacy
+  onTogglePrivacy,
+  sidePanelVisible,
+  onToggleSidePanel
 }: TransactionFiltersProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -181,6 +185,13 @@ export function TransactionFilters({
           onClick={onToggleBulkSelection}
         >
           批量操作
+        </button>
+        <button
+          type="button"
+          className={`transaction-filter-trigger ${sidePanelVisible ? 'active' : ''}`}
+          onClick={onToggleSidePanel}
+        >
+          {sidePanelVisible ? '收起图表' : '展开图表'}
         </button>
         <button type="button" className="transaction-filter-trigger" onClick={onTogglePrivacy}>
           {privacyMode ? '🙈 关闭隐私模式' : '🕶️ 开启隐私模式'}

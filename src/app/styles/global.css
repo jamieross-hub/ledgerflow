@@ -1050,6 +1050,10 @@ button.danger:hover:not(:disabled) {
   min-height: 520px;
 }
 
+.transactions-split-layout-no-side {
+  grid-template-columns: 1fr;
+}
+
 .transactions-split-main {
   min-width: 0;
 }

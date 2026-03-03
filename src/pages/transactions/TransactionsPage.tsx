@@ -63,6 +63,7 @@ const DEFAULT_QUICK_FILTERS: TransactionQuickFilters = {
 };
 
 const TX_SEARCH_HISTORY_KEY = 'ledgerflow.transactions.searchHistory';
+const TX_SIDE_PANEL_VISIBLE_KEY = 'ledgerflow.transactions.sidePanelVisible';
 
 function easeOutCubic(t: number) {
   const p = Math.min(Math.max(t, 0), 1);
@@ -318,6 +319,18 @@ function restorePageSize(): number {
       : DEFAULT_PAGE_SIZE;
   } catch {
     return DEFAULT_PAGE_SIZE;
+  }
+}
+
+function restoreSidePanelVisible(): boolean {
+  try {
+    const raw = window.localStorage.getItem(TX_SIDE_PANEL_VISIBLE_KEY);
+    if (raw === null) {
+      return true;
+    }
+    return raw !== '0';
+  } catch {
+    return true;
   }
 }
 
@@ -579,6 +592,7 @@ export function TransactionsPage() {
   const [quickAddNote, setQuickAddNote] = useState('');
   const [quickAddError, setQuickAddError] = useState('');
   const [tablePanelWidth, setTablePanelWidth] = useState(860);
+  const [sidePanelVisible, setSidePanelVisible] = useState(() => restoreSidePanelVisible());
   const [pieAnimationProgress, setPieAnimationProgress] = useState(1);
   const [splitLayoutStacked, setSplitLayoutStacked] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 1100px)').matches : false
@@ -653,6 +667,10 @@ export function TransactionsPage() {
   useEffect(() => {
     window.localStorage.setItem(TX_SEARCH_HISTORY_KEY, JSON.stringify(searchHistory));
   }, [searchHistory]);
+
+  useEffect(() => {
+    window.localStorage.setItem(TX_SIDE_PANEL_VISIBLE_KEY, sidePanelVisible ? '1' : '0');
+  }, [sidePanelVisible]);
 
   useEffect(() => {
     const categoryId = searchParams.get('categoryId') ?? '';
@@ -1933,6 +1951,8 @@ export function TransactionsPage() {
           onQuickAdd={openQuickAddDrawer}
           privacyMode={privacyMode}
           onTogglePrivacy={() => setPrivacyMode((prev) => !prev)}
+          sidePanelVisible={sidePanelVisible}
+          onToggleSidePanel={() => setSidePanelVisible((prev) => !prev)}
         />
         <div className="transactions-current-bill-strip" aria-label="当前账单筛选状态">
           <span>账单周期：{currentPeriodLabel}</span>
@@ -1999,11 +2019,14 @@ export function TransactionsPage() {
         onChange={(event) => void handleImportFile(event)}
       />
 
-      <div className="transactions-split-layout" ref={splitLayoutRef}>
+      <div
+        className={`transactions-split-layout ${sidePanelVisible ? '' : 'transactions-split-layout-no-side'}`.trim()}
+        ref={splitLayoutRef}
+      >
         <section
           className="transactions-split-main"
           style={
-            splitLayoutStacked
+            splitLayoutStacked || !sidePanelVisible
               ? { width: '100%', maxWidth: '100%', minWidth: 0 }
               : { width: tablePanelWidth, maxWidth: '100%', minWidth: 560 }
           }
@@ -2064,104 +2087,108 @@ export function TransactionsPage() {
           />
         </section>
 
-        <div
-          className="transactions-split-divider"
-          role="separator"
-          aria-label="调整账单列表与图表区域宽度"
-          aria-orientation="vertical"
-          onMouseDown={handleSplitDividerMouseDown}
-        />
+        {sidePanelVisible ? (
+          <>
+            <div
+              className="transactions-split-divider"
+              role="separator"
+              aria-label="调整账单列表与图表区域宽度"
+              aria-orientation="vertical"
+              onMouseDown={handleSplitDividerMouseDown}
+            />
 
-        <aside className="transactions-split-side panel" aria-label="当前账单图表视图">
-          <h3 style={{ marginTop: 0 }}>当前账单视图</h3>
-          <div className="transactions-side-chart-card transactions-current-bill-panel">
-            <h4>当前账单概览</h4>
-            <div className="transactions-current-bill-grid">
-              <div>
-                <small>本期收入</small>
-                <strong>{formatCurrencyAuto(currentBillSummary.income)}</strong>
-              </div>
-              <div>
-                <small>本期支出</small>
-                <strong>{formatCurrencyAuto(currentBillSummary.expense)}</strong>
-              </div>
-              <div>
-                <small>本期结余</small>
-                <strong>{formatCurrencyAuto(currentBillSummary.net)}</strong>
-              </div>
-              <div>
-                <small>交易笔数</small>
-                <strong>{currentBillSummary.count}</strong>
-              </div>
-            </div>
-            <div className="transactions-current-bill-actions">
-              <button type="button" className="primary" onClick={openQuickAddDrawer}>
-                新增交易
-              </button>
-              <button type="button" onClick={() => openImport('alipay')}>
-                导入账单
-              </button>
-              <button type="button" onClick={clearAllFilters}>
-                清除筛选
-              </button>
-            </div>
-            {currentBillSummary.maxExpense ? (
-              <button
-                type="button"
-                className="transactions-current-bill-max"
-                onClick={() => setSelectedId(currentBillSummary.maxExpense?.item.id || null)}
-              >
-                最大支出：{currentBillSummary.maxExpense.categoryName} ·{' '}
-                {formatCurrencyAuto(currentBillSummary.maxExpense.item.amount)}
-              </button>
-            ) : (
-              <small className="muted">暂无可识别的支出记录</small>
-            )}
-          </div>
-
-          <div className="transactions-side-chart-card">
-            <h4>分类占比饼图（当前列表）</h4>
-            <div className="transactions-pie-wrap">
-              <div
-                className="transactions-pie"
-                style={{
-                  backgroundImage: pieGradient !== 'none' ? pieGradient : undefined,
-                  backgroundColor: pieGradient === 'none' ? pieFallbackColor : undefined,
-                  opacity: pieOpacity
-                }}
-              />
-              <div className="transactions-pie-legend">
-                {categoryPieData.length === 0 ? <p className="muted">暂无数据</p> : null}
-                {categoryPieData.map((item) => (
-                  <p key={item.name}>
-                    <span style={{ color: item.color }}>●</span> {item.name} · {item.percent.toFixed(1)}% ·{' '}
-                    {formatCurrencyAuto(item.amount)}
-                  </p>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="transactions-side-chart-card">
-            <h4>累计净额曲线（当前列表）</h4>
-            <div className="transactions-curve-list">
-              {curveData.length === 0 ? <p className="muted">暂无数据</p> : null}
-              {curveData.map((point, index) => (
-                <div key={`${point.label}-${index}`} className="transactions-curve-row">
-                  <span>{point.label}</span>
+            <aside className="transactions-split-side panel" aria-label="当前账单图表视图">
+              <h3 style={{ marginTop: 0 }}>当前账单视图</h3>
+              <div className="transactions-side-chart-card transactions-current-bill-panel">
+                <h4>当前账单概览</h4>
+                <div className="transactions-current-bill-grid">
                   <div>
-                    <i
-                      style={{
-                        width: `${(Math.abs(point.value) / curveMaxAbs) * 100}%`
-                      }}
-                    />
+                    <small>本期收入</small>
+                    <strong>{formatCurrencyAuto(currentBillSummary.income)}</strong>
                   </div>
-                  <strong>{formatCurrencyAuto(point.value)}</strong>
+                  <div>
+                    <small>本期支出</small>
+                    <strong>{formatCurrencyAuto(currentBillSummary.expense)}</strong>
+                  </div>
+                  <div>
+                    <small>本期结余</small>
+                    <strong>{formatCurrencyAuto(currentBillSummary.net)}</strong>
+                  </div>
+                  <div>
+                    <small>交易笔数</small>
+                    <strong>{currentBillSummary.count}</strong>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        </aside>
+                <div className="transactions-current-bill-actions">
+                  <button type="button" className="primary" onClick={openQuickAddDrawer}>
+                    新增交易
+                  </button>
+                  <button type="button" onClick={() => openImport('alipay')}>
+                    导入账单
+                  </button>
+                  <button type="button" onClick={clearAllFilters}>
+                    清除筛选
+                  </button>
+                </div>
+                {currentBillSummary.maxExpense ? (
+                  <button
+                    type="button"
+                    className="transactions-current-bill-max"
+                    onClick={() => setSelectedId(currentBillSummary.maxExpense?.item.id || null)}
+                  >
+                    最大支出：{currentBillSummary.maxExpense.categoryName} ·{' '}
+                    {formatCurrencyAuto(currentBillSummary.maxExpense.item.amount)}
+                  </button>
+                ) : (
+                  <small className="muted">暂无可识别的支出记录</small>
+                )}
+              </div>
+
+              <div className="transactions-side-chart-card">
+                <h4>分类占比饼图（当前列表）</h4>
+                <div className="transactions-pie-wrap">
+                  <div
+                    className="transactions-pie"
+                    style={{
+                      backgroundImage: pieGradient !== 'none' ? pieGradient : undefined,
+                      backgroundColor: pieGradient === 'none' ? pieFallbackColor : undefined,
+                      opacity: pieOpacity
+                    }}
+                  />
+                  <div className="transactions-pie-legend">
+                    {categoryPieData.length === 0 ? <p className="muted">暂无数据</p> : null}
+                    {categoryPieData.map((item) => (
+                      <p key={item.name}>
+                        <span style={{ color: item.color }}>●</span> {item.name} · {item.percent.toFixed(1)}% ·{' '}
+                        {formatCurrencyAuto(item.amount)}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="transactions-side-chart-card">
+                <h4>累计净额曲线（当前列表）</h4>
+                <div className="transactions-curve-list">
+                  {curveData.length === 0 ? <p className="muted">暂无数据</p> : null}
+                  {curveData.map((point, index) => (
+                    <div key={`${point.label}-${index}`} className="transactions-curve-row">
+                      <span>{point.label}</span>
+                      <div>
+                        <i
+                          style={{
+                            width: `${(Math.abs(point.value) / curveMaxAbs) * 100}%`
+                          }}
+                        />
+                      </div>
+                      <strong>{formatCurrencyAuto(point.value)}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </aside>
+          </>
+        ) : null}
       </div>
 
       <TransactionDetailDrawer

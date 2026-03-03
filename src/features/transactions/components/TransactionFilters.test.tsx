@@ -50,6 +50,8 @@ describe('TransactionFilters', () => {
           onQuickAdd={() => undefined}
           privacyMode={false}
           onTogglePrivacy={() => undefined}
+          sidePanelVisible
+          onToggleSidePanel={() => undefined}
         />
       </MemoryRouter>
     );
