@@ -539,6 +539,7 @@ export function TransactionsPage() {
     message: '',
     variant: 'success'
   });
+  const [importReportText, setImportReportText] = useState('');
   const [toast, setToast] = useState<{ visible: boolean; message: string; variant: ToastVariant }>({
     visible: false,
     message: '',
@@ -1142,6 +1143,19 @@ export function TransactionsPage() {
     setImportNotice({ visible: true, message, variant });
   };
 
+  const copyImportReport = async () => {
+    if (!importReportText) {
+      showToast('暂无可复制的导入报告。', 'warning');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(importReportText);
+      showToast('导入报告已复制。', 'success');
+    } catch {
+      showToast('复制失败，请检查浏览器权限。', 'error');
+    }
+  };
+
   const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     const activeSource = importSourceRef.current || importSource;
@@ -1239,6 +1253,14 @@ export function TransactionsPage() {
 
     if (changedCount === 0) {
       const message = `导入完成：${result.skipped} 条重复记录已跳过（增量模式）。`;
+      const report = [
+        `导入报告`,
+        `文件：${pendingImport.fileName}`,
+        `模式：${mode === 'overwrite' ? '覆盖' : mode === 'merge' ? '合并' : '增量'}`,
+        `结果：无新增或更新`,
+        `跳过重复：${result.skipped} 条`
+      ].join('\n');
+      setImportReportText(report);
       showToast(message, 'warning');
       showImportNotice(message, 'warning');
       setPendingImport(null);
@@ -1247,6 +1269,16 @@ export function TransactionsPage() {
 
     const actionLabel = mode === 'overwrite' ? '覆盖' : mode === 'merge' ? '合并' : '增量导入';
     const message = `导入成功（${actionLabel}）：新增 ${result.append.length} 条，更新 ${result.update.length} 条${result.skipped ? `，跳过 ${result.skipped} 条` : ''}。`;
+    const report = [
+      `导入报告`,
+      `文件：${pendingImport.fileName}`,
+      `来源：${pendingImport.source === 'wechat' ? '微信' : '支付宝'}`,
+      `模式：${mode === 'overwrite' ? '覆盖（清空后导入）' : mode === 'merge' ? '合并（覆盖重复）' : '增量（跳过重复）'}`,
+      `识别：${pendingImport.parseSummary.parsedCount} 条（数据行 ${pendingImport.parseSummary.dataLines}，跳过 ${pendingImport.parseSummary.skippedCount}）`,
+      `结果：新增 ${result.append.length} 条，更新 ${result.update.length} 条，跳过重复 ${result.skipped} 条`,
+      `时间：${new Date().toLocaleString()}`
+    ].join('\n');
+    setImportReportText(report);
     showToast(message, 'success');
     showImportNotice(`${message} 已自动定位到最新一条。`, 'success');
 
@@ -2061,6 +2093,11 @@ export function TransactionsPage() {
         >
           <strong>导入结果：</strong>
           <span>{importNotice.message}</span>
+          {importReportText ? (
+            <button type="button" onClick={() => void copyImportReport()}>
+              复制报告
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => setImportNotice((prev) => ({ ...prev, visible: false }))}
