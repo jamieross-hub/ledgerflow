@@ -789,11 +789,21 @@ export function RepaymentManagementPage() {
       return;
     }
 
+    const inferredAnnualRate =
+      isLoanType && canInferAnnualRateByFormula
+        ? ((totalRepayment - loanPrincipal) / loanPrincipal) * (12 / totalPeriods) * 100
+        : undefined;
+
     addDebt({
       name: trimmedDebtName,
       type: debtType,
       balance,
-      annualRate: isLoanType && hasExplicitAnnualRate ? annualRate : undefined,
+      annualRate:
+        isLoanType && hasExplicitAnnualRate
+          ? annualRate
+          : isLoanType && inferredAnnualRate && inferredAnnualRate > 0
+            ? inferredAnnualRate
+            : undefined,
       remainingMonths: isLoanType ? months : undefined,
       totalPeriods: totalPeriodsRaw.length > 0 ? totalPeriods : undefined,
       paidPeriods: paidPeriodsRaw.length > 0 ? paidPeriods : undefined,
@@ -946,7 +956,14 @@ export function RepaymentManagementPage() {
               : item.type === 'consumer-loan'
                 ? '消费贷'
                 : '贷款';
-          const annualRate = item.type === 'loan' ? `，年化利率 ${item.annualRate || 0}%` : '';
+          const annualRateValue = getDebtAssumedAnnualRate(
+            item.type,
+            item.annualRate,
+            item.loanPrincipal,
+            item.totalRepayment,
+            item.totalPeriods
+          );
+          const annualRate = item.type === 'loan' ? `，年化利率 ${annualRateValue.toFixed(2)}%` : '';
           const months = item.type === 'loan' ? `，剩余期数 ${item.remainingMonths || 12}` : '';
           return `${item.name}（${typeLabel}）：本金 ¥${item.balance.toFixed(2)}，最低还款 ¥${minimum.toFixed(2)}${annualRate}${months}`;
         })
@@ -1425,6 +1442,13 @@ export function RepaymentManagementPage() {
             {debts.length === 0 ? <p className="muted">还没有负债记录，先新增一条吧。</p> : null}
             {debts.map((item) => {
               const minimum = calculateDebtMinimumPayment(item);
+              const annualRate = getDebtAssumedAnnualRate(
+                item.type,
+                item.annualRate,
+                item.loanPrincipal,
+                item.totalRepayment,
+                item.totalPeriods
+              );
               return (
                 <div key={item.id} className="finance-debt-item">
                   <div>
@@ -1439,7 +1463,7 @@ export function RepaymentManagementPage() {
                     <p className="muted" style={{ margin: 0 }}>
                       剩余本金 ¥{item.balance.toFixed(2)} · 最低还款 ¥{minimum.toFixed(2)}
                       {item.type === 'loan'
-                        ? ` · 期数 ${item.paidPeriods || 0}/${item.totalPeriods || '--'} · 还款日 ${item.repaymentDay || '--'}`
+                        ? ` · 年化 ${annualRate.toFixed(2)}% · 期数 ${item.paidPeriods || 0}/${item.totalPeriods || '--'} · 还款日 ${item.repaymentDay || '--'}`
                         : ` · 账单日 ${item.billDay || '--'} · 还款日 ${item.repaymentDay || '--'}`}
                     </p>
                   </div>

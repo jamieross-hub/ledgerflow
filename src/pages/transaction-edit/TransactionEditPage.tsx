@@ -192,10 +192,7 @@ export function TransactionEditPage() {
   const transactions = useFinanceStore((s) => s.transactions);
   const addTransaction = useFinanceStore((s) => s.addTransaction);
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
-  const suggestCategoryByLearning = useFinanceStore((s) => s.suggestCategoryByLearning);
-  const recordCategoryCorrection = useFinanceStore((s) => s.recordCategoryCorrection);
-  const categoryLearningEvents = useFinanceStore((s) => s.categoryLearningEvents);
-  const undoLatestCategoryLearning = useFinanceStore((s) => s.undoLatestCategoryLearning);
+  const clearCategoryLearning = useFinanceStore((s) => s.clearCategoryLearning);
   const aiBaseUrl = useAiSettings((s) => s.baseUrl);
   const aiApiKey = useAiSettings((s) => s.apiKey);
   const aiModel = useAiSettings((s) => s.model);
@@ -237,34 +234,11 @@ export function TransactionEditPage() {
   const [recognizing, setRecognizing] = useState(false);
   const [suggestion, setSuggestion] = useState<RecognitionSuggestion | null>(null);
   const amountInputRef = useRef<HTMLInputElement | null>(null);
-  const [categoryTouched, setCategoryTouched] = useState(false);
-  const [learningFeedback, setLearningFeedback] = useState('');
 
   const suggestedTags = useMemo(
     () =>
       suggestTags(note, merchantOrderNo, orderNo).filter((tag) => !parseTags(tags).includes(tag)),
     [note, merchantOrderNo, orderNo, tags]
-  );
-
-  const learningSuggestion = useMemo(
-    () =>
-      suggestCategoryByLearning({
-        type,
-        note,
-        merchantOrderNo: merchantOrderNo.trim(),
-        orderNo: orderNo.trim()
-      }),
-    [merchantOrderNo, note, orderNo, suggestCategoryByLearning, type]
-  );
-
-  const categoryNameMap = useMemo(
-    () => new Map(categories.map((item) => [item.id, item.name] as const)),
-    [categories]
-  );
-
-  const recentLearningEvents = useMemo(
-    () => categoryLearningEvents.slice(-5).reverse(),
-    [categoryLearningEvents]
   );
 
   const handleBack = useCallback(() => {
@@ -320,19 +294,6 @@ export function TransactionEditPage() {
 
     return () => window.cancelAnimationFrame(timer);
   }, [id, quickMode]);
-
-  useEffect(() => {
-    if (id || categoryTouched || !learningSuggestion) {
-      return;
-    }
-    if (learningSuggestion.categoryId === categoryId) {
-      return;
-    }
-    setCategoryId(learningSuggestion.categoryId);
-    setLearningFeedback(
-      `已按学习记录自动推荐分类：${categoryNameMap.get(learningSuggestion.categoryId) || '未命名分类'}（置信度 ${Math.round(learningSuggestion.confidence * 100)}%）`
-    );
-  }, [categoryId, categoryNameMap, categoryTouched, id, learningSuggestion]);
 
   const handleAmountKeypadInput = useCallback(
     (key: CalculatorKey) => {
@@ -411,21 +372,6 @@ export function TransactionEditPage() {
       return;
     }
 
-    const learningInput = {
-      type,
-      note,
-      merchantOrderNo: merchantOrderNo.trim(),
-      orderNo: orderNo.trim()
-    };
-    const recommendation = suggestCategoryByLearning(learningInput);
-    if (recommendation && recommendation.categoryId !== categoryId) {
-      recordCategoryCorrection({
-        ...learningInput,
-        fromCategoryId: recommendation.categoryId,
-        toCategoryId: categoryId
-      });
-    }
-
     const mergedTags = Array.from(
       new Set([...parseTags(tags), ...suggestTags(note, merchantOrderNo, orderNo)])
     );
@@ -494,7 +440,6 @@ export function TransactionEditPage() {
                   aria-label="交易分类"
                   value={categoryId}
                   onChange={(e) => {
-                    setCategoryTouched(true);
                     setCategoryId(e.target.value);
                   }}
                   required
@@ -685,11 +630,6 @@ export function TransactionEditPage() {
             </section>
 
             {formError ? <p className="error">{formError}</p> : null}
-            {learningFeedback ? (
-              <p style={{ color: 'var(--color-text-secondary)', marginTop: 8 }}>
-                {learningFeedback}
-              </p>
-            ) : null}
 
             <button className="primary" type="submit">
               保存
@@ -735,35 +675,22 @@ export function TransactionEditPage() {
 
       <section
         style={{ marginTop: 16, borderTop: '1px solid var(--color-border)', paddingTop: 12 }}
-        aria-label="分类学习记录"
+        aria-label="分类学习"
       >
         <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
-          <strong>最近分类学习</strong>
+          <strong>分类学习</strong>
           <button
             type="button"
             onClick={() => {
-              const ok = undoLatestCategoryLearning();
-              setLearningFeedback(ok ? '已撤销最近一次分类学习。' : '暂无可撤销的学习记录。');
+              clearCategoryLearning();
             }}
           >
-            撤销最近一次
+            清空历史学习记录
           </button>
         </div>
-        {recentLearningEvents.length === 0 ? (
-          <small style={{ color: 'var(--color-text-secondary)' }}>暂无学习记录。</small>
-        ) : (
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
-            {recentLearningEvents.map((item) => (
-              <li key={item.id} style={{ marginBottom: 6 }}>
-                {categoryNameMap.get(item.fromCategoryId) || '未知分类'} →{' '}
-                {categoryNameMap.get(item.toCategoryId) || '未知分类'}
-                <small style={{ color: 'var(--color-text-secondary)', marginLeft: 6 }}>
-                  关键词：{item.tokens.slice(0, 3).join(' / ') || '无'}
-                </small>
-              </li>
-            ))}
-          </ul>
-        )}
+        <small style={{ color: 'var(--color-text-secondary)' }}>
+          分类学习自动推荐已临时停用（先止血）。手动分类和 AI 重分类功能不受影响。
+        </small>
       </section>
     </section>
   );

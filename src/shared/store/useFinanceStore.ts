@@ -68,6 +68,7 @@ interface FinanceState {
     input: CategoryLearningInput & { fromCategoryId: string; toCategoryId: string }
   ) => void;
   undoLatestCategoryLearning: () => boolean;
+  clearCategoryLearning: () => void;
   replaceAllData: (payload: {
     transactions: TransactionItem[];
     categories: Category[];
@@ -305,39 +306,6 @@ function sanitizeCategoriesAndTransactions(
   };
 }
 
-function normalizeLearningText(raw: string): string {
-  return String(raw || '')
-    .trim()
-    .toLocaleLowerCase('zh-CN');
-}
-
-function buildLearningTokens(input: CategoryLearningInput): string[] {
-  const tokens: string[] = [];
-  const merchant = normalizeLearningText(input.merchantOrderNo || '');
-  const order = normalizeLearningText(input.orderNo || '');
-  const note = normalizeLearningText(input.note || '');
-
-  if (merchant) tokens.push(`merchant:${merchant}`);
-  if (order) tokens.push(`order:${order}`);
-
-  if (note) {
-    const words = note
-      .split(/[\s,，。!！?？;；:：()（）【】{}"'“”‘’/\\|+-]+|\[|\]/)
-      .map((item) => item.trim())
-      .filter((item) => item.length >= 2)
-      .slice(0, 6);
-    words.forEach((word) => tokens.push(`kw:${word}`));
-  }
-
-  return Array.from(new Set(tokens)).slice(0, 8);
-}
-
-function getTokenWeight(token: string): number {
-  if (token.startsWith('merchant:')) return 5;
-  if (token.startsWith('order:')) return 4;
-  return 2;
-}
-
 function computeAccountBalances(accounts: Account[], transactions: TransactionItem[]): Account[] {
   return accounts.map((account) => {
     const base = Number(account.initialBalance ?? 0);
@@ -358,7 +326,7 @@ function computeAccountBalances(accounts: Account[], transactions: TransactionIt
 
 export const useFinanceStore = create<FinanceState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       hasHydrated: false,
       transactions: defaultTransactions,
       categories: defaultCategories,
@@ -537,127 +505,21 @@ export const useFinanceStore = create<FinanceState>()(
           accounts: computeAccountBalances(s.accounts, [])
         }));
       },
-      suggestCategoryByLearning: (input) => {
-        const tokens = buildLearningTokens(input);
-        if (tokens.length === 0) return null;
-
-        const { categoryLearningRules, categories } = get();
-        const validCategoryIds = new Set(categories.map((item) => item.id));
-        const scoreByCategory = new Map<string, { score: number; token: string }>();
-
-        categoryLearningRules.forEach((rule) => {
-          if (rule.type !== input.type) return;
-          if (!validCategoryIds.has(rule.categoryId)) return;
-          if (!tokens.includes(rule.token)) return;
-          const weight = getTokenWeight(rule.token) * Math.max(1, rule.hitCount);
-          const current = scoreByCategory.get(rule.categoryId);
-          if (!current || current.score < weight) {
-            scoreByCategory.set(rule.categoryId, { score: weight, token: rule.token });
-            return;
-          }
-          scoreByCategory.set(rule.categoryId, {
-            score: current.score + weight,
-            token: current.token
-          });
-        });
-
-        const sorted = Array.from(scoreByCategory.entries()).sort(
-          (a, b) => b[1].score - a[1].score
-        );
-        if (sorted.length === 0) return null;
-
-        const [categoryId, top] = sorted[0];
-        const secondScore = sorted[1]?.[1].score ?? 0;
-        const confidence = Math.min(1, top.score / Math.max(1, top.score + secondScore));
-
-        return {
-          categoryId,
-          confidence,
-          token: top.token
-        };
+      suggestCategoryByLearning: () => {
+        // 分类学习推荐先停用（止血），后续再按新策略重启。
+        return null;
       },
-      recordCategoryCorrection: (input) => {
-        if (input.fromCategoryId === input.toCategoryId) return;
-
-        const tokens = buildLearningTokens(input);
-        if (tokens.length === 0) return;
-
-        const now = new Date().toISOString();
-        set((s) => {
-          const nextRules = s.categoryLearningRules.slice();
-          const touchedRuleIds: string[] = [];
-
-          tokens.forEach((token) => {
-            const idx = nextRules.findIndex(
-              (rule) =>
-                rule.token === token &&
-                rule.type === input.type &&
-                rule.categoryId === input.toCategoryId
-            );
-            if (idx >= 0) {
-              const updated = {
-                ...nextRules[idx],
-                hitCount: nextRules[idx].hitCount + 1,
-                lastAppliedAt: now
-              };
-              nextRules[idx] = updated;
-              touchedRuleIds.push(updated.id);
-              return;
-            }
-
-            const inserted: CategoryLearningRule = {
-              id: generateId(),
-              token,
-              type: input.type,
-              categoryId: input.toCategoryId,
-              hitCount: 1,
-              createdAt: now,
-              lastAppliedAt: now
-            };
-            nextRules.push(inserted);
-            touchedRuleIds.push(inserted.id);
-          });
-
-          const nextEvents = [
-            ...s.categoryLearningEvents,
-            {
-              id: generateId(),
-              createdAt: now,
-              type: input.type,
-              fromCategoryId: input.fromCategoryId,
-              toCategoryId: input.toCategoryId,
-              tokens,
-              ruleIds: touchedRuleIds
-            }
-          ].slice(-30);
-
-          return {
-            categoryLearningRules: nextRules,
-            categoryLearningEvents: nextEvents
-          };
-        });
+      recordCategoryCorrection: () => {
+        // 分类学习记录先停用（止血），保留接口避免调用方报错。
       },
       undoLatestCategoryLearning: () => {
-        let success = false;
-        set((s) => {
-          const latest = s.categoryLearningEvents[s.categoryLearningEvents.length - 1];
-          if (!latest) return s;
-          success = true;
-
-          const nextRules = s.categoryLearningRules
-            .map((rule) => {
-              if (!latest.ruleIds.includes(rule.id)) return rule;
-              const nextHit = rule.hitCount - 1;
-              return { ...rule, hitCount: nextHit };
-            })
-            .filter((rule) => rule.hitCount > 0);
-
-          return {
-            categoryLearningRules: nextRules,
-            categoryLearningEvents: s.categoryLearningEvents.slice(0, -1)
-          };
+        return false;
+      },
+      clearCategoryLearning: () => {
+        set({
+          categoryLearningRules: [],
+          categoryLearningEvents: []
         });
-        return success;
       },
       replaceAllData: (payload) => {
         const incomingCategories = Array.isArray(payload.categories) ? payload.categories : [];
