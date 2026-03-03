@@ -319,22 +319,11 @@ export function CategoriesAccountsPage() {
   const accountBalanceMap = useMemo(() => {
     const map = new Map<string, number>();
     accounts.forEach((account) => {
-      const base = Number(account.initialBalance ?? 0);
-      map.set(account.id, Number.isFinite(base) ? base : 0);
+      const balance = Number(account.balance ?? account.initialBalance ?? 0);
+      map.set(account.id, Number.isFinite(balance) ? balance : 0);
     });
-
-    transactions.forEach((tx) => {
-      const amount = Number(tx.amount);
-      if (!tx.accountId || !Number.isFinite(amount) || !map.has(tx.accountId)) {
-        return;
-      }
-      const prev = map.get(tx.accountId) || 0;
-      const next = tx.type === 'income' ? prev + amount : prev - amount;
-      map.set(tx.accountId, next);
-    });
-
     return map;
-  }, [accounts, transactions]);
+  }, [accounts]);
 
   const applyAccountBalance = (accountId: string) => {
     const current = accounts.find((item) => item.id === accountId);
