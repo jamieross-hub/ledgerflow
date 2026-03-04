@@ -10,6 +10,8 @@ i18n
   .init({
     fallbackLng: 'zh',
     supportedLngs: ['zh', 'en'],
+    nonExplicitSupportedLngs: true,
+    load: 'languageOnly',
     ns: ['translation'],
     defaultNS: 'translation',
     debug: import.meta.env.DEV,
@@ -21,6 +23,7 @@ i18n
     },
     detection: {
       order: ['localStorage', 'navigator'],
+      lookupLocalStorage: 'i18nextLng',
       caches: ['localStorage']
     },
     react: {
