@@ -5,6 +5,7 @@ import type { Category } from '../../../entities/category/types';
 import type { TransactionItem } from '../../../entities/transaction/types';
 import { useDebugLogStore } from '../../../shared/store/useDebugLogStore';
 import { useAiSettings } from '../../../shared/store/useAiSettings';
+import { buildSemanticRecallContext } from './semanticRecall';
 import {
   ANALYSIS_AGENT_PROMPT,
   buildTimeContext,
@@ -313,7 +314,53 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     try {
       const basePrompt =
         input.sceneMode === 'assistant' ? ANALYSIS_AGENT_PROMPT : JSON_AGENT_PROMPT;
-      const prompt = `${basePrompt}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}`;
+
+      let semanticRecallBlock = '';
+      if (
+        input.sceneMode === 'assistant' &&
+        enableEmbeddingModel &&
+        Boolean(embeddingModel.trim()) &&
+        cleanPrompt
+      ) {
+        try {
+          const recall = await buildSemanticRecallContext({
+            baseUrl: input.baseUrl,
+            apiKey: input.apiKey,
+            model: embeddingModel,
+            question: cleanPrompt,
+            transactions: input.transactions,
+            categories: input.categories,
+            accounts: input.accounts,
+            signal: controller.signal
+          });
+
+          if (recall && recall.context) {
+            semanticRecallBlock = `\n\n语义召回候选（按相似度排序，仅作辅助参考）：\n${recall.context}`;
+            addLog({
+              action: 'assistant.embedding',
+              status: 'success',
+              message: `语义召回命中 ${recall.hitCount} 条，最高相似度 ${recall.topScore.toFixed(2)}`
+            });
+          } else {
+            addLog({
+              action: 'assistant.embedding',
+              status: 'info',
+              message: '语义召回未命中可用上下文'
+            });
+          }
+        } catch (embeddingError) {
+          addLog({
+            action: 'assistant.embedding',
+            status: 'info',
+            message:
+              embeddingError instanceof Error
+                ? `语义召回失败：${embeddingError.message}`
+                : '语义召回失败，已自动降级为普通分析'
+          });
+        }
+      }
+
+      const prompt = `${basePrompt}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}${semanticRecallBlock}`;
       const reply = await sendAiChat({
         baseUrl: input.baseUrl,
         apiKey: input.apiKey,
