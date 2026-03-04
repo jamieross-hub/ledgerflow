@@ -42,5 +42,122 @@
     "about": "About",
     "commonFeatures": "Common Features",
     "systemFeatures": "System Features"
+  },
+  "settings": {
+    "title": "AI Channel Settings (OpenAI-Compatible)",
+    "back": "← Back",
+    "intro": "The same Base URL + API Key can be reused for chat, embedding, and rerank, making billing retrieval and trend analysis integration consistent.",
+    "baseUrl": "Provider Base URL",
+    "apiKey": "API Key",
+    "show": "👁 Show",
+    "hide": "🙈 Hide",
+    "language": {
+      "label": "Language / 语言",
+      "zh": "Simplified Chinese",
+      "en": "English",
+      "hint": "Takes effect immediately and is saved locally."
+    },
+    "accent": {
+      "label": "Global UI Accent",
+      "hint": "Applies immediately and affects buttons, highlights, and icon emphasis across the app.",
+      "options": {
+        "blue": "Default Blue",
+        "emerald": "Emerald",
+        "violet": "Violet",
+        "rose": "Rose",
+        "amber": "Amber"
+      }
+    },
+    "model": {
+      "defaultLabel": "Default Chat Model",
+      "defaultHint": "Used in AI assistant and trend insights main flows.",
+      "embeddingLabel": "Embedding Model",
+      "embeddingHint": "Used for bill vector retrieval and semantic recall.",
+      "rerankLabel": "Rerank Model",
+      "rerankHint": "Used to rerank retrieval results for better precision.",
+      "refresh": "Refresh Models",
+      "refreshing": "Loading…",
+      "errorMissingBaseUrl": "Please fill in Base URL before fetching model list.",
+      "errorEmptyList": "Model list is empty. Falling back to local presets.",
+      "errorFetchFailed": "Failed to fetch model list"
+    },
+    "embeddingToggle": {
+      "label": "Enable Embedding Model",
+      "hint": "When disabled, embedding-related flows are skipped (and logged in debug logs)."
+    },
+    "rerankToggle": {
+      "label": "Enable Rerank Model",
+      "hint": "When disabled, rerank-related flows are skipped (and logged in debug logs)."
+    },
+    "memoryDays": {
+      "label": "Assistant Memory Window (days)",
+      "d1": "1 day",
+      "d2": "2 days",
+      "d3": "3 days"
+    },
+    "memoryBackend": {
+      "label": "Memory Backend",
+      "local": "Local (default)",
+      "redis": "Redis (placeholder, backend pending)"
+    },
+    "bulkConcurrency": {
+      "label": "Bulk AI Recategorization Concurrency",
+      "aria": "Bulk AI Recategorization Concurrency",
+      "hint": "Adjust with slider (5~30). Higher concurrency is faster but more likely to hit model rate limits."
+    },
+    "privacy": {
+      "title": "Data Security & Privacy",
+      "l1": "Local storage: core data like transactions, accounts, and categories are stored in your browser by default and not auto-uploaded.",
+      "l2": "Encrypted transport: use HTTPS for AI requests whenever possible; API key is only used for your configured provider.",
+      "l3": "Minimal context: only necessary context is sent when you trigger AI features, avoiding redundant data exposure.",
+      "l4": "Privacy protection: review and remove sensitive notes before export/sharing."
+    },
+    "toastSaved": "Settings saved automatically"
+  },
+  "about": {
+    "title": "About LedgerFlow",
+    "version": {
+      "title": "Version",
+      "current": "Current Version",
+      "viewReleases": "View Releases"
+    },
+    "update": {
+      "check": "Check Updates",
+      "checking": "Checking updates…",
+      "checkingBtn": "Checking…",
+      "httpError": "Check failed (HTTP {{status}})",
+      "noVersion": "Latest version number not found",
+      "latest": "You are on the latest version (v{{version}})",
+      "available": "New version {{version}} is available. Visit release page for details.",
+      "failed": "Failed to check updates. Please try again later.",
+      "goLatest": "Open latest release page ({{version}})"
+    },
+    "home": {
+      "title": "Project Home"
+    },
+    "why": {
+      "title": "Why We Built This",
+      "p1": "LedgerFlow is not only about recording transactions, but about helping you quickly understand where your money goes—even when you're busy. What you spent today, what's quietly increasing, and where to optimize should all be easy to get.",
+      "p2": "We want bookkeeping to feel natural instead of burdensome: input should be simple, analysis should be clear, and suggestions should be actionable. Even 30 seconds a day can make financial decisions calmer and better."
+    },
+    "principles": {
+      "title": "Product Principles",
+      "l1": "Every transaction should be captured quickly.",
+      "l2": "Every review should reveal trend and cause.",
+      "l3": "Every suggestion should be actionable."
+    },
+    "value": {
+      "title": "What You Get",
+      "l1": "AI Bookkeeping: create draft bills from one sentence or screenshot, reducing manual input.",
+      "l2": "AI Assistant: Q&A and reviews over historical transactions to quickly locate anomalies and trends.",
+      "l3": "Linked transaction + analytics view: move from details to trends in one flow for steadier budgeting decisions."
+    },
+    "privacy": {
+      "title": "Privacy & Security Strategy",
+      "l1": "Storage: ledger data is stored in local browser storage by default; your device and browser are your first permission boundary.",
+      "l2": "Transport security: use HTTPS for AI service access to reduce API key/context leakage risk in transit.",
+      "l3": "Local-first: statistics, filtering, and most visualizations run locally; only required context is sent when you actively invoke AI.",
+      "l4": "Privacy tip: remove sensitive fields (phone/order IDs) from notes before export or sharing."
+    }
   }
 }

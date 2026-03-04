@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { fetchAiModels } from '../../features/assistant/api/openaiCompatibleClient';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useAppPreferences } from '../../shared/store/useAppPreferences';
-import { useTranslation } from 'react-i18next';
-import { Toast } from '../../shared/ui/Toast';
 import { AppAccentTheme } from '../../shared/types/app';
+import { Toast } from '../../shared/ui/Toast';
 
 const MODEL_PRESETS = [
   'gemini-2.5-flash-lite',
@@ -39,12 +39,12 @@ const RERANK_MODEL_PRESETS = [
   'cohere-rerank-3.5'
 ];
 
-const ACCENT_THEME_OPTIONS: Array<{ value: AppAccentTheme; label: string; preview: string }> = [
-  { value: 'blue', label: '默认蓝', preview: '#4f6ef7' },
-  { value: 'emerald', label: '翡翠绿', preview: '#10b981' },
-  { value: 'violet', label: '紫罗兰', preview: '#8b5cf6' },
-  { value: 'rose', label: '玫瑰粉', preview: '#f43f5e' },
-  { value: 'amber', label: '琥珀橙', preview: '#f59e0b' }
+const ACCENT_THEME_OPTIONS: Array<{ value: AppAccentTheme; labelKey: string; preview: string }> = [
+  { value: 'blue', labelKey: 'settings.accent.options.blue', preview: '#4f6ef7' },
+  { value: 'emerald', labelKey: 'settings.accent.options.emerald', preview: '#10b981' },
+  { value: 'violet', labelKey: 'settings.accent.options.violet', preview: '#8b5cf6' },
+  { value: 'rose', labelKey: 'settings.accent.options.rose', preview: '#f43f5e' },
+  { value: 'amber', labelKey: 'settings.accent.options.amber', preview: '#f59e0b' }
 ];
 
 interface ModelSelectorProps {
@@ -56,6 +56,8 @@ interface ModelSelectorProps {
   loading: boolean;
   onRefresh: () => void;
   onChange: (value: string) => void;
+  loadingText: string;
+  refreshText: string;
 }
 
 function mergeModelOptions(value: string, presets: string[], remoteModels: string[]): string[] {
@@ -79,7 +81,9 @@ function ModelSelector({
   remoteModels,
   loading,
   onRefresh,
-  onChange
+  onChange,
+  loadingText,
+  refreshText
 }: ModelSelectorProps) {
   const options = useMemo(
     () => mergeModelOptions(value, presets, remoteModels),
@@ -104,7 +108,7 @@ function ModelSelector({
           onClick={onRefresh}
           disabled={loading}
         >
-          {loading ? '拉取中…' : '刷新模型'}
+          {loading ? loadingText : refreshText}
         </button>
       </div>
     </div>
@@ -112,7 +116,7 @@ function ModelSelector({
 }
 
 export function SettingsPage() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
   const baseUrl = useAiSettings((s) => s.baseUrl);
@@ -165,7 +169,7 @@ export function SettingsPage() {
 
   const refreshModels = useCallback(async () => {
     if (!baseUrl) {
-      setModelLoadError('请先填写 Base URL，再拉取模型列表。');
+      setModelLoadError(t('settings.model.errorMissingBaseUrl'));
       return;
     }
     setModelLoading(true);
@@ -174,15 +178,15 @@ export function SettingsPage() {
       const remote = await fetchAiModels(baseUrl, apiKey);
       setModelOptions(remote);
       if (remote.length === 0) {
-        setModelLoadError('模型列表为空，已回退到本地预设。');
+        setModelLoadError(t('settings.model.errorEmptyList'));
       }
     } catch (error) {
-      setModelLoadError(error instanceof Error ? error.message : '模型列表拉取失败');
+      setModelLoadError(error instanceof Error ? error.message : t('settings.model.errorFetchFailed'));
       setModelOptions([]);
     } finally {
       setModelLoading(false);
     }
-  }, [apiKey, baseUrl]);
+  }, [apiKey, baseUrl, t]);
 
   const handleSelectModel = (setter: (value: string) => void, value: string) => {
     setter(value.trim());
@@ -193,17 +197,15 @@ export function SettingsPage() {
     <div>
       <section className="panel">
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0 }}>AI 渠道设置（OpenAI 兼容）</h2>
+          <h2 style={{ margin: 0 }}>{t('settings.title')}</h2>
           <button type="button" onClick={() => navigate(-1)}>
-            ← 返回
+            {t('settings.back')}
           </button>
         </div>
-        <p style={{ marginTop: 16 }}>
-          同一套 Base URL + API Key 可复用于对话、嵌入、重排序，便于账单检索与趋势分析场景统一接入。
-        </p>
+        <p style={{ marginTop: 16 }}>{t('settings.intro')}</p>
 
         <div className="field">
-          <label>供应商 Base URL</label>
+          <label>{t('settings.baseUrl')}</label>
           <input
             value={baseUrl}
             onChange={(e) => {
@@ -215,7 +217,7 @@ export function SettingsPage() {
         </div>
 
         <div className="field">
-          <label>API Key</label>
+          <label>{t('settings.apiKey')}</label>
           <input
             value={apiKey}
             onChange={(e) => {
@@ -230,12 +232,12 @@ export function SettingsPage() {
             onClick={() => setMasked((v) => !v)}
             style={{ justifySelf: 'start' }}
           >
-            {masked ? '👁 显示' : '🙈 隐藏'}
+            {masked ? t('settings.show') : t('settings.hide')}
           </button>
         </div>
 
         <div className="field">
-          <label>语言 / Language</label>
+          <label>{t('settings.language.label')}</label>
           <select
             value={currentLanguage}
             onChange={(e) => {
@@ -243,15 +245,15 @@ export function SettingsPage() {
               showSaveToast();
             }}
           >
-            <option value="zh">简体中文</option>
-            <option value="en">English</option>
+            <option value="zh">{t('settings.language.zh')}</option>
+            <option value="en">{t('settings.language.en')}</option>
           </select>
-          <small>切换后立即生效，已自动保存到本地。</small>
+          <small>{t('settings.language.hint')}</small>
         </div>
 
         <div className="field">
-          <label>全局 UI 主题色</label>
-          <div className="settings-accent-grid" role="radiogroup" aria-label="全局 UI 主题色">
+          <label>{t('settings.accent.label')}</label>
+          <div className="settings-accent-grid" role="radiogroup" aria-label={t('settings.accent.label')}>
             {ACCENT_THEME_OPTIONS.map((option) => (
               <button
                 key={option.value}
@@ -265,43 +267,49 @@ export function SettingsPage() {
                 aria-checked={accentTheme === option.value}
               >
                 <span className="settings-accent-dot" style={{ background: option.preview }} />
-                <span>{option.label}</span>
+                <span>{t(option.labelKey)}</span>
               </button>
             ))}
           </div>
-          <small>切换后立即生效，统一影响按钮、强调色、图标高亮等全局视觉风格。</small>
+          <small>{t('settings.accent.hint')}</small>
         </div>
 
         <div className="settings-model-grid">
           <ModelSelector
-            label="默认对话模型"
-            hint="用于 AI 助手、趋势洞察等主流程。"
+            label={t('settings.model.defaultLabel')}
+            hint={t('settings.model.defaultHint')}
             value={model}
             presets={MODEL_PRESETS}
             remoteModels={modelOptions}
             loading={modelLoading}
             onRefresh={() => void refreshModels()}
             onChange={(value) => handleSelectModel(setModel, value)}
+            loadingText={t('settings.model.refreshing')}
+            refreshText={t('settings.model.refresh')}
           />
           <ModelSelector
-            label="嵌入模型"
-            hint="用于账单向量化检索与语义召回。"
+            label={t('settings.model.embeddingLabel')}
+            hint={t('settings.model.embeddingHint')}
             value={embeddingModel}
             presets={EMBEDDING_MODEL_PRESETS}
             remoteModels={modelOptions}
             loading={modelLoading}
             onRefresh={() => void refreshModels()}
             onChange={(value) => handleSelectModel(setEmbeddingModel, value)}
+            loadingText={t('settings.model.refreshing')}
+            refreshText={t('settings.model.refresh')}
           />
           <ModelSelector
-            label="重排序模型"
-            hint="用于检索结果重排，提高命中准确度。"
+            label={t('settings.model.rerankLabel')}
+            hint={t('settings.model.rerankHint')}
             value={rerankModel}
             presets={RERANK_MODEL_PRESETS}
             remoteModels={modelOptions}
             loading={modelLoading}
             onRefresh={() => void refreshModels()}
             onChange={(value) => handleSelectModel(setRerankModel, value)}
+            loadingText={t('settings.model.refreshing')}
+            refreshText={t('settings.model.refresh')}
           />
         </div>
         {modelLoadError ? <p className="settings-model-error">{modelLoadError}</p> : null}
@@ -316,9 +324,9 @@ export function SettingsPage() {
                 showSaveToast();
               }}
             />
-            启用嵌入模型
+            {t('settings.embeddingToggle.label')}
           </label>
-          <small>关闭后将跳过嵌入模型相关流程（并在调试日志中记录）。</small>
+          <small>{t('settings.embeddingToggle.hint')}</small>
         </div>
 
         <div className="field">
@@ -331,13 +339,13 @@ export function SettingsPage() {
                 showSaveToast();
               }}
             />
-            启用重排序模型
+            {t('settings.rerankToggle.label')}
           </label>
-          <small>关闭后将跳过重排序模型相关流程（并在调试日志中记录）。</small>
+          <small>{t('settings.rerankToggle.hint')}</small>
         </div>
 
         <div className="field">
-          <label>助手记忆时长（天）</label>
+          <label>{t('settings.memoryDays.label')}</label>
           <select
             value={memoryDays}
             onChange={(e) => {
@@ -345,14 +353,14 @@ export function SettingsPage() {
               showSaveToast();
             }}
           >
-            <option value={1}>1 天</option>
-            <option value={2}>2 天</option>
-            <option value={3}>3 天</option>
+            <option value={1}>{t('settings.memoryDays.d1')}</option>
+            <option value={2}>{t('settings.memoryDays.d2')}</option>
+            <option value={3}>{t('settings.memoryDays.d3')}</option>
           </select>
         </div>
 
         <div className="field">
-          <label>记忆后端</label>
+          <label>{t('settings.memoryBackend.label')}</label>
           <select
             value={memoryBackend}
             onChange={(e) => {
@@ -360,13 +368,13 @@ export function SettingsPage() {
               showSaveToast();
             }}
           >
-            <option value="local">本地（默认）</option>
-            <option value="redis">Redis（占位，待后端接入）</option>
+            <option value="local">{t('settings.memoryBackend.local')}</option>
+            <option value="redis">{t('settings.memoryBackend.redis')}</option>
           </select>
         </div>
 
         <div className="field">
-          <label>批量 AI 重分类并发数</label>
+          <label>{t('settings.bulkConcurrency.label')}</label>
           <div className="settings-concurrency-slider-row">
             <input
               type="range"
@@ -378,28 +386,28 @@ export function SettingsPage() {
                 setBulkRecategorizeConcurrency(Number(e.target.value));
                 showSaveToast();
               }}
-              aria-label="批量 AI 重分类并发数"
+              aria-label={t('settings.bulkConcurrency.aria')}
             />
             <strong>{bulkRecategorizeConcurrency}</strong>
           </div>
-          <small>可拉伸进度条调整并发（5~30）。并发越高速度越快，但更容易触发模型限流。</small>
+          <small>{t('settings.bulkConcurrency.hint')}</small>
         </div>
       </section>
 
       <section className="panel">
-        <h2>数据安全与隐私说明</h2>
+        <h2>{t('settings.privacy.title')}</h2>
         <ul>
-          <li>本地存储：账目、账户、分类等核心数据默认保存在当前浏览器本地，不会自动上传。</li>
-          <li>传输加密：调用 AI 服务时建议使用 HTTPS，API Key 仅用于你配置的供应商请求。</li>
-          <li>最小化原则：仅在你主动触发 AI 功能时发送必要上下文，避免冗余数据外发。</li>
-          <li>隐私保护：可在导出前检查并删除备注中的敏感信息，降低共享风险。</li>
+          <li>{t('settings.privacy.l1')}</li>
+          <li>{t('settings.privacy.l2')}</li>
+          <li>{t('settings.privacy.l3')}</li>
+          <li>{t('settings.privacy.l4')}</li>
         </ul>
       </section>
 
       <Toast
         visible={toastVisible}
         variant="success"
-        message="设置已自动保存"
+        message={t('settings.toastSaved')}
         onClose={() => setToastVisible(false)}
       />
     </div>
