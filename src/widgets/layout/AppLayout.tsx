@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ThemeSwitcher } from '../../features/theme-switcher/ThemeSwitcher';
 import { formatCurrency } from '../../shared/lib/format';
 import { summarizeTransactions } from '../../shared/lib/transactionMetrics';
@@ -20,83 +21,12 @@ type QuickEntry = {
   end?: boolean;
 };
 
-const navSections: Array<{ title: string; items: NavItem[] }> = [
-  {
-    title: '智能助手',
-    items: [
-      { to: '/assistant', label: '记账助手', icon: '🤖' },
-      { to: '/smart-budget', label: '智能预算', icon: '🧠' }
-    ]
-  },
-  {
-    title: '收支管理',
-    items: [
-      { to: '/transactions', label: '交易流水', icon: '📋' },
-      { to: '/', label: '数据概览', icon: '📊', end: true }
-    ]
-  },
-  {
-    title: '资产负债',
-    items: [
-      { to: '/categories-accounts', label: '账户与分类', icon: '🗂️' },
-      { to: '/repayment-management', label: '还款管理', icon: '💳' }
-    ]
-  },
-  {
-    title: '工具资讯',
-    items: [
-      { to: '/settings', label: '设置', icon: '⚙️' },
-      { to: '/database-settings', label: '备份设置', icon: '🗄️' },
-      { to: '/exchange', label: '汇率工具', icon: '💱' },
-      { to: '/finance', label: '市场资讯', icon: '📰' },
-      { to: '/about', label: '关于', icon: 'ℹ️' }
-    ]
-  }
-];
-
-/**
- * 移动抽屉中的快捷入口分组。
- *
- * 目标是把高频功能放在首屏，降低小屏设备的操作路径。
- */
-const mobileQuickGroups: Array<{ title: string; items: QuickEntry[] }> = [
-  {
-    title: '常用功能',
-    items: [
-      { label: '记账助手', icon: '🤖', to: '/assistant' },
-      { label: '智能预算', icon: '🧠', to: '/smart-budget' },
-      { label: '交易流水', icon: '📋', to: '/transactions' },
-      { label: '数据概览', icon: '📊', to: '/', end: true },
-      { label: '账户与分类', icon: '🗂️', to: '/categories-accounts' },
-      { label: '还款管理', icon: '💳', to: '/repayment-management' },
-      { label: '市场资讯', icon: '📰', to: '/finance' },
-      { label: '汇率工具', icon: '💱', to: '/exchange' }
-    ]
-  },
-  {
-    title: '系统功能',
-    items: [
-      { label: '设置', icon: '⚙️', to: '/settings' },
-      { label: '备份设置', icon: '🗄️', to: '/database-settings' },
-      { label: '关于', icon: 'ℹ️', to: '/about' }
-    ]
-  }
-];
-
 const SIDEBAR_COLLAPSED_WIDTH = 76;
 const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 420;
-const monthLabel = new Intl.DateTimeFormat('zh-CN', {
-  year: 'numeric',
-  month: 'long'
-}).format(new Date());
-
-const todayLabel = new Intl.DateTimeFormat('zh-CN', {
-  month: '2-digit',
-  day: '2-digit'
-}).format(new Date());
 
 export function AppLayout() {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(260);
@@ -104,12 +34,99 @@ export function AppLayout() {
   const [isMobileViewport, setIsMobileViewport] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
   );
+
+  const navSections: Array<{ title: string; items: NavItem[] }> = useMemo(
+    () => [
+      {
+        title: t('nav.assistant'),
+        items: [
+          { to: '/assistant', label: t('nav.assistantBookkeeping'), icon: '🤖' },
+          { to: '/smart-budget', label: t('nav.smartBudget'), icon: '🧠' }
+        ]
+      },
+      {
+        title: t('nav.incomeExpense'),
+        items: [
+          { to: '/transactions', label: t('nav.transactions'), icon: '📋' },
+          { to: '/', label: t('nav.dashboard'), icon: '📊', end: true }
+        ]
+      },
+      {
+        title: t('nav.assetsDebt'),
+        items: [
+          { to: '/categories-accounts', label: t('nav.categoriesAccounts'), icon: '🗂️' },
+          { to: '/repayment-management', label: t('nav.repayment'), icon: '💳' }
+        ]
+      },
+      {
+        title: t('nav.toolsInfo'),
+        items: [
+          { to: '/settings', label: t('nav.settings'), icon: '⚙️' },
+          { to: '/database-settings', label: t('nav.dbSettings'), icon: '🗄️' },
+          { to: '/exchange', label: t('nav.exchange'), icon: '💱' },
+          { to: '/finance', label: t('nav.finance'), icon: '📰' },
+          { to: '/about', label: t('nav.about'), icon: 'ℹ️' }
+        ]
+      }
+    ],
+    [t]
+  );
+
+  const mobileQuickGroups: Array<{ title: string; items: QuickEntry[] }> = useMemo(
+    () => [
+      {
+        title: t('nav.commonFeatures'),
+        items: [
+          { label: t('nav.assistantBookkeeping'), icon: '🤖', to: '/assistant' },
+          { label: t('nav.smartBudget'), icon: '🧠', to: '/smart-budget' },
+          { label: t('nav.transactions'), icon: '📋', to: '/transactions' },
+          { label: t('nav.dashboard'), icon: '📊', to: '/', end: true },
+          { label: t('nav.categoriesAccounts'), icon: '🗂️', to: '/categories-accounts' },
+          { label: t('nav.repayment'), icon: '💳', to: '/repayment-management' },
+          { label: t('nav.finance'), icon: '📰', to: '/finance' },
+          { label: t('nav.exchange'), icon: '💱', to: '/exchange' }
+        ]
+      },
+      {
+        title: t('nav.systemFeatures'),
+        items: [
+          { label: t('nav.settings'), icon: '⚙️', to: '/settings' },
+          { label: t('nav.dbSettings'), icon: '🗄️', to: '/database-settings' },
+          { label: t('nav.about'), icon: 'ℹ️', to: '/about' }
+        ]
+      }
+    ],
+    [t]
+  );
+
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(navSections.map((section) => [section.title, true]))
   );
 
+  useEffect(() => {
+    setExpandedSections((prev) => {
+      const next = Object.fromEntries(navSections.map((section) => [section.title, true]));
+      for (const section of navSections) {
+        if (prev[section.title] !== undefined) {
+          next[section.title] = prev[section.title];
+        }
+      }
+      return next;
+    });
+  }, [navSections]);
+
   const draggingRef = useRef(false);
   const transactions = useFinanceStore((s) => s.transactions);
+
+  const monthLabel = new Intl.DateTimeFormat(i18n.language === 'en' ? 'en-US' : 'zh-CN', {
+    year: 'numeric',
+    month: 'long'
+  }).format(new Date());
+
+  const todayLabel = new Intl.DateTimeFormat(i18n.language === 'en' ? 'en-US' : 'zh-CN', {
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
 
   const thisMonth = new Date();
   const monthTransactions = transactions.filter((item) => {
@@ -226,33 +243,35 @@ export function AppLayout() {
       <aside className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
         <div className="sidebar-header">
           {!collapsed ? (
-            <Link to="/" className="brand" title="LedgerFlow">
-              LedgerFlow
+            <Link to="/" className="brand" title={t('layout.brand')}>
+              {t('layout.brand')}
             </Link>
           ) : null}
           <button
             type="button"
             className="icon-btn"
             onClick={() => setCollapsed((v) => !v)}
-            aria-label={collapsed ? '展开侧边栏' : '折叠侧边栏'}
+            aria-label={
+              collapsed ? t('layout.toggleSidebarExpand') : t('layout.toggleSidebarCollapse')
+            }
           >
             {collapsed ? '»' : '«'}
           </button>
         </div>
 
         {collapsed ? null : (
-          <section className="sidebar-assistant-today-card" aria-label="AI 助手今日概览">
-            <h4>AI 助手 · 今日概览</h4>
+          <section className="sidebar-assistant-today-card" aria-label={t('layout.assistantTodayAria')}>
+            <h4>{t('layout.assistantTodayTitle')}</h4>
             <p>
-              <span>今日收入</span>
+              <span>{t('layout.todayIncome')}</span>
               <strong>{formatCurrency(todaySummary.incomeTotal)}</strong>
             </p>
             <p>
-              <span>今日支出</span>
+              <span>{t('layout.todayExpense')}</span>
               <strong>{formatCurrency(todaySummary.expenseTotal)}</strong>
             </p>
             <p>
-              <span>今日净额</span>
+              <span>{t('layout.todayNet')}</span>
               <strong className={todaySummary.netTotal >= 0 ? 'text-income' : 'text-expense'}>
                 {formatCurrency(todaySummary.netTotal)}
               </strong>
@@ -263,16 +282,16 @@ export function AppLayout() {
         {collapsed ? null : (
           <section className="sidebar-overview-card">
             <h3>{monthLabel}</h3>
-            <p>① AI 识别入账 ② 快速补录 ③ 进入任务清单</p>
+            <p>{t('layout.overviewHint')}</p>
             <div className="sidebar-overview-actions">
               <Link to="/assistant" className="sidebar-overview-action">
-                AI 识别记账
+                {t('layout.actionAi')}
               </Link>
               <Link to="/transactions?quickAdd=1&entry=layout" className="sidebar-overview-action">
-                快速记一笔
+                {t('layout.actionQuickAdd')}
               </Link>
               <Link to="/transactions" className="sidebar-overview-action">
-                看任务清单
+                {t('layout.actionTaskList')}
               </Link>
             </div>
           </section>
@@ -349,19 +368,19 @@ export function AppLayout() {
                 type="button"
                 className="icon-btn mobile-nav-toggle"
                 onClick={() => setMobileNavOpen(true)}
-                aria-label="打开功能抽屉"
+                aria-label={t('layout.openDrawer')}
               >
                 ☰
               </button>
               {collapsed ? (
                 <>
-                  <button type="button" className="logo-circle" aria-label="用户头像">
+                  <button type="button" className="logo-circle" aria-label={t('layout.userAvatar')}>
                     👤
                   </button>
 
                   <div className="topbar-brand-copy compact">
-                    <h1>LedgerFlow</h1>
-                    <span>智能记账工作台</span>
+                    <h1>{t('layout.brand')}</h1>
+                    <span>{t('layout.workspaceTitle')}</span>
                   </div>
                 </>
               ) : null}
@@ -384,19 +403,19 @@ export function AppLayout() {
             className="mobile-nav-drawer"
             role="dialog"
             aria-modal="true"
-            aria-label="功能抽屉"
+            aria-label={t('layout.drawerAria')}
             onClick={(e) => e.stopPropagation()}
           >
             <header className="mobile-nav-header mobile-nav-profile">
               <div>
-                <p className="mobile-nav-name">LedgerFlow 用户</p>
-                <p className="mobile-nav-subtitle">{todayLabel} · 今天也要轻松记一笔</p>
+                <p className="mobile-nav-name">{t('layout.drawerUser')}</p>
+                <p className="mobile-nav-subtitle">{t('layout.drawerSubtitle', { today: todayLabel })}</p>
               </div>
               <button
                 type="button"
                 className="icon-btn"
                 onClick={() => setMobileNavOpen(false)}
-                aria-label="关闭功能抽屉"
+                aria-label={t('layout.closeDrawer')}
               >
                 ✕
               </button>
@@ -404,15 +423,16 @@ export function AppLayout() {
 
             <section className="mobile-nav-summary-card">
               <h3>{monthLabel}</h3>
-              <p>结余 {formatCurrency(monthBalance)}</p>
+              <p>{t('layout.monthlyBalance', { amount: formatCurrency(monthBalance) })}</p>
               <p>
-                收入 {formatCurrency(monthIncome)} · 支出 {formatCurrency(monthExpense)}
+                {t('layout.monthlyIncomeExpense', {
+                  income: formatCurrency(monthIncome),
+                  expense: formatCurrency(monthExpense)
+                })}
               </p>
             </section>
 
-            <div className="mobile-nav-tip-banner">
-              💡 小提示：先 AI 识别，再补一笔，最后在交易任务清单里收口。
-            </div>
+            <div className="mobile-nav-tip-banner">{t('layout.tip')}</div>
 
             {mobileQuickGroups.map((group) => (
               <section key={group.title} className="mobile-nav-grid-card">
@@ -435,7 +455,7 @@ export function AppLayout() {
             ))}
 
             <div className="mobile-nav-footer">
-              <span>主题模式</span>
+              <span>{t('layout.themeMode')}</span>
               <ThemeSwitcher />
             </div>
           </aside>
