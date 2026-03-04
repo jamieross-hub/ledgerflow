@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { fetchAiModels } from '../../features/assistant/api/openaiCompatibleClient';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useAppPreferences } from '../../shared/store/useAppPreferences';
+import { useTranslation } from 'react-i18next';
 import { Toast } from '../../shared/ui/Toast';
 import { AppAccentTheme } from '../../shared/types/app';
 
@@ -111,6 +112,7 @@ function ModelSelector({
 }
 
 export function SettingsPage() {
+  const { i18n } = useTranslation();
   const navigate = useNavigate();
 
   const baseUrl = useAiSettings((s) => s.baseUrl);
@@ -137,6 +139,7 @@ export function SettingsPage() {
   const setBulkRecategorizeConcurrency = useAiSettings((s) => s.setBulkRecategorizeConcurrency);
 
   const [masked, setMasked] = useState(true);
+  const currentLanguage = i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'zh';
   const [toastVisible, setToastVisible] = useState(false);
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [modelLoading, setModelLoading] = useState(false);
@@ -229,6 +232,21 @@ export function SettingsPage() {
           >
             {masked ? '👁 显示' : '🙈 隐藏'}
           </button>
+        </div>
+
+        <div className="field">
+          <label>语言 / Language</label>
+          <select
+            value={currentLanguage}
+            onChange={(e) => {
+              void i18n.changeLanguage(e.target.value === 'en' ? 'en' : 'zh');
+              showSaveToast();
+            }}
+          >
+            <option value="zh">简体中文</option>
+            <option value="en">English</option>
+          </select>
+          <small>切换后立即生效，已自动保存到本地。</small>
         </div>
 
         <div className="field">
