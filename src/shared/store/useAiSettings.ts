@@ -96,6 +96,8 @@ interface AiSettingsState {
   memoryDays: number;
   memoryBackend: 'local' | 'redis';
   bulkRecategorizeConcurrency: number;
+  showEmbeddingDebug: boolean;
+  showEmbeddingSummary: boolean;
   setBaseUrl: (baseUrl: string) => void;
   setApiKey: (apiKey: string) => void;
   setModel: (model: string) => void;
