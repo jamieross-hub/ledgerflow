@@ -114,6 +114,36 @@
     },
     "toastSaved": "设置已自动保存"
   },
+  "assistant": {
+    "placeholders": {
+      "needApiKey": "请先在设置中配置 API Key",
+      "assistantHint": "例如：我这个月花多了吗？\n例如：餐饮支出占比多少？",
+      "bookkeepingHint": "比如：今天午饭15元，用支付宝（会自动识别分类）",
+      "idleBookkeeping": "等待输入内容 · {{hint}}",
+      "readyAssistant": "支持自然语言提问 · 按 Enter 发送，Shift + Enter 换行\n{{hint}}",
+      "readyBookkeeping": "可开始识别 · 按 Enter 发送，Shift + Enter 换行",
+      "recognizing": "模型识别中，请稍候…",
+      "preview": "识别完成，可继续补充描述或直接保存到账本",
+      "saving": "正在保存账单，请稍候…",
+      "saved": "保存成功，可继续输入下一笔",
+      "error": "识别失败，请调整描述后重试"
+    },
+    "ui": {
+      "bookkeepingAssistant": "AI 记账助手",
+      "assistantMode": "AI 助手",
+      "qaAssistant": "AI 问答助手",
+      "selectModel": "选择模型",
+      "loadingModels": "拉取中...",
+      "refreshModels": "刷新模型列表",
+      "emptyModels": "暂无模型，请先拉取",
+      "quickAdd": "记一笔",
+      "clearContext": "清空上下文",
+      "defaultProvider": "默认服务地址",
+      "needApiKeyTitle": "请先配置 API Key",
+      "needApiKeyDesc": "未检测到可用密钥，助手暂时不能请求模型。",
+      "goSettings": "前往设置"
+    }
+  },
   "about": {
     "title": "关于 LedgerFlow",
     "version": {

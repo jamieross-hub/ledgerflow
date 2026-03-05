@@ -114,6 +114,36 @@
     },
     "toastSaved": "Settings saved automatically"
   },
+  "assistant": {
+    "placeholders": {
+      "needApiKey": "Please configure API Key in Settings first",
+      "assistantHint": "Example: Did I spend too much this month?\nExample: What's my food expense ratio?",
+      "bookkeepingHint": "Example: Lunch 15 yuan today via Alipay (auto category recognition)",
+      "idleBookkeeping": "Waiting for input · {{hint}}",
+      "readyAssistant": "Natural language is supported · Enter to send, Shift+Enter for newline\n{{hint}}",
+      "readyBookkeeping": "Ready to recognize · Enter to send, Shift+Enter for newline",
+      "recognizing": "Model is recognizing, please wait…",
+      "preview": "Recognition complete. You can refine details or save directly.",
+      "saving": "Saving bill, please wait…",
+      "saved": "Saved successfully. You can continue with the next one.",
+      "error": "Recognition failed. Please revise and retry."
+    },
+    "ui": {
+      "bookkeepingAssistant": "AI Bookkeeping Assistant",
+      "assistantMode": "AI Assistant",
+      "qaAssistant": "AI Q&A Assistant",
+      "selectModel": "Select model",
+      "loadingModels": "Loading...",
+      "refreshModels": "Refresh model list",
+      "emptyModels": "No models yet, please fetch first",
+      "quickAdd": "Quick add",
+      "clearContext": "Clear context",
+      "defaultProvider": "Default provider endpoint",
+      "needApiKeyTitle": "Please configure API Key first",
+      "needApiKeyDesc": "No valid key detected. Assistant cannot call model right now.",
+      "goSettings": "Go to Settings"
+    }
+  },
   "about": {
     "title": "About LedgerFlow",
     "version": {
