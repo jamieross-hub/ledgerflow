@@ -454,6 +454,8 @@ export function AssistantPage() {
   const apiKey = useAiSettings((s) => s.apiKey);
   const model = useAiSettings((s) => s.model);
   const setModel = useAiSettings((s) => s.setModel);
+  const showEmbeddingSummary = useAiSettings((s) => s.showEmbeddingSummary);
+  const showEmbeddingDebug = useAiSettings((s) => s.showEmbeddingDebug);
 
   const categories = useFinanceStore((s) => s.categories);
   const accounts = useFinanceStore((s) => s.accounts);
@@ -888,14 +890,49 @@ export function AssistantPage() {
     const usageText = wb.lastUsage
       ? `Token 消耗：输入 ${wb.lastUsage.promptTokens} / 输出 ${wb.lastUsage.completionTokens} / 总计 ${wb.lastUsage.totalTokens}`
       : undefined;
+    const embeddingSummaryText =
+      responseMode === 'assistant' && showEmbeddingSummary && wb.embeddingDebug.enabled
+        ? wb.embeddingDebug.used
+          ? `语义召回：命中 ${wb.embeddingDebug.hitCount} 条，最高相似度 ${wb.embeddingDebug.topScore.toFixed(2)}，平均相似度 ${wb.embeddingDebug.averageScore.toFixed(2)}，耗时 ${wb.embeddingDebug.latencyMs}ms，索引 ${wb.embeddingDebug.indexedDocs} 条。`
+          : wb.embeddingDebug.downgraded
+            ? `语义召回已降级：${wb.embeddingDebug.reason || '服务不可用'}（耗时 ${wb.embeddingDebug.latencyMs}ms）。`
+            : `语义召回未命中可用上下文（耗时 ${wb.embeddingDebug.latencyMs}ms）。`
+        : undefined;
+
+    const embeddingDebugText =
+      responseMode === 'assistant' && showEmbeddingDebug && wb.embeddingDebug.enabled
+        ? [
+            `模型：${wb.embeddingDebug.model || '-'} | 启用：${wb.embeddingDebug.enabled ? '是' : '否'} | 使用召回：${wb.embeddingDebug.used ? '是' : '否'} | 降级：${wb.embeddingDebug.downgraded ? '是' : '否'}`,
+            `命中：${wb.embeddingDebug.hitCount} | 最高：${wb.embeddingDebug.topScore.toFixed(4)} | 平均：${wb.embeddingDebug.averageScore.toFixed(4)} | 索引：${wb.embeddingDebug.indexedDocs} | 耗时：${wb.embeddingDebug.latencyMs}ms`,
+            wb.embeddingDebug.reason ? `原因：${wb.embeddingDebug.reason}` : '',
+            wb.embeddingDebug.hits.length > 0
+              ? `Top Hits:\n${wb.embeddingDebug.hits
+                  .map((hit, idx) => `${idx + 1}. [${hit.score.toFixed(4)}] ${hit.id}`)
+                  .join('\n')}`
+              : ''
+          ]
+            .filter(Boolean)
+            .join('\n')
+        : undefined;
+
     appendMessageToMode(responseMode, {
       id: `${Date.now()}-assistant`,
       role: 'assistant',
       text: wb.rawContent,
       usageText,
-      reasoningText: wb.rawReasoning || undefined
+      reasoningText: wb.rawReasoning || undefined,
+      embeddingSummaryText,
+      embeddingDebugText
     });
-  }, [appendMessageToMode, wb.lastUsage, wb.rawContent, wb.rawReasoning]);
+  }, [
+    appendMessageToMode,
+    showEmbeddingDebug,
+    showEmbeddingSummary,
+    wb.embeddingDebug,
+    wb.lastUsage,
+    wb.rawContent,
+    wb.rawReasoning
+  ]);
 
   const removeMessage = (id: string) =>
     setChatHistory((prev) => prev.filter((item) => item.id !== id));
@@ -1341,6 +1378,15 @@ export function AssistantPage() {
                   <details className="chat-reasoning-collapse">
                     <summary>模型思考过程（点击展开）</summary>
                     <pre>{item.reasoningText}</pre>
+                  </details>
+                ) : null}
+                {item.role === 'assistant' && item.embeddingSummaryText ? (
+                  <p className="chat-token-usage">{item.embeddingSummaryText}</p>
+                ) : null}
+                {item.role === 'assistant' && item.embeddingDebugText ? (
+                  <details className="chat-reasoning-collapse">
+                    <summary>语义召回调试详情（点击展开）</summary>
+                    <pre>{item.embeddingDebugText}</pre>
                   </details>
                 ) : null}
                 {item.usageText ? <p className="chat-token-usage">{item.usageText}</p> : null}
