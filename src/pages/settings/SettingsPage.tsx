@@ -136,9 +136,13 @@ export function SettingsPage() {
   const setRerankModel = useAiSettings((s) => s.setRerankModel);
   const setEnableRerankModel = useAiSettings((s) => s.setEnableRerankModel);
   const memoryDays = useAiSettings((s) => s.memoryDays);
+  const showEmbeddingDebug = useAiSettings((s) => s.showEmbeddingDebug);
+  const showEmbeddingSummary = useAiSettings((s) => s.showEmbeddingSummary);
   const memoryBackend = useAiSettings((s) => s.memoryBackend);
   const bulkRecategorizeConcurrency = useAiSettings((s) => s.bulkRecategorizeConcurrency);
   const setMemoryDays = useAiSettings((s) => s.setMemoryDays);
+  const setShowEmbeddingDebug = useAiSettings((s) => s.setShowEmbeddingDebug);
+  const setShowEmbeddingSummary = useAiSettings((s) => s.setShowEmbeddingSummary);
   const setMemoryBackend = useAiSettings((s) => s.setMemoryBackend);
   const setBulkRecategorizeConcurrency = useAiSettings((s) => s.setBulkRecategorizeConcurrency);
 
@@ -342,6 +346,36 @@ export function SettingsPage() {
             {t('settings.rerankToggle.label')}
           </label>
           <small>{t('settings.rerankToggle.hint')}</small>
+        </div>
+
+        <div className="field">
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={showEmbeddingSummary}
+              onChange={(e) => {
+                setShowEmbeddingSummary(e.target.checked);
+                showSaveToast();
+              }}
+            />
+            {t('settings.embeddingSummaryToggle.label')}
+          </label>
+          <small>{t('settings.embeddingSummaryToggle.hint')}</small>
+        </div>
+
+        <div className="field">
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={showEmbeddingDebug}
+              onChange={(e) => {
+                setShowEmbeddingDebug(e.target.checked);
+                showSaveToast();
+              }}
+            />
+            {t('settings.embeddingDebugToggle.label')}
+          </label>
+          <small>{t('settings.embeddingDebugToggle.hint')}</small>
         </div>
 
         <div className="field">

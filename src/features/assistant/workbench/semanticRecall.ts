@@ -23,6 +23,12 @@ interface EmbeddingCachePayload {
   docs: EmbeddingDoc[];
 }
 
+export interface SemanticRecallHit {
+  id: string;
+  score: number;
+  text: string;
+}
+
 interface SearchResult {
   id: string;
   score: number;
@@ -213,8 +219,9 @@ export async function buildSemanticRecallContext(params: {
   categories: Category[];
   accounts: Account[];
   signal?: AbortSignal;
-}): Promise<{ context: string; hitCount: number; topScore: number } | null> {
+}): Promise<{ context: string; hitCount: number; topScore: number; averageScore: number; latencyMs: number; indexedDocs: number; hits: SemanticRecallHit[] } | null> {
   const { baseUrl, apiKey, model, question, transactions, categories, accounts, signal } = params;
+  const startedAt = performance.now();
   const cleanQuestion = question.trim();
   if (!cleanQuestion) return null;
 
@@ -247,9 +254,16 @@ export async function buildSemanticRecallContext(params: {
     .map((item, index) => `${index + 1}. [相似度 ${item.score.toFixed(2)}] ${item.text}`)
     .join('\n');
 
+  const averageScore = hits.reduce((sum, item) => sum + item.score, 0) / Math.max(1, hits.length);
+  const latencyMs = Math.round(performance.now() - startedAt);
+
   return {
     context,
     hitCount: hits.length,
-    topScore: hits[0]?.score || 0
+    topScore: hits[0]?.score || 0,
+    averageScore,
+    latencyMs,
+    indexedDocs: indexedDocs.length,
+    hits: hits.map((item) => ({ id: item.id, score: item.score, text: item.text }))
   };
 }

@@ -5,7 +5,7 @@ import type { Category } from '../../../entities/category/types';
 import type { TransactionItem } from '../../../entities/transaction/types';
 import { useDebugLogStore } from '../../../shared/store/useDebugLogStore';
 import { useAiSettings } from '../../../shared/store/useAiSettings';
-import { buildSemanticRecallContext } from './semanticRecall';
+import { buildSemanticRecallContext, type SemanticRecallHit } from './semanticRecall';
 import {
   ANALYSIS_AGENT_PROMPT,
   buildTimeContext,
@@ -54,6 +54,20 @@ function normalizeEntryDate(inputDate?: string) {
   return parsed.toISOString();
 }
 
+interface EmbeddingRecallDebug {
+  enabled: boolean;
+  model: string;
+  used: boolean;
+  downgraded: boolean;
+  reason: string;
+  latencyMs: number;
+  indexedDocs: number;
+  hitCount: number;
+  topScore: number;
+  averageScore: number;
+  hits: SemanticRecallHit[];
+}
+
 interface UseAssistantWorkbenchInput {
   baseUrl: string;
   apiKey: string;
@@ -99,6 +113,19 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     completionTokens: number;
     totalTokens: number;
   } | null>(null);
+  const [embeddingDebug, setEmbeddingDebug] = useState<EmbeddingRecallDebug>({
+    enabled: false,
+    model: '',
+    used: false,
+    downgraded: false,
+    reason: '',
+    latencyMs: 0,
+    indexedDocs: 0,
+    hitCount: 0,
+    topScore: 0,
+    averageScore: 0,
+    hits: []
+  });
   const [toast, setToast] = useState<AssistantToastState>({
     message: '',
     variant: 'success',
@@ -316,6 +343,20 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
         input.sceneMode === 'assistant' ? ANALYSIS_AGENT_PROMPT : JSON_AGENT_PROMPT;
 
       let semanticRecallBlock = '';
+      const embeddingStart = performance.now();
+      setEmbeddingDebug({
+        enabled: input.sceneMode === 'assistant' && enableEmbeddingModel && Boolean(embeddingModel.trim()),
+        model: embeddingModel.trim(),
+        used: false,
+        downgraded: false,
+        reason: '',
+        latencyMs: 0,
+        indexedDocs: 0,
+        hitCount: 0,
+        topScore: 0,
+        averageScore: 0,
+        hits: []
+      });
       if (
         input.sceneMode === 'assistant' &&
         enableEmbeddingModel &&
@@ -336,28 +377,91 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
 
           if (recall && recall.context) {
             semanticRecallBlock = `\n\n语义召回候选（按相似度排序，仅作辅助参考）：\n${recall.context}`;
+            setEmbeddingDebug({
+              enabled: true,
+              model: embeddingModel.trim(),
+              used: true,
+              downgraded: false,
+              reason: '',
+              latencyMs: recall.latencyMs || Math.round(performance.now() - embeddingStart),
+              indexedDocs: recall.indexedDocs || 0,
+              hitCount: recall.hitCount,
+              topScore: recall.topScore,
+              averageScore: recall.averageScore || 0,
+              hits: recall.hits || []
+            });
             addLog({
               action: 'assistant.embedding',
               status: 'success',
-              message: `语义召回命中 ${recall.hitCount} 条，最高相似度 ${recall.topScore.toFixed(2)}`
+              message: `语义召回命中 ${recall.hitCount} 条，最高相似度 ${recall.topScore.toFixed(2)}；平均相似度 ${(recall.averageScore || 0).toFixed(2)}；索引 ${recall.indexedDocs} 条；耗时 ${recall.latencyMs}ms`
             });
           } else {
+            const latencyMs = Math.round(performance.now() - embeddingStart);
+            setEmbeddingDebug({
+              enabled: true,
+              model: embeddingModel.trim(),
+              used: false,
+              downgraded: false,
+              reason: 'no-hit',
+              latencyMs,
+              indexedDocs: input.transactions.length,
+              hitCount: 0,
+              topScore: 0,
+              averageScore: 0,
+              hits: []
+            });
             addLog({
               action: 'assistant.embedding',
               status: 'info',
-              message: '语义召回未命中可用上下文'
+              message: `语义召回未命中可用上下文；耗时 ${latencyMs}ms`
             });
           }
         } catch (embeddingError) {
+          const reason =
+            embeddingError instanceof Error
+              ? embeddingError.message
+              : '语义召回失败，已自动降级为普通分析';
+          const latencyMs = Math.round(performance.now() - embeddingStart);
+          setEmbeddingDebug({
+            enabled: true,
+            model: embeddingModel.trim(),
+            used: false,
+            downgraded: true,
+            reason,
+            latencyMs,
+            indexedDocs: 0,
+            hitCount: 0,
+            topScore: 0,
+            averageScore: 0,
+            hits: []
+          });
           addLog({
             action: 'assistant.embedding',
             status: 'info',
-            message:
-              embeddingError instanceof Error
-                ? `语义召回失败：${embeddingError.message}`
-                : '语义召回失败，已自动降级为普通分析'
+            message: `语义召回失败并已降级：${reason}；耗时 ${latencyMs}ms`
           });
         }
+      }
+
+      if (!(
+        input.sceneMode === 'assistant' &&
+        enableEmbeddingModel &&
+        Boolean(embeddingModel.trim()) &&
+        cleanPrompt
+      )) {
+        setEmbeddingDebug({
+          enabled: false,
+          model: embeddingModel.trim(),
+          used: false,
+          downgraded: false,
+          reason: input.sceneMode !== 'assistant' ? 'not-assistant-mode' : !enableEmbeddingModel ? 'disabled' : !embeddingModel.trim() ? 'model-empty' : 'empty-question',
+          latencyMs: 0,
+          indexedDocs: 0,
+          hitCount: 0,
+          topScore: 0,
+          averageScore: 0,
+          hits: []
+        });
       }
 
       const prompt = `${basePrompt}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}${semanticRecallBlock}`;
@@ -613,6 +717,19 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     setRawContent('');
     setRawReasoning('');
     setLastUsage(null);
+    setEmbeddingDebug({
+      enabled: false,
+      model: '',
+      used: false,
+      downgraded: false,
+      reason: '',
+      latencyMs: 0,
+      indexedDocs: 0,
+      hitCount: 0,
+      topScore: 0,
+      averageScore: 0,
+      hits: []
+    });
     setError('');
     setStatus('idle');
   };
@@ -642,6 +759,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     rawContent,
     rawReasoning,
     lastUsage,
+    embeddingDebug,
     toast,
     hasApiKey,
     canRecognize,

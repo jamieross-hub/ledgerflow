@@ -69,6 +69,8 @@ type PersistedAiSettingsState = Omit<
   | 'setMemoryDays'
   | 'setMemoryBackend'
   | 'setBulkRecategorizeConcurrency'
+  | 'setShowEmbeddingDebug'
+  | 'setShowEmbeddingSummary'
 > & {
   baseUrl: string;
   model: string;
@@ -79,6 +81,8 @@ type PersistedAiSettingsState = Omit<
   memoryDays: number;
   memoryBackend: 'local' | 'redis';
   bulkRecategorizeConcurrency: number;
+  showEmbeddingDebug: boolean;
+  showEmbeddingSummary: boolean;
 };
 
 interface AiSettingsState {
@@ -102,6 +106,8 @@ interface AiSettingsState {
   setMemoryDays: (days: number) => void;
   setMemoryBackend: (backend: 'local' | 'redis') => void;
   setBulkRecategorizeConcurrency: (value: number) => void;
+  setShowEmbeddingDebug: (enabled: boolean) => void;
+  setShowEmbeddingSummary: (enabled: boolean) => void;
 }
 
 const DEFAULT_BULK_RECATEGORIZE_CONCURRENCY = 8;
@@ -136,6 +142,8 @@ export const useAiSettings = create<AiSettingsState>()(
       memoryDays: 3,
       memoryBackend: 'local',
       bulkRecategorizeConcurrency: DEFAULT_BULK_RECATEGORIZE_CONCURRENCY,
+      showEmbeddingDebug: false,
+      showEmbeddingSummary: true,
       setBaseUrl: (baseUrl: string) => set({ baseUrl: baseUrl.trim() }),
       setApiKey: (apiKey: string) => {
         const nextApiKey = apiKey.trim();
@@ -151,7 +159,9 @@ export const useAiSettings = create<AiSettingsState>()(
         set({ memoryDays: Math.min(3, Math.max(1, Math.round(days || 1))) }),
       setMemoryBackend: (backend: 'local' | 'redis') => set({ memoryBackend: backend }),
       setBulkRecategorizeConcurrency: (value: number) =>
-        set({ bulkRecategorizeConcurrency: normalizeBulkRecategorizeConcurrency(value) })
+        set({ bulkRecategorizeConcurrency: normalizeBulkRecategorizeConcurrency(value) }),
+      setShowEmbeddingDebug: (enabled: boolean) => set({ showEmbeddingDebug: enabled }),
+      setShowEmbeddingSummary: (enabled: boolean) => set({ showEmbeddingSummary: enabled })
     }),
     {
       name: AI_SETTINGS_STORAGE_KEY,
@@ -164,7 +174,9 @@ export const useAiSettings = create<AiSettingsState>()(
         enableRerankModel: state.enableRerankModel,
         memoryDays: state.memoryDays,
         memoryBackend: state.memoryBackend,
-        bulkRecategorizeConcurrency: state.bulkRecategorizeConcurrency
+        bulkRecategorizeConcurrency: state.bulkRecategorizeConcurrency,
+        showEmbeddingDebug: state.showEmbeddingDebug,
+        showEmbeddingSummary: state.showEmbeddingSummary
       }),
       merge: (persisted: unknown, current: AiSettingsState) => {
         const next = { ...current, ...(persisted as Partial<PersistedAiSettingsState>) };
@@ -187,6 +199,12 @@ export const useAiSettings = create<AiSettingsState>()(
         next.bulkRecategorizeConcurrency = normalizeBulkRecategorizeConcurrency(
           next.bulkRecategorizeConcurrency
         );
+        if (typeof next.showEmbeddingDebug !== 'boolean') {
+          next.showEmbeddingDebug = false;
+        }
+        if (typeof next.showEmbeddingSummary !== 'boolean') {
+          next.showEmbeddingSummary = true;
+        }
         return next;
       }
     }
