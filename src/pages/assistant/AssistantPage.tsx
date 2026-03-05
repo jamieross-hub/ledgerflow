@@ -211,6 +211,8 @@ interface ChatHistoryItem {
   pdfDataUrls?: string[];
   usageText?: string;
   reasoningText?: string;
+  embeddingSummaryText?: string;
+  embeddingDebugText?: string;
 }
 
 type AssistantMode = 'bookkeeping' | 'assistant';
