@@ -8,6 +8,8 @@ import {
   useRef,
   useState
 } from 'react';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { useAssistantWorkbench } from '../../features/assistant/workbench/useAssistantWorkbench';
@@ -26,30 +28,33 @@ import type { Category } from '../../entities/category/types';
 function inputPlaceholder(
   status: ReturnType<typeof useAssistantWorkbench>['status'],
   hasApiKey: boolean,
-  mode: AssistantMode
+  mode: AssistantMode,
+  t: TFunction
 ): string {
-  if (!hasApiKey) return '请先在设置中配置 API Key';
+  if (!hasApiKey) return t('assistant.placeholders.needApiKey');
 
-  const assistantHint = '例如：我这个月花多了吗？\n例如：餐饮支出占比多少？';
-  const bookkeepingHint = '比如：今天午饭15元，用支付宝（会自动识别分类）';
+  const assistantHint = t('assistant.placeholders.assistantHint');
+  const bookkeepingHint = t('assistant.placeholders.bookkeepingHint');
 
   switch (status) {
     case 'idle':
-      return mode === 'assistant' ? assistantHint : `等待输入内容 · ${bookkeepingHint}`;
+      return mode === 'assistant'
+        ? assistantHint
+        : t('assistant.placeholders.idleBookkeeping', { hint: bookkeepingHint });
     case 'ready':
       return mode === 'assistant'
-        ? `支持自然语言提问 · 按 Enter 发送，Shift + Enter 换行\n${assistantHint}`
-        : '可开始识别 · 按 Enter 发送，Shift + Enter 换行';
+        ? t('assistant.placeholders.readyAssistant', { hint: assistantHint })
+        : t('assistant.placeholders.readyBookkeeping');
     case 'recognizing':
-      return '模型识别中，请稍候…';
+      return t('assistant.placeholders.recognizing');
     case 'preview':
-      return '识别完成，可继续补充描述或直接保存到账本';
+      return t('assistant.placeholders.preview');
     case 'saving':
-      return '正在保存账单，请稍候…';
+      return t('assistant.placeholders.saving');
     case 'saved':
-      return '保存成功，可继续输入下一笔';
+      return t('assistant.placeholders.saved');
     case 'error':
-      return '识别失败，请调整描述后重试';
+      return t('assistant.placeholders.error');
     default:
       return mode === 'assistant' ? assistantHint : bookkeepingHint;
   }
@@ -440,6 +445,7 @@ function buildAssistantConversationPrompt(question: string, history: ChatHistory
 }
 
 export function AssistantPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [mode, setMode] = useState<AssistantMode>('assistant');
   const baseUrl = useAiSettings((s) => s.baseUrl);
@@ -803,7 +809,7 @@ export function AssistantPage() {
     messageEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [wb.status, wb.rawContent, wb.rawReasoning, wb.entries.length, wb.error]);
 
-  // 当 AI 助手/AI 记账收到新的助手回复时，始终自动滚到底部。
+  // 当 {t('assistant.ui.assistantMode')}/AI 记账收到新的助手回复时，始终自动滚到底部。
   useEffect(() => {
     const latestMessage = chatHistory[chatHistory.length - 1];
     if (!latestMessage || latestMessage.role !== 'assistant') return;
@@ -1050,7 +1056,7 @@ export function AssistantPage() {
     >
       <header className="chat-topbar">
         <div className="chat-topbar-left">
-          <span className="chat-topbar-title">AI 记账助手</span>
+          <span className="chat-topbar-title">{t('assistant.ui.bookkeepingAssistant')}</span>
           <div className="chat-mode-switch" aria-label="模式切换">
             <button
               type="button"
@@ -1064,7 +1070,7 @@ export function AssistantPage() {
               className={mode === 'assistant' ? 'active' : ''}
               onClick={() => setMode('assistant')}
             >
-              AI 助手
+              {t('assistant.ui.assistantMode')}
             </button>
           </div>
         </div>
@@ -1076,7 +1082,7 @@ export function AssistantPage() {
             onClick={() => setModelOpen((v) => !v)}
             aria-haspopup="listbox"
           >
-            {model || '选择模型'}
+            {model || t('assistant.ui.selectModel')}
             <span className="chat-model-arrow">▼</span>
           </button>
 
@@ -1089,14 +1095,14 @@ export function AssistantPage() {
                   disabled={wb.loadingModels}
                   onClick={() => void wb.handleLoadModels()}
                 >
-                  {wb.loadingModels ? '拉取中...' : '刷新模型列表'}
+                  {wb.loadingModels ? t('assistant.ui.loadingModels') : t('assistant.ui.refreshModels')}
                 </button>
               </div>
               <div className="chat-model-list">
                 {wb.models.length === 0 ? (
-                  <div className="chat-model-empty">暂无模型，请先拉取</div>
+                  <div className="chat-model-empty">{t('assistant.ui.emptyModels')}</div>
                 ) : (
-                  wb.models.map((item) => (
+                  wb.models.map((item: string) => (
                     <button
                       key={item}
                       type="button"
@@ -1121,7 +1127,7 @@ export function AssistantPage() {
             className="chat-secondary-action-btn"
             onClick={() => navigate('/transactions/new?quick=1')}
           >
-            记一笔
+            {t('assistant.ui.quickAdd')}
           </button>
           <button
             type="button"
@@ -1137,9 +1143,9 @@ export function AssistantPage() {
             }}
             disabled={chatHistory.length === 0}
           >
-            清空上下文
+            {t('assistant.ui.clearContext')}
           </button>
-          <span className="chat-topbar-provider">{baseUrl || '默认服务地址'}</span>
+          <span className="chat-topbar-provider">{baseUrl || t('assistant.ui.defaultProvider')}</span>
         </div>
       </header>
 
@@ -1147,10 +1153,10 @@ export function AssistantPage() {
         <div className="chat-messages-inner">
           {!wb.hasApiKey ? (
             <section className="chat-key-required">
-              <h3>请先配置 API Key</h3>
-              <p>未检测到可用密钥，助手暂时不能请求模型。</p>
+              <h3>{t('assistant.ui.needApiKeyTitle')}</h3>
+              <p>{t('assistant.ui.needApiKeyDesc')}</p>
               <Link className="chat-key-required-link" to="/settings">
-                前往设置
+                {t('assistant.ui.goSettings')}
               </Link>
             </section>
           ) : null}
@@ -1280,7 +1286,7 @@ export function AssistantPage() {
             <div className="chat-msg-avatar">🤖</div>
             <div className="chat-msg-body">
               <div className="chat-msg-header">
-                {mode === 'bookkeeping' ? 'AI 记账助手' : 'AI 问答助手'}
+                {mode === 'bookkeeping' ? t('assistant.ui.bookkeepingAssistant') : t('assistant.ui.qaAssistant')}
               </div>
               <div className="chat-msg-content">
                 <p>
@@ -1486,7 +1492,7 @@ export function AssistantPage() {
             ref={wb.textareaRef}
             className="chat-input-textarea"
             rows={3}
-            placeholder={inputPlaceholder(wb.status, wb.hasApiKey, mode)}
+            placeholder={inputPlaceholder(wb.status, wb.hasApiKey, mode, t)}
             value={wb.textInput}
             onChange={(e) => wb.setTextInput(e.target.value)}
             onPaste={(e) => void wb.handlePasteImage(e)}
