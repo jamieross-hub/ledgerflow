@@ -89,6 +89,14 @@
       "label": "Enable Rerank Model",
       "hint": "When disabled, rerank-related flows are skipped (and logged in debug logs)."
     },
+    "embeddingSummaryToggle": {
+      "label": "Show semantic recall summary",
+      "hint": "Display recall hit count, top similarity, and average similarity in assistant analysis results."
+    },
+    "embeddingDebugToggle": {
+      "label": "Show semantic recall debug details",
+      "hint": "When enabled, shows recall latency, index size, and hit text for debugging."
+    },
     "memoryDays": {
       "label": "Assistant Memory Window (days)",
       "d1": "1 day",
