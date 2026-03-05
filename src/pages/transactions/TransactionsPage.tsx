@@ -1,4 +1,5 @@
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { extractJsonString } from '../../features/assistant/workbench/workbenchUtils';
@@ -476,6 +477,7 @@ function buildDuplicateGroups(rows: TransactionRowView[]): string[][] {
 }
 
 export function TransactionsPage() {
+  const { t } = useTranslation();
   const transactions = useFinanceStore((s) => s.transactions);
   const categories = useFinanceStore((s) => s.categories);
   const accounts = useFinanceStore((s) => s.accounts);
@@ -1108,16 +1110,16 @@ export function TransactionsPage() {
 
   const handleSaveQuickAdd = () => {
     if (!quickAddCategoryId) {
-      setQuickAddError('请选择分类。');
+      setQuickAddError(t('transactions.quickAdd.error.selectCategory'));
       return;
     }
     if (!quickAddAccountId) {
-      setQuickAddError('请选择账户。');
+      setQuickAddError(t('transactions.quickAdd.error.selectAccount'));
       return;
     }
     const amount = Number(quickAddAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      setQuickAddError('请输入有效金额（大于 0）。');
+      setQuickAddError(t('transactions.quickAdd.error.invalidAmount'));
       return;
     }
 
@@ -1127,7 +1129,7 @@ export function TransactionsPage() {
       accountId: quickAddAccountId,
       amount: Math.round(amount * 100) / 100,
       date: quickAddDate,
-      note: quickAddNote.trim() || '快速记账',
+      note: quickAddNote.trim() || t('transactions.quickAdd.defaultNote'),
       tags: [],
       source: 'manual',
       status: 'completed'
@@ -1136,7 +1138,7 @@ export function TransactionsPage() {
     closeQuickAddDrawer();
     resetQuickAddForm();
     setPage(1);
-    showToast('已保存', 'success');
+    showToast(t('transactions.quickAdd.saved'), 'success');
   };
 
   const showImportNotice = (message: string, variant: ToastVariant) => {
@@ -2046,10 +2048,14 @@ export function TransactionsPage() {
           sidePanelVisible={sidePanelVisible}
           onToggleSidePanel={() => setSidePanelVisible((prev) => !prev)}
         />
-        <div className="transactions-current-bill-strip" aria-label="当前账单筛选状态">
-          <span>账单周期：{currentPeriodLabel}</span>
-          <span>筛选后：{sortedRows.length} 笔</span>
-          <span>总笔数：{transactions.length} 笔</span>
+        <div className="transactions-current-bill-strip" aria-label={t('transactions.ui.billFilterState')}>
+          <span>{t('transactions.ui.billPeriod')}: {currentPeriodLabel}</span>
+          <span>
+            {t('transactions.ui.filteredCount')}: {sortedRows.length} {t('transactions.ui.items')}
+          </span>
+          <span>
+            {t('transactions.ui.totalCount')}: {transactions.length} {t('transactions.ui.items')}
+          </span>
         </div>
       </div>
 
@@ -2059,18 +2065,18 @@ export function TransactionsPage() {
           role="status"
           aria-live="polite"
         >
-          <strong>AI 重分类：</strong>
+          <strong>{t('transactions.ui.aiRecategorize')}：</strong>
           <div className="ai-progress-main">
             <div className="ai-progress-text">
               <span>
-                已处理 {bulkAiProgress.processed} / {bulkAiProgress.total}
+                {t('transactions.ui.processed')} {bulkAiProgress.processed} / {bulkAiProgress.total}
               </span>
               <span>
-                大模型 {bulkAiProgress.changed} · 回退 {bulkAiProgress.fallbackChanged}
-                {bulkAiProgress.aborted > 0 ? ` · 已取消 ${bulkAiProgress.aborted}` : ''}
+                {t('transactions.ui.modelCount')} {bulkAiProgress.changed} · {t('transactions.ui.fallbackCount')} {bulkAiProgress.fallbackChanged}
+                {bulkAiProgress.aborted > 0 ? ` · ${t('transactions.ui.cancelled')} ${bulkAiProgress.aborted}` : ''}
               </span>
             </div>
-            <div className="ai-progress-track" aria-label="AI 重分类进度">
+            <div className="ai-progress-track" aria-label={t('transactions.ui.aiProgress')}>
               <span
                 className="ai-progress-fill"
                 style={{
@@ -2091,18 +2097,18 @@ export function TransactionsPage() {
           role="status"
           aria-live="polite"
         >
-          <strong>导入结果：</strong>
+          <strong>{t('transactions.ui.importResult')}：</strong>
           <span>{importNotice.message}</span>
           {importReportText ? (
             <button type="button" onClick={() => void copyImportReport()}>
-              复制报告
+              {t('transactions.ui.copyReport')}
             </button>
           ) : null}
           <button
             type="button"
             onClick={() => setImportNotice((prev) => ({ ...prev, visible: false }))}
           >
-            知道了
+            {t('transactions.ui.gotIt')}
           </button>
         </section>
       ) : null}
@@ -2110,7 +2116,7 @@ export function TransactionsPage() {
       <input
         ref={fileInputRef}
         type="file"
-        aria-label="导入账单文件"
+        aria-label={t('transactions.ui.importBillFile')}
         accept=".csv,text/csv,.txt,text/plain,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         style={{ display: 'none' }}
         onChange={(event) => void handleImportFile(event)}
@@ -2189,42 +2195,42 @@ export function TransactionsPage() {
             <div
               className="transactions-split-divider"
               role="separator"
-              aria-label="调整账单列表与图表区域宽度"
+              aria-label={t('transactions.ui.resizePanels')}
               aria-orientation="vertical"
               onMouseDown={handleSplitDividerMouseDown}
             />
 
-            <aside className="transactions-split-side panel" aria-label="当前账单图表视图">
-              <h3 style={{ marginTop: 0 }}>当前账单视图</h3>
+            <aside className="transactions-split-side panel" aria-label={t('transactions.ui.currentBillChartView')}>
+              <h3 style={{ marginTop: 0 }}>{t('transactions.ui.currentBillView')}</h3>
               <div className="transactions-side-chart-card transactions-current-bill-panel">
-                <h4>当前账单概览</h4>
+                <h4>{t('transactions.ui.currentBillOverview')}</h4>
                 <div className="transactions-current-bill-grid">
                   <div>
-                    <small>本期收入</small>
+                    <small>{t('transactions.ui.periodIncome')}</small>
                     <strong>{formatCurrencyAuto(currentBillSummary.income)}</strong>
                   </div>
                   <div>
-                    <small>本期支出</small>
+                    <small>{t('transactions.ui.periodExpense')}</small>
                     <strong>{formatCurrencyAuto(currentBillSummary.expense)}</strong>
                   </div>
                   <div>
-                    <small>本期结余</small>
+                    <small>{t('transactions.ui.periodNet')}</small>
                     <strong>{formatCurrencyAuto(currentBillSummary.net)}</strong>
                   </div>
                   <div>
-                    <small>交易笔数</small>
+                    <small>{t('transactions.ui.transactionCount')}</small>
                     <strong>{currentBillSummary.count}</strong>
                   </div>
                 </div>
                 <div className="transactions-current-bill-actions">
                   <button type="button" className="primary" onClick={openQuickAddDrawer}>
-                    新增交易
+                    {t('transactions.ui.addTransaction')}
                   </button>
                   <button type="button" onClick={() => openImport('alipay')}>
-                    导入账单
+                    {t('transactions.ui.importBill')}
                   </button>
                   <button type="button" onClick={clearAllFilters}>
-                    清除筛选
+                    {t('transactions.ui.clearFilters')}
                   </button>
                 </div>
                 {currentBillSummary.maxExpense ? (
@@ -2233,11 +2239,11 @@ export function TransactionsPage() {
                     className="transactions-current-bill-max"
                     onClick={() => setSelectedId(currentBillSummary.maxExpense?.item.id || null)}
                   >
-                    最大支出：{currentBillSummary.maxExpense.categoryName} ·{' '}
+                    {t('transactions.ui.maxExpense')}: {currentBillSummary.maxExpense.categoryName} ·{' '}
                     {formatCurrencyAuto(currentBillSummary.maxExpense.item.amount)}
                   </button>
                 ) : (
-                  <small className="muted">暂无可识别的支出记录</small>
+                  <small className="muted">{t('transactions.ui.noExpenseData')}</small>
                 )}
               </div>
 
