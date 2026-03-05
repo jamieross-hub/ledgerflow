@@ -63,6 +63,32 @@ function cacheKey(baseUrl: string, model: string): string {
   return `${EMBEDDING_CACHE_PREFIX}:${encodeURIComponent(baseUrl)}:${encodeURIComponent(model)}`;
 }
 
+export function getSemanticRecallCacheMeta(baseUrl: string, model: string): {
+  exists: boolean;
+  model: string;
+  updatedAt: number;
+  indexedDocs: number;
+} {
+  const cache = readCache(baseUrl, model);
+  if (!cache) {
+    return { exists: false, model, updatedAt: 0, indexedDocs: 0 };
+  }
+  return {
+    exists: true,
+    model: cache.model,
+    updatedAt: cache.updatedAt,
+    indexedDocs: Array.isArray(cache.docs) ? cache.docs.length : 0
+  };
+}
+
+export function clearSemanticRecallCache(baseUrl: string, model: string) {
+  try {
+    window.localStorage.removeItem(cacheKey(baseUrl, model));
+  } catch {
+    // ignore storage remove errors
+  }
+}
+
 function readCache(baseUrl: string, model: string): EmbeddingCachePayload | null {
   try {
     const raw = window.localStorage.getItem(cacheKey(baseUrl, model));

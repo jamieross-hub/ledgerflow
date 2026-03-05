@@ -1461,6 +1461,43 @@ export function AssistantPage() {
       </section>
 
       <section className="chat-input-bar">
+        {mode === 'assistant' ? (
+          <div
+            className="chat-auto-card"
+            style={{ marginBottom: 10, display: 'grid', gap: 8, borderStyle: 'dashed' }}
+          >
+            <div style={{ fontSize: 12, opacity: 0.88 }}>
+              语义召回索引状态：
+              {wb.semanticRecallCacheMeta.exists
+                ? `已建立（模型 ${wb.semanticRecallCacheMeta.model || '-'}，索引 ${wb.semanticRecallCacheMeta.indexedDocs} 条，更新时间 ${wb.semanticRecallCacheMeta.updatedAt ? new Date(wb.semanticRecallCacheMeta.updatedAt).toLocaleString() : '-' }）`
+                : '未建立'}
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="chat-secondary-action-btn"
+                onClick={() => {
+                  wb.refreshSemanticRecallCacheMeta();
+                  wb.setToastState('语义召回索引状态已刷新', 'success');
+                }}
+              >
+                刷新索引状态
+              </button>
+              <button
+                type="button"
+                className="chat-secondary-action-btn"
+                onClick={() => {
+                  const ok = wb.clearSemanticRecallIndex();
+                  if (!ok) {
+                    wb.setToastState('请先配置 Base URL 与 Embedding 模型后再清理缓存', 'warning');
+                  }
+                }}
+              >
+                清理语义召回缓存
+              </button>
+            </div>
+          </div>
+        ) : null}
         {shouldShowError ? (
           <div className="chat-error-strip" role="alert">
             <span>{wb.error}</span>

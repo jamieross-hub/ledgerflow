@@ -1,11 +1,11 @@
-import { ClipboardEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ClipboardEvent, DragEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchAiModels, sendAiChat } from '../api/openaiCompatibleClient';
 import type { Account } from '../../../entities/account/types';
 import type { Category } from '../../../entities/category/types';
 import type { TransactionItem } from '../../../entities/transaction/types';
 import { useDebugLogStore } from '../../../shared/store/useDebugLogStore';
 import { useAiSettings } from '../../../shared/store/useAiSettings';
-import { buildSemanticRecallContext, type SemanticRecallHit } from './semanticRecall';
+import { buildSemanticRecallContext, clearSemanticRecallCache, getSemanticRecallCacheMeta, type SemanticRecallHit } from './semanticRecall';
 import {
   ANALYSIS_AGENT_PROMPT,
   buildTimeContext,
@@ -68,6 +68,13 @@ interface EmbeddingRecallDebug {
   hits: SemanticRecallHit[];
 }
 
+interface SemanticRecallCacheMeta {
+  exists: boolean;
+  model: string;
+  updatedAt: number;
+  indexedDocs: number;
+}
+
 interface UseAssistantWorkbenchInput {
   baseUrl: string;
   apiKey: string;
@@ -126,11 +133,60 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     averageScore: 0,
     hits: []
   });
+  const [semanticRecallCacheMeta, setSemanticRecallCacheMeta] = useState<SemanticRecallCacheMeta>({
+    exists: false,
+    model: embeddingModel.trim(),
+    updatedAt: 0,
+    indexedDocs: 0
+  });
   const [toast, setToast] = useState<AssistantToastState>({
     message: '',
     variant: 'success',
     visible: false
   });
+
+  const refreshSemanticRecallCacheMeta = useCallback(() => {
+    if (!input.baseUrl.trim() || !embeddingModel.trim()) {
+      setSemanticRecallCacheMeta({
+        exists: false,
+        model: embeddingModel.trim(),
+        updatedAt: 0,
+        indexedDocs: 0
+      });
+      return;
+    }
+    const next = getSemanticRecallCacheMeta(input.baseUrl, embeddingModel.trim());
+    setSemanticRecallCacheMeta(next);
+  }, [embeddingModel, input.baseUrl]);
+
+  const clearSemanticRecallIndex = useCallback(() => {
+    if (!input.baseUrl.trim() || !embeddingModel.trim()) return false;
+    clearSemanticRecallCache(input.baseUrl, embeddingModel.trim());
+    refreshSemanticRecallCacheMeta();
+    setEmbeddingDebug((prev) => ({
+      ...prev,
+      enabled: enableEmbeddingModel,
+      model: embeddingModel.trim(),
+      used: false,
+      downgraded: false,
+      reason: 'cache-cleared',
+      latencyMs: 0,
+      indexedDocs: 0,
+      hitCount: 0,
+      topScore: 0,
+      averageScore: 0,
+      hits: []
+    }));
+    setToast({ visible: true, variant: 'success', message: '语义召回索引缓存已清理' });
+    addLog({ action: 'assistant.embedding', status: 'info', message: '已清理语义召回索引缓存' });
+    return true;
+  }, [
+    addLog,
+    embeddingModel,
+    enableEmbeddingModel,
+    input.baseUrl,
+    refreshSemanticRecallCacheMeta
+  ]);
 
   const hasApiKey = Boolean(input.apiKey.trim());
   const hasInput = Boolean(textInput.trim()) || imageDataUrls.length > 0 || pdfDataUrls.length > 0;
@@ -184,6 +240,11 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     if (entries.length > 0) return setStatus('preview');
     setStatus(hasInput ? 'ready' : 'idle');
   }, [status, hasInput, entries.length]);
+
+  // 监听配置变化，刷新语义召回缓存状态展示。
+  useEffect(() => {
+    refreshSemanticRecallCacheMeta();
+  }, [refreshSemanticRecallCacheMeta]);
 
   // 首次加载：尝试从本地缓存恢复模型列表（失败不阻塞主流程）。
   useEffect(() => {
@@ -463,6 +524,8 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
           hits: []
         });
       }
+
+      refreshSemanticRecallCacheMeta();
 
       const prompt = `${basePrompt}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}${semanticRecallBlock}`;
       const reply = await sendAiChat({
@@ -760,6 +823,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     rawReasoning,
     lastUsage,
     embeddingDebug,
+    semanticRecallCacheMeta,
     toast,
     hasApiKey,
     canRecognize,
@@ -771,6 +835,8 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     handleRecognize,
     handleRecognizeWithPrompt,
     stopRecognize,
+    clearSemanticRecallIndex,
+    refreshSemanticRecallCacheMeta,
     updateEntry,
     removeEntry,
     saveSelected,
