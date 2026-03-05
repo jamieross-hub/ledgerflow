@@ -189,5 +189,90 @@
       "l3": "Local-first: statistics, filtering, and most visualizations run locally; only required context is sent when you actively invoke AI.",
       "l4": "Privacy tip: remove sensitive fields (phone/order IDs) from notes before export or sharing."
     }
+  },
+  "dashboard": {
+    "greeting": {
+      "night": "Late night, take a rest",
+      "morning": "Good morning",
+      "forenoon": "Good forenoon",
+      "noon": "Good noon",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening"
+    },
+    "tips": {
+      "1": "You can paste bill screenshots in the assistant, and AI will extract bookkeeping data automatically",
+      "2": "Drag images into the assistant for faster expense recognition",
+      "3": "You can configure AI provider and API Key in Settings",
+      "4": "All data is stored locally in your browser, and your privacy stays under your control",
+      "5": "CSV export is supported for spreadsheet analysis",
+      "6": "Try dark mode from the theme switcher at the bottom of the sidebar"
+    },
+    "ui": {
+      "currentVersion": "Current version",
+      "welcome": "Welcome to LedgerFlow",
+      "welcomeSubtitle": "Your intelligent bookkeeping workspace is ready to go.",
+      "gettingStartedTitle": "Getting started in 3 steps",
+      "gettingStartedSubtitle": "Finish the flow first, then trend insights become more accurate",
+      "step1": "① Add entries: record income/expense to build baseline data.",
+      "step2": "② Set budgets: set limits for frequent categories and catch overspending early.",
+      "step3": "③ Review insights: identify causes of fluctuation in trends and analysis.",
+      "addEntry": "Add entry",
+      "openBudget": "Open budget",
+      "viewAnalysis": "View analysis",
+      "shortcutsPrefix": "Keyboard shortcuts",
+      "shortcutAdd": "Add entry",
+      "shortcutBudget": "Open budget",
+      "shortcutSearch": "Quick search",
+      "corePanel": "Core asset dashboard",
+      "moduleCustomize": "Homepage module customization",
+      "moduleCustomizeHint": "Drag to reorder + toggle cards",
+      "emptyTitle": "No transaction records yet",
+      "emptyDesc": "Start your first entry, or let AI assistant recognize your bill.",
+      "findAssistant": "Open AI Assistant",
+      "quickAdd": "Quick add",
+      "thisMonthTrend": "Monthly trend",
+      "futureTrend": "Future trend"
+    }
+  },
+  "transactions": {
+    "quickAdd": {
+      "error": {
+        "selectCategory": "Please select a category.",
+        "selectAccount": "Please select an account.",
+        "invalidAmount": "Please enter a valid amount (> 0)."
+      },
+      "defaultNote": "Quick entry",
+      "saved": "Saved"
+    },
+    "ui": {
+      "billFilterState": "Current bill filter state",
+      "billPeriod": "Bill period",
+      "filteredCount": "Filtered",
+      "items": "items",
+      "totalCount": "Total",
+      "aiRecategorize": "AI recategorization",
+      "processed": "Processed",
+      "modelCount": "Model",
+      "fallbackCount": "Fallback",
+      "cancelled": "Cancelled",
+      "aiProgress": "AI recategorization progress",
+      "importResult": "Import result",
+      "copyReport": "Copy report",
+      "gotIt": "Got it",
+      "importBillFile": "Import bill file",
+      "resizePanels": "Resize bill list and chart panel",
+      "currentBillChartView": "Current bill chart view",
+      "currentBillView": "Current bill view",
+      "currentBillOverview": "Current bill overview",
+      "periodIncome": "Period income",
+      "periodExpense": "Period expense",
+      "periodNet": "Period net",
+      "transactionCount": "Transactions",
+      "addTransaction": "Add transaction",
+      "importBill": "Import bill",
+      "clearFilters": "Clear filters",
+      "maxExpense": "Max expense",
+      "noExpenseData": "No identifiable expense records"
+    }
   }
 }

@@ -189,5 +189,90 @@
       "l3": "本地优先：统计、筛选和大部分可视化在本地完成，仅在你主动调用 AI 时发送必要上下文。",
       "l4": "隐私保护建议：导出或分享前可先清理备注中的手机号、订单号等敏感字段。"
     }
+  },
+  "dashboard": {
+    "greeting": {
+      "night": "夜深了，注意休息",
+      "morning": "早上好",
+      "forenoon": "上午好",
+      "noon": "中午好",
+      "afternoon": "下午好",
+      "evening": "晚上好"
+    },
+    "tips": {
+      "1": "你可以在记账助手中粘贴账单截图，AI 会自动识别并生成记账数据",
+      "2": "支持拖拽图片到记账助手，快速识别消费信息",
+      "3": "在设置页面可以配置 AI 供应商和 API Key",
+      "4": "所有数据存储在浏览器本地，你的隐私完全受保护",
+      "5": "支持导出 CSV 文件：Excel 看了都想给你点个赞",
+      "6": "试试暗黑模式，在侧边栏底部的主题切换器中选择"
+    },
+    "ui": {
+      "currentVersion": "当前版本",
+      "welcome": "欢迎使用 LedgerFlow",
+      "welcomeSubtitle": "你的智能记账工作台已就绪，轻松管理每一笔收支。",
+      "gettingStartedTitle": "新手三步",
+      "gettingStartedSubtitle": "先完成流程，再看趋势更准确",
+      "step1": "① 添加账目：先记录收入/支出，建立基础数据。",
+      "step2": "② 设置预算：为高频分类设上限，及时提醒超支风险。",
+      "step3": "③ 查看分析：在趋势与洞察里识别波动原因。",
+      "addEntry": "新增账目",
+      "openBudget": "打开预算",
+      "viewAnalysis": "查看分析",
+      "shortcutsPrefix": "键盘快捷键",
+      "shortcutAdd": "新增账目",
+      "shortcutBudget": "打开预算",
+      "shortcutSearch": "快速搜索",
+      "corePanel": "核心资产仪表盘",
+      "moduleCustomize": "首页模块自定义",
+      "moduleCustomizeHint": "拖拽排序 + 开关卡片",
+      "emptyTitle": "还没有任何账目记录",
+      "emptyDesc": "开始你的第一笔记账吧，也可以让 AI 助手帮你识别账单。",
+      "findAssistant": "找 AI 助手",
+      "quickAdd": "记一笔",
+      "thisMonthTrend": "本月趋势",
+      "futureTrend": "未来趋势"
+    }
+  },
+  "transactions": {
+    "quickAdd": {
+      "error": {
+        "selectCategory": "请选择分类。",
+        "selectAccount": "请选择账户。",
+        "invalidAmount": "请输入有效金额（大于 0）。"
+      },
+      "defaultNote": "快速记账",
+      "saved": "已保存"
+    },
+    "ui": {
+      "billFilterState": "当前账单筛选状态",
+      "billPeriod": "账单周期",
+      "filteredCount": "筛选后",
+      "items": "笔",
+      "totalCount": "总笔数",
+      "aiRecategorize": "AI 重分类",
+      "processed": "已处理",
+      "modelCount": "大模型",
+      "fallbackCount": "回退",
+      "cancelled": "已取消",
+      "aiProgress": "AI 重分类进度",
+      "importResult": "导入结果",
+      "copyReport": "复制报告",
+      "gotIt": "知道了",
+      "importBillFile": "导入账单文件",
+      "resizePanels": "调整账单列表与图表区域宽度",
+      "currentBillChartView": "当前账单图表视图",
+      "currentBillView": "当前账单视图",
+      "currentBillOverview": "当前账单概览",
+      "periodIncome": "本期收入",
+      "periodExpense": "本期支出",
+      "periodNet": "本期结余",
+      "transactionCount": "交易笔数",
+      "addTransaction": "新增交易",
+      "importBill": "导入账单",
+      "clearFilters": "清除筛选",
+      "maxExpense": "最大支出",
+      "noExpenseData": "暂无可识别的支出记录"
+    }
   }
 }
