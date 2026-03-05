@@ -274,5 +274,36 @@
       "maxExpense": "Max expense",
       "noExpenseData": "No identifiable expense records"
     }
+  },
+  "finance": {
+    "ui": {
+      "justNow": "Just now",
+      "rssParseFailed": "Failed to parse RSS",
+      "unnamedNews": "Untitled news",
+      "noReadableContent": "No readable content found in subscriptions. Showing cached news.",
+      "rssUnavailable": "RSS sources are temporarily unavailable. Showing cached news.",
+      "addFeedFailed": "Failed to add RSS feed.",
+      "title": "Finance News",
+      "subtitle": "Subscribe to RSS feeds and read updates from your preferred financial sources.",
+      "rssManage": "RSS Subscription Management",
+      "feedTitlePlaceholder": "Subscription name (optional)",
+      "add": "Add",
+      "disable": "Disable",
+      "enable": "Enable",
+      "delete": "Delete",
+      "loading": "Loading RSS news...",
+      "noCachedNews": "No cached RSS news to display. Please check subscriptions and retry.",
+      "readerTitle": "RSS Reader",
+      "noSummary": "This feed does not provide a summary. Open the original article below.",
+      "openOriginal": "Open original",
+      "dailyIdeaTitle": "Daily Finance Tip"
+    },
+    "ideas": {
+      "1": "📌 Do a fixed 10-minute weekly review: what are the top 3 financial events this week?",
+      "2": "📈 Build a rate-watch list: LPR, 10Y treasury, and DXY to form your own macro intuition.",
+      "3": "💡 Tag large expenses (education/health/travel) while bookkeeping for easier month-end optimization.",
+      "4": "🧠 Avoid emotional trading: write your reason first, then decide whether to execute.",
+      "5": "🛟 Keep 3–6 months of emergency cash before taking investment risk."
+    }
   }
 }

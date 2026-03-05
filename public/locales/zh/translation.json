@@ -274,5 +274,36 @@
       "maxExpense": "最大支出",
       "noExpenseData": "暂无可识别的支出记录"
     }
+  },
+  "finance": {
+    "ui": {
+      "justNow": "刚刚",
+      "rssParseFailed": "RSS 解析失败",
+      "unnamedNews": "未命名资讯",
+      "noReadableContent": "订阅源暂无可读内容，已展示上次缓存资讯。",
+      "rssUnavailable": "RSS 订阅源暂不可用，已展示上次缓存资讯。",
+      "addFeedFailed": "新增 RSS 失败。",
+      "title": "金融资讯",
+      "subtitle": "支持 RSS 订阅与阅读，便于按自己的信息源持续跟踪财经动态。",
+      "rssManage": "RSS 订阅管理",
+      "feedTitlePlaceholder": "订阅名称（可选）",
+      "add": "新增",
+      "disable": "停用",
+      "enable": "启用",
+      "delete": "删除",
+      "loading": "正在加载 RSS 资讯...",
+      "noCachedNews": "暂无可展示的 RSS 缓存资讯，请检查订阅源后重试。",
+      "readerTitle": "RSS 阅读器",
+      "noSummary": "该订阅源未提供摘要，请点击下方链接阅读原文。",
+      "openOriginal": "打开原文",
+      "dailyIdeaTitle": "今日金融小建议"
+    },
+    "ideas": {
+      "1": "📌 每周固定 10 分钟复盘：本周最值得关注的 3 条财经事件是什么？",
+      "2": "📈 建一个“利率观察”清单：LPR、10Y 国债、美元指数，形成自己的宏观体感。",
+      "3": "💡 记账时给大额支出打标签（如教育/医疗/旅行），月末更容易做预算优化。",
+      "4": "🧠 避免追涨杀跌：先写下交易理由，再决定是否执行。",
+      "5": "🛟 保留 3~6 个月应急资金，投资前先保证现金流安全。"
+    }
   }
 }

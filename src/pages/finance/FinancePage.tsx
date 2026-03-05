@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAppPreferences } from '../../shared/store/useAppPreferences';
 
 type FinanceNewsItem = {
@@ -12,19 +13,11 @@ type FinanceNewsItem = {
 
 const FINANCE_NEWS_CACHE_KEY = 'ledgerflow.finance.news-cache.v1';
 
-const FINANCE_IDEAS = [
-  '📌 每周固定 10 分钟复盘：本周最值得关注的 3 条财经事件是什么？',
-  '📈 建一个“利率观察”清单：LPR、10Y 国债、美元指数，形成自己的宏观体感。',
-  '💡 记账时给大额支出打标签（如教育/医疗/旅行），月末更容易做预算优化。',
-  '🧠 避免追涨杀跌：先写下交易理由，再决定是否执行。',
-  '🛟 保留 3~6 个月应急资金，投资前先保证现金流安全。'
-];
-
-function formatTimeLabel(value?: string): string {
-  if (!value) return '刚刚';
+function formatTimeLabel(value: string | undefined, t: (k:string)=>string, language: string): string {
+  if (!value) return t('finance.ui.justNow');
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(language === 'zh' ? 'zh-CN' : 'en-US', {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -42,12 +35,12 @@ function cleanHtml(raw?: string | null): string {
     .trim();
 }
 
-function parseRssItems(xmlText: string, fallbackSource: string): FinanceNewsItem[] {
+function parseRssItems(xmlText: string, fallbackSource: string, t: (k:string)=>string, language: string): FinanceNewsItem[] {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xmlText, 'text/xml');
   const parserError = doc.querySelector('parsererror');
   if (parserError) {
-    throw new Error('RSS 解析失败');
+    throw new Error(t('finance.ui.rssParseFailed'));
   }
 
   const sourceTitle =
@@ -61,7 +54,7 @@ function parseRssItems(xmlText: string, fallbackSource: string): FinanceNewsItem
       const title =
         cleanHtml(node.querySelector('title')?.textContent) ||
         cleanHtml(node.querySelector('media\\:title')?.textContent) ||
-        '未命名资讯';
+        t('finance.ui.unnamedNews');
       const directLink = node.querySelector('link')?.textContent?.trim();
       const atomLink =
         (node.querySelector('link[rel="alternate"]') as Element | null)?.getAttribute('href') ||
@@ -82,7 +75,7 @@ function parseRssItems(xmlText: string, fallbackSource: string): FinanceNewsItem
         title,
         source: sourceTitle,
         link,
-        publishedAt: formatTimeLabel(publishedRaw),
+        publishedAt: formatTimeLabel(publishedRaw, t, language),
         summary: cleanHtml(summaryRaw)
       };
     })
@@ -90,15 +83,16 @@ function parseRssItems(xmlText: string, fallbackSource: string): FinanceNewsItem
     .slice(0, 8);
 }
 
-async function fetchRssFeed(feedUrl: string, signal: AbortSignal): Promise<FinanceNewsItem[]> {
+async function fetchRssFeed(feedUrl: string, signal: AbortSignal, t: (k:string)=>string, language: string): Promise<FinanceNewsItem[]> {
   const encodedUrl = encodeURIComponent(feedUrl);
   const response = await fetch(`https://api.allorigins.win/raw?url=${encodedUrl}`, { signal });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const xmlText = await response.text();
-  return parseRssItems(xmlText, feedUrl);
+  return parseRssItems(xmlText, feedUrl, t, language);
 }
 
 export function FinancePage() {
+  const { t, i18n } = useTranslation();
   const { rssSubscriptions, addRssSubscription, removeRssSubscription, toggleRssSubscription } =
     useAppPreferences();
   const [news, setNews] = useState<FinanceNewsItem[]>(() => {
@@ -138,7 +132,7 @@ export function FinancePage() {
 
       try {
         const loadedLists = await Promise.allSettled(
-          enabledFeeds.map((item) => fetchRssFeed(item.url, controller.signal))
+          enabledFeeds.map((item) => fetchRssFeed(item.url, controller.signal, t, i18n.language))
         );
         const merged = loadedLists
           .flatMap((result) => (result.status === 'fulfilled' ? result.value : []))
@@ -156,15 +150,15 @@ export function FinancePage() {
           window.localStorage.setItem(FINANCE_NEWS_CACHE_KEY, JSON.stringify(sorted));
           setActiveNewsId((current) => current || sorted[0].id);
         } else {
-          setError('订阅源暂无可读内容，已展示上次缓存资讯。');
+          setError(t('finance.ui.noReadableContent'));
         }
 
         if (loadedLists.every((result) => result.status === 'rejected')) {
-          setError('RSS 订阅源暂不可用，已展示上次缓存资讯。');
+          setError(t('finance.ui.rssUnavailable'));
         }
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
-          setError('RSS 订阅源暂不可用，已展示上次缓存资讯。');
+          setError(t('finance.ui.rssUnavailable'));
         }
       } finally {
         setLoading(false);
@@ -173,12 +167,19 @@ export function FinancePage() {
 
     loadFinanceNews();
     return () => controller.abort();
-  }, [enabledFeeds]);
+  }, [enabledFeeds, i18n.language, t]);
 
   const dailyIdea = useMemo(() => {
     const day = new Date().getDate();
-    return FINANCE_IDEAS[day % FINANCE_IDEAS.length];
-  }, []);
+    const ideas = [
+      t('finance.ideas.1'),
+      t('finance.ideas.2'),
+      t('finance.ideas.3'),
+      t('finance.ideas.4'),
+      t('finance.ideas.5')
+    ];
+    return ideas[day % ideas.length];
+  }, [t]);
 
   const activeNews = useMemo(
     () => news.find((item) => item.id === activeNewsId) || news[0] || null,
@@ -189,7 +190,7 @@ export function FinancePage() {
     event.preventDefault();
     const result = addRssSubscription({ title: feedTitle, url: feedUrl });
     if (!result.ok) {
-      setError(result.reason || '新增 RSS 失败。');
+      setError(result.reason || t('finance.ui.addFeedFailed'));
       return;
     }
     setFeedTitle('');
@@ -199,12 +200,12 @@ export function FinancePage() {
   return (
     <div className="page-stack finance-page">
       <section className="card">
-        <h2 style={{ marginTop: 0 }}>📰 金融资讯</h2>
-        <p className="muted">支持 RSS 订阅与阅读，便于按自己的信息源持续跟踪财经动态。</p>
+        <h2 style={{ marginTop: 0 }}>📰 {t('finance.ui.title')}</h2>
+        <p className="muted">{t('finance.ui.subtitle')}</p>
 
         <details className="card" style={{ padding: 12, marginBottom: 12 }}>
           <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
-            RSS 订阅管理（{rssSubscriptions.length}）
+            {t('finance.ui.rssManage')}（{rssSubscriptions.length}）
           </summary>
 
           <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
@@ -212,14 +213,14 @@ export function FinancePage() {
               <input
                 value={feedTitle}
                 onChange={(event) => setFeedTitle(event.target.value)}
-                placeholder="订阅名称（可选）"
+                placeholder={t('finance.ui.feedTitlePlaceholder')}
               />
               <input
                 value={feedUrl}
                 onChange={(event) => setFeedUrl(event.target.value)}
                 placeholder="https://example.com/feed.xml"
               />
-              <button type="submit">新增</button>
+              <button type="submit">{t('finance.ui.add')}</button>
             </form>
 
             <div
@@ -262,10 +263,10 @@ export function FinancePage() {
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                     <button type="button" onClick={() => toggleRssSubscription(item.id)}>
-                      {item.enabled ? '停用' : '启用'}
+                      {item.enabled ? t('finance.ui.disable') : t('finance.ui.enable')}
                     </button>
                     <button type="button" onClick={() => removeRssSubscription(item.id)}>
-                      删除
+                      {t('finance.ui.delete')}
                     </button>
                   </div>
                 </div>
@@ -274,11 +275,11 @@ export function FinancePage() {
           </div>
         </details>
 
-        {loading ? <p className="muted">正在加载 RSS 资讯...</p> : null}
+        {loading ? <p className="muted">{t('finance.ui.loading')}</p> : null}
         {error ? <p className="muted">{error}</p> : null}
 
         {news.length === 0 ? (
-          <p className="muted">暂无可展示的 RSS 缓存资讯，请检查订阅源后重试。</p>
+          <p className="muted">{t('finance.ui.noCachedNews')}</p>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
             {news.map((item) => (
@@ -312,20 +313,20 @@ export function FinancePage() {
           className="card"
           style={{ border: '2px solid var(--color-primary-border)', boxShadow: 'var(--shadow-sm)' }}
         >
-          <h3 style={{ marginTop: 0 }}>🧾 RSS 阅读器</h3>
+          <h3 style={{ marginTop: 0 }}>🧾 {t('finance.ui.readerTitle')}</h3>
           <h4>{activeNews.title}</h4>
           <p className="muted" style={{ marginTop: 0 }}>
             {activeNews.source} · {activeNews.publishedAt}
           </p>
-          <p>{activeNews.summary || '该订阅源未提供摘要，请点击下方链接阅读原文。'}</p>
+          <p>{activeNews.summary || t('finance.ui.noSummary')}</p>
           <a href={activeNews.link} target="_blank" rel="noreferrer">
-            打开原文
+            {t('finance.ui.openOriginal')}
           </a>
         </section>
       ) : null}
 
       <section className="card">
-        <h3 style={{ marginTop: 0 }}>💡 今日金融小建议</h3>
+        <h3 style={{ marginTop: 0 }}>💡 {t('finance.ui.dailyIdeaTitle')}</h3>
         <p>{dailyIdea}</p>
       </section>
     </div>
