@@ -7279,6 +7279,41 @@ body.categories-accounts-resizing {
 .chat-msg-user .chat-msg-content {
   background: color-mix(in oklab, var(--color-primary) 18%, transparent);
 }
+.chat-follow-up-block {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.chat-follow-up-title {
+  color: var(--color-text-secondary);
+  font-size: var(--font-xs);
+}
+
+.chat-follow-up-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chat-follow-up-chip {
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 247, 255, 0.92));
+  color: var(--color-text);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: var(--font-xs);
+  line-height: 1.4;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.chat-follow-up-chip:hover,
+.chat-follow-up-chip:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(99, 102, 241, 0.32);
+  box-shadow: 0 10px 24px rgba(99, 102, 241, 0.12);
+}
+
 .chat-message-actions {
   display: flex;
   gap: 8px;

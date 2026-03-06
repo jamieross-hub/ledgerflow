@@ -213,6 +213,7 @@ interface ChatHistoryItem {
   reasoningText?: string;
   embeddingSummaryText?: string;
   embeddingDebugText?: string;
+  followUpPrompts?: string[];
 }
 
 type AssistantMode = 'bookkeeping' | 'assistant';
@@ -444,6 +445,26 @@ function buildAssistantConversationPrompt(question: string, history: ChatHistory
     .join('\n');
   if (!context) return question;
   return `请结合以下最近对话上下文连续回答，避免重复追问已确认的信息。\n\n最近对话：\n${context}\n\n当前问题：${question}`;
+}
+
+function buildFollowUpPrompts(answer: string, history: ChatHistoryItem[]): string[] {
+  const latestUserQuestion = [...history].reverse().find((item) => item.role === 'user')?.text?.trim() || '';
+  const hasBudget = /预算|超支|结余|开销|消费/.test(answer + latestUserQuestion);
+  const hasTrend = /趋势|变化|波动|上涨|下降|本月|上月|最近/.test(answer + latestUserQuestion);
+  const hasCategory = /分类|餐饮|交通|住房|娱乐|日用|订阅/.test(answer + latestUserQuestion);
+  const hasAction = /建议|可以|适合|优先|控制|优化|减少|增加/.test(answer);
+
+  const candidates = [
+    latestUserQuestion ? `基于“${latestUserQuestion.slice(0, 12)}${latestUserQuestion.length > 12 ? '…' : ''}”，你再说得更具体一点` : '',
+    hasBudget ? '那如果我要把本月预算收紧一点，应该先动哪几项？' : '',
+    hasTrend ? '把这个变化拆成最近 3 个阶段，分别说说看' : '',
+    hasCategory ? '按分类帮我排个轻重缓急，先看最该处理的 3 项' : '',
+    hasAction ? '别只讲方向，给我一个今天就能执行的小清单' : '',
+    '如果我要把这段结论发给未来的我，你会怎么写成一句提醒？',
+    '顺手帮我挑一个最值得继续追问的点'
+  ].filter(Boolean);
+
+  return Array.from(new Set(candidates)).slice(0, 4);
 }
 
 export function AssistantPage() {
@@ -930,7 +951,9 @@ export function AssistantPage() {
       usageText,
       reasoningText: wb.rawReasoning || undefined,
       embeddingSummaryText,
-      embeddingDebugText
+      embeddingDebugText,
+      followUpPrompts:
+        responseMode === 'assistant' ? buildFollowUpPrompts(wb.rawContent, chatHistory) : undefined
     });
   }, [
     appendMessageToMode,
@@ -1435,6 +1458,24 @@ export function AssistantPage() {
                     <summary>语义召回调试详情（点击展开）</summary>
                     <pre>{item.embeddingDebugText}</pre>
                   </details>
+                ) : null}
+                {item.role === 'assistant' && item.followUpPrompts && item.followUpPrompts.length > 0 ? (
+                  <div className="chat-follow-up-block">
+                    <span className="chat-follow-up-title">你可以顺手继续问：</span>
+                    <div className="chat-follow-up-list">
+                      {item.followUpPrompts.map((prompt) => (
+                        <button
+                          key={`${item.id}-${prompt}`}
+                          type="button"
+                          className="chat-follow-up-chip"
+                          onClick={() => submitPrompt(prompt)}
+                          disabled={wb.status === 'recognizing'}
+                        >
+                          {prompt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ) : null}
                 {item.usageText ? <p className="chat-token-usage">{item.usageText}</p> : null}
                 <div className="chat-message-actions">
