@@ -1910,13 +1910,13 @@ export function TransactionsPage() {
     });
     const colors = ['#4f8cff', '#6ad7b9', '#f6a623', '#ff6b6b', '#9b6bff', '#14b8a6', '#64748b'];
     const ranked = Array.from(map.entries())
-      .map(([name, amount], index) => ({
-        name,
-        amount,
-        color: colors[index % colors.length]
-      }))
+      .map(([name, amount]) => ({ name, amount }))
       .sort((a, b) => b.amount - a.amount)
-      .slice(0, 7);
+      .slice(0, 7)
+      .map((item, index) => ({
+        ...item,
+        color: colors[index % colors.length]
+      }));
     const total = ranked.reduce((sum, value) => sum + value.amount, 0);
     return ranked.map((item) => ({
       ...item,
@@ -1965,13 +1965,16 @@ export function TransactionsPage() {
     return Math.max(1, ...values);
   }, [curveData]);
 
-  const pieGradient = useMemo(() => {
-    const animatedSegments = categoryPieData.map((item) => ({
-      color: item.color,
-      percent: item.percent * pieAnimationProgress
-    }));
-    return buildPieGradient(animatedSegments);
-  }, [categoryPieData, pieAnimationProgress]);
+  const pieGradient = useMemo(
+    () =>
+      buildPieGradient(
+        categoryPieData.map((item) => ({
+          color: item.color,
+          percent: item.percent
+        }))
+      ),
+    [categoryPieData]
+  );
 
   const pieFallbackColor = categoryPieData[0]?.color || 'var(--color-bg-subtle)';
   const pieOpacity = Number.isFinite(pieAnimationProgress)
@@ -2277,8 +2280,7 @@ export function TransactionsPage() {
                   <div
                     className="transactions-pie"
                     style={{
-                      backgroundImage: pieGradient !== 'none' ? pieGradient : undefined,
-                      backgroundColor: pieGradient === 'none' ? pieFallbackColor : undefined,
+                      background: pieGradient !== 'none' ? pieGradient : pieFallbackColor,
                       opacity: pieOpacity
                     }}
                   />
