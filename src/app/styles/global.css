@@ -7207,34 +7207,38 @@ body.categories-accounts-resizing {
 .drawer-timeline::before {
   content: '';
   position: absolute;
-  left: 10px;
+  left: 13px;
   top: 12px;
   bottom: 12px;
   width: 2px;
+  transform: translateX(-50%);
   background: var(--color-border-light);
 }
 
 .drawer-timeline-item {
   position: relative;
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: var(--space-2);
-  align-items: flex-start;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
   margin-bottom: var(--space-3);
 }
 
 .drawer-timeline-icon {
   position: relative;
   z-index: 1;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border-radius: 999px;
   border: 1px solid var(--color-border);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  justify-self: center;
   background: var(--color-bg-elevated);
   font-size: 12px;
+  line-height: 1;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-bg-elevated) 92%, transparent);
 }
 
 .drawer-timeline-item p {
