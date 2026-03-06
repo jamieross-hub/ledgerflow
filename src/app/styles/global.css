@@ -995,6 +995,23 @@ button.danger:hover:not(:disabled) {
     grid-template-columns: 1fr;
   }
 
+  .transaction-filters-secondary-row {
+    gap: 10px;
+  }
+
+  .transaction-filter-trigger {
+    flex: 1 1 calc(50% - 10px);
+    justify-content: center;
+  }
+
+  .transaction-filter-popover {
+    flex: 1 1 100%;
+  }
+
+  .transaction-filter-popover > .transaction-filter-trigger {
+    width: 100%;
+  }
+
   .transaction-filter-popover-panel {
     position: fixed;
     left: 50%;
@@ -4273,6 +4290,17 @@ small.mono {
 
   .chat-topbar-left {
     width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .chat-mode-switch {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .chat-mode-switch button {
+    flex: 1 1 0;
   }
 
   .chat-model-selector {
@@ -4317,6 +4345,11 @@ small.mono {
     display: inline-flex;
     width: 100%;
     justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .chat-topbar-right > * {
+    flex: 1 1 calc(50% - 8px);
   }
 
   .chat-topbar-provider {
@@ -4340,6 +4373,22 @@ small.mono {
 
   .chat-msg-content p {
     font-size: var(--font-sm);
+  }
+
+  .chat-semantic-status-bar,
+  .chat-image-strip {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .chat-semantic-status-text {
+    white-space: normal;
+  }
+
+  .chat-semantic-status-actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
   }
 
   .chat-input-form {
@@ -4371,6 +4420,11 @@ small.mono {
     width: auto;
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .chat-disclaimer {
+    padding-inline: var(--space-3);
+    text-align: left;
   }
 
   .chat-msg-image {
@@ -8407,6 +8461,72 @@ body.categories-accounts-resizing {
   box-shadow: 0 4px 10px color-mix(in srgb, var(--color-text) 7%, transparent);
 }
 
+.finance-collapsible {
+  margin-top: 12px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.finance-collapsible-summary {
+  list-style: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+
+.finance-collapsible-summary::-webkit-details-marker {
+  display: none;
+}
+
+.finance-collapsible-summary-text {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.finance-collapsible-summary-text h3 {
+  margin: 0;
+}
+
+.finance-collapsible-summary-text p {
+  margin: 0;
+}
+
+.finance-collapsible-summary-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.finance-collapsible-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.finance-collapsible-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-bg-subtle) 80%, var(--color-bg-elevated));
+  color: var(--color-text-secondary);
+  transition: transform 0.2s ease;
+}
+
+.finance-collapsible[open] .finance-collapsible-chevron {
+  transform: rotate(180deg);
+}
+
+.finance-collapsible-body {
+  padding: 0 16px 16px;
+}
+
 .finance-debt-form-helper {
   margin: -8px 0 0;
 }
@@ -8719,6 +8839,29 @@ body.categories-accounts-resizing {
   .finance-ledger-grid,
   .finance-ledger-meta-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .finance-collapsible-summary,
+  .finance-debt-entry-header,
+  .finance-ledger-header,
+  .finance-debt-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .finance-collapsible-summary-side {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .finance-collapsible-body {
+    padding: 0 14px 14px;
+  }
+
+  .finance-income-inline-action,
+  .finance-debt-submit,
+  .finance-debt-item button {
+    width: 100%;
   }
 
   .dashboard-module-toggle-list,

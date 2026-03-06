@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import {
   calculateDebtHealthScore,
@@ -351,6 +351,44 @@ function getDebtAssumedAnnualRate(
     return 0;
   }
   return type === 'credit-card' ? 18 : 12;
+}
+
+function FinanceCollapsibleSection({
+  title,
+  subtitle,
+  icon,
+  defaultOpen = false,
+  className = '',
+  children
+}: {
+  title: string;
+  subtitle?: string;
+  icon?: string;
+  defaultOpen?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <details className={`finance-collapsible ${className}`.trim()} open={defaultOpen}>
+      <summary className="finance-collapsible-summary">
+        <div className="finance-collapsible-summary-text">
+          <h3>{title}</h3>
+          {subtitle ? <p className="muted">{subtitle}</p> : null}
+        </div>
+        <span className="finance-collapsible-summary-side">
+          {icon ? (
+            <span className="finance-debt-entry-icon finance-collapsible-icon" aria-hidden>
+              {icon}
+            </span>
+          ) : null}
+          <span className="finance-collapsible-chevron" aria-hidden>
+            ▾
+          </span>
+        </span>
+      </summary>
+      <div className="finance-collapsible-body">{children}</div>
+    </details>
+  );
 }
 
 function getStrategySortedDebts<T extends { annualRate: number; balance: number }>(
@@ -1411,9 +1449,12 @@ export function RepaymentManagementPage() {
           {incomeHint ? <p className="muted finance-income-inline-hint">{incomeHint}</p> : null}
         </div>
 
-        <div
-          className="card finance-secondary-panel finance-debt-entry-card"
-          style={{ marginBottom: 12, padding: 24 }}
+        <FinanceCollapsibleSection
+          title="添加负债"
+          subtitle="上传截图自动识别，或手动逐项填写；手机端默认折叠以减少首屏长度。"
+          icon="💳"
+          defaultOpen={debts.length === 0}
+          className="card finance-secondary-panel finance-debt-entry-card finance-mobile-collapsible-section"
         >
           <div className="finance-debt-entry-header">
             <div>
@@ -1709,9 +1750,15 @@ export function RepaymentManagementPage() {
                 })}
             </div>
           </div>
-        </div>
+        </FinanceCollapsibleSection>
 
-        <section className="card finance-debt-ledger-panel" style={{ marginTop: 12, padding: 12 }}>
+        <FinanceCollapsibleSection
+          title="还款台账预览"
+          subtitle="核对每笔负债的应还日、方式、账户与风险缺口。"
+          icon="🧮"
+          defaultOpen={debts.length > 0 && debts.length <= 2}
+          className="card finance-debt-ledger-panel finance-mobile-collapsible-section"
+        >
           <div className="finance-ledger-header">
             <div>
               <h3 style={{ marginTop: 0 }}>📒 还款台账预览</h3>
@@ -1760,9 +1807,15 @@ export function RepaymentManagementPage() {
               ))}
             </div>
           )}
-        </section>
+        </FinanceCollapsibleSection>
 
-        <section className="card finance-debt-manager-panel" style={{ marginTop: 12, padding: 12 }}>
+        <FinanceCollapsibleSection
+          title="登记一笔还款"
+          subtitle="登记实际还款时间、金额、扣款账户和备注，手机端可按需展开。"
+          icon="💸"
+          defaultOpen={recentRepaymentRecords.length === 0}
+          className="card finance-debt-manager-panel finance-mobile-collapsible-section"
+        >
           <div className="finance-ledger-header">
             <div>
               <h3 style={{ marginTop: 0 }}>🧾 登记一笔还款</h3>
@@ -1896,9 +1949,15 @@ export function RepaymentManagementPage() {
               </div>
             )}
           </div>
-        </section>
+        </FinanceCollapsibleSection>
 
-        <section className="card finance-debt-manager-panel" style={{ marginTop: 12, padding: 12 }}>
+        <FinanceCollapsibleSection
+          title="负债列表管理"
+          subtitle="集中查看与维护全部负债，避免页面长列表直接铺到底。"
+          icon="📚"
+          defaultOpen={debts.length > 0 && debts.length <= 3}
+          className="card finance-debt-manager-panel finance-mobile-collapsible-section"
+        >
           <h3 style={{ marginTop: 0 }}>🧾 负债列表管理</h3>
           <p className="muted" style={{ marginTop: 0 }}>
             集中查看与维护全部负债，避免在“添加负债”卡片内堆叠过长。
@@ -1944,9 +2003,14 @@ export function RepaymentManagementPage() {
               );
             })}
           </div>
-        </section>
+        </FinanceCollapsibleSection>
 
-        <div className="card finance-primary-panel" style={{ marginTop: 12, padding: 12 }}>
+        <FinanceCollapsibleSection
+          title="AI 还款策略"
+          subtitle="推荐优先级、压力提示、模拟器与审计提醒集中收纳，手机端默认折叠。"
+          icon="🤖"
+          className="card finance-primary-panel finance-mobile-collapsible-section"
+        >
           <h3 style={{ marginTop: 0 }}>🤖 AI 还款策略</h3>
           <p className="muted" style={{ marginTop: 0 }}>
             输出优先级排序、每月还款压力提示，并可模拟额外还款的提前结清效果。
@@ -2094,7 +2158,7 @@ export function RepaymentManagementPage() {
               <div className="finance-ai-result">{renderAiStructuredText(repaymentReasoning)}</div>
             </details>
           ) : null}
-        </div>
+        </FinanceCollapsibleSection>
 
         {error ? <p className="muted">{error}</p> : null}
         <Toast
