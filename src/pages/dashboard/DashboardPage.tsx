@@ -972,6 +972,13 @@ export function DashboardPage() {
     [trendSeries]
   );
 
+  const trendBarHeight = (value: number) => {
+    if (value <= 0 || trendMaxValue <= 0) {
+      return '0%';
+    }
+    return `${Math.max(8, (value / trendMaxValue) * 100)}%`;
+  };
+
   const expenseTrendAverage = useMemo(() => {
     if (!trendSeries.length) return 0;
     return trendSeries.reduce((sum, item) => sum + item.expense, 0) / trendSeries.length;
@@ -1250,14 +1257,8 @@ export function DashboardPage() {
                       >
                         <strong>{item.label}</strong>
                         <div className="dashboard-mini-bars-columns" aria-hidden="true">
-                          <span
-                            style={{ height: `${(item.income / trendMaxValue) * 100}%` }}
-                            className="income"
-                          />
-                          <span
-                            style={{ height: `${(item.expense / trendMaxValue) * 100}%` }}
-                            className="expense"
-                          />
+                          <span style={{ height: trendBarHeight(item.income) }} className="income" />
+                          <span style={{ height: trendBarHeight(item.expense) }} className="expense" />
                         </div>
                         <div className="dashboard-mini-bars-meta">
                           <small>收 {formatCurrency(item.income)}</small>

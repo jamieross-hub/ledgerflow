@@ -9090,15 +9090,16 @@ body.categories-accounts-resizing {
   align-items: end;
   justify-content: center;
   gap: 8px;
-  min-height: 104px;
+  height: 104px;
 }
 
 .dashboard-mini-bars-columns span {
   width: 16px;
+  height: 0;
   max-height: 100%;
   border-radius: 8px 8px 4px 4px;
   display: inline-block;
-  min-height: 4px;
+  transition: height 0.24s ease;
 }
 
 .dashboard-mini-bars-columns span.income {
