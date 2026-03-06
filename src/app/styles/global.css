@@ -631,7 +631,12 @@ body {
   box-shadow:
     0 8px 24px color-mix(in srgb, var(--color-text) 7%, transparent),
     inset 0 1px 0 color-mix(in srgb, white 68%, transparent);
-  animation: panel-fade 0.25s ease both;
+  animation: surface-rise 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    transform var(--transition-base),
+    box-shadow var(--transition-base),
+    border-color var(--transition-fast),
+    background var(--transition-base);
 }
 
 .panel h2 {
@@ -2152,7 +2157,11 @@ small.mono {
     linear-gradient(135deg, color-mix(in srgb, var(--color-primary-bg) 92%, var(--color-bg-elevated)), color-mix(in srgb, var(--color-bg-elevated) 86%, var(--color-primary-bg)));
   border: 1px solid color-mix(in srgb, var(--color-primary) 16%, var(--color-border));
   box-shadow: var(--shadow-sm);
-  animation: panel-fade 0.3s ease both;
+  animation: surface-rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    transform var(--transition-base),
+    box-shadow var(--transition-base),
+    border-color var(--transition-fast);
   overflow: hidden;
   text-align: center;
 }
@@ -2277,8 +2286,11 @@ small.mono {
   border: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
   box-shadow: var(--shadow-xs);
-  transition: box-shadow var(--transition-base);
-  animation: panel-fade 0.3s ease both;
+  transition:
+    transform var(--transition-base),
+    box-shadow var(--transition-base),
+    border-color var(--transition-fast);
+  animation: surface-rise 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
   min-width: 0;
 }
 
@@ -7024,8 +7036,55 @@ body.categories-accounts-resizing {
 
 .help-link-card:hover {
   border-color: var(--color-primary-border);
-  box-shadow: var(--shadow-xs);
-  transform: translateY(-1px);
+  box-shadow: 0 14px 28px color-mix(in srgb, var(--color-primary) 10%, transparent);
+  transform: translateY(-2px);
+}
+
+.panel:hover,
+.stat-card:hover,
+.chat-overview-card:hover,
+.chat-auto-insight-block:hover,
+.chat-insight-list p:hover,
+.help-link-card:hover,
+.smart-budget-panel-card:hover,
+.smart-budget-progress-card:hover,
+.smart-budget-ai-card:hover,
+.smart-budget-overview-card:hover,
+.smart-budget-trend-card:hover,
+.smart-budget-anomaly-card:hover,
+.account-card:hover,
+.finance-ledger-card:hover,
+.finance-ai-insight-card:hover,
+.finance-strategy-card:hover,
+.dashboard-forecast-quick-card:hover,
+.transaction-group-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+
+.panel:focus-within,
+.chat-overview-card:focus-within,
+.chat-auto-insight-block:focus-within,
+.help-link-card:focus-within,
+.smart-budget-panel-card:focus-within,
+.account-card:focus-within,
+.finance-ledger-card:focus-within,
+.transaction-group-card:focus-within {
+  border-color: color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent),
+    0 14px 28px color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .help-link-card span {
