@@ -2366,12 +2366,14 @@ small.mono {
 .empty-state {
   text-align: center;
   padding: var(--space-10) var(--space-5);
+  animation: surface-rise 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .empty-state-icon {
   font-size: 44px;
   margin-bottom: var(--space-3);
   opacity: 0.7;
+  animation: welcome-float 3.4s ease-in-out infinite;
 }
 
 .empty-state h3 {
@@ -4128,6 +4130,11 @@ small.mono {
   border-bottom: 1px solid var(--color-danger-border);
   font-size: var(--font-sm);
   color: var(--color-danger);
+  animation: surface-rise 0.24s ease both;
+  transition:
+    transform var(--transition-fast),
+    opacity var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .chat-error-strip button {
@@ -4661,6 +4668,10 @@ small.mono {
   z-index: 420;
   animation: toast-in 0.25s ease both;
   max-width: 360px;
+  transition:
+    transform var(--transition-fast),
+    opacity var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .toast-success {
@@ -7387,7 +7398,7 @@ body.categories-accounts-resizing {
     var(--color-primary),
     color-mix(in srgb, var(--color-primary) 70%, white)
   );
-  transition: width 0.35s ease;
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1), filter var(--transition-fast);
 }
 
 .dashboard-insight-progress p {
@@ -7986,6 +7997,7 @@ body.categories-accounts-resizing {
   display: block;
   height: 100%;
   background: var(--color-success);
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1), filter var(--transition-fast);
 }
 
 .smart-budget-progress-track span.warn {
@@ -9413,6 +9425,10 @@ body.categories-accounts-resizing {
   border-radius: 14px;
   background: var(--color-bg-subtle);
   text-align: center;
+  transition:
+    transform var(--transition-base),
+    box-shadow var(--transition-base),
+    border-color var(--transition-fast);
 }
 
 .dashboard-mini-bars-item strong {
@@ -9434,7 +9450,7 @@ body.categories-accounts-resizing {
   max-height: 100%;
   border-radius: 8px 8px 4px 4px;
   display: inline-block;
-  transition: height 0.24s ease;
+  transition: height 0.34s cubic-bezier(0.22, 1, 0.36, 1), filter var(--transition-fast), transform var(--transition-fast);
 }
 
 .dashboard-mini-bars-columns span.income {
@@ -9475,6 +9491,11 @@ body.categories-accounts-resizing {
   border-radius: 14px;
   background: var(--color-bg-subtle);
   margin: 0;
+  transition:
+    transform var(--transition-base),
+    box-shadow var(--transition-base),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .dashboard-net-row i {
@@ -9484,6 +9505,7 @@ body.categories-accounts-resizing {
   background: linear-gradient(90deg, #6ad7b9, #4f8cff);
   min-width: 8px;
   max-width: 100%;
+  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1), filter var(--transition-fast);
 }
 
 .dashboard-net-row strong,
@@ -9518,6 +9540,11 @@ body.categories-accounts-resizing {
   border-radius: 10px;
   padding: 10px;
   background: var(--color-bg-subtle);
+  transition:
+    transform var(--transition-base),
+    box-shadow var(--transition-base),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .transaction-monthly-summary span {
