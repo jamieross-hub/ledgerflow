@@ -695,10 +695,17 @@ export function SmartBudgetPage() {
   };
 
   return (
-    <section className="panel smart-budget-page">
+    <section className="panel smart-budget-page finance-page">
       <header className="smart-budget-header">
         <div>
-          <h2>智能预算</h2>
+          <div className="smart-budget-title-row">
+            <h2>智能预算</h2>
+            {confirmedPlan ? (
+              <span className="smart-budget-header-badge">已确认预算方案</span>
+            ) : (
+              <span className="smart-budget-header-badge is-draft">预算向导进行中</span>
+            )}
+          </div>
           <p>通过 4 个问题快速生成预算，确认后进入预算管理查看近期预算执行是否超支。</p>
         </div>
       </header>
@@ -732,7 +739,7 @@ export function SmartBudgetPage() {
       {mode === 'management' ? (
         confirmedPlan ? (
           <section className="smart-budget-management" aria-label="智能预算管理看板">
-            <section className="smart-budget-overview-card" aria-label="预算总览">
+            <section className="smart-budget-overview-card smart-budget-panel-card" aria-label="预算总览">
               <div className="smart-budget-overview-stats">
                 <article>
                   <span>本月总预算</span>
@@ -817,7 +824,7 @@ export function SmartBudgetPage() {
               </div>
             </div>
 
-            <section className="smart-budget-ai-card" aria-live="polite">
+            <section className="smart-budget-ai-card smart-budget-panel-card" aria-live="polite">
               <div className="smart-budget-ai-card-title">
                 <span className="smart-budget-ai-icon" aria-hidden="true">
                   🤖
@@ -885,7 +892,7 @@ export function SmartBudgetPage() {
             </section>
 
             {categoryTrendRows.length ? (
-              <section className="smart-budget-trend-card" aria-label="预算执行趋势">
+              <section className="smart-budget-trend-card smart-budget-panel-card" aria-label="预算执行趋势">
                 <h4>跨月趋势对比（各分类执行率）</h4>
                 <div className="smart-budget-trend-grid">
                   {categoryTrendRows.map((row) => (
@@ -913,7 +920,7 @@ export function SmartBudgetPage() {
             ) : null}
 
             {anomalyAlerts.length ? (
-              <section className="smart-budget-anomaly-card" aria-label="异常提醒">
+              <section className="smart-budget-anomaly-card smart-budget-panel-card" aria-label="异常提醒">
                 <h4>异常提醒与调整建议</h4>
                 <ul>
                   {anomalyAlerts.slice(0, 4).map((item) => (
@@ -936,7 +943,7 @@ export function SmartBudgetPage() {
             ) : null}
 
             {actionLogs.length ? (
-              <section className="smart-budget-anomaly-card" aria-label="建议动作执行记录">
+              <section className="smart-budget-anomaly-card smart-budget-panel-card" aria-label="建议动作执行记录">
                 <h4>建议动作执行记录</h4>
                 <ul>
                   {actionLogs.slice(0, 5).map((item) => (

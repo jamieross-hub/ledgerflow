@@ -93,7 +93,7 @@ LedgerFlow 下一阶段不再优先推进深功能扩展，先集中处理：
 
 ---
 
-### 4.2 Smart Budget 页面美观度整理
+### 4.2 Smart Budget 页面美观度整理 ✅
 目标：
 
 把 Smart Budget 从“能用”提升到“整洁、稳定、有专业感”。
