@@ -9435,6 +9435,21 @@ body.categories-accounts-resizing {
   }
 }
 
+.dashboard-inline-help {
+  margin-top: 16px;
+}
+
+.dashboard-inline-help-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.dashboard-inline-help-actions button {
+  min-width: 0;
+}
+
 .dashboard-module-customizer {
   margin-top: 12px;
   padding: 14px;

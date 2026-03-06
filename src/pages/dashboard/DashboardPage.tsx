@@ -1113,29 +1113,25 @@ export function DashboardPage() {
         <div className="welcome-emoji">💰</div>
       </section>
 
-      <section className="panel dashboard-getting-started">
+      <section className="panel dashboard-inline-help">
         <div className="dashboard-section-header">
-          <h3>帮助与快捷方式</h3>
-          <span>上手说明搬去独立页面了，首页终于能喘口气</span>
+          <h3>少解释一点，多直接去做</h3>
+          <span>详细说明放在帮助页，首页只保留高频入口</span>
         </div>
         <p className="dashboard-shortcuts-tip">
-          你可以在帮助页查看三步上手说明、常用快捷键以及推荐入口；少走弯路，钱包也会比较感激。
+          如果你是第一次来，先去帮助页；如果你今天只是想快点把账记清，那下面这几个入口更省时间。
         </p>
-        <div className="dashboard-onboarding-actions">
+        <div className="dashboard-inline-help-actions">
           <button type="button" onClick={() => navigate('/help')}>
             打开帮助页
+          </button>
+          <button type="button" onClick={() => navigate('/assistant')}>
+            去问 AI 助手
           </button>
           <button type="button" onClick={() => navigate('/transactions/new?quick=1')}>
             {t('dashboard.ui.addEntry')}
           </button>
-          <button type="button" onClick={() => navigate('/smart-budget')}>
-            {t('dashboard.ui.openBudget')}
-          </button>
         </div>
-        <p className="dashboard-shortcuts-tip">
-          {t('dashboard.ui.shortcutsPrefix')}：<kbd>N</kbd> {t('dashboard.ui.shortcutAdd')} · <kbd>B</kbd>{' '}
-          {t('dashboard.ui.shortcutBudget')} · <kbd>/</kbd> {t('dashboard.ui.shortcutSearch')}
-        </p>
       </section>
 
       <section className="panel">
