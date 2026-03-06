@@ -1240,7 +1240,7 @@ export function TransactionsPage() {
         parseSummary: parsedResult.summary
       });
 
-      const previewMessage = `已完成导入预览：识别 ${normalizedParsed.length} 条（数据行 ${parsedResult.summary.dataLines}，跳过 ${parsedResult.summary.skippedCount}）。请确认后写入。`;
+      const previewMessage = `第 2 步（预检完成）：识别 ${normalizedParsed.length} 条（数据行 ${parsedResult.summary.dataLines}，跳过 ${parsedResult.summary.skippedCount}）。请确认后写入。`;
       showToast(previewMessage, 'success');
       showImportNotice(previewMessage, 'success');
     } catch (error) {
@@ -1291,7 +1291,7 @@ export function TransactionsPage() {
     }
 
     const actionLabel = mode === 'overwrite' ? '覆盖' : mode === 'merge' ? '合并' : '增量导入';
-    const message = `导入成功（${actionLabel}）：新增 ${result.append.length} 条，更新 ${result.update.length} 条${result.skipped ? `，跳过 ${result.skipped} 条` : ''}。`;
+      const message = `第 3 步（导入完成）：新增 ${result.append.length} 条，更新 ${result.update.length} 条${result.skipped ? `，跳过 ${result.skipped} 条` : ''}（${actionLabel}）。`;
     const report = [
       `导入报告`,
       `文件：${pendingImport.fileName}`,
@@ -2546,9 +2546,9 @@ export function TransactionsPage() {
 
       <ConfirmDialog
         open={Boolean(pendingImport)}
-        title="导入预检确认"
+        title="第 2 步：导入预检确认"
         description={pendingImportDescription}
-        confirmText={pendingImport?.mode === 'overwrite' ? '确认覆盖导入' : '确认导入'}
+        confirmText={pendingImport?.mode === 'overwrite' ? '确认进入第 3 步（覆盖写入）' : '确认进入第 3 步（写入账本）'}
         cancelText="取消"
         danger={pendingImport?.mode === 'overwrite'}
         onConfirm={handleConfirmPendingImport}

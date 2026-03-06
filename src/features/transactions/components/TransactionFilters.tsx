@@ -252,6 +252,9 @@ export function TransactionFilters({
               <div className="transaction-context-divider" />
               <details className="transaction-popover-section">
                 <summary className="transaction-filter-section-title">更多操作</summary>
+                <p className="surface-caption transaction-import-steps-caption">
+                  导入链路分三步：① 选择来源与模式 → ② 预检确认影响范围 → ③ 正式写入并生成导入报告。
+                </p>
                 <div className="field" style={{ marginBottom: 8 }}>
                   <label htmlFor="tx-import-mode">账单导入模式</label>
                   <select

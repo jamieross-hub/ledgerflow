@@ -889,6 +889,11 @@ button.danger:hover:not(:disabled) {
   margin: 0 0 var(--space-3);
 }
 
+.transaction-import-steps-caption {
+  margin: 0 0 10px;
+  line-height: var(--leading-relaxed);
+}
+
 .transaction-filter-popover {
   position: relative;
 }
