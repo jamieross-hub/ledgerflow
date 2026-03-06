@@ -3839,6 +3839,19 @@ small.mono {
   gap: var(--space-3);
 }
 
+.chat-assistant-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.chat-assistant-layout-main,
+.chat-assistant-layout-side {
+  display: grid;
+  gap: var(--space-3);
+}
+
 .chat-insight-section {
   display: grid;
   gap: 8px;
@@ -4310,6 +4323,12 @@ small.mono {
 /* ============================================================
    Chat — Responsive
    ============================================================ */
+@media (max-width: 1100px) {
+  .chat-assistant-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
   .chat-fullscreen {
     margin: calc(var(--space-4) * -1);

@@ -1212,70 +1212,76 @@ export function AssistantPage() {
             </section>
           ) : (
             <section className="chat-kawaii-panel chat-assistant-panel">
-              <div className="chat-assistant-hero">
-                <h2>🤖 你好，我是你的财务助手</h2>
-                <p>先看关键数据，再像聊天一样提问，我会主动给你可执行建议。</p>
-              </div>
-              <div className="chat-insight-section" aria-label="今日要做">
-                <div className="chat-insight-section-head">
-                  <h3>🗓 今日要做</h3>
-                  <span>提醒 / 风险 / 待处理</span>
+              <div className="chat-assistant-layout">
+                <div className="chat-assistant-layout-main">
+                  <div className="chat-assistant-hero">
+                    <h2>🤖 你好，我是你的财务助手</h2>
+                    <p>先看关键数据，再像聊天一样提问，我会主动给你可执行建议。</p>
+                  </div>
+                  <div className="chat-insight-section" aria-label="今日要做">
+                    <div className="chat-insight-section-head">
+                      <h3>🗓 今日要做</h3>
+                      <span>提醒 / 风险 / 待处理</span>
+                    </div>
+                    <div className="chat-push-insights">
+                      {assistantOverview.todayTodos.map((item) => (
+                        <article
+                          key={item.id}
+                          className={`chat-push-insight-item ${item.level === 'warning' ? 'warning' : ''}`}
+                        >
+                          <h4>{item.label}</h4>
+                          <p>{item.detail}</p>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div className="chat-push-insights">
-                  {assistantOverview.todayTodos.map((item) => (
-                    <article
-                      key={item.id}
-                      className={`chat-push-insight-item ${item.level === 'warning' ? 'warning' : ''}`}
-                    >
-                      <h4>{item.label}</h4>
-                      <p>{item.detail}</p>
-                    </article>
-                  ))}
-                </div>
-              </div>
 
-              <div className="chat-insight-section" aria-label="本月总结">
-                <div className="chat-insight-section-head">
-                  <h3>📈 本月总结</h3>
-                  <span>趋势 / 对比 / 结构</span>
-                </div>
-                <div className="chat-auto-insight-block">
-                  <p>
-                    <strong>本月消费总结：</strong>
-                    {assistantOverview.monthlySummary}
-                  </p>
-                  <p>
-                    <strong>收入趋势变化：</strong>
-                    {assistantOverview.incomeTrend}
-                  </p>
-                  <p>
-                    <strong>异常支出提醒：</strong>
-                    {assistantOverview.abnormalReminder}
-                  </p>
-                </div>
-                <div className="chat-insight-list" aria-label="本月洞察列表">
-                  {assistantOverview.monthlyInsights.map((insight) => (
-                    <p key={insight}>💡 {insight}</p>
-                  ))}
-                  <p className="chat-risk-alert">⚠️ {assistantOverview.riskAlert}</p>
-                </div>
-              </div>
+                <div className="chat-assistant-layout-side">
+                  <div className="chat-insight-section" aria-label="本月总结">
+                    <div className="chat-insight-section-head">
+                      <h3>📈 本月总结</h3>
+                      <span>趋势 / 对比 / 结构</span>
+                    </div>
+                    <div className="chat-auto-insight-block">
+                      <p>
+                        <strong>本月消费总结：</strong>
+                        {assistantOverview.monthlySummary}
+                      </p>
+                      <p>
+                        <strong>收入趋势变化：</strong>
+                        {assistantOverview.incomeTrend}
+                      </p>
+                      <p>
+                        <strong>异常支出提醒：</strong>
+                        {assistantOverview.abnormalReminder}
+                      </p>
+                    </div>
+                    <div className="chat-insight-list" aria-label="本月洞察列表">
+                      {assistantOverview.monthlyInsights.map((insight) => (
+                        <p key={insight}>💡 {insight}</p>
+                      ))}
+                      <p className="chat-risk-alert">⚠️ {assistantOverview.riskAlert}</p>
+                    </div>
+                  </div>
 
-              <div className="chat-insight-section" aria-label="主动洞察推送">
-                <div className="chat-insight-section-head">
-                  <h3>🧭 主动洞察</h3>
-                  <span>系统持续追踪</span>
-                </div>
-                <div className="chat-push-insights" aria-label="主动洞察推送">
-                  {assistantOverview.pushInsights.map((item) => (
-                    <article
-                      key={item.id}
-                      className={`chat-push-insight-item ${item.level === 'warning' ? 'warning' : ''}`}
-                    >
-                      <h4>{item.title}</h4>
-                      <p>{item.detail}</p>
-                    </article>
-                  ))}
+                  <div className="chat-insight-section" aria-label="主动洞察推送">
+                    <div className="chat-insight-section-head">
+                      <h3>🧭 主动洞察</h3>
+                      <span>系统持续追踪</span>
+                    </div>
+                    <div className="chat-push-insights" aria-label="主动洞察推送">
+                      {assistantOverview.pushInsights.map((item) => (
+                        <article
+                          key={item.id}
+                          className={`chat-push-insight-item ${item.level === 'warning' ? 'warning' : ''}`}
+                        >
+                          <h4>{item.title}</h4>
+                          <p>{item.detail}</p>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="chat-preset-head">
