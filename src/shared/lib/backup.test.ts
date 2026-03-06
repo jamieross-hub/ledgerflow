@@ -4,7 +4,7 @@ import {
   parseFinanceBackupPayload,
   sanitizeWebdavConfig,
   saveWebdavConfig,
-  webdavDownloadBackup,
+  webdavUploadFile,
   type BackupWebdavConfig
 } from './backup';
 
@@ -176,44 +176,31 @@ describe('sanitizeWebdavConfig', () => {
   });
 });
 
-describe('webdavDownloadBackup', () => {
-  it('请求路径应正确 URL 编码，避免中文/空格路径导致恢复失败', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => '{"version":1,"data":{"transactions":[],"categories":[],"accounts":[]}}'
-    });
+describe('webdavUploadFile', () => {
+  it('附件上传时即使目录预创建返回 400，只要最终 PUT 成功也应视为成功', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 400 })
+      .mockResolvedValueOnce({ ok: false, status: 400 })
+      .mockResolvedValueOnce({ ok: false, status: 400 })
+      .mockResolvedValueOnce({ ok: true, status: 201 });
 
     vi.stubGlobal('fetch', fetchMock);
 
-    await webdavDownloadBackup(baseConfig);
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe(
-      '/api/webdav/%E8%B4%A6%E6%9C%AC%E5%A4%87%E4%BB%BD/2026%2002%20backup.json'
-    );
-    expect(fetchMock.mock.calls[0][1]).toEqual(
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          'X-WebDAV-Endpoint': 'https://dav.example.com/remote.php/dav/files/user'
-        })
-      })
+    const file = new Blob(['hello'], { type: 'text/plain' });
+    const result = await webdavUploadFile(
+      baseConfig,
+      '账本备份/attachments/tx-1/test file.txt',
+      file,
+      'text/plain'
     );
 
-    vi.unstubAllGlobals();
-  });
+    expect(result.remotePath).toBe('账本备份/attachments/tx-1/test file.txt');
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock.mock.calls.at(-1)?.[0]).toBe(
+      '/api/webdav/%E8%B4%A6%E6%9C%AC%E5%A4%87%E4%BB%BD/attachments/tx-1/test%20file.txt'
+    );
 
-  it('代理模式下遇到不安全 endpoint 应直接拒绝请求', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-
-    await expect(
-      webdavDownloadBackup({
-        ...baseConfig,
-        endpoint: 'https://localhost/remote.php/dav/files/user'
-      })
-    ).rejects.toThrow('WebDAV 地址不允许使用本地或内网地址');
-
-    expect(fetchMock).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
 });

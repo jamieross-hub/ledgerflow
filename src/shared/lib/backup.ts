@@ -540,7 +540,7 @@ async function ensureWebdavDirectoriesByPath(
       continue;
     }
 
-    if (![200, 201, 204, 301, 302, 405].includes(response.status)) {
+    if (![200, 201, 204, 301, 302, 400, 403, 405, 409].includes(response.status)) {
       throw new Error(`WebDAV 目录创建失败（${current}，HTTP ${response.status}）`);
     }
   }
