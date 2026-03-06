@@ -1563,17 +1563,6 @@ export function AssistantPage() {
 
         <p className="chat-disclaimer">AI 生成内容仅供参考，请结合原始账单核对后再保存。</p>
 
-        {latestTransaction ? (
-          <div className="chat-latest-bill" aria-label="最近一笔账单">
-            <span>最近一笔</span>
-            <strong>
-              {latestTransaction.note || '未备注'} ·
-              {getTransactionDirection(latestTransaction) === 'inflow' ? ' +' : ' -'}¥
-              {latestTransaction.amount.toFixed(2)}
-            </strong>
-          </div>
-        ) : null}
-
         <form className="chat-input-form" onSubmit={onSubmit}>
           <button
             type="button"
@@ -1585,16 +1574,32 @@ export function AssistantPage() {
             ＋
           </button>
 
-          <textarea
-            ref={wb.textareaRef}
-            className="chat-input-textarea"
-            rows={3}
-            placeholder={inputPlaceholder(wb.status, wb.hasApiKey, mode, t)}
-            value={wb.textInput}
-            onChange={(e) => wb.setTextInput(e.target.value)}
-            onPaste={(e) => void wb.handlePasteImage(e)}
-            onKeyDown={onInputKeyDown}
-          />
+          <div className="chat-input-main">
+            {latestTransaction ? (
+              <div
+                className={`chat-input-context ${wb.textInput.trim() ? 'is-collapsed' : ''}`}
+                aria-label="最近一笔账单"
+              >
+                <span>最近一笔</span>
+                <strong>
+                  {latestTransaction.note || '未备注'} ·
+                  {getTransactionDirection(latestTransaction) === 'inflow' ? ' +' : ' -'}¥
+                  {latestTransaction.amount.toFixed(2)}
+                </strong>
+              </div>
+            ) : null}
+
+            <textarea
+              ref={wb.textareaRef}
+              className="chat-input-textarea"
+              rows={3}
+              placeholder={inputPlaceholder(wb.status, wb.hasApiKey, mode, t)}
+              value={wb.textInput}
+              onChange={(e) => wb.setTextInput(e.target.value)}
+              onPaste={(e) => void wb.handlePasteImage(e)}
+              onKeyDown={onInputKeyDown}
+            />
+          </div>
 
           <input
             ref={wb.fileInputRef}
