@@ -1,11 +1,17 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  TransactionAttachmentItem,
   TransactionItem,
   TransactionSource,
   TransactionStatus
 } from '../../../entities/transaction/types';
 import { formatCurrency, formatDateTime } from '../../../shared/lib/format';
+import {
+  loadWebdavConfig,
+  sanitizeWebdavConfig,
+  webdavUploadFile
+} from '../../../shared/lib/backup';
 
 const STATUS_LABELS: Record<TransactionStatus, string> = {
   pending: '待处理',
@@ -108,6 +114,28 @@ function buildAbnormalAlert(input: TransactionItem): { title: string; detail: st
     title: '金额异常提醒',
     detail: `该笔支出（${formatCurrency(amount)}）显著偏高，建议检查是否重复记账，或确认是否为一次性大额消费。`
   };
+}
+
+function isWebdavReady() {
+  try {
+    const config = sanitizeWebdavConfig(loadWebdavConfig());
+    return Boolean(config.endpoint && config.username && config.password && config.remoteFilePath);
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeAttachmentFileName(name: string): string {
+  return name.replace(/[\\/:*?"<>|\s]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'attachment';
+}
+
+function buildAttachmentRemotePath(transaction: TransactionItem, file: File): string {
+  const config = loadWebdavConfig();
+  const baseFolder = String(config.remoteFilePath || 'ledgerflow/backup.json').split('/').slice(0, -1).join('/');
+  const ext = file.name.includes('.') ? file.name.split('.').pop() : '';
+  const safeName = sanitizeAttachmentFileName(file.name.replace(/\.[^.]+$/, ''));
+  const finalName = `${transaction.id}-${Date.now()}-${safeName}${ext ? `.${ext}` : ''}`;
+  return `${baseFolder || 'ledgerflow'}/attachments/${transaction.id}/${finalName}`;
 }
 
 function buildPrintStyles(): string {
@@ -266,6 +294,8 @@ interface TransactionDetailDrawerProps {
   onCopyJson: () => void;
   onDelete: () => void;
   onAiRecategorize: () => void;
+  onAttachmentUploaded?: (attachment: TransactionAttachmentItem) => void;
+  onAttachmentUploadStatus?: (message: string, tone: 'success' | 'error' | 'warning') => void;
   aiRecategorizing?: boolean;
   privacyMode?: boolean;
   visibleSections: Record<TransactionDetailSectionKey, boolean>;
@@ -286,6 +316,8 @@ export function TransactionDetailDrawer({
   onCopyJson,
   onDelete,
   onAiRecategorize,
+  onAttachmentUploaded,
+  onAttachmentUploadStatus,
   aiRecategorizing = false,
   privacyMode = false,
   visibleSections,
@@ -296,10 +328,56 @@ export function TransactionDetailDrawer({
     const saved = window.localStorage.getItem(DETAIL_MODE_STORAGE_KEY);
     return saved === 'timeline' ? 'timeline' : 'professional';
   });
+  const [attachmentUploading, setAttachmentUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const setDetailMode = (next: DetailMode) => {
     setMode(next);
     window.localStorage.setItem(DETAIL_MODE_STORAGE_KEY, next);
+  };
+
+  const handleAttachmentSelect = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !transaction) {
+      return;
+    }
+
+    if (!isWebdavReady()) {
+      onAttachmentUploadStatus?.('当前未完成 WebDAV 配置，请先去数据库 / WebDAV 设置页完成配置。', 'warning');
+      return;
+    }
+
+    try {
+      setAttachmentUploading(true);
+      const config = sanitizeWebdavConfig(loadWebdavConfig());
+      const remotePath = buildAttachmentRemotePath(transaction, file);
+      const result = await webdavUploadFile(config, remotePath, file, file.type || undefined);
+      onAttachmentUploaded?.({
+        id: `att-${Date.now()}`,
+        name: file.name,
+        uploadedAt: new Date().toISOString(),
+        remotePath: result.remotePath,
+        mimeType: file.type || undefined,
+        size: file.size
+      });
+      onAttachmentUploadStatus?.('附件已上传并关联到账单详情。', 'success');
+    } catch (error) {
+      onAttachmentUploadStatus?.(
+        error instanceof Error ? error.message : '附件上传失败，请稍后重试。',
+        'error'
+      );
+    } finally {
+      setAttachmentUploading(false);
+    }
+  };
+
+  const triggerAttachmentSelect = () => {
+    if (!isWebdavReady()) {
+      onAttachmentUploadStatus?.('当前未完成 WebDAV 配置，请先去数据库 / WebDAV 设置页完成配置。', 'warning');
+      return;
+    }
+    fileInputRef.current?.click();
   };
 
   const handlePrint = () => {
@@ -724,6 +802,39 @@ export function TransactionDetailDrawer({
             <section className="drawer-section">
               <h4>备注</h4>
               <p>{transaction.note || '（无）'}</p>
+            </section>
+          ) : null}
+
+          {mode === 'professional' ? (
+            <section className="drawer-section">
+              <h4>附件</h4>
+              <p className="muted" style={{ marginBottom: 8 }}>
+                附件统一上传到 WebDAV；未配置时不可上传。
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                style={{ display: 'none' }}
+                onChange={handleAttachmentSelect}
+                aria-label="上传附件"
+              />
+              <button type="button" onClick={triggerAttachmentSelect} disabled={attachmentUploading}>
+                {attachmentUploading ? '上传中…' : '插入附件 / 上传附件'}
+              </button>
+              {transaction.attachments && transaction.attachments.length > 0 ? (
+                <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                  {transaction.attachments.map((item) => (
+                    <div key={item.id} className="drawer-kv">
+                      <span>{item.name}</span>
+                      <strong>
+                        {formatDateTime(item.uploadedAt)} · {item.remotePath}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted" style={{ marginTop: 8 }}>暂无附件。</p>
+              )}
             </section>
           ) : null}
 

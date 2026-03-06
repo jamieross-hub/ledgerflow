@@ -3,6 +3,19 @@ import { describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { TransactionDetailDrawer } from './TransactionDetailDrawer';
 
+vi.mock('../../../shared/lib/backup', () => ({
+  loadWebdavConfig: vi.fn(() => ({
+    endpoint: '',
+    username: '',
+    password: '',
+    remoteFilePath: 'ledgerflow/backup.json',
+    proxyEnabled: true,
+    proxyBasePath: '/api/webdav'
+  })),
+  sanitizeWebdavConfig: vi.fn((input) => input),
+  webdavUploadFile: vi.fn()
+}));
+
 const sample = {
   id: 'tx_1',
   type: 'expense' as const,
@@ -135,5 +148,43 @@ describe('TransactionDetailDrawer', () => {
     fireEvent.click(screen.getByRole('tab', { name: '时间轴模式' }));
     expect(screen.getByLabelText('交易时间轴')).toBeInTheDocument();
     expect(screen.getByText(/关联原单：原始订单/)).toBeInTheDocument();
+  });
+
+  it('未配置 WebDAV 时应提示不可上传', () => {
+    const onAttachmentUploadStatus = vi.fn();
+
+    render(
+      <MemoryRouter>
+        <TransactionDetailDrawer
+          open
+          transaction={sample}
+          categoryName="餐饮"
+          accountName="现金"
+          source="manual"
+          onClose={() => undefined}
+          onCopyNote={() => undefined}
+          onCopyJson={() => undefined}
+          onDelete={() => undefined}
+          onAiRecategorize={() => undefined}
+          onAttachmentUploadStatus={onAttachmentUploadStatus}
+          visibleSections={{
+            base: true,
+            source: true,
+            note: true,
+            tags: true,
+            json: false
+          }}
+          onToggleSection={() => undefined}
+          onQuickAdd={() => undefined}
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: '专业模式' }));
+    fireEvent.click(screen.getByRole('button', { name: '插入附件 / 上传附件' }));
+    expect(onAttachmentUploadStatus).toHaveBeenCalledWith(
+      expect.stringContaining('WebDAV 配置'),
+      'warning'
+    );
   });
 });

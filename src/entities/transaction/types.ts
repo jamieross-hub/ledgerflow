@@ -6,6 +6,15 @@ export type TransactionStatus = 'pending' | 'completed' | 'refunded' | 'closed' 
 
 export type TransactionAdjustmentKind = 'normal' | 'refund' | 'reversal';
 
+export interface TransactionAttachmentItem {
+  id: string;
+  name: string;
+  uploadedAt: string;
+  remotePath: string;
+  mimeType?: string;
+  size?: number;
+}
+
 export interface TransactionItem {
   id: string;
   type: TransactionType;
@@ -21,4 +30,5 @@ export interface TransactionItem {
   status?: TransactionStatus;
   adjustmentKind?: TransactionAdjustmentKind;
   refundOfTransactionId?: string;
+  attachments?: TransactionAttachmentItem[];
 }

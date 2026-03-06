@@ -462,7 +462,8 @@ export function RepaymentManagementPage() {
     addRepaymentRecord,
     replaceDebts,
     removeDebt,
-    removeRepaymentRecord
+    removeRepaymentRecord,
+    updateDebt
   } = useAppPreferences();
   const { baseUrl, apiKey, model } = useAiSettings();
   const transactions = useFinanceStore((state) => state.transactions);
@@ -502,6 +503,8 @@ export function RepaymentManagementPage() {
   const [debtFormError, setDebtFormError] = useState('');
   const [debtToastVisible, setDebtToastVisible] = useState(false);
   const [repaymentRecordToastVisible, setRepaymentRecordToastVisible] = useState(false);
+  const [repaymentRecordToastMessage, setRepaymentRecordToastMessage] = useState('还款记录已添加');
+  const [repaymentRecordToastVariant, setRepaymentRecordToastVariant] = useState<'success' | 'warning'>('success');
   const [addDebtSuccess, setAddDebtSuccess] = useState(false);
   const [newDebtId, setNewDebtId] = useState('');
   const [repaymentDebtId, setRepaymentDebtId] = useState('');
@@ -692,10 +695,34 @@ export function RepaymentManagementPage() {
 
   const recentRepaymentRecords = useMemo(() => {
     return repaymentRecords
-      .map((item) => ({
-        ...item,
-        debtName: debts.find((debt) => debt.id === item.debtId)?.name || '未知负债'
-      }))
+      .map((item) => {
+        const debt = debts.find((entry) => entry.id === item.debtId);
+        const minimumPayment = debt ? calculateDebtMinimumPayment(debt) : 0;
+        const matchedAmount = debt ? Number((debt.balance + item.amount).toFixed(2)) : item.amount;
+        const normalizedMinimum = Math.max(1, minimumPayment * 0.98);
+        const resultTag =
+          item.amount > matchedAmount
+            ? 'overpayment'
+            : item.amount + 0.01 < normalizedMinimum
+              ? 'partial'
+              : 'normal';
+        const resultLabel =
+          resultTag === 'overpayment'
+            ? '超额还款'
+            : resultTag === 'partial'
+              ? '部分还款'
+              : '正常还款';
+
+        return {
+          ...item,
+          debtName: debt?.name || '未知负债',
+          resultTag,
+          resultLabel,
+          debtBalanceAfter: debt?.balance,
+          matchedMinimumPayment: minimumPayment,
+          matchedAmount
+        };
+      })
       .sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime())
       .slice(0, 8);
   }, [debts, repaymentRecords]);
@@ -981,15 +1008,55 @@ export function RepaymentManagementPage() {
       return;
     }
 
+    const targetDebt = debts.find((item) => item.id === repaymentDebtId);
+    if (!targetDebt) {
+      setRepaymentRecordError('未找到对应负债，请刷新后重试。');
+      return;
+    }
+
+    const minimumPayment = calculateDebtMinimumPayment(targetDebt);
+    const nextBalance = Math.max(0, Number((targetDebt.balance - amount).toFixed(2)));
+    const shouldAdvancePeriod = amount >= Math.max(1, minimumPayment * 0.98);
+    const nextPaidPeriods = targetDebt.totalPeriods
+      ? Math.min(targetDebt.totalPeriods, (targetDebt.paidPeriods || 0) + (shouldAdvancePeriod ? 1 : 0))
+      : targetDebt.paidPeriods;
+    const nextRemainingMonths =
+      typeof targetDebt.remainingMonths === 'number'
+        ? Math.max(0, targetDebt.remainingMonths - (shouldAdvancePeriod ? 1 : 0))
+        : targetDebt.remainingMonths;
+    const resultTag =
+      amount > targetDebt.balance
+        ? 'overpayment'
+        : amount + 0.01 < Math.max(1, minimumPayment * 0.98)
+          ? 'partial'
+          : 'normal';
+    const resultMessage =
+      resultTag === 'overpayment'
+        ? `${targetDebt.name} 已登记超额还款，剩余本金已归零。`
+        : resultTag === 'partial'
+          ? `${targetDebt.name} 已登记部分还款，未达到最低/期供金额。`
+          : `${targetDebt.name} 已登记正常还款，台账已同步更新。`;
+
     addRepaymentRecord({
       debtId: repaymentDebtId,
       amount,
       paidAt: repaymentPaidAt,
-      paymentAccount: repaymentPaymentAccount.trim() || undefined,
+      paymentAccount: repaymentPaymentAccount.trim() || targetDebt.paymentAccount || undefined,
       note: repaymentNote.trim() || undefined,
       recordMode: repaymentRecordModeInput
     });
 
+    updateDebt(repaymentDebtId, {
+      ...targetDebt,
+      balance: nextBalance,
+      paidPeriods: nextPaidPeriods,
+      remainingMonths: nextRemainingMonths,
+      paymentAccount: repaymentPaymentAccount.trim() || targetDebt.paymentAccount,
+      repaymentRecordMode: repaymentRecordModeInput
+    });
+
+    setRepaymentRecordToastMessage(resultMessage);
+    setRepaymentRecordToastVariant(resultTag === 'partial' ? 'warning' : 'success');
     setRepaymentDebtId('');
     setRepaymentAmount('');
     setRepaymentPaidAt(new Date().toISOString().slice(0, 10));
@@ -1806,7 +1873,14 @@ export function RepaymentManagementPage() {
                       </strong>
                       <p className="muted" style={{ margin: 0 }}>
                         {item.paidAt} · {item.paymentAccount || '未填扣款账户'} ·{' '}
-                        {REPAYMENT_RECORD_MODE_LABELS[item.recordMode]}
+                        {REPAYMENT_RECORD_MODE_LABELS[item.recordMode]} · {item.resultLabel}
+                      </p>
+                      <p className="muted" style={{ margin: '4px 0 0' }}>
+                        {item.resultTag === 'partial'
+                          ? `未达到最低/期供 ¥${item.matchedMinimumPayment.toFixed(2)}，当前更像补记部分还款。`
+                          : item.resultTag === 'overpayment'
+                            ? `本次金额已覆盖剩余本金，台账余额已归零。`
+                            : `已联动回写台账，当前剩余本金 ¥${(item.debtBalanceAfter || 0).toFixed(2)}。`}
                       </p>
                       {item.note ? (
                         <p className="muted" style={{ margin: '4px 0 0' }}>
@@ -2032,9 +2106,9 @@ export function RepaymentManagementPage() {
         />
         <Toast
           visible={repaymentRecordToastVisible}
-          message="还款记录已添加"
-          variant="success"
-          duration={1200}
+          message={repaymentRecordToastMessage}
+          variant={repaymentRecordToastVariant}
+          duration={1600}
           onClose={() => setRepaymentRecordToastVisible(false)}
         />
       </section>

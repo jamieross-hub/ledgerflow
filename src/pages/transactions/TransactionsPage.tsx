@@ -36,6 +36,7 @@ import {
 } from '../../features/transactions/hooks/useTransactionFilters';
 import { Category } from '../../entities/category/types';
 import {
+  TransactionAttachmentItem,
   TransactionItem,
   TransactionSource,
   TransactionType
@@ -976,6 +977,26 @@ export function TransactionsPage() {
   const showToast = (message: string, variant: ToastVariant) => {
     setToast({ visible: true, message, variant });
   };
+
+  const handleAttachmentUploaded = useCallback(
+    (attachment: TransactionAttachmentItem) => {
+      if (!selected) {
+        return;
+      }
+      updateTransaction(selected.id, {
+        ...selected,
+        attachments: [attachment, ...(selected.attachments || [])]
+      });
+    },
+    [selected, updateTransaction]
+  );
+
+  const handleAttachmentUploadStatus = useCallback(
+    (message: string, tone: 'success' | 'error' | 'warning') => {
+      showToast(message, tone);
+    },
+    []
+  );
 
   const quickAddCategoryOptions = useMemo(() => {
     const matched = categories.filter(
@@ -2332,6 +2353,8 @@ export function TransactionsPage() {
               setAiRecategorizingId(null);
             });
         }}
+        onAttachmentUploaded={handleAttachmentUploaded}
+        onAttachmentUploadStatus={handleAttachmentUploadStatus}
         aiRecategorizing={selected ? aiRecategorizingId === selected.id : false}
         privacyMode={privacyMode}
         visibleSections={visibleDetailSections}

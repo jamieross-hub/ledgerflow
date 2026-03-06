@@ -583,6 +583,35 @@ export async function webdavUploadBackup(
   }
 }
 
+export async function webdavUploadFile(
+  config: BackupWebdavConfig,
+  remoteFilePath: string,
+  file: Blob,
+  contentType?: string
+): Promise<{ remotePath: string }> {
+  try {
+    const sanitized = sanitizeWebdavConfig(config);
+    const normalizedRemotePath = normalizeRemoteFilePath(remoteFilePath);
+    await ensureWebdavDirectoriesByPath(sanitized, normalizedRemotePath);
+    const url = joinWebdavPath(sanitized, normalizedRemotePath);
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: buildWebdavHeaders(sanitized, {
+        'Content-Type': contentType || 'application/octet-stream'
+      }),
+      body: file
+    });
+
+    if (!response.ok) {
+      throw new Error(`WebDAV 上传失败（HTTP ${response.status}）`);
+    }
+
+    return { remotePath: normalizedRemotePath };
+  } catch (error) {
+    throw normalizeWebdavError('上传', error);
+  }
+}
+
 export async function webdavDownloadBackup(
   config: BackupWebdavConfig
 ): Promise<FinanceBackupPayload> {
