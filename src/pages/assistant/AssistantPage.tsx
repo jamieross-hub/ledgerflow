@@ -499,6 +499,14 @@ export function AssistantPage() {
         .find((item) => item.type !== 'budget') ?? null,
     [transactions]
   );
+  const recentTimelineTransactions = useMemo(
+    () =>
+      [...transactions]
+        .filter((item) => item.type !== 'budget')
+        .sort((a, b) => +new Date(b.date) - +new Date(a.date))
+        .slice(0, 3),
+    [transactions]
+  );
   const lastAssistantRef = useRef<Record<AssistantMode, string>>({
     bookkeeping: '',
     assistant: ''
@@ -1235,6 +1243,39 @@ export function AssistantPage() {
                       ))}
                     </div>
                   </div>
+
+                  {recentTimelineTransactions.length > 0 ? (
+                    <div className="chat-insight-section" aria-label="最近记账时间轴">
+                      <div className="chat-insight-section-head">
+                        <h3>🧾 最近记账</h3>
+                        <span>只看最近三条，够快，不啰嗦</span>
+                      </div>
+                      <div className="chat-recent-timeline">
+                        {recentTimelineTransactions.map((item) => {
+                          const categoryName =
+                            categories.find((category) => category.id === item.categoryId)?.name ||
+                            '未分类';
+                          return (
+                            <article className="chat-recent-timeline-item" key={item.id}>
+                              <div className="chat-recent-timeline-dot" aria-hidden />
+                              <div className="chat-recent-timeline-content">
+                                <div className="chat-recent-timeline-top">
+                                  <strong>{item.note || categoryName}</strong>
+                                  <span>
+                                    {getTransactionDirection(item) === 'inflow' ? '+' : '-'}¥
+                                    {item.amount.toFixed(2)}
+                                  </span>
+                                </div>
+                                <p>
+                                  {new Date(item.date).toLocaleString()} · {categoryName}
+                                </p>
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="chat-assistant-layout-side">

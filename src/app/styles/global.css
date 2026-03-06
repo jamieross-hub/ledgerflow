@@ -4007,11 +4007,77 @@ small.mono {
   background: color-mix(in srgb, var(--color-warning-bg) 72%, var(--color-bg-elevated));
 }
 
-.chat-preset-head {
+.chat-recent-timeline {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  padding-left: 8px;
+}
+
+.chat-recent-timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 18%, var(--color-border-light));
+}
+
+.chat-recent-timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.chat-recent-timeline-dot {
+  position: relative;
+  z-index: 1;
+  width: 14px;
+  height: 14px;
+  margin-top: 6px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--color-primary) 36%, var(--color-bg-elevated));
+  background: var(--color-bg-elevated);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.chat-recent-timeline-content {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--color-bg-elevated) 94%, var(--color-primary-bg));
+  display: grid;
+  gap: 4px;
+}
+
+.chat-recent-timeline-top {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: 8px;
+}
+
+.chat-recent-timeline-top strong {
+  min-width: 0;
+  font-size: var(--font-sm);
+  color: var(--color-text);
+}
+
+.chat-recent-timeline-top span {
+  flex-shrink: 0;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.chat-recent-timeline-content p {
+  margin: 0;
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
 }
 
 .chat-preset-head strong {
