@@ -7436,11 +7436,14 @@ body.categories-accounts-resizing {
   align-items: center;
   justify-content: center;
   line-height: 1;
+  position: relative;
+  isolation: isolate;
 }
 
 .smart-budget-filter-group button::before,
 .smart-budget-filter-group button::after {
-  content: none;
+  content: none !important;
+  display: none !important;
 }
 
 .smart-budget-filter-group button.active {
