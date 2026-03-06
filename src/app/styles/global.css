@@ -714,6 +714,10 @@ body {
 .dashboard-main-grid {
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   align-items: start;
+  transition:
+    grid-template-columns var(--transition-base),
+    gap var(--transition-base),
+    transform var(--transition-base);
 }
 
 @media (min-width: 1800px) {
@@ -3856,12 +3860,17 @@ small.mono {
   grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
   gap: var(--space-3);
   align-items: start;
+  transition:
+    grid-template-columns var(--transition-base),
+    gap var(--transition-base),
+    transform var(--transition-base);
 }
 
 .chat-assistant-layout-main,
 .chat-assistant-layout-side {
   display: grid;
   gap: var(--space-3);
+  transition: gap var(--transition-base), transform var(--transition-base);
 }
 
 .chat-insight-section {
@@ -3902,6 +3911,7 @@ small.mono {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-2);
+  transition: grid-template-columns var(--transition-base), gap var(--transition-base);
 }
 
 .chat-overview-card {
@@ -6235,6 +6245,7 @@ body.categories-accounts-resizing {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: var(--space-2);
+  transition: grid-template-columns var(--transition-base), gap var(--transition-base);
 }
 
 .account-card {
@@ -7434,6 +7445,7 @@ body.categories-accounts-resizing {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
   gap: var(--space-3);
+  transition: grid-template-columns var(--transition-base), gap var(--transition-base);
 }
 
 .drawer-timeline-side {
@@ -9498,6 +9510,7 @@ body.categories-accounts-resizing {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+  transition: grid-template-columns var(--transition-base), gap var(--transition-base);
 }
 
 .transaction-monthly-summary > div {
