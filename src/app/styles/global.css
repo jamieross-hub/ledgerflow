@@ -2188,6 +2188,21 @@ small.mono {
   min-width: 0;
   display: grid;
   justify-items: center;
+  gap: 12px;
+}
+
+.welcome-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border-light));
+  background: color-mix(in srgb, var(--color-bg-elevated) 84%, transparent);
+  color: var(--color-primary);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  backdrop-filter: blur(6px);
 }
 
 .welcome-greeting {
@@ -2218,6 +2233,44 @@ small.mono {
   align-items: center;
   justify-content: center;
   max-width: min(100%, 640px);
+}
+
+.welcome-highlight-grid {
+  width: min(100%, 520px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.welcome-highlight-grid article {
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 14%, var(--color-border-light));
+  background: color-mix(in srgb, var(--color-bg-elevated) 90%, transparent);
+  display: grid;
+  gap: 4px;
+  box-shadow: var(--shadow-xs);
+}
+
+.welcome-highlight-grid span {
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+}
+
+.welcome-highlight-grid strong {
+  font-size: clamp(18px, 2vw, 24px);
+  color: var(--color-text);
+}
+
+.welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.welcome-actions button {
+  min-width: 132px;
 }
 
 .welcome-emoji {
@@ -3063,6 +3116,9 @@ small.mono {
   }
   .welcome-greeting {
     font-size: var(--font-lg);
+  }
+  .welcome-highlight-grid {
+    grid-template-columns: 1fr;
   }
   .welcome-tip {
     border-radius: var(--radius-lg);

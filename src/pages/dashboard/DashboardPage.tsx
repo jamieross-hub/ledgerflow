@@ -1085,11 +1085,30 @@ export function DashboardPage() {
           v{APP_VERSION}
         </span>
         <div className="welcome-content">
+          <div className="welcome-status-badge">今天也适合把账说清楚 ✨</div>
           <h2 className="welcome-greeting">
             {getGreeting(t)}，{t('dashboard.ui.welcome')}
           </h2>
           <p className="welcome-subtitle">{t('dashboard.ui.welcomeSubtitle')}</p>
+          <div className="welcome-highlight-grid" aria-label="首页欢迎摘要">
+            <article>
+              <span>本月结余</span>
+              <strong>{formatCurrency(monthlyBalance)}</strong>
+            </article>
+            <article>
+              <span>当前净资产</span>
+              <strong>{formatCurrency(netAssets)}</strong>
+            </article>
+          </div>
           <p className="welcome-tip">💡 {localizedTips[tipIndex]}</p>
+          <div className="welcome-actions">
+            <button type="button" onClick={() => navigate('/transactions/new?quick=1')}>
+              记一笔
+            </button>
+            <button type="button" onClick={() => navigate('/assistant')}>
+              去问 AI 助手
+            </button>
+          </div>
         </div>
         <div className="welcome-emoji">💰</div>
       </section>
