@@ -797,6 +797,9 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       });
       setEntries([]);
       setStatus('saved');
+      setRawContent('');
+      setRawReasoning('');
+      setLastUsage(null);
       setToast({ visible: true, variant: 'success', message: `已保存 ${rows.length} 条账单` });
       addLog({
         action: 'assistant.save',

@@ -915,8 +915,15 @@ export function AssistantPage() {
   useEffect(() => {
     const responseMode = pendingRequestModeRef.current;
     if (wb.status === 'recognizing') return;
-    if (!wb.rawContent || wb.rawContent === lastAssistantRef.current[responseMode]) return;
-    lastAssistantRef.current[responseMode] = wb.rawContent;
+
+    const bookkeepingPreviewText =
+      responseMode === 'bookkeeping' && wb.entries.length > 0
+        ? `这次我先帮你整理出了 ${wb.entries.length} 条可保存账单。你可以先核对、去重，再决定要不要落到账本。`
+        : '';
+    const messageText = bookkeepingPreviewText || wb.rawContent;
+    if (!messageText || messageText === lastAssistantRef.current[responseMode]) return;
+
+    lastAssistantRef.current[responseMode] = messageText;
     const usageText = wb.lastUsage
       ? `Token 消耗：输入 ${wb.lastUsage.promptTokens} / 输出 ${wb.lastUsage.completionTokens} / 总计 ${wb.lastUsage.totalTokens}`
       : undefined;
@@ -948,7 +955,7 @@ export function AssistantPage() {
     appendMessageToMode(responseMode, {
       id: `${Date.now()}-assistant`,
       role: 'assistant',
-      text: wb.rawContent,
+      text: messageText,
       usageText,
       reasoningText: wb.rawReasoning || undefined,
       embeddingSummaryText,
