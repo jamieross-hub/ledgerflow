@@ -1249,17 +1249,20 @@ export function DashboardPage() {
                         title={`${item.label} 收入 ${formatCurrency(item.income)}，支出 ${formatCurrency(item.expense)}`}
                       >
                         <strong>{item.label}</strong>
-                        <span
-                          style={{ height: `${(item.income / trendMaxValue) * 100}%` }}
-                          className="income"
-                        />
-                        <span
-                          style={{ height: `${(item.expense / trendMaxValue) * 100}%` }}
-                          className="expense"
-                        />
-                        <small>
-                          {formatCurrency(item.income)} / {formatCurrency(item.expense)}
-                        </small>
+                        <div className="dashboard-mini-bars-columns" aria-hidden="true">
+                          <span
+                            style={{ height: `${(item.income / trendMaxValue) * 100}%` }}
+                            className="income"
+                          />
+                          <span
+                            style={{ height: `${(item.expense / trendMaxValue) * 100}%` }}
+                            className="expense"
+                          />
+                        </div>
+                        <div className="dashboard-mini-bars-meta">
+                          <small>收 {formatCurrency(item.income)}</small>
+                          <small>支 {formatCurrency(item.expense)}</small>
+                        </div>
                         {item.expense > budgetWarningLine ? (
                           <em className="dashboard-mini-bar-warning">超预警</em>
                         ) : null}
