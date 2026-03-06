@@ -70,6 +70,7 @@ export function TransactionFilters({
   return (
     <section className="panel transaction-filters-panel">
       <h2>交易记录</h2>
+      <p className="surface-caption transaction-filters-caption">把首屏注意力放在流水本身，筛选与操作保持就近、克制、可展开。</p>
 
       <div className="transaction-filters-primary-row">
         <div className="field" style={{ marginBottom: 0 }}>

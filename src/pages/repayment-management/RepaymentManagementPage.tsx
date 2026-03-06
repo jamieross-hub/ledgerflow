@@ -1282,7 +1282,7 @@ export function RepaymentManagementPage() {
     <div className="page-stack finance-page">
       <section className="card">
         <h2 style={{ marginTop: 0 }}>💳 负债管理</h2>
-        <p className="muted">支持信用卡、消费贷、贷款，自动计算每月最低还款额与总负债压力。</p>
+        <p className="muted surface-note">支持信用卡、消费贷、贷款，自动计算每月最低还款额与总负债压力。</p>
 
         <div className="card finance-overview-panel" style={{ marginTop: 12, padding: 12 }}>
           <h3 style={{ marginTop: 0 }}>📊 负债压力总览</h3>
