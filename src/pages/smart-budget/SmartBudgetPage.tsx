@@ -902,7 +902,7 @@ export function SmartBudgetPage() {
                             key={`${row.category}-${point.monthKey}`}
                             title={`${point.monthLabel}：${(point.ratio * 100).toFixed(1)}%`}
                           >
-                            <span style={{ height: `${Math.min(point.ratio * 100, 160)}%` }} />
+                            <span style={{ height: `${Math.min(point.ratio * 100, 92)}%` }} />
                           </div>
                         ))}
                       </div>
