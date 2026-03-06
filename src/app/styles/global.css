@@ -7014,16 +7014,43 @@ body.categories-accounts-resizing {
   font-size: 13px;
 }
 
-.chat-semantic-status-bar {
+.chat-semantic-status-panel {
   margin-bottom: 8px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  overflow: hidden;
+}
+
+.chat-semantic-status-panel summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-subtle);
+  cursor: pointer;
+  padding: 8px 10px;
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+  list-style: none;
+}
+
+.chat-semantic-status-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.chat-semantic-status-panel summary span {
+  color: var(--color-text-tertiary);
+}
+
+.chat-semantic-status-bar {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px 10px;
+  border-top: 1px solid var(--color-border-light);
+  background: transparent;
 }
 
 .chat-semantic-status-text {

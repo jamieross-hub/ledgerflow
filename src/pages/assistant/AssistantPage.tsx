@@ -1468,38 +1468,47 @@ export function AssistantPage() {
 
       <section className="chat-input-bar">
         {mode === 'assistant' ? (
-          <div className="chat-semantic-status-bar">
-            <span className="chat-semantic-status-text">
-              语义召回：
-              {wb.semanticRecallCacheMeta.exists
-                ? `已建立 · ${wb.semanticRecallCacheMeta.indexedDocs} 条 · ${wb.semanticRecallCacheMeta.updatedAt ? new Date(wb.semanticRecallCacheMeta.updatedAt).toLocaleString() : '-'}`
-                : '未建立'}
-            </span>
-            <div className="chat-semantic-status-actions">
-              <button
-                type="button"
-                className="chat-secondary-action-btn"
-                onClick={() => {
-                  wb.refreshSemanticRecallCacheMeta();
-                  wb.setToastState('语义召回索引状态已刷新', 'success');
-                }}
-              >
-                刷新
-              </button>
-              <button
-                type="button"
-                className="chat-secondary-action-btn"
-                onClick={() => {
-                  const ok = wb.clearSemanticRecallIndex();
-                  if (!ok) {
-                    wb.setToastState('请先配置 Base URL 与 Embedding 模型后再清理缓存', 'warning');
-                  }
-                }}
-              >
-                清缓存
-              </button>
+          <details className="chat-semantic-status-panel">
+            <summary>
+              语义召回
+              <span>
+                {wb.semanticRecallCacheMeta.exists
+                  ? `已建立 · ${wb.semanticRecallCacheMeta.indexedDocs} 条`
+                  : '未建立'}
+              </span>
+            </summary>
+            <div className="chat-semantic-status-bar">
+              <span className="chat-semantic-status-text">
+                {wb.semanticRecallCacheMeta.exists
+                  ? `索引已建立 · ${wb.semanticRecallCacheMeta.indexedDocs} 条 · ${wb.semanticRecallCacheMeta.updatedAt ? new Date(wb.semanticRecallCacheMeta.updatedAt).toLocaleString() : '-'}`
+                  : '当前尚未建立语义召回索引'}
+              </span>
+              <div className="chat-semantic-status-actions">
+                <button
+                  type="button"
+                  className="chat-secondary-action-btn"
+                  onClick={() => {
+                    wb.refreshSemanticRecallCacheMeta();
+                    wb.setToastState('语义召回索引状态已刷新', 'success');
+                  }}
+                >
+                  刷新
+                </button>
+                <button
+                  type="button"
+                  className="chat-secondary-action-btn"
+                  onClick={() => {
+                    const ok = wb.clearSemanticRecallIndex();
+                    if (!ok) {
+                      wb.setToastState('请先配置 Base URL 与 Embedding 模型后再清理缓存', 'warning');
+                    }
+                  }}
+                >
+                  清缓存
+                </button>
+              </div>
             </div>
-          </div>
+          </details>
         ) : null}
         {shouldShowError ? (
           <div className="chat-error-strip" role="alert">
