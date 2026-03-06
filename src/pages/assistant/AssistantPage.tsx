@@ -1462,17 +1462,14 @@ export function AssistantPage() {
 
       <section className="chat-input-bar">
         {mode === 'assistant' ? (
-          <div
-            className="chat-auto-card"
-            style={{ marginBottom: 10, display: 'grid', gap: 8, borderStyle: 'dashed' }}
-          >
-            <div style={{ fontSize: 12, opacity: 0.88 }}>
-              语义召回索引状态：
+          <div className="chat-semantic-status-bar">
+            <span className="chat-semantic-status-text">
+              语义召回：
               {wb.semanticRecallCacheMeta.exists
-                ? `已建立（模型 ${wb.semanticRecallCacheMeta.model || '-'}，索引 ${wb.semanticRecallCacheMeta.indexedDocs} 条，更新时间 ${wb.semanticRecallCacheMeta.updatedAt ? new Date(wb.semanticRecallCacheMeta.updatedAt).toLocaleString() : '-' }）`
+                ? `已建立 · ${wb.semanticRecallCacheMeta.indexedDocs} 条 · ${wb.semanticRecallCacheMeta.updatedAt ? new Date(wb.semanticRecallCacheMeta.updatedAt).toLocaleString() : '-'}`
                 : '未建立'}
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            </span>
+            <div className="chat-semantic-status-actions">
               <button
                 type="button"
                 className="chat-secondary-action-btn"
@@ -1481,7 +1478,7 @@ export function AssistantPage() {
                   wb.setToastState('语义召回索引状态已刷新', 'success');
                 }}
               >
-                刷新索引状态
+                刷新
               </button>
               <button
                 type="button"
@@ -1493,7 +1490,7 @@ export function AssistantPage() {
                   }
                 }}
               >
-                清理语义召回缓存
+                清缓存
               </button>
             </div>
           </div>
