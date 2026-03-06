@@ -2142,38 +2142,46 @@ small.mono {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-5);
-  padding: var(--space-6);
+  justify-content: center;
+  gap: var(--space-4);
+  padding: clamp(28px, 4vw, 42px) var(--space-6);
   margin-bottom: var(--space-4);
-  border-radius: var(--radius-lg);
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-xs);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 46%),
+    linear-gradient(135deg, color-mix(in srgb, var(--color-primary-bg) 92%, var(--color-bg-elevated)), color-mix(in srgb, var(--color-bg-elevated) 86%, var(--color-primary-bg)));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, var(--color-border));
+  box-shadow: var(--shadow-sm);
   animation: panel-fade 0.3s ease both;
+  overflow: hidden;
+  text-align: center;
 }
 
 .welcome-version-tag {
   position: absolute;
-  top: var(--space-2);
+  top: var(--space-3);
   right: var(--space-3);
   font-size: 11px;
-  color: var(--color-text-tertiary);
-  background: color-mix(in srgb, var(--color-bg-subtle) 90%, transparent);
-  border: 1px solid var(--color-border-light);
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-bg-elevated) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border-light));
   border-radius: var(--radius-full);
-  padding: 1px 6px;
+  padding: 2px 8px;
+  backdrop-filter: blur(6px);
 }
 
 .welcome-content {
-  flex: 1;
+  flex: 0 1 760px;
   min-width: 0;
+  display: grid;
+  justify-items: center;
 }
 
 .welcome-greeting {
   margin: 0 0 var(--space-2) 0;
-  font-size: var(--font-xl);
-  font-weight: 700;
+  font-size: clamp(28px, 4vw, 36px);
+  font-weight: 800;
+  line-height: 1.2;
   color: var(--color-text);
 }
 
@@ -2182,24 +2190,29 @@ small.mono {
   font-size: var(--font-base);
   line-height: var(--leading-relaxed);
   color: var(--color-text-secondary);
+  max-width: 56ch;
 }
 
 .welcome-tip {
   margin: 0;
   font-size: var(--font-sm);
-  color: var(--color-text-tertiary);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-subtle);
-  border: 1px solid var(--color-border-light);
-  display: inline-block;
+  color: var(--color-text-secondary);
+  padding: 10px 14px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-bg-elevated) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 14%, var(--color-border-light));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: min(100%, 640px);
 }
 
 .welcome-emoji {
-  font-size: 52px;
+  font-size: clamp(48px, 5vw, 64px);
   line-height: 1;
   flex-shrink: 0;
   animation: welcome-float 3s ease-in-out infinite;
+  filter: drop-shadow(0 10px 24px color-mix(in srgb, var(--color-primary) 18%, transparent));
 }
 
 .dashboard-getting-started {
@@ -3023,11 +3036,19 @@ small.mono {
     text-align: center;
     padding: var(--space-5);
   }
+  .welcome-version-tag {
+    top: var(--space-2);
+    right: var(--space-2);
+  }
   .welcome-emoji {
     font-size: 40px;
   }
   .welcome-greeting {
     font-size: var(--font-lg);
+  }
+  .welcome-tip {
+    border-radius: var(--radius-lg);
+    white-space: normal;
   }
   .stat-icon {
     font-size: 22px;
