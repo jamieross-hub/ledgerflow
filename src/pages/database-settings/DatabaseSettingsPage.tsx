@@ -379,6 +379,19 @@ export function DatabaseSettingsPage() {
             />
           </div>
           <div className="field" style={{ marginBottom: 0 }}>
+            <label>保留版本数</label>
+            <input
+              title="保留版本数"
+              type="number"
+              min={1}
+              max={50}
+              value={webdav.retainedVersions}
+              onChange={(e) =>
+                setWebdav((prev) => ({ ...prev, retainedVersions: Number(e.target.value) || 1 }))
+              }
+            />
+          </div>
+          <div className="field" style={{ marginBottom: 0 }}>
             <label>用户名</label>
             <input
               title="WebDAV 用户名"
@@ -413,6 +426,7 @@ export function DatabaseSettingsPage() {
           {webdav.proxyEnabled
             ? '当前已启用代理：浏览器请求代理入口路径，代理服务再转发到上方“真实 WebDAV 地址”。'
             : '当前为浏览器直连 WebDAV：目标服务必须允许当前站点跨域访问。'}
+          {' '}当前上传将生成带时间戳的备份文件，并按保留版本数自动清理旧版本；下载恢复默认优先取最新版本。
         </p>
 
         <div className="row" style={{ gap: 8, marginTop: 12, flexWrap: 'wrap' }}>

@@ -11,6 +11,8 @@ export interface BackupWebdavConfig {
   username: string;
   password: string;
   remoteFilePath: string;
+  /** 最多保留多少个版本化备份 */
+  retainedVersions: number;
   /** 是否通过同源代理请求（用于规避浏览器跨域限制） */
   proxyEnabled: boolean;
   /** 同源代理入口路径，例如：/api/webdav */
@@ -104,6 +106,14 @@ function normalizeRemoteFilePath(path: string): string {
   return segments.join('/');
 }
 
+function normalizeRetainedVersions(value: unknown): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 5;
+  }
+  return Math.min(50, Math.max(1, Math.round(numeric)));
+}
+
 export function sanitizeWebdavConfig(config: BackupWebdavConfig): BackupWebdavConfig {
   const endpoint = normalizeWebdavEndpoint(config.endpoint);
   const remoteFilePath = normalizeRemoteFilePath(config.remoteFilePath);
@@ -114,6 +124,7 @@ export function sanitizeWebdavConfig(config: BackupWebdavConfig): BackupWebdavCo
     username: config.username.trim(),
     password: config.password,
     remoteFilePath,
+    retainedVersions: normalizeRetainedVersions(config.retainedVersions),
     proxyEnabled: Boolean(config.proxyEnabled),
     proxyBasePath: config.proxyEnabled
       ? normalizeProxyBasePath(config.proxyBasePath)
@@ -447,6 +458,7 @@ export function loadWebdavConfig(): BackupWebdavConfig {
         username: '',
         password: '',
         remoteFilePath: 'ledgerflow/backup.json',
+        retainedVersions: 5,
         proxyEnabled: true,
         proxyBasePath: '/api/webdav'
       };
@@ -457,6 +469,7 @@ export function loadWebdavConfig(): BackupWebdavConfig {
       username: String(parsed.username || ''),
       password: readWebdavPasswordFromSession() || String(parsed.password || ''),
       remoteFilePath: String(parsed.remoteFilePath || 'ledgerflow/backup.json'),
+      retainedVersions: Number(parsed.retainedVersions || 5),
       proxyEnabled: parsed.proxyEnabled !== false,
       proxyBasePath: String(parsed.proxyBasePath || '/api/webdav')
     });
@@ -466,6 +479,7 @@ export function loadWebdavConfig(): BackupWebdavConfig {
       username: '',
       password: '',
       remoteFilePath: 'ledgerflow/backup.json',
+      retainedVersions: 5,
       proxyEnabled: true,
       proxyBasePath: '/api/webdav'
     };
@@ -546,8 +560,112 @@ async function ensureWebdavDirectoriesByPath(
   }
 }
 
-async function ensureWebdavDirectories(config: BackupWebdavConfig): Promise<void> {
-  await ensureWebdavDirectoriesByPath(config, config.remoteFilePath);
+function buildVersionedBackupPath(remoteFilePath: string, exportedAt: string): string {
+  const normalizedPath = normalizeRemoteFilePath(remoteFilePath);
+  const parts = normalizedPath.split('/');
+  const fileName = parts.pop() || 'backup.json';
+  const dotIndex = fileName.lastIndexOf('.');
+  const baseName = dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName;
+  const ext = dotIndex > 0 ? fileName.slice(dotIndex) : '.json';
+  const stamp = exportedAt.slice(0, 19).replace(/:/g, '-').replace('T', '_');
+  return [...parts, `${baseName}-${stamp}${ext}`].join('/');
+}
+
+function splitRemoteDirAndFile(remoteFilePath: string): { dir: string; file: string } {
+  const normalizedPath = normalizeRemoteFilePath(remoteFilePath);
+  const parts = normalizedPath.split('/');
+  const file = parts.pop() || normalizedPath;
+  return { dir: parts.join('/'), file };
+}
+
+function isVersionedBackupMatch(candidatePath: string, remoteFilePath: string): boolean {
+  const candidate = normalizeRemoteFilePath(candidatePath);
+  const target = normalizeRemoteFilePath(remoteFilePath);
+  const candidateParts = candidate.split('/');
+  const targetParts = target.split('/');
+  const candidateFile = candidateParts.pop() || '';
+  const targetFile = targetParts.pop() || '';
+  if (candidateParts.join('/') !== targetParts.join('/')) {
+    return false;
+  }
+  const dotIndex = targetFile.lastIndexOf('.');
+  const baseName = dotIndex > 0 ? targetFile.slice(0, dotIndex) : targetFile;
+  const ext = dotIndex > 0 ? targetFile.slice(dotIndex) : '.json';
+  const versionedPattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}${ext.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+  return versionedPattern.test(candidateFile);
+}
+
+function extractHrefText(value: string): string {
+  return value.replace(/&amp;/g, '&').trim();
+}
+
+async function listWebdavRemoteFiles(config: BackupWebdavConfig, remoteFilePath: string): Promise<string[]> {
+  const sanitized = sanitizeWebdavConfig(config);
+  const { dir } = splitRemoteDirAndFile(remoteFilePath);
+  const listTarget = dir || remoteFilePath;
+  const response = await fetch(joinWebdavPath(sanitized, listTarget), {
+    method: 'PROPFIND',
+    headers: buildWebdavHeaders(sanitized, {
+      Depth: '1'
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`WebDAV 列目录失败（HTTP ${response.status}）`);
+  }
+
+  const text = await response.text();
+  const matches = Array.from(text.matchAll(/<d:href>(.*?)<\/d:href>|<href>(.*?)<\/href>/g));
+  const paths = matches
+    .map((match) => extractHrefText(match[1] || match[2] || ''))
+    .map((href) => {
+      try {
+        const parsed = new URL(href, sanitized.endpoint);
+        return decodeURIComponent(parsed.pathname.split('/').filter(Boolean).slice(-((dir ? dir.split('/').length : 0) + 1)).join('/'));
+      } catch {
+        return '';
+      }
+    })
+    .filter(Boolean);
+
+  return Array.from(new Set(paths));
+}
+
+async function deleteWebdavFile(config: BackupWebdavConfig, remoteFilePath: string): Promise<void> {
+  const sanitized = sanitizeWebdavConfig(config);
+  const response = await fetch(joinWebdavPath(sanitized, remoteFilePath), {
+    method: 'DELETE',
+    headers: buildWebdavHeaders(sanitized)
+  });
+  if (![200, 202, 204, 404].includes(response.status)) {
+    throw new Error(`WebDAV 删除失败（${remoteFilePath}，HTTP ${response.status}）`);
+  }
+}
+
+async function pruneWebdavBackupVersions(config: BackupWebdavConfig): Promise<void> {
+  const sanitized = sanitizeWebdavConfig(config);
+  const files = await listWebdavRemoteFiles(sanitized, sanitized.remoteFilePath);
+  const matched = files
+    .filter((item) => isVersionedBackupMatch(item, sanitized.remoteFilePath))
+    .sort((a, b) => b.localeCompare(a, 'en'));
+  const obsolete = matched.slice(sanitized.retainedVersions);
+  await Promise.all(obsolete.map((item) => deleteWebdavFile(sanitized, item)));
+}
+
+async function resolveLatestWebdavBackupPath(config: BackupWebdavConfig): Promise<string> {
+  const sanitized = sanitizeWebdavConfig(config);
+  try {
+    const files = await listWebdavRemoteFiles(sanitized, sanitized.remoteFilePath);
+    const matched = files
+      .filter((item) => isVersionedBackupMatch(item, sanitized.remoteFilePath))
+      .sort((a, b) => b.localeCompare(a, 'en'));
+    if (matched.length > 0) {
+      return matched[0];
+    }
+  } catch {
+    // 某些 WebDAV / 代理不支持 PROPFIND，回退到固定路径下载。
+  }
+  return sanitized.remoteFilePath;
 }
 
 function buildBasicAuth(username: string, password: string): string {
@@ -565,11 +683,13 @@ export async function webdavUploadBackup(
   payload: FinanceBackupPayload
 ): Promise<void> {
   try {
-    await ensureWebdavDirectories(config);
-    const url = joinWebdavPath(config, config.remoteFilePath);
+    const sanitized = sanitizeWebdavConfig(config);
+    const versionedRemotePath = buildVersionedBackupPath(sanitized.remoteFilePath, payload.exportedAt);
+    await ensureWebdavDirectoriesByPath(sanitized, versionedRemotePath);
+    const url = joinWebdavPath(sanitized, versionedRemotePath);
     const response = await fetch(url, {
       method: 'PUT',
-      headers: buildWebdavHeaders(config, {
+      headers: buildWebdavHeaders(sanitized, {
         'Content-Type': 'application/json;charset=utf-8'
       }),
       body: JSON.stringify(payload, null, 2)
@@ -577,6 +697,12 @@ export async function webdavUploadBackup(
 
     if (!response.ok) {
       throw new Error(`WebDAV 上传失败（HTTP ${response.status}）`);
+    }
+
+    try {
+      await pruneWebdavBackupVersions(sanitized);
+    } catch {
+      // 版本清理失败不阻断主上传成功，避免代理 / WebDAV 实现差异导致上传整体失败。
     }
   } catch (error) {
     throw normalizeWebdavError('上传', error);
@@ -616,10 +742,12 @@ export async function webdavDownloadBackup(
   config: BackupWebdavConfig
 ): Promise<FinanceBackupPayload> {
   try {
-    const url = joinWebdavPath(config, config.remoteFilePath);
+    const sanitized = sanitizeWebdavConfig(config);
+    const resolvedRemotePath = await resolveLatestWebdavBackupPath(sanitized);
+    const url = joinWebdavPath(sanitized, resolvedRemotePath);
     const response = await fetch(url, {
       method: 'GET',
-      headers: buildWebdavHeaders(config)
+      headers: buildWebdavHeaders(sanitized)
     });
 
     if (!response.ok) {

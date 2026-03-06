@@ -16,6 +16,7 @@ const baseConfig: BackupWebdavConfig = {
   username: 'alice',
   password: 'secret',
   remoteFilePath: '账本备份/2026 02 backup.json',
+  retainedVersions: 3,
   proxyEnabled: true,
   proxyBasePath: '/api/webdav'
 };
@@ -164,6 +165,7 @@ describe('sanitizeWebdavConfig', () => {
 
     expect(sanitized.proxyBasePath).toBe('/api/webdav');
     expect(sanitized.remoteFilePath).toBe('账本备份/2026 02 backup.json');
+    expect(sanitized.retainedVersions).toBe(3);
   });
 
   it('远程文件路径包含空段时应拒绝', () => {
