@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { AppAccentTheme, AppTheme } from '../types/app';
-import { DebtItem, DebtType } from '../../features/debt/model/debtMetrics';
+import { DebtItem, DebtType, RepaymentRecord } from '../../features/debt/model/debtMetrics';
 
 export type RssSubscription = {
   id: string;
@@ -30,6 +30,7 @@ interface AppPreferencesState {
   accentTheme: AppAccentTheme;
   rssSubscriptions: RssSubscription[];
   debts: DebtItem[];
+  repaymentRecords: RepaymentRecord[];
   monthlyIncome: number;
   setTheme: (theme: AppTheme) => void;
   setAccentTheme: (accentTheme: AppAccentTheme) => void;
@@ -42,10 +43,16 @@ interface AppPreferencesState {
   replaceDebts: (payload: Omit<DebtItem, 'id'>[]) => void;
   updateDebt: (id: string, payload: Omit<DebtItem, 'id'>) => void;
   removeDebt: (id: string) => void;
+  addRepaymentRecord: (payload: Omit<RepaymentRecord, 'id' | 'createdAt'>) => void;
+  removeRepaymentRecord: (id: string) => void;
 }
 
 function createDebtId(type: DebtType): string {
   return `debt-${type}-${Date.now()}`;
+}
+
+function createRepaymentRecordId(): string {
+  return `repayment-record-${Date.now()}`;
 }
 
 function normalizeFeedUrl(rawUrl: string): string {
@@ -68,6 +75,7 @@ export const useAppPreferences = create<AppPreferencesState>()(
       accentTheme: 'blue',
       rssSubscriptions: DEFAULT_RSS_SUBSCRIPTIONS,
       debts: [],
+      repaymentRecords: [],
       monthlyIncome: 0,
       setTheme: (theme) => set({ theme }),
       setAccentTheme: (accentTheme) => set({ accentTheme }),
@@ -150,6 +158,23 @@ export const useAppPreferences = create<AppPreferencesState>()(
       removeDebt: (id) => {
         set((state) => ({
           debts: state.debts.filter((item) => item.id !== id)
+        }));
+      },
+      addRepaymentRecord: (payload) => {
+        set((state) => ({
+          repaymentRecords: [
+            {
+              ...payload,
+              id: createRepaymentRecordId(),
+              createdAt: new Date().toISOString()
+            },
+            ...state.repaymentRecords
+          ]
+        }));
+      },
+      removeRepaymentRecord: (id) => {
+        set((state) => ({
+          repaymentRecords: state.repaymentRecords.filter((item) => item.id !== id)
         }));
       }
     }),

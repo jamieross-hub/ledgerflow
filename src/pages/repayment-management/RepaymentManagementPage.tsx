@@ -453,8 +453,17 @@ function simulateRepaymentPlan(input: {
 }
 
 export function RepaymentManagementPage() {
-  const { debts, monthlyIncome, setMonthlyIncome, addDebt, replaceDebts, removeDebt } =
-    useAppPreferences();
+  const {
+    debts,
+    repaymentRecords,
+    monthlyIncome,
+    setMonthlyIncome,
+    addDebt,
+    addRepaymentRecord,
+    replaceDebts,
+    removeDebt,
+    removeRepaymentRecord
+  } = useAppPreferences();
   const { baseUrl, apiKey, model } = useAiSettings();
   const transactions = useFinanceStore((state) => state.transactions);
   const [error, setError] = useState('');
@@ -492,8 +501,17 @@ export function RepaymentManagementPage() {
   const [debtImagePreview, setDebtImagePreview] = useState('');
   const [debtFormError, setDebtFormError] = useState('');
   const [debtToastVisible, setDebtToastVisible] = useState(false);
+  const [repaymentRecordToastVisible, setRepaymentRecordToastVisible] = useState(false);
   const [addDebtSuccess, setAddDebtSuccess] = useState(false);
   const [newDebtId, setNewDebtId] = useState('');
+  const [repaymentDebtId, setRepaymentDebtId] = useState('');
+  const [repaymentAmount, setRepaymentAmount] = useState('');
+  const [repaymentPaidAt, setRepaymentPaidAt] = useState(() => new Date().toISOString().slice(0, 10));
+  const [repaymentPaymentAccount, setRepaymentPaymentAccount] = useState('');
+  const [repaymentNote, setRepaymentNote] = useState('');
+  const [repaymentRecordModeInput, setRepaymentRecordModeInput] =
+    useState<DebtRepaymentRecordMode>('manual');
+  const [repaymentRecordError, setRepaymentRecordError] = useState('');
   const [simulatorExtraPayment, setSimulatorExtraPayment] = useState('1000');
   const debtIdsRef = useRef<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -672,12 +690,23 @@ export function RepaymentManagementPage() {
     });
   }, [repaymentLedgerPreview]);
 
+  const recentRepaymentRecords = useMemo(() => {
+    return repaymentRecords
+      .map((item) => ({
+        ...item,
+        debtName: debts.find((debt) => debt.id === item.debtId)?.name || '未知负债'
+      }))
+      .sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime())
+      .slice(0, 8);
+  }, [debts, repaymentRecords]);
+
   const incomeConfidenceTag =
     incomeSourceTag === 'manual'
       ? '👤 你手动输入'
       : incomeSourceTag === 'ai'
         ? '📊 系统估算'
         : '— 未确定';
+  const isLoanType = debtType === 'loan';
   const trimmedDebtName = debtName.trim();
   const balance = Number(debtBalance);
   const annualRate = Number(debtAnnualRate);
@@ -933,6 +962,42 @@ export function RepaymentManagementPage() {
     setAddDebtSuccess(true);
     window.setTimeout(() => setAddDebtSuccess(false), 800);
     setError('');
+  }
+
+  function onAddRepaymentRecord(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const amount = Number(repaymentAmount);
+    if (!repaymentDebtId) {
+      setRepaymentRecordError('请先选择要登记还款的负债。');
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setRepaymentRecordError('还款金额必须是大于 0 的数字。');
+      return;
+    }
+    if (!repaymentPaidAt) {
+      setRepaymentRecordError('请填写实际还款日期。');
+      return;
+    }
+
+    addRepaymentRecord({
+      debtId: repaymentDebtId,
+      amount,
+      paidAt: repaymentPaidAt,
+      paymentAccount: repaymentPaymentAccount.trim() || undefined,
+      note: repaymentNote.trim() || undefined,
+      recordMode: repaymentRecordModeInput
+    });
+
+    setRepaymentDebtId('');
+    setRepaymentAmount('');
+    setRepaymentPaidAt(new Date().toISOString().slice(0, 10));
+    setRepaymentPaymentAccount('');
+    setRepaymentNote('');
+    setRepaymentRecordModeInput('manual');
+    setRepaymentRecordError('');
+    setRepaymentRecordToastVisible(true);
   }
 
   const onManualIncomeSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -1631,6 +1696,135 @@ export function RepaymentManagementPage() {
         </section>
 
         <section className="card finance-debt-manager-panel" style={{ marginTop: 12, padding: 12 }}>
+          <div className="finance-ledger-header">
+            <div>
+              <h3 style={{ marginTop: 0 }}>🧾 登记一笔还款</h3>
+              <p className="muted" style={{ margin: '4px 0 0 0' }}>
+                手动记录实际还款时间、金额、扣款账户和备注，开始形成真实还款记录层。
+              </p>
+            </div>
+            <span className="finance-debt-entry-icon" aria-hidden>
+              💸
+            </span>
+          </div>
+          <form onSubmit={onAddRepaymentRecord} className="finance-debt-form-grid">
+            <div className="finance-debt-form-row finance-debt-form-row-detail">
+              <select
+                className="finance-debt-form-control"
+                value={repaymentDebtId}
+                onChange={(event) => {
+                  setRepaymentDebtId(event.target.value);
+                  setRepaymentRecordError('');
+                }}
+                aria-label="选择负债"
+              >
+                <option value="">选择要登记还款的负债</option>
+                {debts.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="finance-debt-form-control"
+                type="number"
+                min={0}
+                step="0.01"
+                value={repaymentAmount}
+                onChange={(event) => {
+                  setRepaymentAmount(event.target.value);
+                  setRepaymentRecordError('');
+                }}
+                placeholder="实际还款金额（¥）"
+                aria-label="实际还款金额"
+              />
+              <input
+                className="finance-debt-form-control"
+                type="date"
+                value={repaymentPaidAt}
+                onChange={(event) => {
+                  setRepaymentPaidAt(event.target.value);
+                  setRepaymentRecordError('');
+                }}
+                aria-label="实际还款日期"
+              />
+              <input
+                className="finance-debt-form-control"
+                value={repaymentPaymentAccount}
+                onChange={(event) => {
+                  setRepaymentPaymentAccount(event.target.value);
+                  setRepaymentRecordError('');
+                }}
+                placeholder="实际扣款账户"
+                aria-label="实际扣款账户"
+              />
+              <select
+                className="finance-debt-form-control"
+                value={repaymentRecordModeInput}
+                onChange={(event) => {
+                  setRepaymentRecordModeInput(event.target.value as DebtRepaymentRecordMode);
+                  setRepaymentRecordError('');
+                }}
+                aria-label="还款记录方式"
+              >
+                <option value="manual">记录方式：手动登记</option>
+                <option value="transaction-match">记录方式：交易匹配</option>
+                <option value="auto-debit">记录方式：自动扣款</option>
+              </select>
+              <input
+                className="finance-debt-form-control"
+                value={repaymentNote}
+                onChange={(event) => {
+                  setRepaymentNote(event.target.value);
+                  setRepaymentRecordError('');
+                }}
+                placeholder="备注（可选）"
+                aria-label="备注"
+              />
+            </div>
+            {repaymentRecordError ? (
+              <p className="muted finance-debt-form-error">{repaymentRecordError}</p>
+            ) : null}
+            <div className="finance-debt-form-actions">
+              <button type="submit" className="primary finance-debt-submit" disabled={debts.length === 0}>
+                + 记录这笔还款
+              </button>
+            </div>
+          </form>
+
+          <div className="finance-debt-recent">
+            <h4 className="finance-debt-recent-title">最近还款记录</h4>
+            {recentRepaymentRecords.length === 0 ? (
+              <p className="muted">还没有实际还款记录，先登记一笔看看。</p>
+            ) : (
+              <div className="finance-debt-recent-list">
+                {recentRepaymentRecords.map((item) => (
+                  <div key={item.id} className="finance-debt-item">
+                    <div>
+                      <strong>
+                        {item.debtName} · ¥{item.amount.toFixed(2)}
+                      </strong>
+                      <p className="muted" style={{ margin: 0 }}>
+                        {item.paidAt} · {item.paymentAccount || '未填扣款账户'} ·{' '}
+                        {REPAYMENT_RECORD_MODE_LABELS[item.recordMode]}
+                      </p>
+                      {item.note ? (
+                        <p className="muted" style={{ margin: '4px 0 0' }}>
+                          备注：{item.note}
+                        </p>
+                      ) : null}
+                    </div>
+                    <button type="button" onClick={() => removeRepaymentRecord(item.id)}>
+                      删除
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="card finance-debt-manager-panel" style={{ marginTop: 12, padding: 12 }}>
           <h3 style={{ marginTop: 0 }}>🧾 负债列表管理</h3>
           <p className="muted" style={{ marginTop: 0 }}>
             集中查看与维护全部负债，避免在“添加负债”卡片内堆叠过长。
@@ -1835,6 +2029,13 @@ export function RepaymentManagementPage() {
           variant="success"
           duration={1200}
           onClose={() => setDebtToastVisible(false)}
+        />
+        <Toast
+          visible={repaymentRecordToastVisible}
+          message="还款记录已添加"
+          variant="success"
+          duration={1200}
+          onClose={() => setRepaymentRecordToastVisible(false)}
         />
       </section>
 

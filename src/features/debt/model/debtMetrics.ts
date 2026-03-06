@@ -8,6 +8,17 @@ export type DebtRepaymentMethod =
 
 export type DebtRepaymentRecordMode = 'manual' | 'transaction-match' | 'auto-debit';
 
+export type RepaymentRecord = {
+  id: string;
+  debtId: string;
+  amount: number;
+  paidAt: string;
+  paymentAccount?: string;
+  note?: string;
+  recordMode: DebtRepaymentRecordMode;
+  createdAt: string;
+};
+
 export type DebtItem = {
   id: string;
   name: string;
