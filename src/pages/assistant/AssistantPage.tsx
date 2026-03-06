@@ -502,6 +502,7 @@ export function AssistantPage() {
 
   const [modelOpen, setModelOpen] = useState(false);
   const [presetQuestions, setPresetQuestions] = useState<PresetQuestion[]>([]);
+  const [streamingPreviewMessage, setStreamingPreviewMessage] = useState('');
   const [isMobileView, setIsMobileView] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
   );
@@ -865,6 +866,14 @@ export function AssistantPage() {
     [mode]
   );
 
+  const buildAssistantMessageText = useCallback(
+    (responseMode: AssistantMode) =>
+      responseMode === 'bookkeeping' && wb.entries.length > 0
+        ? `这次我先帮你整理出了 ${wb.entries.length} 条可保存账单。你可以先核对、去重，再决定要不要落到账本。`
+        : wb.rawContent,
+    [wb.entries.length, wb.rawContent]
+  );
+
   const submitPrompt = (prompt: string) => {
     const clean = prompt.trim();
     const hasAttachments = wb.imageDataUrls.length > 0 || wb.pdfDataUrls.length > 0;
@@ -914,16 +923,16 @@ export function AssistantPage() {
 
   useEffect(() => {
     const responseMode = pendingRequestModeRef.current;
-    if (wb.status === 'recognizing') return;
+    if (mode === 'assistant' && wb.status === 'recognizing') {
+      setStreamingPreviewMessage(wb.rawContent);
+      return;
+    }
 
-    const bookkeepingPreviewText =
-      responseMode === 'bookkeeping' && wb.entries.length > 0
-        ? `这次我先帮你整理出了 ${wb.entries.length} 条可保存账单。你可以先核对、去重，再决定要不要落到账本。`
-        : '';
-    const messageText = bookkeepingPreviewText || wb.rawContent;
+    const messageText = buildAssistantMessageText(responseMode);
     if (!messageText || messageText === lastAssistantRef.current[responseMode]) return;
 
     lastAssistantRef.current[responseMode] = messageText;
+    setStreamingPreviewMessage('');
     const usageText = wb.lastUsage
       ? `Token 消耗：输入 ${wb.lastUsage.promptTokens} / 输出 ${wb.lastUsage.completionTokens} / 总计 ${wb.lastUsage.totalTokens}`
       : undefined;
@@ -1135,68 +1144,68 @@ export function AssistantPage() {
       <header className="chat-topbar">
         <div className="chat-topbar-left">
           <span className="chat-topbar-title">{t('assistant.ui.bookkeepingAssistant')}</span>
-          <div className="chat-mode-switch" aria-label="模式切换">
+          <div className="chat-model-selector">
             <button
               type="button"
-              className={mode === 'bookkeeping' ? 'active' : ''}
-              onClick={() => setMode('bookkeeping')}
+              className="chat-model-btn"
+              onClick={() => setModelOpen((v) => !v)}
+              aria-haspopup="listbox"
             >
-              AI 记账
+              {model || t('assistant.ui.selectModel')}
+              <span className="chat-model-arrow">▼</span>
             </button>
-            <button
-              type="button"
-              className={mode === 'assistant' ? 'active' : ''}
-              onClick={() => setMode('assistant')}
-            >
-              {t('assistant.ui.assistantMode')}
-            </button>
+
+            {modelOpen ? (
+              <div className="chat-model-dropdown" role="dialog" aria-label="模型列表">
+                <div className="chat-model-dropdown-header">
+                  <button
+                    type="button"
+                    className="chat-model-fetch-btn"
+                    disabled={wb.loadingModels}
+                    onClick={() => void wb.handleLoadModels()}
+                  >
+                    {wb.loadingModels ? t('assistant.ui.loadingModels') : t('assistant.ui.refreshModels')}
+                  </button>
+                </div>
+                <div className="chat-model-list">
+                  {wb.models.length === 0 ? (
+                    <div className="chat-model-empty">{t('assistant.ui.emptyModels')}</div>
+                  ) : (
+                    wb.models.map((item: string) => (
+                      <button
+                        key={item}
+                        type="button"
+                        className={`chat-model-option ${item === model ? 'active' : ''}`}
+                        onClick={() => {
+                          setModel(item);
+                          setModelOpen(false);
+                        }}
+                      >
+                        {item}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
 
-        <div className="chat-model-selector">
+        <div className="chat-mode-switch" aria-label="模式切换">
           <button
             type="button"
-            className="chat-model-btn"
-            onClick={() => setModelOpen((v) => !v)}
-            aria-haspopup="listbox"
+            className={mode === 'bookkeeping' ? 'active' : ''}
+            onClick={() => setMode('bookkeeping')}
           >
-            {model || t('assistant.ui.selectModel')}
-            <span className="chat-model-arrow">▼</span>
+            AI 记账
           </button>
-
-          {modelOpen ? (
-            <div className="chat-model-dropdown" role="dialog" aria-label="模型列表">
-              <div className="chat-model-dropdown-header">
-                <button
-                  type="button"
-                  className="chat-model-fetch-btn"
-                  disabled={wb.loadingModels}
-                  onClick={() => void wb.handleLoadModels()}
-                >
-                  {wb.loadingModels ? t('assistant.ui.loadingModels') : t('assistant.ui.refreshModels')}
-                </button>
-              </div>
-              <div className="chat-model-list">
-                {wb.models.length === 0 ? (
-                  <div className="chat-model-empty">{t('assistant.ui.emptyModels')}</div>
-                ) : (
-                  wb.models.map((item: string) => (
-                    <button
-                      key={item}
-                      type="button"
-                      className={`chat-model-option ${item === model ? 'active' : ''}`}
-                      onClick={() => {
-                        setModel(item);
-                        setModelOpen(false);
-                      }}
-                    >
-                      {item}
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          ) : null}
+          <button
+            type="button"
+            className={mode === 'assistant' ? 'active' : ''}
+            onClick={() => setMode('assistant')}
+          >
+            {t('assistant.ui.assistantMode')}
+          </button>
         </div>
 
         <div className="chat-topbar-right">
@@ -1212,6 +1221,7 @@ export function AssistantPage() {
             className="chat-clear-btn"
             onClick={() => {
               setChatHistory([]);
+              setStreamingPreviewMessage('');
               wb.resetWorkbench();
               try {
                 window.sessionStorage.removeItem(CHAT_HISTORY_CACHE_KEYS[mode]);
@@ -1223,7 +1233,6 @@ export function AssistantPage() {
           >
             {t('assistant.ui.clearContext')}
           </button>
-          <span className="chat-topbar-provider">{baseUrl || t('assistant.ui.defaultProvider')}</span>
         </div>
       </header>
 
@@ -1526,13 +1535,13 @@ export function AssistantPage() {
             </article>
           ) : null}
 
-          {wb.status === 'recognizing' && mode === 'assistant' && wb.rawContent ? (
+          {streamingPreviewMessage ? (
             <article className="chat-msg">
               <div className="chat-msg-avatar">🤖</div>
               <div className="chat-msg-body">
                 <div className="chat-msg-header">助手（正在生成）</div>
                 <div className="chat-msg-content chat-msg-content-rich">
-                  {renderMarkdownContent(wb.rawContent)}
+                  {renderMarkdownContent(streamingPreviewMessage)}
                 </div>
               </div>
             </article>
