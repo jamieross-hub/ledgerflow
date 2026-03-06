@@ -599,6 +599,32 @@ function extractHrefText(value: string): string {
   return value.replace(/&amp;/g, '&').trim();
 }
 
+function resolveRemotePathFromHref(
+  href: string,
+  endpoint: string,
+  remoteFilePath: string
+): string {
+  const parsed = new URL(href, endpoint);
+  const endpointUrl = new URL(endpoint);
+  const decodedPath = decodeURIComponent(parsed.pathname);
+  const endpointPath = decodeURIComponent(endpointUrl.pathname).replace(/\/+$/, '');
+
+  if (decodedPath.startsWith(`${endpointPath}/`)) {
+    return normalizeRemoteFilePath(decodedPath.slice(endpointPath.length + 1));
+  }
+
+  const { dir } = splitRemoteDirAndFile(remoteFilePath);
+  const dirSegments = dir ? dir.split('/') : [];
+  const pathSegments = decodedPath.split('/').filter(Boolean);
+  const startIndex = dirSegments.length > 0 ? pathSegments.lastIndexOf(dirSegments[0]) : -1;
+
+  if (startIndex >= 0) {
+    return normalizeRemoteFilePath(pathSegments.slice(startIndex).join('/'));
+  }
+
+  return normalizeRemoteFilePath(pathSegments.slice(-((dir ? dirSegments.length : 0) + 1)).join('/'));
+}
+
 async function listWebdavRemoteFiles(config: BackupWebdavConfig, remoteFilePath: string): Promise<string[]> {
   const sanitized = sanitizeWebdavConfig(config);
   const { dir } = splitRemoteDirAndFile(remoteFilePath);
@@ -620,8 +646,7 @@ async function listWebdavRemoteFiles(config: BackupWebdavConfig, remoteFilePath:
     .map((match) => extractHrefText(match[1] || match[2] || ''))
     .map((href) => {
       try {
-        const parsed = new URL(href, sanitized.endpoint);
-        return decodeURIComponent(parsed.pathname.split('/').filter(Boolean).slice(-((dir ? dir.split('/').length : 0) + 1)).join('/'));
+        return resolveRemotePathFromHref(href, sanitized.endpoint, remoteFilePath);
       } catch {
         return '';
       }

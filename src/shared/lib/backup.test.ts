@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  listWebdavBackupVersions,
   loadWebdavConfig,
   parseFinanceBackupPayload,
   sanitizeWebdavConfig,
@@ -175,6 +176,39 @@ describe('sanitizeWebdavConfig', () => {
         remoteFilePath: '账本备份//2026 02 backup.json'
       })
     ).toThrow('远程文件路径不合法，请避免使用空段或 . / ..');
+  });
+});
+
+describe('webdav backup version listing', () => {
+  it('应能从带完整 endpoint 前缀的 PROPFIND href 中识别时间戳版本', async () => {
+    const propfindBody = `<?xml version="1.0"?>
+      <d:multistatus xmlns:d="DAV:">
+        <d:response>
+          <d:href>/remote.php/dav/files/user/%E8%B4%A6%E6%9C%AC%E5%A4%87%E4%BB%BD/</d:href>
+        </d:response>
+        <d:response>
+          <d:href>/remote.php/dav/files/user/%E8%B4%A6%E6%9C%AC%E5%A4%87%E4%BB%BD/2026%2002%20backup-2026-03-06_15-00-00.json</d:href>
+        </d:response>
+        <d:response>
+          <d:href>/remote.php/dav/files/user/%E8%B4%A6%E6%9C%AC%E5%A4%87%E4%BB%BD/2026%2002%20backup-2026-03-05_11-22-33.json</d:href>
+        </d:response>
+      </d:multistatus>`;
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 207,
+      text: () => Promise.resolve(propfindBody)
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const versions = await listWebdavBackupVersions(baseConfig);
+
+    expect(versions).toHaveLength(2);
+    expect(versions[0].remotePath).toBe('账本备份/2026 02 backup-2026-03-06_15-00-00.json');
+    expect(versions[0].isLatest).toBe(true);
+    expect(versions[1].remotePath).toBe('账本备份/2026 02 backup-2026-03-05_11-22-33.json');
+
+    vi.unstubAllGlobals();
   });
 });
 
