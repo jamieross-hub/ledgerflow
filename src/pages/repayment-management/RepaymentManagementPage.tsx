@@ -4,6 +4,8 @@ import {
   calculateDebtHealthScore,
   calculateDebtMinimumPayment,
   calculateDebtSummary,
+  DebtRepaymentMethod,
+  DebtRepaymentRecordMode,
   DebtType
 } from '../../features/debt/model/debtMetrics';
 import { useAiSettings } from '../../shared/store/useAiSettings';
@@ -48,6 +50,19 @@ const REPAYMENT_STRATEGY_LABELS: Record<RepaymentStrategyType, string> = {
   avalanche: '雪崩法（先高利率）',
   snowball: '雪球法（先小余额）',
   ladder: '阶梯法（利率与余额加权）'
+};
+
+const REPAYMENT_METHOD_LABELS: Record<DebtRepaymentMethod, string> = {
+  'minimum-payment': '最低还款',
+  'equal-installment': '等额本息',
+  'equal-principal': '等额本金',
+  custom: '自定义'
+};
+
+const REPAYMENT_RECORD_MODE_LABELS: Record<DebtRepaymentRecordMode, string> = {
+  manual: '手动登记',
+  'transaction-match': '交易匹配',
+  'auto-debit': '自动扣款'
 };
 
 function buildRepaymentSnapshotKey(input: {
@@ -454,6 +469,12 @@ export function RepaymentManagementPage() {
   const [debtTotalRepayment, setDebtTotalRepayment] = useState('');
   const [debtBillDay, setDebtBillDay] = useState('');
   const [debtRepaymentDay, setDebtRepaymentDay] = useState('');
+  const [debtPaymentAccount, setDebtPaymentAccount] = useState('');
+  const [debtRepaymentMethod, setDebtRepaymentMethod] =
+    useState<DebtRepaymentMethod>('minimum-payment');
+  const [debtRepaymentRecordMode, setDebtRepaymentRecordMode] =
+    useState<DebtRepaymentRecordMode>('manual');
+  const [debtGraceDays, setDebtGraceDays] = useState('0');
   const [repaymentAdvice, setRepaymentAdvice] = useState('');
   const [repaymentReasoning, setRepaymentReasoning] = useState('');
   const [repaymentLoading, setRepaymentLoading] = useState(false);
@@ -565,25 +586,92 @@ export function RepaymentManagementPage() {
   const pressurePercent = debtSummary.pressureRatio * 100;
   const pressureRingPercent = Math.min(100, Math.max(0, pressurePercent));
 
-  const repaymentCalendarReminders = useMemo(() => {
+  const repaymentLedgerPreview = useMemo(() => {
     const today = new Date().getDate();
     return debts
-      .map((item) => ({
-        id: item.id,
-        name: item.name,
-        billDay: item.billDay,
-        repaymentDay: item.repaymentDay,
-        minimumPayment: calculateDebtMinimumPayment(item),
-        dueInDays:
+      .map((item) => {
+        const minimumPayment = calculateDebtMinimumPayment(item);
+        const annualRate = getDebtAssumedAnnualRate(
+          item.type,
+          item.annualRate,
+          item.loanPrincipal,
+          item.totalRepayment,
+          item.totalPeriods
+        );
+        const dueInDays =
           typeof item.repaymentDay === 'number'
             ? (item.repaymentDay - today + 31) % 31
-            : Number.POSITIVE_INFINITY
-      }))
-      .filter((item) => Number.isFinite(item.dueInDays))
+            : Number.POSITIVE_INFINITY;
+        const statusTone =
+          !Number.isFinite(dueInDays) || typeof item.repaymentDay !== 'number'
+            ? 'muted'
+            : dueInDays === 0
+              ? 'danger'
+              : dueInDays <= Math.max(1, item.graceDays || 0)
+                ? 'warning'
+                : dueInDays <= 7
+                  ? 'warning'
+                  : 'safe';
+        const statusLabel =
+          !Number.isFinite(dueInDays) || typeof item.repaymentDay !== 'number'
+            ? '待补日期'
+            : dueInDays === 0
+              ? '今日应还'
+              : dueInDays <= Math.max(1, item.graceDays || 0)
+                ? `宽限内 · ${dueInDays} 天后`
+                : dueInDays <= 7
+                  ? `${dueInDays} 天后到期`
+                  : `本期待还 · ${dueInDays} 天后`;
+
+        return {
+          id: item.id,
+          name: item.name,
+          type: item.type,
+          annualRate,
+          minimumPayment,
+          repaymentDay: item.repaymentDay,
+          billDay: item.billDay,
+          paymentAccount: item.paymentAccount,
+          repaymentMethod: item.repaymentMethod || (item.type === 'loan' ? 'equal-installment' : 'minimum-payment'),
+          repaymentRecordMode: item.repaymentRecordMode || 'manual',
+          graceDays: item.graceDays || 0,
+          dueInDays,
+          statusTone,
+          statusLabel,
+          remainingMonths: item.remainingMonths,
+          paidPeriods: item.paidPeriods,
+          totalPeriods: item.totalPeriods,
+          principal: item.balance,
+          missingFields: [
+            !item.repaymentDay ? '还款日' : '',
+            !item.paymentAccount ? '扣款账户' : '',
+            !item.repaymentRecordMode ? '记录方式' : '',
+            item.type === 'loan' && !item.annualRate && !item.totalRepayment ? '计算依据' : ''
+          ].filter(Boolean)
+        };
+      })
       .sort((a, b) => a.dueInDays - b.dueInDays);
   }, [debts]);
 
-  const isLoanType = debtType === 'loan';
+  const repaymentAuditItems = useMemo(() => {
+    return repaymentLedgerPreview.flatMap((item) => {
+      const issues: { id: string; tone: 'warning' | 'danger' | 'info'; text: string }[] = [];
+      if (!item.paymentAccount) {
+        issues.push({ id: `${item.id}-account`, tone: 'warning', text: `${item.name} 未设置扣款账户。` });
+      }
+      if (!item.repaymentDay) {
+        issues.push({ id: `${item.id}-day`, tone: 'danger', text: `${item.name} 未设置还款日，无法进行严谨提醒。` });
+      }
+      if (item.type === 'loan' && item.annualRate <= 0) {
+        issues.push({ id: `${item.id}-formula`, tone: 'warning', text: `${item.name} 缺少明确年化/总还款依据，当前计算解释性不足。` });
+      }
+      if (!item.repaymentRecordMode) {
+        issues.push({ id: `${item.id}-record`, tone: 'info', text: `${item.name} 尚未明确还款记录方式。` });
+      }
+      return issues;
+    });
+  }, [repaymentLedgerPreview]);
+
   const incomeConfidenceTag =
     incomeSourceTag === 'manual'
       ? '👤 你手动输入'
@@ -605,6 +693,7 @@ export function RepaymentManagementPage() {
   const totalRepaymentRaw = debtTotalRepayment.trim();
   const billDay = Number(debtBillDay);
   const repaymentDay = Number(debtRepaymentDay);
+  const graceDays = Number(debtGraceDays);
   const isAnnualRateNumeric = annualRateRaw === '' || /^\d+(\.\d+)?$/.test(annualRateRaw);
   const billDayValid =
     debtBillDay.trim().length === 0 || (Number.isInteger(billDay) && billDay >= 1 && billDay <= 31);
@@ -635,6 +724,9 @@ export function RepaymentManagementPage() {
   const paidPeriodsValid =
     paidPeriodsRaw.length === 0 ||
     (Number.isFinite(paidPeriods) && Number.isInteger(paidPeriods) && paidPeriods >= 0);
+  const graceDaysValid =
+    debtGraceDays.trim().length === 0 ||
+    (Number.isFinite(graceDays) && Number.isInteger(graceDays) && graceDays >= 0 && graceDays <= 30);
 
   const canSubmitDebt =
     trimmedDebtName.length > 0 &&
@@ -644,6 +736,7 @@ export function RepaymentManagementPage() {
     repaymentDayValid &&
     totalPeriodsValid &&
     paidPeriodsValid &&
+    graceDaysValid &&
     (!isLoanType || hasExplicitAnnualRate || canInferAnnualRateByFormula) &&
     (!isLoanType ||
       (debtMonths.trim().length > 0 &&
@@ -759,6 +852,10 @@ export function RepaymentManagementPage() {
       setDebtFormError('账单日和还款日需在 1~31 之间，可留空。');
       return;
     }
+    if (!graceDaysValid) {
+      setDebtFormError('宽限期需为 0~30 的整数，可留空。');
+      return;
+    }
     if (!totalPeriodsValid || !paidPeriodsValid) {
       setDebtFormError('“总期数/已还期数”需为非负整数，且总期数需大于 0。');
       return;
@@ -810,7 +907,11 @@ export function RepaymentManagementPage() {
       loanPrincipal: loanPrincipalRaw.length > 0 ? loanPrincipal : undefined,
       totalRepayment: totalRepaymentRaw.length > 0 ? totalRepayment : undefined,
       billDay: isLoanType ? undefined : debtBillDay.trim().length > 0 ? billDay : undefined,
-      repaymentDay: debtRepaymentDay.trim().length > 0 ? repaymentDay : undefined
+      repaymentDay: debtRepaymentDay.trim().length > 0 ? repaymentDay : undefined,
+      repaymentMethod: debtRepaymentMethod,
+      repaymentRecordMode: debtRepaymentRecordMode,
+      paymentAccount: debtPaymentAccount.trim() || undefined,
+      graceDays: debtGraceDays.trim().length > 0 ? graceDays : undefined
     });
 
     setDebtName('');
@@ -823,6 +924,10 @@ export function RepaymentManagementPage() {
     setDebtTotalRepayment('');
     setDebtBillDay('');
     setDebtRepaymentDay('');
+    setDebtPaymentAccount('');
+    setDebtRepaymentMethod('minimum-payment');
+    setDebtRepaymentRecordMode('manual');
+    setDebtGraceDays('0');
     setDebtFormError('');
     setDebtToastVisible(true);
     setAddDebtSuccess(true);
@@ -1257,19 +1362,58 @@ export function RepaymentManagementPage() {
               </select>
             </div>
             <div className="finance-debt-form-row finance-debt-form-row-detail">
+              <select
+                className="finance-debt-form-control"
+                value={debtRepaymentMethod}
+                onChange={(event) => {
+                  setDebtRepaymentMethod(event.target.value as DebtRepaymentMethod);
+                  setDebtFormError('');
+                }}
+                aria-label="还款方式"
+              >
+                <option value="minimum-payment">还款方式：最低还款</option>
+                <option value="equal-installment">还款方式：等额本息</option>
+                <option value="equal-principal">还款方式：等额本金</option>
+                <option value="custom">还款方式：自定义</option>
+              </select>
+              <select
+                className="finance-debt-form-control"
+                value={debtRepaymentRecordMode}
+                onChange={(event) => {
+                  setDebtRepaymentRecordMode(event.target.value as DebtRepaymentRecordMode);
+                  setDebtFormError('');
+                }}
+                aria-label="记录方式"
+              >
+                <option value="manual">记录方式：手动登记</option>
+                <option value="transaction-match">记录方式：交易匹配</option>
+                <option value="auto-debit">记录方式：自动扣款</option>
+              </select>
+              <input
+                className="finance-debt-form-control"
+                value={debtPaymentAccount}
+                onChange={(event) => {
+                  setDebtPaymentAccount(event.target.value);
+                  setDebtFormError('');
+                }}
+                placeholder="扣款账户（如：招商银行储蓄卡）"
+                aria-label="扣款账户"
+              />
               <input
                 className="finance-debt-form-control"
                 type="number"
                 min={0}
-                step="0.01"
-                value={debtBalance}
+                max={30}
+                value={debtGraceDays}
                 onChange={(event) => {
-                  setDebtBalance(event.target.value);
+                  setDebtGraceDays(event.target.value);
                   setDebtFormError('');
                 }}
-                placeholder="剩余本金（¥，如：12000）"
-                aria-label="剩余本金"
+                placeholder="宽限期（天，0-30）"
+                aria-label="宽限期"
               />
+            </div>
+            <div className="finance-debt-form-row finance-debt-form-row-detail">
               <input
                 className="finance-debt-form-control"
                 type="number"
@@ -1382,8 +1526,8 @@ export function RepaymentManagementPage() {
             </div>
             <p className="muted finance-debt-form-helper">
               {isLoanType
-                ? '贷款支持总期数、已还期数、借款金额、总还款；可自动反推年化利率。贷款仅需还款日，无账单日。'
-                : '信用卡/消费贷建议补充账单日与还款日；贷款字段可按需留空。'}
+                ? '贷款支持总期数、已还期数、借款金额、总还款；可自动反推年化利率。请同时补充扣款账户、记录方式和宽限期。'
+                : '信用卡/消费贷建议补充账单日、还款日、扣款账户与记录方式，方便后续做严谨监控。'}
             </p>
             {debtFormError ? (
               <p className="muted finance-debt-form-error">{debtFormError}</p>
@@ -1423,7 +1567,9 @@ export function RepaymentManagementPage() {
                               : '贷款'}
                         </strong>
                         <p className="muted" style={{ margin: 0 }}>
-                          剩余本金 ¥{item.balance.toFixed(2)} · 最低还款 ¥{minimum.toFixed(2)}
+                          剩余本金 ¥{item.balance.toFixed(2)} · 最低还款 ¥{minimum.toFixed(2)} ·
+                          {item.paymentAccount || '未设扣款账户'} ·
+                          {REPAYMENT_RECORD_MODE_LABELS[item.repaymentRecordMode || 'manual']}
                         </p>
                       </div>
                     </div>
@@ -1432,6 +1578,57 @@ export function RepaymentManagementPage() {
             </div>
           </div>
         </div>
+
+        <section className="card finance-debt-ledger-panel" style={{ marginTop: 12, padding: 12 }}>
+          <div className="finance-ledger-header">
+            <div>
+              <h3 style={{ marginTop: 0 }}>📒 还款台账预览</h3>
+              <p className="muted" style={{ margin: '4px 0 0 0' }}>
+                先把每笔负债的还款日期、计算方式、记录方式、扣款账户与风险缺口放到一个可核对视图里。
+              </p>
+            </div>
+            <span className="finance-debt-entry-icon" aria-hidden>
+              🧮
+            </span>
+          </div>
+
+          {repaymentLedgerPreview.length === 0 ? (
+            <p className="muted">还没有负债记录，暂时无法生成还款台账。</p>
+          ) : (
+            <div className="finance-ledger-grid">
+              {repaymentLedgerPreview.map((item) => (
+                <article key={item.id} className="finance-ledger-card">
+                  <div className="finance-ledger-card-top">
+                    <strong>{item.name}</strong>
+                    <span className={`finance-ledger-status finance-ledger-status-${item.statusTone}`}>
+                      {item.statusLabel}
+                    </span>
+                  </div>
+                  <div className="finance-ledger-meta-grid">
+                    <span>应还日：{item.repaymentDay || '--'} 日</span>
+                    <span>账单日：{item.billDay || '--'} 日</span>
+                    <span>最低/期供：¥{item.minimumPayment.toFixed(2)}</span>
+                    <span>剩余本金：¥{item.principal.toFixed(2)}</span>
+                    <span>计算方式：{REPAYMENT_METHOD_LABELS[item.repaymentMethod]}</span>
+                    <span>记录方式：{REPAYMENT_RECORD_MODE_LABELS[item.repaymentRecordMode]}</span>
+                    <span>扣款账户：{item.paymentAccount || '未设置'}</span>
+                    <span>宽限期：{item.graceDays || 0} 天</span>
+                    <span>年化参考：{item.annualRate > 0 ? `${item.annualRate.toFixed(2)}%` : '待补充'}</span>
+                    <span>
+                      期数：
+                      {item.totalPeriods ? `${item.paidPeriods || 0}/${item.totalPeriods}` : item.remainingMonths ? `剩余 ${item.remainingMonths} 期` : '--'}
+                    </span>
+                  </div>
+                  {item.missingFields.length > 0 ? (
+                    <p className="muted finance-ledger-missing">
+                      待补字段：{item.missingFields.join('、')}
+                    </p>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
         <section className="card finance-debt-manager-panel" style={{ marginTop: 12, padding: 12 }}>
           <h3 style={{ marginTop: 0 }}>🧾 负债列表管理</h3>
@@ -1465,6 +1662,11 @@ export function RepaymentManagementPage() {
                       {item.type === 'loan'
                         ? ` · 年化 ${annualRate.toFixed(2)}% · 期数 ${item.paidPeriods || 0}/${item.totalPeriods || '--'} · 还款日 ${item.repaymentDay || '--'}`
                         : ` · 账单日 ${item.billDay || '--'} · 还款日 ${item.repaymentDay || '--'}`}
+                    </p>
+                    <p className="muted" style={{ margin: '4px 0 0' }}>
+                      计算方式 {REPAYMENT_METHOD_LABELS[item.repaymentMethod || (item.type === 'loan' ? 'equal-installment' : 'minimum-payment')]} ·
+                      记录方式 {REPAYMENT_RECORD_MODE_LABELS[item.repaymentRecordMode || 'manual']} ·
+                      扣款账户 {item.paymentAccount || '未设置'} · 宽限期 {item.graceDays || 0} 天
                     </p>
                   </div>
                   <button type="button" onClick={() => removeDebt(item.id)}>
@@ -1560,18 +1762,38 @@ export function RepaymentManagementPage() {
           </div>
 
           <div className="finance-ai-insight-card" style={{ marginTop: 10 }}>
-            <h4 style={{ margin: '0 0 8px 0' }}>到期提醒</h4>
-            {repaymentCalendarReminders.length === 0 ? (
+            <h4 style={{ margin: '0 0 8px 0' }}>严谨性审计提醒</h4>
+            {repaymentAuditItems.length === 0 ? (
               <p className="muted" style={{ margin: 0 }}>
-                请在负债列表补充还款日后启用提醒。
+                当前负债条目已具备基础的日期、扣款账户与计算依据字段。
+              </p>
+            ) : (
+              <ul className="finance-audit-list">
+                {repaymentAuditItems.map((item) => (
+                  <li key={item.id} className={`finance-audit-item finance-audit-${item.tone}`}>
+                    {item.text}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="finance-ai-insight-card" style={{ marginTop: 10 }}>
+            <h4 style={{ margin: '0 0 8px 0' }}>到期提醒</h4>
+            {repaymentLedgerPreview.length === 0 ? (
+              <p className="muted" style={{ margin: 0 }}>
+                请先在负债列表中创建至少一条记录。
               </p>
             ) : (
               <ul style={{ margin: 0, paddingInlineStart: 18 }}>
-                {repaymentCalendarReminders.slice(0, 5).map((item) => (
+                {repaymentLedgerPreview.slice(0, 5).map((item) => (
                   <li key={item.id}>
-                    {item.name}：账单日 {item.billDay || '--'} 日，还款日 {item.repaymentDay} 日，
-                    {item.dueInDays === 0 ? '今天到期' : `${item.dueInDays} 天后到期`}（最低 ¥
-                    {item.minimumPayment.toFixed(0)}）
+                    {item.name}：账单日 {item.billDay || '--'} 日，还款日 {item.repaymentDay || '--'} 日，
+                    {Number.isFinite(item.dueInDays)
+                      ? item.dueInDays === 0
+                        ? '今天到期'
+                        : `${item.dueInDays} 天后到期`
+                      : '待补还款日'}（最低 ¥{item.minimumPayment.toFixed(0)}）
                   </li>
                 ))}
               </ul>

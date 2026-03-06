@@ -8408,6 +8408,112 @@ body.categories-accounts-resizing {
   border-radius: var(--radius-md);
 }
 
+.finance-debt-ledger-panel {
+  border: 1px solid color-mix(in srgb, var(--color-primary) 32%, var(--color-border-light));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-elevated) 90%, var(--color-primary-soft));
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.finance-ledger-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.finance-ledger-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.finance-ledger-card {
+  border: 1px solid var(--color-border-light);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--color-bg-elevated);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+.finance-ledger-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.finance-ledger-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+}
+
+.finance-ledger-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: var(--font-xs);
+  white-space: nowrap;
+  border: 1px solid var(--color-border-light);
+}
+
+.finance-ledger-status-safe {
+  background: color-mix(in srgb, var(--color-success-soft) 70%, var(--color-bg-elevated));
+  color: var(--color-success);
+}
+
+.finance-ledger-status-warning {
+  background: color-mix(in srgb, var(--color-warning-soft) 75%, var(--color-bg-elevated));
+  color: #9a6700;
+}
+
+.finance-ledger-status-danger {
+  background: color-mix(in srgb, var(--color-danger-soft) 72%, var(--color-bg-elevated));
+  color: var(--color-danger);
+}
+
+.finance-ledger-status-muted {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-muted);
+}
+
+.finance-ledger-missing {
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--color-border-light);
+}
+
+.finance-audit-list {
+  margin: 0;
+  padding-inline-start: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.finance-audit-item {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border-light);
+}
+
+.finance-audit-warning {
+  background: color-mix(in srgb, var(--color-warning-soft) 70%, var(--color-bg-elevated));
+}
+
+.finance-audit-danger {
+  background: color-mix(in srgb, var(--color-danger-soft) 68%, var(--color-bg-elevated));
+}
+
+.finance-audit-info {
+  background: color-mix(in srgb, var(--color-primary-soft) 56%, var(--color-bg-elevated));
+}
+
 .finance-debt-item {
   border: 1px solid var(--color-border-light);
   border-radius: 10px;
@@ -8515,7 +8621,9 @@ body.categories-accounts-resizing {
   .finance-simulator-row,
   .finance-strategy-compare-grid,
   .finance-income-inline,
-  .finance-income-inline-manual {
+  .finance-income-inline-manual,
+  .finance-ledger-grid,
+  .finance-ledger-meta-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

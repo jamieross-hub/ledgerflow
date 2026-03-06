@@ -1,5 +1,13 @@
 export type DebtType = 'credit-card' | 'consumer-loan' | 'loan';
 
+export type DebtRepaymentMethod =
+  | 'minimum-payment'
+  | 'equal-installment'
+  | 'equal-principal'
+  | 'custom';
+
+export type DebtRepaymentRecordMode = 'manual' | 'transaction-match' | 'auto-debit';
+
 export type DebtItem = {
   id: string;
   name: string;
@@ -14,6 +22,10 @@ export type DebtItem = {
   customMinPayment?: number;
   billDay?: number;
   repaymentDay?: number;
+  repaymentMethod?: DebtRepaymentMethod;
+  repaymentRecordMode?: DebtRepaymentRecordMode;
+  paymentAccount?: string;
+  graceDays?: number;
 };
 
 export type DebtSummary = {
