@@ -914,6 +914,7 @@ export function AssistantPage() {
 
   useEffect(() => {
     const responseMode = pendingRequestModeRef.current;
+    if (wb.status === 'recognizing') return;
     if (!wb.rawContent || wb.rawContent === lastAssistantRef.current[responseMode]) return;
     lastAssistantRef.current[responseMode] = wb.rawContent;
     const usageText = wb.lastUsage
@@ -1514,6 +1515,18 @@ export function AssistantPage() {
                   onCheckDuplicates={wb.checkDuplicates}
                   onSave={startDuplicateReview}
                 />
+              </div>
+            </article>
+          ) : null}
+
+          {wb.status === 'recognizing' && mode === 'assistant' && wb.rawContent ? (
+            <article className="chat-msg">
+              <div className="chat-msg-avatar">🤖</div>
+              <div className="chat-msg-body">
+                <div className="chat-msg-header">助手（正在生成）</div>
+                <div className="chat-msg-content chat-msg-content-rich">
+                  {renderMarkdownContent(wb.rawContent)}
+                </div>
               </div>
             </article>
           ) : null}

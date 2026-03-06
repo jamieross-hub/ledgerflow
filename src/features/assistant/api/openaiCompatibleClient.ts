@@ -145,6 +145,7 @@ export async function sendAiChatStream(
   const response = await fetch(`${normalizeBaseUrl(input.baseUrl)}/chat/completions`, {
     method: 'POST',
     headers: buildHeaders(input.apiKey),
+    signal: input.signal,
     body: JSON.stringify({
       model: input.model,
       stream: true,

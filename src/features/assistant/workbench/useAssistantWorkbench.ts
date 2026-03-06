@@ -1,5 +1,5 @@
 import { ClipboardEvent, DragEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { fetchAiModels, sendAiChat } from '../api/openaiCompatibleClient';
+import { fetchAiModels, sendAiChat, sendAiChatStream } from '../api/openaiCompatibleClient';
 import type { Account } from '../../../entities/account/types';
 import type { Category } from '../../../entities/category/types';
 import type { TransactionItem } from '../../../entities/transaction/types';
@@ -390,6 +390,9 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     if (!hasApiKey || !input.model.trim() || !hasPromptInput) return;
     setStatus('recognizing');
     setError('');
+    setRawContent('');
+    setRawReasoning('');
+    setLastUsage(null);
     addLog({ action: 'assistant.recognize', status: 'pending', message: '开始识别请求' });
     addLog({
       action: 'assistant.recognize',
@@ -528,6 +531,46 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       refreshSemanticRecallCacheMeta();
 
       const prompt = `${basePrompt}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}${semanticRecallBlock}`;
+      if (input.sceneMode === 'assistant') {
+        let streamedContent = '';
+        await sendAiChatStream(
+          {
+            baseUrl: input.baseUrl,
+            apiKey: input.apiKey,
+            model: input.model,
+            systemPrompt: prompt,
+            messages: [
+              {
+                role: 'user',
+                text: cleanPrompt,
+                imageDataUrls: effectiveImageDataUrls,
+                pdfDataUrls: effectivePdfDataUrls
+              }
+            ],
+            signal: controller.signal
+          },
+          {
+            onDelta: (delta) => {
+              streamedContent += delta;
+              setRawContent(streamedContent);
+            }
+          }
+        );
+        setRawReasoning('');
+        setLastUsage(null);
+        setEntries([]);
+        setTextInput('');
+        setImageDataUrls([]);
+        setPdfDataUrls([]);
+        setStatus('idle');
+        addLog({
+          action: 'assistant.recognize',
+          status: 'success',
+          message: '分析完成（流式文本模式）'
+        });
+        return;
+      }
+
       const reply = await sendAiChat({
         baseUrl: input.baseUrl,
         apiKey: input.apiKey,
