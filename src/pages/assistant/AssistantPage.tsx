@@ -1212,10 +1212,10 @@ export function AssistantPage() {
             <section className="chat-kawaii-panel">
               <div className="chat-kawaii-topline">今天 {todayLabel}</div>
               <div className="chat-kawaii-amount">¥0.00</div>
-              <div className="chat-kawaii-sub">本轮准备记账 · 一句话也能生成账单 ✨</div>
+              <div className="chat-kawaii-sub">本轮准备记账 · 一句话也能生成账单，主打一个不拖延 ✨</div>
               <div className="chat-kawaii-mascot" aria-hidden>
                 <span>૮₍ ˶•⤙•˶ ₎ა</span>
-                <small>来嘛来嘛，点我就能秒记账～</small>
+                <small>来嘛来嘛，点我就能秒记账～我很快，你别怕。</small>
               </div>
             </section>
           ) : (
@@ -1224,7 +1224,7 @@ export function AssistantPage() {
                 <div className="chat-assistant-layout-main">
                   <div className="chat-assistant-hero">
                     <h2>🤖 你好，我是你的财务助手</h2>
-                    <p>先看关键数据，再像聊天一样提问，我会主动给你可执行建议。</p>
+                    <p>先看关键数据，再像聊天一样提问。我会尽量把复杂数字翻译成能马上动手的建议。</p>
                   </div>
                   <div className="chat-insight-section" aria-label="今日要做">
                     <div className="chat-insight-section-head">
@@ -1363,7 +1363,7 @@ export function AssistantPage() {
               </div>
               <div className="chat-kawaii-mascot" aria-hidden>
                 <span>🧾</span>
-                <small>数据会说话，我负责翻译成能执行的建议。</small>
+                <small>数据会说话，我负责翻译；如果它们嘴硬，我就多问两句。</small>
               </div>
             </section>
           )}
@@ -1377,8 +1377,8 @@ export function AssistantPage() {
               <div className="chat-msg-content">
                 <p>
                   {mode === 'assistant'
-                    ? `今天 ${todayLabel}，我已为你准备好今日概览与主动洞察，直接用自然语言继续问我。`
-                    : '输入一句话或贴截图，我会帮你快速生成可保存账单。'}
+                    ? `今天 ${todayLabel}，我已经把重点线索铺在上面了。你尽管问，我来负责把账本里的脾气翻译成人话。`
+                    : '输入一句话或贴截图，我会帮你快速生成可保存账单。能省几步就省几步。'}
                 </p>
               </div>
             </div>

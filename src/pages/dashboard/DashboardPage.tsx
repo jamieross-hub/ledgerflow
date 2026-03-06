@@ -1097,10 +1097,10 @@ export function DashboardPage() {
       <section className="panel dashboard-getting-started">
         <div className="dashboard-section-header">
           <h3>帮助与快捷方式</h3>
-          <span>把上手引导迁到独立帮助页，首页只保留轻入口</span>
+          <span>上手说明搬去独立页面了，首页终于能喘口气</span>
         </div>
         <p className="dashboard-shortcuts-tip">
-          你可以在帮助页查看三步上手说明、常用快捷键以及推荐入口。
+          你可以在帮助页查看三步上手说明、常用快捷键以及推荐入口；少走弯路，钱包也会比较感激。
         </p>
         <div className="dashboard-onboarding-actions">
           <button type="button" onClick={() => navigate('/help')}>
