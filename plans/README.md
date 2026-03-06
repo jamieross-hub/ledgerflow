@@ -5,8 +5,9 @@ LedgerFlow 的计划文件已从“按日期命名”调整为“按版本命名
 ## 优先阅读顺序
 
 1. `plans/VERSIONS.md` —— 查看版本计划索引
-2. 当前主线计划：`plans/v0.4.3-ui-priority.md`
-3. 其他专项版本计划按主题查看
+2. 当前主线计划：`plans/v0.4.4-bugfix.md`
+3. 上一版主线：`plans/v0.4.3-ui-priority.md`
+4. 其他专项版本计划按主题查看
 
 ## 命名规范
 
