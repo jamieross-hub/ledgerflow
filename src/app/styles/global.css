@@ -9001,36 +9001,82 @@ body.categories-accounts-resizing {
 
 .dashboard-module-customizer {
   margin-top: 12px;
-  padding: 12px;
+  padding: 14px;
   border: 1px dashed var(--color-border);
-  border-radius: 12px;
+  border-radius: 16px;
   display: grid;
+  gap: 12px;
+  background: color-mix(in srgb, var(--color-bg-subtle) 50%, var(--color-bg-elevated));
+}
+
+.dashboard-module-manage-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
-.dashboard-module-toggle-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 10px;
-  margin: 4px 0;
+
+.dashboard-module-manage-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 14px;
+  background: var(--color-bg-elevated);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
 }
-.dashboard-module-toggle-list label {
+
+.dashboard-module-manage-item.is-enabled {
+  border-color: color-mix(in srgb, var(--color-primary) 26%, var(--color-border-light));
+}
+
+.dashboard-module-manage-item.is-disabled {
+  opacity: 0.84;
+}
+
+.dashboard-module-manage-item:hover {
+  border-color: var(--color-primary-border);
+  box-shadow: var(--shadow-xs);
+}
+
+.dashboard-module-manage-main {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   min-width: 0;
+  flex: 1;
 }
-.dashboard-module-order-list {
+
+.dashboard-module-manage-main input {
+  margin: 0;
+}
+
+.dashboard-module-manage-copy {
+  min-width: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 2px;
 }
+
+.dashboard-module-manage-copy strong {
+  font-size: var(--font-sm);
+  color: var(--color-text);
+}
+
+.dashboard-module-manage-copy small {
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+}
+
 .dashboard-module-chip {
   border: 1px solid var(--color-border);
   border-radius: 999px;
   background: var(--color-panel);
-  padding: 4px 10px;
-  width: 100%;
-  text-align: left;
+  padding: 5px 10px;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-xs);
+  text-align: center;
 }
 .dashboard-dynamic-grid {
   display: grid;

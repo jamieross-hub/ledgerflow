@@ -1160,29 +1160,15 @@ export function DashboardPage() {
             <h4>{t('dashboard.ui.moduleCustomize')}</h4>
             <span>{t('dashboard.ui.moduleCustomizeHint')}</span>
           </div>
-          <div className="dashboard-module-toggle-list">
-            {DASHBOARD_MODULE_CATALOG.map((module) => (
-              <label key={module.id}>
-                <input
-                  type="checkbox"
-                  checked={moduleVisibility[module.id]}
-                  onChange={(event) =>
-                    setModuleVisibility((prev) => ({ ...prev, [module.id]: event.target.checked }))
-                  }
-                />
-                <span>{module.label}</span>
-              </label>
-            ))}
-          </div>
-          <div className="dashboard-module-order-list" aria-label="模块顺序">
+          <div className="dashboard-module-manage-list" aria-label="模块配置列表">
             {moduleOrder.map((moduleId) => {
               const module = DASHBOARD_MODULE_CATALOG.find((item) => item.id === moduleId);
               if (!module) return null;
+              const checked = moduleVisibility[module.id];
               return (
-                <button
+                <div
                   key={module.id}
-                  type="button"
-                  className="dashboard-module-chip"
+                  className={`dashboard-module-manage-item ${checked ? 'is-enabled' : 'is-disabled'}`}
                   draggable
                   onDragStart={() => setDraggingModule(module.id)}
                   onDragOver={(event) => event.preventDefault()}
@@ -1192,8 +1178,23 @@ export function DashboardPage() {
                   }}
                   onDragEnd={() => setDraggingModule(null)}
                 >
-                  ↕ {module.label}
-                </button>
+                  <label className="dashboard-module-manage-main">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) =>
+                        setModuleVisibility((prev) => ({ ...prev, [module.id]: event.target.checked }))
+                      }
+                    />
+                    <span className="dashboard-module-manage-copy">
+                      <strong>{module.label}</strong>
+                      <small>{checked ? '当前显示中' : '当前已隐藏'}</small>
+                    </span>
+                  </label>
+                  <button type="button" className="dashboard-module-chip" tabIndex={-1} aria-hidden="true">
+                    ↕ 拖动排序
+                  </button>
+                </div>
               );
             })}
           </div>
