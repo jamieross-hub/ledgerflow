@@ -61,6 +61,7 @@ export function AppLayout() {
       {
         title: t('nav.toolsInfo'),
         items: [
+          { to: '/help', label: '帮助', icon: '❓' },
           { to: '/settings', label: t('nav.settings'), icon: '⚙️' },
           { to: '/database-settings', label: t('nav.dbSettings'), icon: '🗄️' },
           { to: '/exchange', label: t('nav.exchange'), icon: '💱' },
@@ -90,6 +91,7 @@ export function AppLayout() {
       {
         title: t('nav.systemFeatures'),
         items: [
+          { label: '帮助', icon: '❓', to: '/help' },
           { label: t('nav.settings'), icon: '⚙️', to: '/settings' },
           { label: t('nav.dbSettings'), icon: '🗄️', to: '/database-settings' },
           { label: t('nav.about'), icon: 'ℹ️', to: '/about' }

@@ -12,6 +12,7 @@ import { ExchangePage } from '../../features/exchange/ui/ExchangePage';
 import { FinancePage } from '../../pages/finance/FinancePage';
 import { RepaymentManagementPage } from '../../pages/repayment-management/RepaymentManagementPage';
 import { SmartBudgetPage } from '../../pages/smart-budget/SmartBudgetPage';
+import { HelpPage } from '../../pages/help/HelpPage';
 
 export const router = createBrowserRouter([
   {
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
       { path: 'finance', element: <FinancePage /> },
       { path: 'repayment-management', element: <RepaymentManagementPage /> },
       { path: 'smart-budget', element: <SmartBudgetPage /> },
+      { path: 'help', element: <HelpPage /> },
       { path: 'tags', element: <Navigate to="/categories-accounts" replace /> }
     ]
   }

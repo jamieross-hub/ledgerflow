@@ -1096,23 +1096,21 @@ export function DashboardPage() {
 
       <section className="panel dashboard-getting-started">
         <div className="dashboard-section-header">
-          <h3>{t('dashboard.ui.gettingStartedTitle')}</h3>
-          <span>{t('dashboard.ui.gettingStartedSubtitle')}</span>
+          <h3>帮助与快捷方式</h3>
+          <span>把上手引导迁到独立帮助页，首页只保留轻入口</span>
         </div>
-        <ol className="dashboard-onboarding-steps">
-          <li>{t('dashboard.ui.step1')}</li>
-          <li>{t('dashboard.ui.step2')}</li>
-          <li>{t('dashboard.ui.step3')}</li>
-        </ol>
+        <p className="dashboard-shortcuts-tip">
+          你可以在帮助页查看三步上手说明、常用快捷键以及推荐入口。
+        </p>
         <div className="dashboard-onboarding-actions">
+          <button type="button" onClick={() => navigate('/help')}>
+            打开帮助页
+          </button>
           <button type="button" onClick={() => navigate('/transactions/new?quick=1')}>
             {t('dashboard.ui.addEntry')}
           </button>
           <button type="button" onClick={() => navigate('/smart-budget')}>
             {t('dashboard.ui.openBudget')}
-          </button>
-          <button type="button" onClick={() => navigate('/')}>
-            {t('dashboard.ui.viewAnalysis')}
           </button>
         </div>
         <p className="dashboard-shortcuts-tip">
