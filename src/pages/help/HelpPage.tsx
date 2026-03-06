@@ -21,7 +21,11 @@ export function HelpPage() {
         <h3>常用快捷方式</h3>
         <div className="help-shortcut-list">
           <p><kbd>N</kbd><span>快速新增一笔交易，手快一点，账就不容易赖掉</span></p>
+          <p><kbd>A</kbd><span>打开 AI 助手，适合追问、复盘和让数字说人话</span></p>
           <p><kbd>B</kbd><span>打开 Smart Budget，看看钱有没有偷偷拐弯</span></p>
+          <p><kbd>G</kbd><span>回到首页，总览今天和本月的账本状态</span></p>
+          <p><kbd>H</kbd><span>打开帮助页，少走弯路，先看地图再冲</span></p>
+          <p><kbd>D</kbd><span>打开数据设置 / 备份页，适合同步、导入和恢复前操作</span></p>
           <p><kbd>/</kbd><span>进入交易记录并开始检索，适合追查每一笔“它怎么又出现了”</span></p>
         </div>
       </section>

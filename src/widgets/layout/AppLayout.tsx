@@ -198,6 +198,26 @@ export function AppLayout() {
         navigate('/smart-budget');
       }
 
+      if (event.key === 'A' || event.key === 'a') {
+        event.preventDefault();
+        navigate('/assistant');
+      }
+
+      if (event.key === 'G' || event.key === 'g') {
+        event.preventDefault();
+        navigate('/');
+      }
+
+      if (event.key === 'H' || event.key === 'h') {
+        event.preventDefault();
+        navigate('/help');
+      }
+
+      if (event.key === 'D' || event.key === 'd') {
+        event.preventDefault();
+        navigate('/database-settings');
+      }
+
       if (event.key === '/') {
         event.preventDefault();
         navigate('/transactions');
