@@ -328,11 +328,11 @@ function restoreSidePanelVisible(): boolean {
   try {
     const raw = window.localStorage.getItem(TX_SIDE_PANEL_VISIBLE_KEY);
     if (raw === null) {
-      return true;
+      return false;
     }
     return raw !== '0';
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -2069,6 +2069,9 @@ export function TransactionsPage() {
           sidePanelVisible={sidePanelVisible}
           onToggleSidePanel={() => setSidePanelVisible((prev) => !prev)}
         />
+        <p className="transactions-flow-focus-hint surface-caption">
+          当前默认聚焦流水列表；图表与洞察改为按需展开，避免首屏注意力被分散。
+        </p>
         <div className="transactions-current-bill-strip" aria-label={t('transactions.ui.billFilterState')}>
           <span>{t('transactions.ui.billPeriod')}: {currentPeriodLabel}</span>
           <span>
