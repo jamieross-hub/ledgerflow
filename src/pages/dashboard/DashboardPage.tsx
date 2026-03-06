@@ -1197,7 +1197,7 @@ export function DashboardPage() {
           if (moduleId === 'dynamic-charts') {
             return (
               <section key={moduleId} className="dashboard-dynamic-grid">
-                <article className="panel" style={{ margin: 0 }}>
+                <article className="panel dashboard-unified-card" style={{ margin: 0 }}>
                   <div className="dashboard-section-header">
                     <h4>收支趋势（决策视图）</h4>
                     <div className="dashboard-segment-control">
@@ -1270,7 +1270,7 @@ export function DashboardPage() {
                     ))}
                   </div>
                 </article>
-                <article className="panel" style={{ margin: 0 }}>
+                <article className="panel dashboard-unified-card" style={{ margin: 0 }}>
                   <div className="dashboard-section-header">
                     <h4>分类结构（Top5 + 其他）</h4>
                     <div className="dashboard-segment-control">
@@ -1313,8 +1313,10 @@ export function DashboardPage() {
                     {cashflowCategoryRows.length === 0 ? <p className="muted">暂无可视化数据</p> : null}
                   </div>
                 </article>
-                <article className="panel" style={{ margin: 0 }}>
-                  <h4>累计净资产曲线（含每月Δ）</h4>
+                <article className="panel dashboard-unified-card" style={{ margin: 0 }}>
+                  <div className="dashboard-section-header dashboard-section-header-tight">
+                    <h4>累计净资产曲线（含每月Δ）</h4>
+                  </div>
                   <div className="dashboard-net-curve">
                     {netAssetRows.map((item) => (
                       <button
