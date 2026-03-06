@@ -4945,6 +4945,43 @@ small.mono {
   }
 }
 
+.webdav-restore-list {
+  display: grid;
+  gap: 10px;
+}
+
+.webdav-restore-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  cursor: pointer;
+}
+
+.webdav-restore-item input {
+  margin-top: 2px;
+}
+
+.webdav-restore-item-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.webdav-restore-item-copy strong {
+  color: var(--color-text);
+  font-size: var(--font-sm);
+}
+
+.webdav-restore-item-copy small {
+  color: var(--color-text-secondary);
+  word-break: break-word;
+}
+
 /* Dialog */
 .dialog-overlay {
   position: fixed;

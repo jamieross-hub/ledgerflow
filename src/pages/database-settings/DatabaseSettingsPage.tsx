@@ -9,9 +9,11 @@ import {
   BackupWebdavConfig,
   createFinanceBackupPayload,
   downloadBackupJson,
+  listWebdavBackupVersions,
   loadWebdavConfig,
   parseFinanceBackupPayload,
   saveWebdavConfig,
+  WebdavBackupVersionItem,
   webdavDownloadBackup,
   webdavUploadBackup,
   sanitizeWebdavConfig
@@ -85,6 +87,9 @@ export function DatabaseSettingsPage() {
 
   const [webdav, setWebdav] = useState<BackupWebdavConfig>(() => loadWebdavConfig());
   const [clearBillsOpen, setClearBillsOpen] = useState(false);
+  const [webdavRestoreDialogOpen, setWebdavRestoreDialogOpen] = useState(false);
+  const [webdavRestoreVersions, setWebdavRestoreVersions] = useState<WebdavBackupVersionItem[]>([]);
+  const [selectedRestorePath, setSelectedRestorePath] = useState('');
 
   const totalRows = useMemo(
     () => transactions.length + categories.length + accounts.length,
@@ -241,9 +246,29 @@ export function DatabaseSettingsPage() {
       ensureHydrated();
       validateWebdav();
       setBusy(true);
-      const payload = await webdavDownloadBackup(webdav);
+      const versions = await listWebdavBackupVersions(webdav);
+      setWebdavRestoreVersions(versions);
+      setSelectedRestorePath(versions[0]?.remotePath || '');
+      setWebdavRestoreDialogOpen(true);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'WebDAV 下载失败', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleConfirmWebdavRestore = async () => {
+    try {
+      ensureHydrated();
+      validateWebdav();
+      if (!selectedRestorePath) {
+        throw new Error('请选择一个可恢复版本');
+      }
+      setBusy(true);
+      const payload = await webdavDownloadBackup(webdav, selectedRestorePath);
       replaceAllData(payload.data);
       saveWebdavConfig(webdav);
+      setWebdavRestoreDialogOpen(false);
       showToast('WebDAV 下载并恢复成功', 'success');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'WebDAV 下载失败', 'error');
@@ -446,6 +471,54 @@ export function DatabaseSettingsPage() {
           </button>
         </div>
       </section>
+
+      {webdavRestoreDialogOpen ? (
+        <div className="dialog-overlay" role="presentation" onClick={() => setWebdavRestoreDialogOpen(false)}>
+          <section
+            className="dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="选择 WebDAV 恢复版本"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="dialog-header">选择要恢复的 WebDAV 备份版本</header>
+            <div className="dialog-body">
+              <div className="webdav-restore-list">
+                {webdavRestoreVersions.map((item) => (
+                  <label className="webdav-restore-item" key={item.remotePath}>
+                    <input
+                      type="radio"
+                      name="webdav-restore-version"
+                      checked={selectedRestorePath === item.remotePath}
+                      onChange={() => setSelectedRestorePath(item.remotePath)}
+                    />
+                    <span className="webdav-restore-item-copy">
+                      <strong>
+                        {item.label}
+                        {item.isLatest ? '（最新）' : ''}
+                      </strong>
+                      <small>{item.fileName}</small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <footer className="dialog-footer">
+              <button type="button" onClick={() => setWebdavRestoreDialogOpen(false)}>
+                取消
+              </button>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => void handleConfirmWebdavRestore()}
+                disabled={busy || !selectedRestorePath}
+              >
+                恢复所选版本
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
 
       <Toast
         visible={toast.visible}

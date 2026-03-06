@@ -652,6 +652,68 @@ async function pruneWebdavBackupVersions(config: BackupWebdavConfig): Promise<vo
   await Promise.all(obsolete.map((item) => deleteWebdavFile(sanitized, item)));
 }
 
+export interface WebdavBackupVersionItem {
+  remotePath: string;
+  fileName: string;
+  label: string;
+  isLatest: boolean;
+}
+
+function buildWebdavBackupVersionLabel(remotePath: string, baseRemoteFilePath: string): string {
+  const normalized = normalizeRemoteFilePath(remotePath);
+  const { file: targetFile } = splitRemoteDirAndFile(baseRemoteFilePath);
+  const fileName = normalized.split('/').pop() || normalized;
+  const dotIndex = targetFile.lastIndexOf('.');
+  const baseName = dotIndex > 0 ? targetFile.slice(0, dotIndex) : targetFile;
+  const stamp = fileName
+    .replace(new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-`), '')
+    .replace(/\.json$/i, '');
+  const matched = stamp.match(/^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})$/);
+  if (!matched) {
+    return fileName;
+  }
+  return `${matched[1]}-${matched[2]}-${matched[3]} ${matched[4]}:${matched[5]}:${matched[6]}`;
+}
+
+export async function listWebdavBackupVersions(
+  config: BackupWebdavConfig
+): Promise<WebdavBackupVersionItem[]> {
+  const sanitized = sanitizeWebdavConfig(config);
+  try {
+    const files = await listWebdavRemoteFiles(sanitized, sanitized.remoteFilePath);
+    const matched = files
+      .filter((item) => isVersionedBackupMatch(item, sanitized.remoteFilePath))
+      .sort((a, b) => b.localeCompare(a, 'en'));
+
+    if (matched.length === 0) {
+      return [
+        {
+          remotePath: sanitized.remoteFilePath,
+          fileName: splitRemoteDirAndFile(sanitized.remoteFilePath).file,
+          label: '当前固定备份文件',
+          isLatest: true
+        }
+      ];
+    }
+
+    return matched.map((item, index) => ({
+      remotePath: item,
+      fileName: item.split('/').pop() || item,
+      label: buildWebdavBackupVersionLabel(item, sanitized.remoteFilePath),
+      isLatest: index === 0
+    }));
+  } catch {
+    return [
+      {
+        remotePath: sanitized.remoteFilePath,
+        fileName: splitRemoteDirAndFile(sanitized.remoteFilePath).file,
+        label: '当前固定备份文件（目录列表不可用）',
+        isLatest: true
+      }
+    ];
+  }
+}
+
 async function resolveLatestWebdavBackupPath(config: BackupWebdavConfig): Promise<string> {
   const sanitized = sanitizeWebdavConfig(config);
   try {
@@ -739,11 +801,14 @@ export async function webdavUploadFile(
 }
 
 export async function webdavDownloadBackup(
-  config: BackupWebdavConfig
+  config: BackupWebdavConfig,
+  remotePath?: string
 ): Promise<FinanceBackupPayload> {
   try {
     const sanitized = sanitizeWebdavConfig(config);
-    const resolvedRemotePath = await resolveLatestWebdavBackupPath(sanitized);
+    const resolvedRemotePath = remotePath
+      ? normalizeRemoteFilePath(remotePath)
+      : await resolveLatestWebdavBackupPath(sanitized);
     const url = joinWebdavPath(sanitized, resolvedRemotePath);
     const response = await fetch(url, {
       method: 'GET',
