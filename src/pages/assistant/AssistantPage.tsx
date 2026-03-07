@@ -35,16 +35,21 @@ function inputPlaceholder(
 
   const assistantHint = t('assistant.placeholders.assistantHint');
   const bookkeepingHint = t('assistant.placeholders.bookkeepingHint');
+  const creditHint = '可以直接问我花呗、分期、贷款、账单和还款安排。';
 
   switch (status) {
     case 'idle':
-      return mode === 'assistant'
-        ? assistantHint
-        : t('assistant.placeholders.idleBookkeeping', { hint: bookkeepingHint });
+      return mode === 'bookkeeping'
+        ? t('assistant.placeholders.idleBookkeeping', { hint: bookkeepingHint })
+        : mode === 'credit'
+          ? creditHint
+          : assistantHint;
     case 'ready':
-      return mode === 'assistant'
-        ? t('assistant.placeholders.readyAssistant', { hint: assistantHint })
-        : t('assistant.placeholders.readyBookkeeping');
+      return mode === 'bookkeeping'
+        ? t('assistant.placeholders.readyBookkeeping')
+        : mode === 'credit'
+          ? '把贷款、分期或账单截图贴给我，我先帮你梳理应还信息。'
+          : t('assistant.placeholders.readyAssistant', { hint: assistantHint });
     case 'recognizing':
       return t('assistant.placeholders.recognizing');
     case 'preview':
@@ -56,7 +61,7 @@ function inputPlaceholder(
     case 'error':
       return t('assistant.placeholders.error');
     default:
-      return mode === 'assistant' ? assistantHint : bookkeepingHint;
+      return mode === 'bookkeeping' ? bookkeepingHint : mode === 'credit' ? creditHint : assistantHint;
   }
 }
 
@@ -216,7 +221,7 @@ interface ChatHistoryItem {
   followUpPrompts?: string[];
 }
 
-type AssistantMode = 'bookkeeping' | 'assistant';
+type AssistantMode = 'bookkeeping' | 'assistant' | 'credit';
 
 interface PresetQuestion {
   id: string;
@@ -267,8 +272,32 @@ const ANALYSIS_SHORTCUT_SEEDS = [
 
 const CHAT_HISTORY_CACHE_KEYS: Record<AssistantMode, string> = {
   bookkeeping: 'ledgerflow.assistant.chatHistory.bookkeeping',
-  assistant: 'ledgerflow.assistant.chatHistory.assistant'
+  assistant: 'ledgerflow.assistant.chatHistory.assistant',
+  credit: 'ledgerflow.assistant.chatHistory.credit'
 };
+
+const CREDIT_SHORTCUT_SEEDS: PresetQuestion[] = [
+  {
+    id: 'credit-seed-1',
+    label: '梳理本月应还',
+    prompt: '请结合我现有账本与接下来可能到期的信用消费，帮我梳理本月应还项目、优先级和资金压力。'
+  },
+  {
+    id: 'credit-seed-2',
+    label: '识别花呗与分期',
+    prompt: '如果我贴出花呗、白条、信用卡分期或消费贷账单截图，请帮我提炼平台、应还金额、还款日、剩余期数和待补充信息。'
+  },
+  {
+    id: 'credit-seed-3',
+    label: '下周还款安排',
+    prompt: '请根据我的账本消费和信用账户情况，给我一份下周还款安排建议，按先后顺序列出。'
+  },
+  {
+    id: 'credit-seed-4',
+    label: '信贷风险排查',
+    prompt: '请从现金流、还款日集中度、可能遗漏的分期项目三个角度，帮我做一次信贷风险排查。'
+  }
+];
 
 const PRESET_QUESTIONS_CACHE_KEY = 'ledgerflow.assistant.personalizedPresets.v1';
 const PRESET_QUESTIONS_CACHE_TTL_MS = 1000 * 60 * 60 * 6;
@@ -531,7 +560,8 @@ export function AssistantPage() {
   );
   const lastAssistantRef = useRef<Record<AssistantMode, string>>({
     bookkeeping: '',
-    assistant: ''
+    assistant: '',
+    credit: ''
   });
   const pendingRequestModeRef = useRef<AssistantMode>('assistant');
   const messageEndRef = useRef<HTMLDivElement | null>(null);
@@ -820,14 +850,34 @@ export function AssistantPage() {
     ];
   }, [categories, transactions]);
 
+  const creditBehaviorQuestions = useMemo(
+    () => [
+      {
+        id: 'credit-behavior-1',
+        label: '最近信贷压力点',
+        prompt: '请结合我最近账本，推测最可能形成信贷压力的消费场景，并提醒我哪些项目最值得核对是否分期。'
+      },
+      {
+        id: 'credit-behavior-2',
+        label: '优先核对清单',
+        prompt: '如果我要今晚就把贷款、花呗、分期情况摸清，请给我一个 3 步核对清单，按优先级列出。'
+      }
+    ],
+    []
+  );
+
   const displayBehaviorQuestions = useMemo(
-    () => behaviorRecommendedQuestions.slice(0, isMobileView ? 1 : 2),
-    [behaviorRecommendedQuestions, isMobileView]
+    () =>
+      (mode === 'credit' ? creditBehaviorQuestions : behaviorRecommendedQuestions).slice(
+        0,
+        isMobileView ? 1 : 2
+      ),
+    [behaviorRecommendedQuestions, creditBehaviorQuestions, isMobileView, mode]
   );
 
   const displayPresetQuestions = useMemo(
-    () => presetQuestions.slice(0, isMobileView ? 1 : 2),
-    [presetQuestions, isMobileView]
+    () => (mode === 'credit' ? CREDIT_SHORTCUT_SEEDS : presetQuestions).slice(0, isMobileView ? 1 : 2),
+    [presetQuestions, isMobileView, mode]
   );
 
   useEffect(() => {
@@ -881,9 +931,9 @@ export function AssistantPage() {
 
     const requestQuestion = clean || '请根据我上传的附件完成识别与提炼。';
     const requestPrompt =
-      mode === 'assistant'
-        ? buildAssistantConversationPrompt(requestQuestion, chatHistory)
-        : requestQuestion;
+      mode === 'bookkeeping'
+        ? requestQuestion
+        : buildAssistantConversationPrompt(requestQuestion, chatHistory);
     const imagePayload = [...wb.imageDataUrls];
     const pdfPayload = [...wb.pdfDataUrls];
 
@@ -923,7 +973,7 @@ export function AssistantPage() {
 
   useEffect(() => {
     const responseMode = pendingRequestModeRef.current;
-    if (mode === 'assistant' && wb.status === 'recognizing') {
+    if (mode !== 'bookkeeping' && wb.status === 'recognizing') {
       setStreamingPreviewMessage(wb.rawContent);
       return;
     }
@@ -937,7 +987,7 @@ export function AssistantPage() {
       ? `Token 消耗：输入 ${wb.lastUsage.promptTokens} / 输出 ${wb.lastUsage.completionTokens} / 总计 ${wb.lastUsage.totalTokens}`
       : undefined;
     const embeddingSummaryText =
-      responseMode === 'assistant' && showEmbeddingSummary && wb.embeddingDebug.enabled
+      responseMode !== 'bookkeeping' && showEmbeddingSummary && wb.embeddingDebug.enabled
         ? wb.embeddingDebug.used
           ? `语义召回：命中 ${wb.embeddingDebug.hitCount} 条，最高相似度 ${wb.embeddingDebug.topScore.toFixed(2)}，平均相似度 ${wb.embeddingDebug.averageScore.toFixed(2)}，耗时 ${wb.embeddingDebug.latencyMs}ms，索引 ${wb.embeddingDebug.indexedDocs} 条。`
           : wb.embeddingDebug.downgraded
@@ -946,7 +996,7 @@ export function AssistantPage() {
         : undefined;
 
     const embeddingDebugText =
-      responseMode === 'assistant' && showEmbeddingDebug && wb.embeddingDebug.enabled
+      responseMode !== 'bookkeeping' && showEmbeddingDebug && wb.embeddingDebug.enabled
         ? [
             `模型：${wb.embeddingDebug.model || '-'} | 启用：${wb.embeddingDebug.enabled ? '是' : '否'} | 使用召回：${wb.embeddingDebug.used ? '是' : '否'} | 降级：${wb.embeddingDebug.downgraded ? '是' : '否'}`,
             `命中：${wb.embeddingDebug.hitCount} | 最高：${wb.embeddingDebug.topScore.toFixed(4)} | 平均：${wb.embeddingDebug.averageScore.toFixed(4)} | 索引：${wb.embeddingDebug.indexedDocs} | 耗时：${wb.embeddingDebug.latencyMs}ms`,
@@ -970,7 +1020,7 @@ export function AssistantPage() {
       embeddingSummaryText,
       embeddingDebugText,
       followUpPrompts:
-        responseMode === 'assistant' ? buildFollowUpPrompts(wb.rawContent, chatHistory) : undefined
+        responseMode !== 'bookkeeping' ? buildFollowUpPrompts(wb.rawContent, chatHistory) : undefined
     });
   }, [
     appendMessageToMode,
@@ -1206,6 +1256,13 @@ export function AssistantPage() {
           >
             {t('assistant.ui.assistantMode')}
           </button>
+          <button
+            type="button"
+            className={mode === 'credit' ? 'active' : ''}
+            onClick={() => setMode('credit')}
+          >
+            AI 信贷管家
+          </button>
         </div>
 
         <div className="chat-topbar-right">
@@ -1256,6 +1313,84 @@ export function AssistantPage() {
               <div className="chat-kawaii-mascot" aria-hidden>
                 <span>૮₍ ˶•⤙•˶ ₎ა</span>
                 <small>来嘛来嘛，点我就能秒记账～我很快，你别怕。</small>
+              </div>
+            </section>
+          ) : mode === 'credit' ? (
+            <section className="chat-kawaii-panel chat-assistant-panel chat-credit-panel">
+              <div className="chat-assistant-layout">
+                <div className="chat-assistant-layout-main">
+                  <div className="chat-assistant-hero">
+                    <h2>💳 你好，我是你的 AI 信贷管家</h2>
+                    <p>贷款、花呗、分期、信用账单都可以丢给我。我先帮你把“到底欠什么、先还什么、哪里还没补齐”讲明白。</p>
+                  </div>
+                  <div className="chat-insight-section" aria-label="优先处理">
+                    <div className="chat-insight-section-head">
+                      <h3>🧭 优先处理</h3>
+                      <span>应还 / 待核对 / 风险点</span>
+                    </div>
+                    <div className="chat-push-insights">
+                      <article className="chat-push-insight-item warning">
+                        <h4>先把本月应还摸清</h4>
+                        <p>你可以直接贴花呗、信用卡分期、消费贷截图，我先帮你提炼应还金额、还款日和剩余期数。</p>
+                      </article>
+                      <article className="chat-push-insight-item">
+                        <h4>把模糊负债说清楚</h4>
+                        <p>如果你只记得“大概有几笔分期”，也没关系，我会先帮你整理成待补充清单。</p>
+                      </article>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="chat-assistant-layout-side">
+                  <div className="chat-insight-section" aria-label="信贷模式说明">
+                    <div className="chat-insight-section-head">
+                      <h3>📌 这个模式适合什么</h3>
+                      <span>识别 / 梳理 / 还款管理</span>
+                    </div>
+                    <div className="chat-auto-insight-block">
+                      <p><strong>可识别内容：</strong>花呗、白条、信用卡分期、消费贷、借款截图。</p>
+                      <p><strong>当前目标：</strong>先帮你提炼平台、应还、期数、还款日，再衔接还款管理页。</p>
+                      <p><strong>适合问法：</strong>“帮我看看这张账单该怎么整理”“哪些项目可能是分期”</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="chat-preset-head">
+                <strong>信贷场景提问</strong>
+                <button type="button" onClick={() => setMode('credit')}>
+                  当前模式
+                </button>
+              </div>
+              <div className="chat-preset-list chat-preset-list-smart">
+                {displayBehaviorQuestions.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="chat-preset-item chat-preset-item-smart"
+                    onClick={() => submitPrompt(item.prompt)}
+                    disabled={wb.status === 'recognizing'}
+                  >
+                    <span className="chat-preset-item-tag">信贷优先推荐</span>
+                    <strong>{item.label}</strong>
+                  </button>
+                ))}
+              </div>
+              <div className="chat-preset-list">
+                {displayPresetQuestions.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="chat-preset-item"
+                    onClick={() => submitPrompt(item.prompt)}
+                    disabled={wb.status === 'recognizing'}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <div className="chat-kawaii-mascot" aria-hidden>
+                <span>💳</span>
+                <small>别怕数字绕，你先把截图甩过来，我负责把“这笔到底算什么”翻译清楚。</small>
               </div>
             </section>
           ) : (
@@ -1412,13 +1547,19 @@ export function AssistantPage() {
             <div className="chat-msg-avatar">🤖</div>
             <div className="chat-msg-body">
               <div className="chat-msg-header">
-                {mode === 'bookkeeping' ? t('assistant.ui.bookkeepingAssistant') : t('assistant.ui.qaAssistant')}
+                {mode === 'bookkeeping'
+                  ? t('assistant.ui.bookkeepingAssistant')
+                  : mode === 'credit'
+                    ? 'AI 信贷管家'
+                    : t('assistant.ui.qaAssistant')}
               </div>
               <div className="chat-msg-content">
                 <p>
                   {mode === 'assistant'
                     ? `今天 ${todayLabel}，我已经把重点线索铺在上面了。你尽管问，我来负责把账本里的脾气翻译成人话。`
-                    : '输入一句话或贴截图，我会帮你快速生成可保存账单。能省几步就省几步。'}
+                    : mode === 'credit'
+                      ? '把花呗、分期、贷款或信用账单交给我，我先帮你拆出应还金额、时间点和待补信息。'
+                      : '输入一句话或贴截图，我会帮你快速生成可保存账单。能省几步就省几步。'}
                 </p>
               </div>
             </div>
@@ -1578,7 +1719,7 @@ export function AssistantPage() {
       </section>
 
       <section className="chat-input-bar">
-        {mode === 'assistant' ? (
+        {mode !== 'bookkeeping' ? (
           <details className="chat-semantic-status-panel">
             <summary>
               语义召回

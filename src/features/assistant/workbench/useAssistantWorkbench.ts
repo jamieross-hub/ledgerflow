@@ -86,7 +86,7 @@ interface UseAssistantWorkbenchInput {
   addAccount: (name: string, type?: Account['type'], initialBalance?: number) => string;
   addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
   updateTransaction: (id: string, payload: Omit<TransactionItem, 'id'>) => void;
-  sceneMode?: 'bookkeeping' | 'assistant';
+  sceneMode?: 'bookkeeping' | 'assistant' | 'credit';
 }
 
 /**
@@ -403,13 +403,14 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     recognizeAbortRef.current = controller;
 
     try {
-      const basePrompt =
-        input.sceneMode === 'assistant' ? ANALYSIS_AGENT_PROMPT : JSON_AGENT_PROMPT;
+      const isConversationalMode =
+        input.sceneMode === 'assistant' || input.sceneMode === 'credit';
+      const basePrompt = isConversationalMode ? ANALYSIS_AGENT_PROMPT : JSON_AGENT_PROMPT;
 
       let semanticRecallBlock = '';
       const embeddingStart = performance.now();
       setEmbeddingDebug({
-        enabled: input.sceneMode === 'assistant' && enableEmbeddingModel && Boolean(embeddingModel.trim()),
+        enabled: isConversationalMode && enableEmbeddingModel && Boolean(embeddingModel.trim()),
         model: embeddingModel.trim(),
         used: false,
         downgraded: false,
@@ -422,7 +423,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
         hits: []
       });
       if (
-        input.sceneMode === 'assistant' &&
+        isConversationalMode &&
         enableEmbeddingModel &&
         Boolean(embeddingModel.trim()) &&
         cleanPrompt
@@ -508,7 +509,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       }
 
       if (!(
-        input.sceneMode === 'assistant' &&
+        isConversationalMode &&
         enableEmbeddingModel &&
         Boolean(embeddingModel.trim()) &&
         cleanPrompt
@@ -518,7 +519,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
           model: embeddingModel.trim(),
           used: false,
           downgraded: false,
-          reason: input.sceneMode !== 'assistant' ? 'not-assistant-mode' : !enableEmbeddingModel ? 'disabled' : !embeddingModel.trim() ? 'model-empty' : 'empty-question',
+          reason: !isConversationalMode ? 'not-assistant-mode' : !enableEmbeddingModel ? 'disabled' : !embeddingModel.trim() ? 'model-empty' : 'empty-question',
           latencyMs: 0,
           indexedDocs: 0,
           hitCount: 0,
@@ -531,7 +532,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       refreshSemanticRecallCacheMeta();
 
       const prompt = `${basePrompt}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}${semanticRecallBlock}`;
-      if (input.sceneMode === 'assistant') {
+      if (isConversationalMode) {
         let streamedContent = '';
         await sendAiChatStream(
           {
