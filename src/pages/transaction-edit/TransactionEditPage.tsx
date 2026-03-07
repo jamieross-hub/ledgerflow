@@ -15,31 +15,12 @@ interface RecognitionSuggestion {
 const MAX_AMOUNT = 999999999.99;
 const MIN_DATE = '2000-01-01T00:00';
 const MAX_DATE = '2100-12-31T23:59';
-const CALCULATOR_KEYS = [
-  'C',
-  '⌫',
-  '÷',
-  '×',
-  '7',
-  '8',
-  '9',
-  '-',
-  '4',
-  '5',
-  '6',
-  '+',
-  '1',
-  '2',
-  '3',
-  '.',
-  '0',
-  '='
-] as const;
+const CALCULATOR_KEYS = ['C', '⌫', '7', '8', '9', '-', '4', '5', '6', '+', '1', '2', '3', '=', '0', '.'] as const;
 
 type CalculatorKey = (typeof CALCULATOR_KEYS)[number];
 
 function normalizeExpression(input: string): string {
-  return input.replace(/×/g, '*').replace(/÷/g, '/');
+  return input;
 }
 
 function evaluateExpression(input: string): number | null {
@@ -48,7 +29,7 @@ function evaluateExpression(input: string): number | null {
     return null;
   }
 
-  if (!/^[0-9+\-*/().\s]+$/.test(expression)) {
+  if (!/^[0-9+\-().\s]+$/.test(expression)) {
     return null;
   }
 
@@ -70,7 +51,7 @@ function formatAmountFromNumber(value: number): string {
 }
 
 function isCalculatorOperator(token: string): boolean {
-  return token === '+' || token === '-' || token === '×' || token === '÷';
+  return token === '+' || token === '-';
 }
 
 function appendCalculatorToken(prev: string, token: CalculatorKey): string {
@@ -85,7 +66,7 @@ function appendCalculatorToken(prev: string, token: CalculatorKey): string {
     if (!prev || isCalculatorOperator(prev.slice(-1))) {
       return `${prev}0.`;
     }
-    const lastSegment = prev.split(/[+\-×÷]/).pop() || '';
+    const lastSegment = prev.split(/[+\-]/).pop() || '';
     if (lastSegment.includes('.')) {
       return prev;
     }
@@ -636,40 +617,42 @@ export function TransactionEditPage() {
             </button>
           </div>
 
-          <aside className="transaction-edit-keypad-panel" aria-label="金额快捷输入">
-            <div className="transaction-edit-keypad-sticky">
-              <small className="transaction-edit-keypad-title">金额计算器</small>
-              <div className="transaction-edit-calculator-screen mono-inline" aria-live="polite">
-                {calculatorExpression}
+          {!quickMode ? (
+            <aside className="transaction-edit-keypad-panel" aria-label="金额快捷输入">
+              <div className="transaction-edit-keypad-sticky">
+                <small className="transaction-edit-keypad-title">金额辅助键盘（加减）</small>
+                <div className="transaction-edit-calculator-screen mono-inline" aria-live="polite">
+                  {calculatorExpression}
+                </div>
+                {calculatorError ? <small className="error">{calculatorError}</small> : null}
+                <div className="quick-add-amount-display transaction-edit-amount-display">
+                  当前金额：¥{amount || '0'}
+                </div>
+                <div
+                  className="quick-add-keypad transaction-edit-keypad transaction-edit-calculator-keypad"
+                  role="group"
+                  aria-label="金额计算器键盘"
+                >
+                  {CALCULATOR_KEYS.map((key) => {
+                    const isOperator = ['-', '+'].includes(key);
+                    const isDanger = key === 'C' || key === '⌫';
+                    const isEqual = key === '=';
+                    const isZero = key === '0';
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`quick-add-key ${isOperator || isDanger ? 'quick-add-key-muted' : ''} ${isEqual ? 'primary transaction-edit-calc-equal' : ''} ${isZero ? 'transaction-edit-calc-zero' : ''}`.trim()}
+                        onClick={() => handleAmountKeypadInput(key)}
+                      >
+                        {key}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              {calculatorError ? <small className="error">{calculatorError}</small> : null}
-              <div className="quick-add-amount-display transaction-edit-amount-display">
-                当前金额：¥{amount || '0'}
-              </div>
-              <div
-                className="quick-add-keypad transaction-edit-keypad transaction-edit-calculator-keypad"
-                role="group"
-                aria-label="金额计算器键盘"
-              >
-                {CALCULATOR_KEYS.map((key) => {
-                  const isOperator = ['÷', '×', '-', '+'].includes(key);
-                  const isDanger = key === 'C' || key === '⌫';
-                  const isEqual = key === '=';
-                  const isZero = key === '0';
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      className={`quick-add-key ${isOperator || isDanger ? 'quick-add-key-muted' : ''} ${isEqual ? 'primary transaction-edit-calc-equal' : ''} ${isZero ? 'transaction-edit-calc-zero' : ''}`.trim()}
-                      onClick={() => handleAmountKeypadInput(key)}
-                    >
-                      {key}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </aside>
+            </aside>
+          ) : null}
         </div>
       </form>
 
