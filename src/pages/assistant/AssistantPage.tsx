@@ -219,6 +219,7 @@ interface ChatHistoryItem {
   embeddingSummaryText?: string;
   embeddingDebugText?: string;
   followUpPrompts?: string[];
+  creditItems?: CreditExtractedItem[];
 }
 
 type AssistantMode = 'bookkeeping' | 'assistant' | 'credit';
@@ -234,6 +235,20 @@ interface PushInsight {
   title: string;
   detail: string;
   level?: 'default' | 'warning';
+}
+
+interface CreditExtractedItem {
+  id: string;
+  title: string;
+  productType: string;
+  dueAmount?: string;
+  totalDebt?: string;
+  repaymentDate?: string;
+  remainingPeriods?: string;
+  monthlyAmount?: string;
+  interest?: string;
+  pendingFields: string[];
+  confidence: 'high' | 'medium' | 'low';
 }
 
 interface TodayTodoItem {
@@ -474,6 +489,99 @@ function buildAssistantConversationPrompt(question: string, history: ChatHistory
     .join('\n');
   if (!context) return question;
   return `请结合以下最近对话上下文连续回答，避免重复追问已确认的信息。\n\n最近对话：\n${context}\n\n当前问题：${question}`;
+}
+
+function buildCreditConversationPrompt(question: string, history: ChatHistoryItem[]): string {
+  const context = history
+    .slice(-6)
+    .map((item) => `${item.role === 'user' ? '用户' : '助手'}：${item.text}`)
+    .join('\n');
+
+  const schema = [
+    '请尽量在回答末尾追加一个 JSON 代码块，格式如下：',
+    '',
+    '```json',
+    '{',
+    '  "creditItems": [',
+    '    {',
+    '      "title": "产品/平台名",',
+    '      "productType": "花呗|白条|信用卡分期|消费贷|房贷|车贷|现金贷|其他",',
+    '      "dueAmount": "当前应还金额（可为空）",',
+    '      "totalDebt": "总欠款/剩余待还（可为空）",',
+    '      "repaymentDate": "还款日/扣款日（可为空）",',
+    '      "remainingPeriods": "剩余期数（可为空）",',
+    '      "monthlyAmount": "每期金额（可为空）",',
+    '      "interest": "利息/手续费（可为空）",',
+    '      "pendingFields": ["待补充字段1", "待补充字段2"],',
+    '      "confidence": "high|medium|low"',
+    '    }',
+    '  ]',
+    '}',
+    '```',
+    '',
+    '如果没有识别出明确的信贷/分期项目，就不要硬编，改为给出人工核对建议。'
+  ].join('\n');
+
+  if (!context) {
+    return `${question}\n\n${schema}`;
+  }
+
+  return `请结合以下最近对话上下文连续回答，避免重复追问已确认的信息。\n\n最近对话：\n${context}\n\n当前问题：${question}\n\n${schema}`;
+}
+
+function extractCreditStructuredItems(answer: string): CreditExtractedItem[] {
+  const jsonBlockMatch = answer.match(/```json\s*([\s\S]*?)```/i);
+  const rawJson = jsonBlockMatch?.[1]?.trim();
+  if (!rawJson) return [];
+
+  try {
+    const parsed = JSON.parse(rawJson) as { creditItems?: Array<Record<string, unknown>> };
+    if (!Array.isArray(parsed.creditItems)) return [];
+
+    return parsed.creditItems
+      .map((item, index) => {
+        const title = String(item.title || item.product || item.platform || '').trim();
+        const productType = String(item.productType || item.type || '其他').trim();
+        const dueAmount = String(item.dueAmount || '').trim();
+        const totalDebt = String(item.totalDebt || item.remainingDebt || '').trim();
+        const repaymentDate = String(item.repaymentDate || item.dueDate || '').trim();
+        const remainingPeriods = String(item.remainingPeriods || item.periodsLeft || '').trim();
+        const monthlyAmount = String(item.monthlyAmount || item.perPeriodAmount || '').trim();
+        const interest = String(item.interest || item.fee || '').trim();
+        const pendingFields = Array.isArray(item.pendingFields)
+          ? item.pendingFields.map((field) => String(field).trim()).filter(Boolean)
+          : [];
+        const confidence: CreditExtractedItem['confidence'] =
+          item.confidence === 'high' || item.confidence === 'medium' || item.confidence === 'low'
+            ? item.confidence
+            : 'medium';
+
+        if (!title && !productType && !dueAmount && !totalDebt) return null;
+
+        const normalized: CreditExtractedItem = {
+          id: `credit-${index}-${title || productType || 'unknown'}`,
+          title: title || '待确认信贷项目',
+          productType: productType || '其他',
+          dueAmount: dueAmount || undefined,
+          totalDebt: totalDebt || undefined,
+          repaymentDate: repaymentDate || undefined,
+          remainingPeriods: remainingPeriods || undefined,
+          monthlyAmount: monthlyAmount || undefined,
+          interest: interest || undefined,
+          pendingFields,
+          confidence
+        };
+
+        return normalized;
+      })
+      .filter((item): item is CreditExtractedItem => item !== null);
+  } catch {
+    return [];
+  }
+}
+
+function stripCreditJsonBlock(answer: string): string {
+  return answer.replace(/```json\s*[\s\S]*?```/gi, '').trim();
 }
 
 function buildFollowUpPrompts(answer: string, history: ChatHistoryItem[]): string[] {
@@ -917,10 +1025,15 @@ export function AssistantPage() {
   );
 
   const buildAssistantMessageText = useCallback(
-    (responseMode: AssistantMode) =>
-      responseMode === 'bookkeeping' && wb.entries.length > 0
-        ? `这次我先帮你整理出了 ${wb.entries.length} 条可保存账单。你可以先核对、去重，再决定要不要落到账本。`
-        : wb.rawContent,
+    (responseMode: AssistantMode) => {
+      if (responseMode === 'bookkeeping' && wb.entries.length > 0) {
+        return `这次我先帮你整理出了 ${wb.entries.length} 条可保存账单。你可以先核对、去重，再决定要不要落到账本。`;
+      }
+      if (responseMode === 'credit') {
+        return stripCreditJsonBlock(wb.rawContent) || wb.rawContent;
+      }
+      return wb.rawContent;
+    },
     [wb.entries.length, wb.rawContent]
   );
 
@@ -933,7 +1046,9 @@ export function AssistantPage() {
     const requestPrompt =
       mode === 'bookkeeping'
         ? requestQuestion
-        : buildAssistantConversationPrompt(requestQuestion, chatHistory);
+        : mode === 'credit'
+          ? buildCreditConversationPrompt(requestQuestion, chatHistory)
+          : buildAssistantConversationPrompt(requestQuestion, chatHistory);
     const imagePayload = [...wb.imageDataUrls];
     const pdfPayload = [...wb.pdfDataUrls];
 
@@ -1010,6 +1125,7 @@ export function AssistantPage() {
             .filter(Boolean)
             .join('\n')
         : undefined;
+    const creditItems = responseMode === 'credit' ? extractCreditStructuredItems(wb.rawContent) : undefined;
 
     appendMessageToMode(responseMode, {
       id: `${Date.now()}-assistant`,
@@ -1020,7 +1136,8 @@ export function AssistantPage() {
       embeddingSummaryText,
       embeddingDebugText,
       followUpPrompts:
-        responseMode !== 'bookkeeping' ? buildFollowUpPrompts(wb.rawContent, chatHistory) : undefined
+        responseMode !== 'bookkeeping' ? buildFollowUpPrompts(wb.rawContent, chatHistory) : undefined,
+      creditItems
     });
   }, [
     appendMessageToMode,
@@ -1600,6 +1717,63 @@ export function AssistantPage() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                ) : null}
+                {item.role === 'assistant' && item.creditItems && item.creditItems.length > 0 ? (
+                  <div className="chat-credit-cards">
+                    {item.creditItems.map((creditItem) => (
+                      <section key={creditItem.id} className="chat-credit-card">
+                        <div className="chat-credit-card-head">
+                          <div>
+                            <strong>{creditItem.title}</strong>
+                            <span>{creditItem.productType}</span>
+                          </div>
+                          <em className={`chat-credit-confidence is-${creditItem.confidence}`}>
+                            {creditItem.confidence === 'high'
+                              ? '高置信'
+                              : creditItem.confidence === 'low'
+                                ? '低置信'
+                                : '中置信'}
+                          </em>
+                        </div>
+                        <div className="chat-credit-grid">
+                          <div>
+                            <span>当前应还</span>
+                            <strong>{creditItem.dueAmount || '待补充'}</strong>
+                          </div>
+                          <div>
+                            <span>剩余待还</span>
+                            <strong>{creditItem.totalDebt || '待补充'}</strong>
+                          </div>
+                          <div>
+                            <span>还款日</span>
+                            <strong>{creditItem.repaymentDate || '待补充'}</strong>
+                          </div>
+                          <div>
+                            <span>剩余期数</span>
+                            <strong>{creditItem.remainingPeriods || '待补充'}</strong>
+                          </div>
+                          <div>
+                            <span>每期金额</span>
+                            <strong>{creditItem.monthlyAmount || '待补充'}</strong>
+                          </div>
+                          <div>
+                            <span>利息/手续费</span>
+                            <strong>{creditItem.interest || '待补充'}</strong>
+                          </div>
+                        </div>
+                        {creditItem.pendingFields.length > 0 ? (
+                          <div className="chat-credit-pending">
+                            <span>待补充：</span>
+                            <div className="chat-credit-pending-list">
+                              {creditItem.pendingFields.map((field, idx) => (
+                                <span key={`${creditItem.id}-pending-${idx}`}>{field}</span>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                      </section>
+                    ))}
                   </div>
                 ) : null}
                 {item.role === 'assistant' && item.reasoningText ? (
