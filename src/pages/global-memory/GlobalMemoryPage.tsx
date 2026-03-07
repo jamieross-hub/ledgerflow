@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useGlobalMemoryStore } from '../../shared/store/useGlobalMemoryStore';
 import type { GlobalMemoryStatus, GlobalMemoryType } from '../../shared/store/globalMemory';
+import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
+import { Toast, ToastVariant } from '../../shared/ui/Toast';
 
 const MEMORY_TYPE_LABELS: Record<GlobalMemoryType, string> = {
   user_preference: '用户偏好',
@@ -31,8 +33,15 @@ export function GlobalMemoryPage() {
   const setMemoryDisabled = useGlobalMemoryStore((s) => s.setMemoryDisabled);
   const pinMemory = useGlobalMemoryStore((s) => s.pinMemory);
   const removeMemory = useGlobalMemoryStore((s) => s.removeMemory);
+
   const [type, setType] = useState<GlobalMemoryType | 'all'>('all');
-  const [status, setStatus] = useState<GlobalMemoryStatus | 'all'>('all');
+  const [status, setStatus] = useState<GlobalMemoryStatus | 'all'>('active');
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ visible: boolean; message: string; variant: ToastVariant }>({
+    visible: false,
+    message: '',
+    variant: 'success'
+  });
 
   const filtered = useMemo(
     () => getFilteredMemories({ type, status, includeDisabled: true }),
@@ -49,13 +58,22 @@ export function GlobalMemoryPage() {
     [memories]
   );
 
+  const pendingDeleteItem = useMemo(
+    () => memories.find((item) => item.id === pendingDeleteId) ?? null,
+    [memories, pendingDeleteId]
+  );
+
+  const showToast = (message: string, variant: ToastVariant = 'success') => {
+    setToast({ visible: true, message, variant });
+  };
+
   return (
     <div className="global-memory-page">
       <section className="panel">
         <div className="global-memory-header">
           <div>
             <h2>全局记忆</h2>
-            <p>这里展示系统当前沉淀下来的长期偏好与稳定习惯。它们会用于后续 AI 助手回答，但不等于聊天记录备份。</p>
+            <p>这里展示系统当前沉淀下来的长期偏好与稳定习惯。只有经过语言模型提炼且通过嵌入链路参与后，记忆才会正式落库。</p>
           </div>
           <div className="global-memory-summary">
             <span className="badge badge-primary">共 {memories.length} 条</span>
@@ -80,9 +98,9 @@ export function GlobalMemoryPage() {
           <label>
             <span>状态</span>
             <select value={status} onChange={(e) => setStatus(e.target.value as GlobalMemoryStatus | 'all')}>
-              <option value="all">全部</option>
               <option value="active">启用中</option>
               <option value="archived">已归档</option>
+              <option value="all">全部</option>
             </select>
           </label>
         </div>
@@ -90,9 +108,9 @@ export function GlobalMemoryPage() {
 
       {filtered.length === 0 ? (
         <section className="panel empty-state">
-          <div className="empty-state-icon">🧠</div>
-          <h3>还没有可展示的全局记忆</h3>
-          <p>当你和 AI 助手发生更多稳定、多轮的互动后，系统会把有长期价值的偏好沉淀到这里。</p>
+          <div className="empty-state-icon">🗃️</div>
+          <h3>当前筛选条件下没有可展示的全局记忆</h3>
+          <p>你可以切换状态筛选，或者等助手在更多稳定、多轮互动后继续沉淀长期偏好。</p>
         </section>
       ) : (
         <section className="global-memory-list">
@@ -104,44 +122,70 @@ export function GlobalMemoryPage() {
 
             return (
               <article key={item.id} className="panel global-memory-card">
-                <div className="global-memory-card-head">
-                  <div>
-                    <h3>{item.title || '未命名记忆'}</h3>
-                    <div className="global-memory-meta-row">
-                      <span className="badge badge-primary">{MEMORY_TYPE_LABELS[item.type] || '用户偏好'}</span>
-                      <span className="badge">{MEMORY_STATUS_LABELS[item.status] || '启用中'}</span>
-                      {item.pinned ? <span className="badge badge-warning">置顶</span> : null}
-                      {item.disabled ? <span className="badge badge-danger">已停用</span> : null}
+                <div className="global-memory-card-main">
+                  <div className="global-memory-card-head">
+                    <div className="global-memory-card-title-wrap">
+                      <h3>{item.title || '未命名记忆'}</h3>
+                      <div className="global-memory-meta-row">
+                        <span className="badge badge-primary">{MEMORY_TYPE_LABELS[item.type] || '用户偏好'}</span>
+                        <span className="badge">{MEMORY_STATUS_LABELS[item.status] || '启用中'}</span>
+                        {item.pinned ? <span className="badge badge-warning">置顶</span> : null}
+                        {item.disabled ? <span className="badge badge-danger">已停用</span> : null}
+                      </div>
+                    </div>
+                    <div className="global-memory-score-block">
+                      <strong>{Number.isFinite(score) ? score : 0}%</strong>
+                      <small>可信度</small>
                     </div>
                   </div>
-                  <div className="global-memory-score-block">
-                    <strong>{Number.isFinite(score) ? score : 0}%</strong>
-                    <small>可信度</small>
+                  <p className="global-memory-content">{item.content || '暂无内容'}</p>
+                  <div className="global-memory-foot">
+                    <span>来源：{MEMORY_SOURCE_LABELS[item.source] || '未知来源'}</span>
+                    <span>来源方式：{item.origin || 'manual'}</span>
+                    <span>更新时间：{updatedAt}</span>
                   </div>
                 </div>
-                <p className="global-memory-content">{item.content || '暂无内容'}</p>
-                <div className="global-memory-foot">
-                  <span>来源：{MEMORY_SOURCE_LABELS[item.source] || '未知来源'}</span>
-                  <span>来源方式：{item.origin || 'manual'}</span>
-                  <span>更新时间：{updatedAt}</span>
-                </div>
                 <div className="global-memory-actions">
-                  <button type="button" onClick={() => pinMemory(item.id, !item.pinned)}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      pinMemory(item.id, !item.pinned);
+                      showToast(item.pinned ? '已取消置顶' : '已置顶记忆');
+                    }}
+                  >
                     {item.pinned ? '取消置顶' : '置顶'}
                   </button>
-                  <button type="button" onClick={() => setMemoryDisabled(item.id, !item.disabled)}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMemoryDisabled(item.id, !item.disabled);
+                      showToast(item.disabled ? '记忆已重新启用' : '记忆已停用', item.disabled ? 'success' : 'warning');
+                    }}
+                  >
                     {item.disabled ? '启用' : '停用'}
                   </button>
                   {item.status === 'active' ? (
-                    <button type="button" onClick={() => archiveMemory(item.id)}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        archiveMemory(item.id);
+                        showToast('记忆已归档');
+                      }}
+                    >
                       归档
                     </button>
                   ) : (
-                    <button type="button" onClick={() => restoreMemory(item.id)}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        restoreMemory(item.id);
+                        showToast('记忆已恢复');
+                      }}
+                    >
                       恢复
                     </button>
                   )}
-                  <button type="button" className="danger" onClick={() => removeMemory(item.id)}>
+                  <button type="button" className="danger" onClick={() => setPendingDeleteId(item.id)}>
                     删除
                   </button>
                 </div>
@@ -150,6 +194,29 @@ export function GlobalMemoryPage() {
           })}
         </section>
       )}
+
+      <ConfirmDialog
+        open={Boolean(pendingDeleteItem)}
+        title="确认删除这条全局记忆？"
+        description={pendingDeleteItem ? `删除后不可恢复：${pendingDeleteItem.title || '未命名记忆'}` : ''}
+        confirmText="确认删除"
+        cancelText="取消"
+        danger
+        onCancel={() => setPendingDeleteId(null)}
+        onConfirm={() => {
+          if (!pendingDeleteItem) return;
+          removeMemory(pendingDeleteItem.id);
+          setPendingDeleteId(null);
+          showToast('记忆已删除');
+        }}
+      />
+
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        variant={toast.variant}
+        onClose={() => setToast((prev) => ({ ...prev, visible: false }))}
+      />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { sendAiChat } from '../api/openaiCompatibleClient';
+import { fetchEmbeddings } from '../api/openaiEmbeddingClient';
 import type {
   GlobalMemoryDraft,
   GlobalMemorySourceKind,
@@ -32,18 +33,19 @@ export async function extractGlobalMemoriesFromConversation(params: {
   baseUrl: string;
   apiKey: string;
   model: string;
+  embeddingModel: string;
   history: AssistantChatHistoryItemLite[];
   source: GlobalMemorySourceKind;
   signal?: AbortSignal;
 }): Promise<GlobalMemoryDraft[]> {
-  const { baseUrl, apiKey, model, history, source, signal } = params;
+  const { baseUrl, apiKey, model, embeddingModel, history, source, signal } = params;
   const turns = history
     .filter((item) => item.text.trim())
     .slice(-10)
     .map((item) => `${item.role === 'user' ? '用户' : '助手'}：${item.text.trim()}`)
     .join('\n');
 
-  if (!turns) return [];
+  if (!turns || !embeddingModel.trim()) return [];
 
   const reply = await sendAiChat({
     baseUrl,
@@ -64,7 +66,7 @@ export async function extractGlobalMemoriesFromConversation(params: {
   const parsed = JSON.parse(normalized) as ExtractedMemoryRow[];
   if (!Array.isArray(parsed)) return [];
 
-  return parsed
+  const candidates = parsed
     .map((item): GlobalMemoryDraft | null => {
       const title = String(item?.title || '').trim();
       const content = String(item?.content || '').trim();
@@ -82,10 +84,11 @@ export async function extractGlobalMemoriesFromConversation(params: {
         origin: 'extracted',
         confidence: normalizedConfidence,
         score: normalizedConfidence,
+        embeddingText: [title, content, type].join('\n'),
         sourceTrace: [
           {
             kind: source,
-            label: '多轮对话自动提炼',
+            label: '多轮对话自动提炼（LLM + Embedding）',
             excerpt: content,
             recordedAt: new Date().toISOString()
           }
@@ -94,4 +97,16 @@ export async function extractGlobalMemoriesFromConversation(params: {
     })
     .filter((item): item is GlobalMemoryDraft => item !== null)
     .slice(0, 3);
+
+  if (!candidates.length) return [];
+
+  const vectors = await fetchEmbeddings({
+    baseUrl,
+    apiKey,
+    model: embeddingModel.trim(),
+    inputs: candidates.map((item) => item.embeddingText || `${item.title}\n${item.content}\n${item.type}`),
+    signal
+  });
+
+  return candidates.filter((_, index) => Array.isArray(vectors[index]) && vectors[index].length > 0);
 }

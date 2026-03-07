@@ -341,18 +341,6 @@ body {
   font-weight: 500;
 }
 
-/* Active indicator — left bar */
-.sidebar-link.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: var(--color-primary);
-}
-
 .sidebar-link.disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -10040,12 +10028,21 @@ body.categories-accounts-resizing {
 
 .global-memory-list {
   display: grid;
-  gap: 16px;
+  gap: 10px;
 }
 
 .global-memory-card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
+  padding: 14px 16px;
+  align-items: start;
+}
+
+.global-memory-card-main {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
 }
 
 .global-memory-card-head {
@@ -10055,21 +10052,31 @@ body.categories-accounts-resizing {
   align-items: flex-start;
 }
 
+.global-memory-card-title-wrap {
+  min-width: 0;
+}
+
+.global-memory-card-title-wrap h3 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
 .global-memory-meta-row {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .global-memory-score-block {
-  min-width: 72px;
+  min-width: 64px;
   text-align: right;
 }
 
 .global-memory-score-block strong {
   display: block;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .global-memory-score-block small {
@@ -10078,30 +10085,57 @@ body.categories-accounts-resizing {
 
 .global-memory-content {
   margin: 0;
-  line-height: 1.7;
+  line-height: 1.55;
+  color: var(--color-text-primary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .global-memory-foot {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
   color: var(--color-text-secondary);
-  font-size: var(--font-sm);
+  font-size: 12px;
 }
 
 .global-memory-actions {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  min-width: 88px;
+}
+
+.global-memory-actions button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 12px;
 }
 
 @media (max-width: 768px) {
+  .global-memory-card {
+    grid-template-columns: 1fr;
+  }
+
   .global-memory-card-head {
     flex-direction: column;
   }
 
   .global-memory-score-block {
     text-align: left;
+  }
+
+  .global-memory-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .global-memory-actions button {
+    flex: 1 1 96px;
   }
 
   .global-memory-filters label {

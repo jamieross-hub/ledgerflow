@@ -654,6 +654,8 @@ export function AssistantPage() {
   const setModel = useAiSettings((s) => s.setModel);
   const showEmbeddingSummary = useAiSettings((s) => s.showEmbeddingSummary);
   const showEmbeddingDebug = useAiSettings((s) => s.showEmbeddingDebug);
+  const embeddingModel = useAiSettings((s) => s.embeddingModel);
+  const enableEmbeddingModel = useAiSettings((s) => s.enableEmbeddingModel);
   const globalMemories = useGlobalMemoryStore((s) => s.memories);
   const addGlobalMemory = useGlobalMemoryStore((s) => s.addMemory);
 
@@ -1058,6 +1060,7 @@ export function AssistantPage() {
 
   useEffect(() => {
     if (!baseUrl || !apiKey || !model) return;
+    if (!enableEmbeddingModel || !embeddingModel.trim()) return;
     if (mode === 'bookkeeping') return;
 
     const recentConversation = chatHistory
@@ -1079,6 +1082,7 @@ export function AssistantPage() {
       baseUrl,
       apiKey,
       model,
+      embeddingModel,
       history: recentConversation,
       source: mode === 'credit' ? 'assistant_chat' : 'assistant_chat'
     })
@@ -1097,7 +1101,17 @@ export function AssistantPage() {
       .catch(() => {
         // ignore extraction failure
       });
-  }, [addGlobalMemory, apiKey, baseUrl, chatHistory, globalMemories, mode, model]);
+  }, [
+    addGlobalMemory,
+    apiKey,
+    baseUrl,
+    chatHistory,
+    embeddingModel,
+    enableEmbeddingModel,
+    globalMemories,
+    mode,
+    model
+  ]);
 
   const appendMessageToMode = useCallback(
     (targetMode: AssistantMode, message: ChatHistoryItem) => {

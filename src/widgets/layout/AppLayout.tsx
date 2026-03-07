@@ -42,7 +42,7 @@ export function AppLayout() {
         items: [
           { to: '/assistant', label: t('nav.assistantBookkeeping'), icon: '🤖' },
           { to: '/smart-budget', label: t('nav.smartBudget'), icon: '🧠' },
-          { to: '/global-memory', label: '全局记忆', icon: '🧠' }
+          { to: '/global-memory', label: '全局记忆', icon: '🗃️' }
         ]
       },
       {
@@ -81,7 +81,7 @@ export function AppLayout() {
         items: [
           { label: t('nav.assistantBookkeeping'), icon: '🤖', to: '/assistant' },
           { label: t('nav.smartBudget'), icon: '🧠', to: '/smart-budget' },
-          { label: '全局记忆', icon: '🧠', to: '/global-memory' },
+          { label: '全局记忆', icon: '🗃️', to: '/global-memory' },
           { label: t('nav.transactions'), icon: '📋', to: '/transactions' },
           { label: t('nav.dashboard'), icon: '📊', to: '/', end: true },
           { label: t('nav.categoriesAccounts'), icon: '🗂️', to: '/categories-accounts' },
