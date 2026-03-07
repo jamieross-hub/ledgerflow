@@ -8,7 +8,8 @@ import {
   GlobalMemoryUpdatePayload,
   normalizeGlobalMemoryDraft,
   buildMemoryEmbeddingText,
-  clampMemoryScore
+  clampMemoryScore,
+  sanitizePersistedGlobalMemoryItem
 } from './globalMemory';
 
 const GLOBAL_MEMORY_STORAGE_KEY = 'ledgerflow-global-memory';
@@ -185,13 +186,29 @@ export const useGlobalMemoryStore = create<GlobalMemoryState>()(
           display_preference: 0
         };
         for (const item of get().memories) {
-          summary[item.type] += 1;
+          if (item.type in summary) {
+            summary[item.type] += 1;
+          }
         }
         return summary;
       }
     }),
     {
-      name: GLOBAL_MEMORY_STORAGE_KEY
+      name: GLOBAL_MEMORY_STORAGE_KEY,
+      merge: (persistedState, currentState) => {
+        const incoming = (persistedState as Partial<GlobalMemoryState> | undefined)?.memories;
+        const safeMemories = Array.isArray(incoming)
+          ? incoming
+              .map((item, index) => sanitizePersistedGlobalMemoryItem(item, index))
+              .filter((item): item is GlobalMemoryItem => Boolean(item))
+          : currentState.memories;
+
+        return {
+          ...currentState,
+          ...(persistedState as object),
+          memories: sortMemories(safeMemories)
+        };
+      }
     }
   )
 );

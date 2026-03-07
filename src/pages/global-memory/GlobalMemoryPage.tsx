@@ -26,7 +26,6 @@ const MEMORY_SOURCE_LABELS: Record<string, string> = {
 export function GlobalMemoryPage() {
   const memories = useGlobalMemoryStore((s) => s.memories);
   const getFilteredMemories = useGlobalMemoryStore((s) => s.getFilteredMemories);
-  const summary = useGlobalMemoryStore((s) => s.getMemorySummaryByType());
   const archiveMemory = useGlobalMemoryStore((s) => s.archiveMemory);
   const restoreMemory = useGlobalMemoryStore((s) => s.restoreMemory);
   const setMemoryDisabled = useGlobalMemoryStore((s) => s.setMemoryDisabled);
@@ -38,6 +37,16 @@ export function GlobalMemoryPage() {
   const filtered = useMemo(
     () => getFilteredMemories({ type, status, includeDisabled: true }),
     [getFilteredMemories, status, type]
+  );
+
+  const summary = useMemo(
+    () => ({
+      user_preference: memories.filter((item) => item.type === 'user_preference').length,
+      financial_habit: memories.filter((item) => item.type === 'financial_habit').length,
+      risk_preference: memories.filter((item) => item.type === 'risk_preference').length,
+      display_preference: memories.filter((item) => item.type === 'display_preference').length
+    }),
+    [memories]
   );
 
   return (
@@ -87,51 +96,58 @@ export function GlobalMemoryPage() {
         </section>
       ) : (
         <section className="global-memory-list">
-          {filtered.map((item) => (
-            <article key={item.id} className="panel global-memory-card">
-              <div className="global-memory-card-head">
-                <div>
-                  <h3>{item.title}</h3>
-                  <div className="global-memory-meta-row">
-                    <span className="badge badge-primary">{MEMORY_TYPE_LABELS[item.type]}</span>
-                    <span className="badge">{MEMORY_STATUS_LABELS[item.status]}</span>
-                    {item.pinned ? <span className="badge badge-warning">置顶</span> : null}
-                    {item.disabled ? <span className="badge badge-danger">已停用</span> : null}
+          {filtered.map((item) => {
+            const updatedAt = item.updatedAt && !Number.isNaN(new Date(item.updatedAt).getTime())
+              ? new Date(item.updatedAt).toLocaleString()
+              : '未知时间';
+            const score = Math.round((item.score || item.confidence || 0) * 100);
+
+            return (
+              <article key={item.id} className="panel global-memory-card">
+                <div className="global-memory-card-head">
+                  <div>
+                    <h3>{item.title || '未命名记忆'}</h3>
+                    <div className="global-memory-meta-row">
+                      <span className="badge badge-primary">{MEMORY_TYPE_LABELS[item.type] || '用户偏好'}</span>
+                      <span className="badge">{MEMORY_STATUS_LABELS[item.status] || '启用中'}</span>
+                      {item.pinned ? <span className="badge badge-warning">置顶</span> : null}
+                      {item.disabled ? <span className="badge badge-danger">已停用</span> : null}
+                    </div>
+                  </div>
+                  <div className="global-memory-score-block">
+                    <strong>{Number.isFinite(score) ? score : 0}%</strong>
+                    <small>可信度</small>
                   </div>
                 </div>
-                <div className="global-memory-score-block">
-                  <strong>{Math.round((item.score || item.confidence || 0) * 100)}%</strong>
-                  <small>可信度</small>
+                <p className="global-memory-content">{item.content || '暂无内容'}</p>
+                <div className="global-memory-foot">
+                  <span>来源：{MEMORY_SOURCE_LABELS[item.source] || '未知来源'}</span>
+                  <span>来源方式：{item.origin || 'manual'}</span>
+                  <span>更新时间：{updatedAt}</span>
                 </div>
-              </div>
-              <p className="global-memory-content">{item.content}</p>
-              <div className="global-memory-foot">
-                <span>来源：{MEMORY_SOURCE_LABELS[item.source] || item.source}</span>
-                <span>来源方式：{item.origin}</span>
-                <span>更新时间：{new Date(item.updatedAt).toLocaleString()}</span>
-              </div>
-              <div className="global-memory-actions">
-                <button type="button" onClick={() => pinMemory(item.id, !item.pinned)}>
-                  {item.pinned ? '取消置顶' : '置顶'}
-                </button>
-                <button type="button" onClick={() => setMemoryDisabled(item.id, !item.disabled)}>
-                  {item.disabled ? '启用' : '停用'}
-                </button>
-                {item.status === 'active' ? (
-                  <button type="button" onClick={() => archiveMemory(item.id)}>
-                    归档
+                <div className="global-memory-actions">
+                  <button type="button" onClick={() => pinMemory(item.id, !item.pinned)}>
+                    {item.pinned ? '取消置顶' : '置顶'}
                   </button>
-                ) : (
-                  <button type="button" onClick={() => restoreMemory(item.id)}>
-                    恢复
+                  <button type="button" onClick={() => setMemoryDisabled(item.id, !item.disabled)}>
+                    {item.disabled ? '启用' : '停用'}
                   </button>
-                )}
-                <button type="button" className="danger" onClick={() => removeMemory(item.id)}>
-                  删除
-                </button>
-              </div>
-            </article>
-          ))}
+                  {item.status === 'active' ? (
+                    <button type="button" onClick={() => archiveMemory(item.id)}>
+                      归档
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => restoreMemory(item.id)}>
+                      恢复
+                    </button>
+                  )}
+                  <button type="button" className="danger" onClick={() => removeMemory(item.id)}>
+                    删除
+                  </button>
+                </div>
+              </article>
+            );
+          })}
         </section>
       )}
     </div>
