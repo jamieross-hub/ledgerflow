@@ -329,6 +329,9 @@ export function TransactionDetailDrawer({
     return saved === 'timeline' ? 'timeline' : 'professional';
   });
   const [attachmentUploading, setAttachmentUploading] = useState(false);
+  const [drawerHeight, setDrawerHeight] = useState<number | null>(null);
+  const drawerRef = useRef<HTMLDivElement | null>(null);
+  const resizeStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const setDetailMode = (next: DetailMode) => {
@@ -459,26 +462,48 @@ export function TransactionDetailDrawer({
     printWindow.print();
   };
 
-  // 打开时禁止 body 滚动
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [open]);
-
   useEffect(() => {
     if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+    setDrawerHeight(null);
+  }, [open, transaction?.id]);
+
+  useEffect(() => {
+    const onPointerMove = (event: PointerEvent) => {
+      const state = resizeStateRef.current;
+      if (!state) return;
+      const minHeight = Math.min(420, Math.round(window.innerHeight * 0.42));
+      const maxHeight = Math.round(window.innerHeight - 24);
+      const next = state.startHeight + (state.startY - event.clientY);
+      setDrawerHeight(Math.min(maxHeight, Math.max(minHeight, next)));
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, onClose]);
+
+    const stopResize = () => {
+      resizeStateRef.current = null;
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', stopResize);
+    window.addEventListener('pointercancel', stopResize);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', stopResize);
+      window.removeEventListener('pointercancel', stopResize);
+      stopResize();
+    };
+  }, []);
+
+  const handleResizeStart = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!drawerRef.current) return;
+    resizeStateRef.current = {
+      startY: event.clientY,
+      startHeight: drawerRef.current.getBoundingClientRect().height
+    };
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'ns-resize';
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
 
   if (!open || !transaction) return null;
 
@@ -553,12 +578,22 @@ export function TransactionDetailDrawer({
   return (
     <div className="drawer-overlay" role="presentation" onClick={onClose}>
       <aside
+        ref={drawerRef}
         className="drawer-panel"
         role="dialog"
         aria-modal="true"
         aria-label="交易详情"
+        style={drawerHeight ? { height: `${drawerHeight}px` } : undefined}
         onClick={(event) => event.stopPropagation()}
       >
+        <button
+          type="button"
+          className="drawer-resize-handle"
+          aria-label="拖拽调整详情抽屉高度"
+          onPointerDown={handleResizeStart}
+        >
+          <span />
+        </button>
         <header className="drawer-header">
           <div>
             <h3>交易详情</h3>

@@ -5035,6 +5035,7 @@ small.mono {
 .drawer-panel {
   width: min(1200px, 100vw);
   height: min(56vh, 560px);
+  min-height: 360px;
   max-height: calc(100vh - 24px);
   max-height: calc(100dvh - 24px);
   background: var(--color-bg-elevated);
@@ -5046,6 +5047,29 @@ small.mono {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.drawer-resize-handle {
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 10px 0 6px;
+  background: transparent;
+  border: none;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.drawer-resize-handle span {
+  width: 72px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-text-tertiary) 36%, var(--color-border));
+}
+
+.drawer-resize-handle:hover span,
+.drawer-resize-handle:focus-visible span {
+  background: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
 }
 
 .drawer-header {
@@ -5426,6 +5450,7 @@ small.mono {
     width: 100vw;
     max-width: 100vw;
     height: min(78vh, 760px);
+    min-height: 420px;
     height: min(78dvh, 760px);
     max-height: calc(100vh - 8px);
     max-height: calc(100dvh - 8px);
