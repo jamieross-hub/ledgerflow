@@ -1,4 +1,5 @@
 import { ChangeEvent, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import {
   calculateDebtHealthScore,
@@ -42,6 +43,21 @@ type ParsedDebtItem = {
   balance: number;
   annualRate?: number;
   remainingMonths?: number;
+};
+
+type RepaymentPrefillDebt = {
+  name?: string;
+  type?: DebtType;
+  balance?: string;
+  annualRate?: string;
+  remainingMonths?: string;
+  totalPeriods?: string;
+  paidPeriods?: string;
+  loanPrincipal?: string;
+  totalRepayment?: string;
+  repaymentDay?: string;
+  paymentAccount?: string;
+  source?: string;
 };
 
 type RepaymentStrategyType = 'avalanche' | 'snowball' | 'ladder';
@@ -491,6 +507,7 @@ function simulateRepaymentPlan(input: {
 }
 
 export function RepaymentManagementPage() {
+  const location = useLocation();
   const {
     debts,
     repaymentRecords,
@@ -554,8 +571,28 @@ export function RepaymentManagementPage() {
     useState<DebtRepaymentRecordMode>('manual');
   const [repaymentRecordError, setRepaymentRecordError] = useState('');
   const [simulatorExtraPayment, setSimulatorExtraPayment] = useState('1000');
+  const [prefillHint, setPrefillHint] = useState('');
   const debtIdsRef = useRef<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const prefillDebt = (location.state as { prefillDebt?: RepaymentPrefillDebt } | null)?.prefillDebt;
+    if (!prefillDebt) return;
+
+    setDebtName(prefillDebt.name || '');
+    setDebtType(prefillDebt.type || 'credit-card');
+    setDebtBalance(prefillDebt.balance || '');
+    setDebtAnnualRate(prefillDebt.annualRate || '');
+    setDebtMonths(prefillDebt.remainingMonths || '');
+    setDebtTotalPeriods(prefillDebt.totalPeriods || '');
+    setDebtPaidPeriods(prefillDebt.paidPeriods || '');
+    setDebtLoanPrincipal(prefillDebt.loanPrincipal || '');
+    setDebtTotalRepayment(prefillDebt.totalRepayment || '');
+    setDebtRepaymentDay(prefillDebt.repaymentDay || '');
+    setDebtPaymentAccount(prefillDebt.paymentAccount || '');
+    setDebtFormError('');
+    setPrefillHint(`已从 AI 信贷管家带入“${prefillDebt.name || '待确认负债'}”的识别结果，请核对后再保存。`);
+  }, [location.state]);
 
   const debtSummary = useMemo(
     () => calculateDebtSummary(debts, monthlyIncome),
@@ -1505,6 +1542,12 @@ export function RepaymentManagementPage() {
                 boxShadow: '0 6px 16px color-mix(in srgb, var(--color-text) 8%, transparent)'
               }}
             />
+          ) : null}
+
+          {prefillHint ? (
+            <div className="finance-prefill-hint" role="status">
+              {prefillHint}
+            </div>
           ) : null}
 
           <p className="muted" style={{ margin: '12px 0 8px 0' }}>

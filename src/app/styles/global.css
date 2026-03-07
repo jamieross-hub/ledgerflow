@@ -7419,6 +7419,22 @@ body.categories-accounts-resizing {
   background: color-mix(in srgb, var(--color-warning-bg) 86%, var(--color-bg-elevated));
 }
 
+.chat-credit-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.finance-prefill-hint {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--color-border-light));
+  background: color-mix(in srgb, var(--color-bg-elevated) 92%, var(--color-primary-bg));
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+  line-height: 1.6;
+}
+
 .chat-follow-up-block {
   display: grid;
   gap: 10px;

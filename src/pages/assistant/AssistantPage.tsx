@@ -584,6 +584,44 @@ function stripCreditJsonBlock(answer: string): string {
   return answer.replace(/```json\s*[\s\S]*?```/gi, '').trim();
 }
 
+function mapCreditItemToRepaymentPrefill(item: CreditExtractedItem) {
+  const normalizedTypeText = `${item.productType} ${item.title}`;
+  const type: 'credit-card' | 'consumer-loan' | 'loan' = /房贷|车贷|按揭|贷款/i.test(normalizedTypeText)
+    ? 'loan'
+    : /花呗|白条|分期|消费贷|借呗|现金贷/i.test(normalizedTypeText)
+      ? 'consumer-loan'
+      : 'credit-card';
+
+  const extractNumberText = (value?: string) => {
+    if (!value) return '';
+    const match = value.replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
+    return match ? match[0] : '';
+  };
+
+  const extractDayText = (value?: string) => {
+    if (!value) return '';
+    const match = value.match(/(\d{1,2})(?:日|号)?/);
+    return match ? match[1] : '';
+  };
+
+  const totalPeriodsNumber = extractNumberText(item.remainingPeriods);
+
+  return {
+    name: item.title,
+    type,
+    balance: extractNumberText(item.totalDebt) || extractNumberText(item.dueAmount),
+    repaymentDay: extractDayText(item.repaymentDate),
+    totalPeriods: totalPeriodsNumber,
+    paidPeriods: '',
+    remainingMonths: totalPeriodsNumber,
+    loanPrincipal: extractNumberText(item.totalDebt),
+    totalRepayment: extractNumberText(item.totalDebt),
+    annualRate: extractNumberText(item.interest),
+    paymentAccount: '',
+    source: 'assistant-credit'
+  };
+}
+
 function buildFollowUpPrompts(answer: string, history: ChatHistoryItem[]): string[] {
   const latestUserQuestion = [...history].reverse().find((item) => item.role === 'user')?.text?.trim() || '';
   const hasBudget = /预算|超支|结余|开销|消费/.test(answer + latestUserQuestion);
@@ -1772,6 +1810,21 @@ export function AssistantPage() {
                             </div>
                           </div>
                         ) : null}
+                        <div className="chat-credit-actions">
+                          <button
+                            type="button"
+                            className="chat-secondary-action-btn"
+                            onClick={() =>
+                              navigate('/repayment-management', {
+                                state: {
+                                  prefillDebt: mapCreditItemToRepaymentPrefill(creditItem)
+                                }
+                              })
+                            }
+                          >
+                            带去还款管理
+                          </button>
+                        </div>
                       </section>
                     ))}
                   </div>
