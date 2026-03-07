@@ -15,6 +15,8 @@ import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient'
 import { useAssistantWorkbench } from '../../features/assistant/workbench/useAssistantWorkbench';
 import { BillPreviewCard } from '../../features/assistant/ui/BillPreviewCard';
 import { useAiSettings } from '../../shared/store/useAiSettings';
+import { useGlobalMemoryStore } from '../../shared/store/useGlobalMemoryStore';
+import { extractGlobalMemoriesFromConversation } from '../../features/assistant/memory/extractGlobalMemories';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import {
   getTransactionDirection,
@@ -652,6 +654,8 @@ export function AssistantPage() {
   const setModel = useAiSettings((s) => s.setModel);
   const showEmbeddingSummary = useAiSettings((s) => s.showEmbeddingSummary);
   const showEmbeddingDebug = useAiSettings((s) => s.showEmbeddingDebug);
+  const globalMemories = useGlobalMemoryStore((s) => s.memories);
+  const addGlobalMemory = useGlobalMemoryStore((s) => s.addMemory);
 
   const categories = useFinanceStore((s) => s.categories);
   const accounts = useFinanceStore((s) => s.accounts);
@@ -672,7 +676,8 @@ export function AssistantPage() {
     addAccount,
     addTransaction,
     updateTransaction,
-    sceneMode: mode
+    sceneMode: mode,
+    globalMemories
   });
 
   const [modelOpen, setModelOpen] = useState(false);
@@ -683,6 +688,11 @@ export function AssistantPage() {
   );
   const [loadingPresets, setLoadingPresets] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(() => readChatHistory(mode));
+  const memoryExtractionSignatureRef = useRef<Record<AssistantMode, string>>({
+    bookkeeping: '',
+    assistant: '',
+    credit: ''
+  });
   const todayKey = new Date().toISOString().slice(0, 10);
   const thisMonthKey = todayKey.slice(0, 7);
   const previousMonthDate = new Date();
@@ -1045,6 +1055,49 @@ export function AssistantPage() {
     if (!latestMessage || latestMessage.role !== 'assistant') return;
     messageEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [chatHistory, mode]);
+
+  useEffect(() => {
+    if (!baseUrl || !apiKey || !model) return;
+    if (mode === 'bookkeeping') return;
+
+    const recentConversation = chatHistory
+      .filter((item) => item.role === 'user' || item.role === 'assistant')
+      .slice(-6)
+      .map((item) => ({ role: item.role, text: item.text.trim() }))
+      .filter((item) => item.text);
+
+    if (recentConversation.length < 4) return;
+    const assistantCount = recentConversation.filter((item) => item.role === 'assistant').length;
+    const userCount = recentConversation.filter((item) => item.role === 'user').length;
+    if (assistantCount < 2 || userCount < 2) return;
+
+    const signature = recentConversation.map((item) => `${item.role}:${item.text}`).join('\n---\n');
+    if (!signature || memoryExtractionSignatureRef.current[mode] === signature) return;
+    memoryExtractionSignatureRef.current[mode] = signature;
+
+    void extractGlobalMemoriesFromConversation({
+      baseUrl,
+      apiKey,
+      model,
+      history: recentConversation,
+      source: mode === 'credit' ? 'assistant_chat' : 'assistant_chat'
+    })
+      .then((items) => {
+        if (!items.length) return;
+        const existingSignatures = new Set(
+          globalMemories.map((item) => `${item.type}::${item.title.trim()}::${item.content.trim()}`)
+        );
+        for (const item of items) {
+          const key = `${item.type}::${item.title.trim()}::${item.content.trim()}`;
+          if (existingSignatures.has(key)) continue;
+          const result = addGlobalMemory(item);
+          if (result.ok) existingSignatures.add(key);
+        }
+      })
+      .catch(() => {
+        // ignore extraction failure
+      });
+  }, [addGlobalMemory, apiKey, baseUrl, chatHistory, globalMemories, mode, model]);
 
   const appendMessageToMode = useCallback(
     (targetMode: AssistantMode, message: ChatHistoryItem) => {

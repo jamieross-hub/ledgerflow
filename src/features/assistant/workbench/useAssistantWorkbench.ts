@@ -6,6 +6,8 @@ import type { TransactionItem } from '../../../entities/transaction/types';
 import { useDebugLogStore } from '../../../shared/store/useDebugLogStore';
 import { useAiSettings } from '../../../shared/store/useAiSettings';
 import { buildSemanticRecallContext, clearSemanticRecallCache, getSemanticRecallCacheMeta, type SemanticRecallHit } from './semanticRecall';
+import { buildGlobalMemoryRecallContext } from '../memory/globalMemoryRecall';
+import type { GlobalMemoryItem } from '../../../shared/store/globalMemory';
 import {
   ANALYSIS_AGENT_PROMPT,
   buildTimeContext,
@@ -87,6 +89,7 @@ interface UseAssistantWorkbenchInput {
   addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
   updateTransaction: (id: string, payload: Omit<TransactionItem, 'id'>) => void;
   sceneMode?: 'bookkeeping' | 'assistant' | 'credit';
+  globalMemories?: GlobalMemoryItem[];
 }
 
 /**
@@ -408,6 +411,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
       const basePrompt = isConversationalMode ? ANALYSIS_AGENT_PROMPT : JSON_AGENT_PROMPT;
 
       let semanticRecallBlock = '';
+      let globalMemoryRecallBlock = '';
       const embeddingStart = performance.now();
       setEmbeddingDebug({
         enabled: isConversationalMode && enableEmbeddingModel && Boolean(embeddingModel.trim()),
@@ -442,6 +446,19 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
 
           if (recall && recall.context) {
             semanticRecallBlock = `\n\n语义召回候选（按相似度排序，仅作辅助参考）：\n${recall.context}`;
+            const globalMemoryRecall = await buildGlobalMemoryRecallContext({
+              baseUrl: input.baseUrl,
+              apiKey: input.apiKey,
+              embeddingModel,
+              rerankModel,
+              enableRerankModel,
+              question: cleanPrompt,
+              memories: input.globalMemories || [],
+              signal: controller.signal
+            });
+            if (globalMemoryRecall?.context) {
+              globalMemoryRecallBlock = `\n\n用户长期记忆（embedding 召回 + rerank 选优，仅在相关时参考）：\n${globalMemoryRecall.context}`;
+            }
             setEmbeddingDebug({
               enabled: true,
               model: embeddingModel.trim(),
@@ -531,7 +548,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
 
       refreshSemanticRecallCacheMeta();
 
-      const prompt = `${basePrompt}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}${semanticRecallBlock}`;
+      const prompt = `${basePrompt}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}${semanticRecallBlock}${globalMemoryRecallBlock}`;
       if (isConversationalMode) {
         let streamedContent = '';
         await sendAiChatStream(
