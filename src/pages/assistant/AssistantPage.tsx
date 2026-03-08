@@ -749,34 +749,30 @@ function buildCreditFollowUpPrompts(items: CreditExtractedItem[]): string[] {
 }
 
 
-function buildChunkedStreamingPreview(raw: string, previous: string, forceFlush = false): string {
+function splitStreamingSegments(raw: string): { committed: string[]; draft: string } {
   const text = String(raw || '');
-  if (!text) return '';
-  if (text.length <= previous.length) return previous || text;
-  if (forceFlush) return text;
+  if (!text.trim()) return { committed: [], draft: '' };
 
-  const nextSlice = text.slice(previous.length);
-  const hasStrongBoundary = /[\n。！？!?；;]/.test(nextSlice) || nextSlice.length >= 56;
-  if (!hasStrongBoundary) {
-    return previous || '';
+  const normalized = text.replace(/\r/g, '');
+  const committed: string[] = [];
+  let cursor = 0;
+
+  for (let i = 0; i < normalized.length; i += 1) {
+    const char = normalized[i];
+    const nextChar = normalized[i + 1] || '';
+    const isParagraphBreak = char === '\n' && nextChar === '\n';
+    const isSentenceBreak = /[。！？!?；;]/.test(char);
+    if (!isParagraphBreak && !isSentenceBreak) continue;
+
+    const sliceEnd = isParagraphBreak ? i + 2 : i + 1;
+    const chunk = normalized.slice(cursor, sliceEnd).trim();
+    if (chunk) committed.push(chunk);
+    cursor = sliceEnd;
+    if (isParagraphBreak) i += 1;
   }
 
-  const lastBoundaryIndex = Math.max(
-    nextSlice.lastIndexOf('\n'),
-    nextSlice.lastIndexOf('。'),
-    nextSlice.lastIndexOf('！'),
-    nextSlice.lastIndexOf('？'),
-    nextSlice.lastIndexOf('!'),
-    nextSlice.lastIndexOf('?'),
-    nextSlice.lastIndexOf('；'),
-    nextSlice.lastIndexOf(';')
-  );
-
-  if (lastBoundaryIndex >= 0) {
-    return text.slice(0, previous.length + lastBoundaryIndex + 1);
-  }
-
-  return previous || '';
+  const draft = normalized.slice(cursor).trimStart();
+  return { committed, draft };
 }
 
 function buildCreditAssistantMessageText(answer: string): string {
@@ -1001,7 +997,8 @@ export function AssistantPage() {
   const [modelOpen, setModelOpen] = useState(false);
   const [presetQuestions, setPresetQuestions] = useState<PresetQuestion[]>([]);
   const [streamingPreviewMessage, setStreamingPreviewMessage] = useState('');
-  const [streamingDisplayMessage, setStreamingDisplayMessage] = useState('');
+  const [streamingCommittedSegments, setStreamingCommittedSegments] = useState<string[]>([]);
+  const [streamingDraftSegment, setStreamingDraftSegment] = useState('');
   const [isMobileView, setIsMobileView] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
   );
@@ -1525,17 +1522,22 @@ export function AssistantPage() {
     const responseMode = pendingRequestModeRef.current;
     if (mode !== 'bookkeeping' && wb.status === 'recognizing') {
       setStreamingPreviewMessage(wb.rawContent);
-      setStreamingDisplayMessage((prev) => buildChunkedStreamingPreview(wb.rawContent, prev));
+      const segments = splitStreamingSegments(wb.rawContent);
+      setStreamingCommittedSegments(segments.committed);
+      setStreamingDraftSegment(segments.draft);
       return;
     }
 
     const messageText = buildAssistantMessageText(responseMode);
     if (!messageText || messageText === lastAssistantRef.current[responseMode]) return;
 
-    setStreamingDisplayMessage((prev) => buildChunkedStreamingPreview(wb.rawContent, prev, true));
+    const flushedSegments = splitStreamingSegments(wb.rawContent);
+    setStreamingCommittedSegments(flushedSegments.committed);
+    setStreamingDraftSegment(flushedSegments.draft);
     lastAssistantRef.current[responseMode] = messageText;
     setStreamingPreviewMessage('');
-    setStreamingDisplayMessage('');
+    setStreamingCommittedSegments([]);
+    setStreamingDraftSegment('');
     const usageText = wb.lastUsage
       ? `Token 消耗：输入 ${wb.lastUsage.promptTokens} / 输出 ${wb.lastUsage.completionTokens} / 总计 ${wb.lastUsage.totalTokens}`
       : undefined;
@@ -2421,7 +2423,14 @@ export function AssistantPage() {
                   ) : renderCreditCardSkeleton(2);
                 })() : null}
                 <div className="chat-msg-content chat-msg-content-rich chat-msg-content-streaming">
-                  {renderMarkdownContent(streamingDisplayMessage)}
+                  {streamingCommittedSegments.map((segment, index) => (
+                    <div key={`stream-segment-${index}`} className="chat-stream-segment">
+                      {renderMarkdownContent(segment)}
+                    </div>
+                  ))}
+                  {streamingDraftSegment ? (
+                    <div className="chat-stream-draft">{renderMarkdownContent(streamingDraftSegment)}</div>
+                  ) : null}
                 </div>
               </div>
             </article>
