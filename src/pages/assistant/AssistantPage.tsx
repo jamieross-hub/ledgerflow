@@ -2220,16 +2220,6 @@ export function AssistantPage() {
                             ) : null}
                           </div>
                         ) : null}
-                        {creditItem.pendingFields.length > 0 ? (
-                          <div className="chat-credit-pending">
-                            <span>待补充：</span>
-                            <div className="chat-credit-pending-list">
-                              {creditItem.pendingFields.map((field, idx) => (
-                                <span key={`${creditItem.id}-pending-${idx}`}>{field}</span>
-                              ))}
-                            </div>
-                          </div>
-                        ) : null}
                         {creditItem.repaymentLookupSummary ? (
                           <div className="chat-credit-lookup-card">
                             <div className="chat-credit-lookup-head">
