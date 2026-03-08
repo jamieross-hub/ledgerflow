@@ -552,7 +552,25 @@ function readChatHistory(mode: AssistantMode): ChatHistoryItem[] {
           ? item.pdfDataUrls.filter(
               (url): url is string => typeof url === 'string' && url.length > 0
             )
-          : []
+          : [],
+        followUpPrompts: Array.isArray(item.followUpPrompts)
+          ? item.followUpPrompts.filter(
+              (prompt): prompt is string => typeof prompt === 'string' && prompt.length > 0
+            )
+          : [],
+        creditItems: Array.isArray(item.creditItems)
+          ? item.creditItems.filter(
+              (creditItem): creditItem is CreditExtractedItem =>
+                Boolean(creditItem) &&
+                typeof creditItem.id === 'string' &&
+                typeof creditItem.title === 'string' &&
+                typeof creditItem.productType === 'string' &&
+                Array.isArray(creditItem.pendingFields) &&
+                (creditItem.confidence === 'high' ||
+                  creditItem.confidence === 'medium' ||
+                  creditItem.confidence === 'low')
+            )
+          : undefined
       }));
   } catch {
     return [];
@@ -1725,12 +1743,17 @@ export function AssistantPage() {
     });
   }, [
     appendMessageToMode,
+    buildAssistantMessageText,
+    chatHistory,
+    debts,
+    repaymentRecords,
     showEmbeddingDebug,
     showEmbeddingSummary,
     wb.embeddingDebug,
     wb.lastUsage,
     wb.rawContent,
-    wb.rawReasoning
+    wb.rawReasoning,
+    wb.status
   ]);
 
   const removeMessage = (id: string) =>
