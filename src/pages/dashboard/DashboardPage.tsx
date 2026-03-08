@@ -1190,6 +1190,7 @@ export function DashboardPage() {
                     setDraggingModule(null);
                   }}
                   onDragEnd={() => setDraggingModule(null)}
+                  title={module.description}
                 >
                   <div className="dashboard-module-manage-topline">
                     <span className="dashboard-module-drag-handle" aria-hidden="true">↕</span>
@@ -1203,7 +1204,6 @@ export function DashboardPage() {
                     <strong>{module.label}</strong>
                     <span className="dashboard-module-state">{checked ? '显示中' : '已隐藏'}</span>
                   </div>
-                  <small>{module.description}</small>
                 </label>
               );
             })}
