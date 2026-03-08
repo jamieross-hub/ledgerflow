@@ -122,8 +122,7 @@ const DASHBOARD_MODULE_CATALOG = [
   },
   { id: 'top-transactions', label: '支出排行', description: '展示本月金额较高的重点账目' },
   { id: 'history-compare', label: '历史对比维度', description: '上月 / 季度 / 年度支出对比' },
-  { id: 'profile', label: '消费画像', description: '时段偏好、商家偏好、消费人格' },
-  { id: 'finance-suggestions', label: '财务建议', description: '结合玄学与预算动作给出建议' }
+  { id: 'profile', label: '消费画像', description: '时段偏好、商家偏好、消费人格' }
 ] as const;
 
 type DashboardModuleId = (typeof DASHBOARD_MODULE_CATALOG)[number]['id'];
@@ -1770,22 +1769,6 @@ export function DashboardPage() {
             <p className="dashboard-future-text">
               {forecast?.summary || '点击“手动分析”生成未来趋势分析。'}
             </p>
-            <p className="dashboard-future-tip">
-              一句话解读：未来趋势是
-              {(forecast?.points?.[2] ?? monthlyBalance) >= monthlyBalance
-                ? '稳中向上'
-                : '需要控制支出'}
-              ，建议优先执行下面两条动作。
-            </p>
-            {forecast?.suggestions?.length ? (
-              <ul className="dashboard-future-suggestions">
-                {forecast.suggestions.map((item, index) => (
-                  <li key={`${item}-${index}`} className="dashboard-future-focus-item">
-                    第 {index + 1} 步：{item}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
             <p className="dashboard-future-tip">
               分析输入源：当前本地账目数据（若已同步数据库，数据会先落地到本地再用于模型分析）。
             </p>

@@ -25,6 +25,12 @@ const MEMORY_SOURCE_LABELS: Record<string, string> = {
   manual: '手动添加'
 };
 
+const MEMORY_ORIGIN_LABELS: Record<string, string> = {
+  manual: '手动录入',
+  extracted: '对话提炼',
+  inferred: '系统推断'
+};
+
 export function GlobalMemoryPage() {
   const memories = useGlobalMemoryStore((s) => s.memories);
   const getFilteredMemories = useGlobalMemoryStore((s) => s.getFilteredMemories);
@@ -167,7 +173,7 @@ export function GlobalMemoryPage() {
                   <p className="global-memory-content">{item.content || '暂无内容'}</p>
                   <div className="global-memory-foot">
                     <span>来源：{MEMORY_SOURCE_LABELS[item.source] || '未知来源'}</span>
-                    <span>来源方式：{item.origin || 'manual'}</span>
+                    <span>来源方式：{MEMORY_ORIGIN_LABELS[item.origin || 'manual'] || '手动录入'}</span>
                     <span>更新时间：{updatedAt}</span>
                   </div>
                 </div>

@@ -2411,23 +2411,24 @@ small.mono {
 }
 
 .stat-card h3 {
-  margin: 0 0 2px 0;
-  font-size: 13px;
+  margin: 0 0 4px 0;
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-text-tertiary);
 }
 
 .stat-icon {
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1;
   flex-shrink: 0;
 }
 
 .stat-value {
   display: block;
-  font-size: clamp(1.25rem, 2vw, 1.55rem);
-  font-weight: 700;
-  line-height: 1.15;
+  font-size: clamp(1.55rem, 2.6vw, 2rem);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -10616,6 +10617,12 @@ body.categories-accounts-resizing {
 .global-memory-list {
   display: grid;
   gap: 8px;
+}
+
+@media (min-width: 1280px) {
+  .global-memory-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .global-memory-card {
