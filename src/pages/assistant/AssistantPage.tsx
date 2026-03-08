@@ -749,13 +749,14 @@ function buildCreditFollowUpPrompts(items: CreditExtractedItem[]): string[] {
 }
 
 
-function buildChunkedStreamingPreview(raw: string, previous: string): string {
+function buildChunkedStreamingPreview(raw: string, previous: string, forceFlush = false): string {
   const text = String(raw || '');
   if (!text) return '';
   if (text.length <= previous.length) return previous || text;
+  if (forceFlush) return text;
 
   const nextSlice = text.slice(previous.length);
-  const hasStrongBoundary = /[\n。！？!?；;]/.test(nextSlice) || nextSlice.length >= 48;
+  const hasStrongBoundary = /[\n。！？!?；;]/.test(nextSlice) || nextSlice.length >= 56;
   if (!hasStrongBoundary) {
     return previous || '';
   }
@@ -775,7 +776,7 @@ function buildChunkedStreamingPreview(raw: string, previous: string): string {
     return text.slice(0, previous.length + lastBoundaryIndex + 1);
   }
 
-  return text;
+  return previous || '';
 }
 
 function buildCreditAssistantMessageText(answer: string): string {
@@ -1531,6 +1532,7 @@ export function AssistantPage() {
     const messageText = buildAssistantMessageText(responseMode);
     if (!messageText || messageText === lastAssistantRef.current[responseMode]) return;
 
+    setStreamingDisplayMessage((prev) => buildChunkedStreamingPreview(wb.rawContent, prev, true));
     lastAssistantRef.current[responseMode] = messageText;
     setStreamingPreviewMessage('');
     setStreamingDisplayMessage('');
@@ -2419,7 +2421,7 @@ export function AssistantPage() {
                   ) : renderCreditCardSkeleton(2);
                 })() : null}
                 <div className="chat-msg-content chat-msg-content-rich chat-msg-content-streaming">
-                  {renderMarkdownContent(streamingDisplayMessage || streamingPreviewMessage)}
+                  {renderMarkdownContent(streamingDisplayMessage)}
                 </div>
               </div>
             </article>
