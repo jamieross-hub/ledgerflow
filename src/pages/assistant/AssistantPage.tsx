@@ -386,6 +386,13 @@ interface CreditExtractedItem {
   confirmationState?: 'ready' | 'needs-more-info';
   confirmationSummary?: string[];
   conflictHint?: string;
+  repaymentGapSummary?: {
+    plannedDueAmount?: string;
+    recentActualPaidAmount?: string;
+    gapAmount?: string;
+    gapReason?: string;
+    paymentAccountSummary?: string;
+  };
 }
 
 interface TodayTodoItem {
@@ -733,6 +740,73 @@ function mergeCreditItemsWithHistory(
 }
 
 
+
+function toMoneyNumber(raw?: string): number {
+  if (!raw) return 0;
+  const match = String(raw).replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
+  const value = match ? Number(match[0]) : 0;
+  return Number.isFinite(value) ? value : 0;
+}
+
+function formatGapMoney(value: number): string {
+  return value > 0 ? value.toFixed(2).replace(/\.00$/, '') : '0';
+}
+
+function buildCreditRepaymentGapSummary(
+  item: CreditExtractedItem,
+  debts: DebtItem[],
+  repaymentRecords: ReturnType<typeof useAppPreferences.getState>['repaymentRecords']
+): CreditExtractedItem['repaymentGapSummary'] {
+  const currentKey = normalizeCreditIdentity(`${item.title}${item.productType}`);
+  const matchedDebt = debts.find((debt) => {
+    const debtKey = normalizeCreditIdentity(`${debt.name}${debt.type}`);
+    return debtKey === currentKey || debtKey.includes(currentKey) || currentKey.includes(debtKey);
+  });
+
+  const planned = toMoneyNumber(item.dueAmount) || (matchedDebt ? Number(matchedDebt.customMinPayment || 0) : 0);
+  const relatedRecords = repaymentRecords
+    .filter((record) => (matchedDebt ? record.debtId === matchedDebt.id : false))
+    .sort((a, b) => `${b.paidAt}-${b.amount}`.localeCompare(`${a.paidAt}-${a.amount}`, 'zh-CN'));
+
+  const recentPaid = relatedRecords.slice(0, 3).reduce((sum, record) => sum + Number(record.amount || 0), 0);
+  const gap = Math.max(0, planned - recentPaid);
+  const paymentAccounts = Array.from(
+    new Set(relatedRecords.map((record) => String(record.paymentAccount || '').trim()).filter(Boolean))
+  );
+
+  let gapReason = '';
+  if (planned > 0 && recentPaid === 0) {
+    gapReason = '计划里有应还，但流水侧暂未确认已还记录';
+  } else if (planned > recentPaid && recentPaid > 0) {
+    gapReason = '存在部分已还，可能还有待补录或未匹配的还款';
+  } else if (planned === 0 && recentPaid > 0) {
+    gapReason = '已记录到还款流水，但当前卡片里尚未识别出明确计划应还';
+  } else if (
+    matchedDebt?.paymentAccount &&
+    paymentAccounts.length > 0 &&
+    !paymentAccounts.includes(matchedDebt.paymentAccount)
+  ) {
+    gapReason = `计划账户是“${matchedDebt.paymentAccount}”，但最近还款来自“${paymentAccounts.join(' / ')}”`;
+  } else {
+    gapReason = '计划与流水基本一致，若仍有差异建议再核对账单或扣款账户';
+  }
+
+  if (planned <= 0 && recentPaid <= 0 && !matchedDebt) {
+    return undefined;
+  }
+
+  return {
+    plannedDueAmount: planned > 0 ? formatGapMoney(planned) : undefined,
+    recentActualPaidAmount: recentPaid > 0 ? formatGapMoney(recentPaid) : undefined,
+    gapAmount: gap > 0 ? formatGapMoney(gap) : '0',
+    gapReason,
+    paymentAccountSummary:
+      paymentAccounts.length > 0
+        ? paymentAccounts.join(' / ')
+        : matchedDebt?.paymentAccount || undefined
+  };
+}
+
 function countReadyCreditFields(item: CreditExtractedItem): number {
   return [item.title, item.dueAmount, item.totalDebt, item.repaymentDate, item.monthlyAmount, item.rateType || item.interest]
     .filter((value) => String(value || '').trim()).length;
@@ -753,7 +827,9 @@ function buildCreditConfirmationSummary(item: CreditExtractedItem): string[] {
 
 function enrichCreditItemsForConfirmation(
   items: CreditExtractedItem[],
-  history: ChatHistoryItem[]
+  history: ChatHistoryItem[],
+  debts: DebtItem[],
+  repaymentRecords: ReturnType<typeof useAppPreferences.getState>['repaymentRecords']
 ): CreditExtractedItem[] {
   return items.map((item) => {
     const readyCount = countReadyCreditFields(item);
@@ -775,7 +851,8 @@ function enrichCreditItemsForConfirmation(
       conflictHint:
         similarHistoryCount > 1
           ? '检测到历史里有相似信贷项目，保存前建议确认是否为同一笔，避免重复合并。'
-          : undefined
+          : undefined,
+      repaymentGapSummary: buildCreditRepaymentGapSummary(item, debts, repaymentRecords)
     };
   });
 }
@@ -1624,7 +1701,9 @@ export function AssistantPage() {
       responseMode === 'credit'
         ? enrichCreditItemsForConfirmation(
             mergeCreditItemsWithHistory(extractCreditStructuredItems(wb.rawContent), chatHistory),
-            chatHistory
+            chatHistory,
+            debts,
+            repaymentRecords
           )
         : undefined;
 
@@ -2326,6 +2405,35 @@ export function AssistantPage() {
                               {creditItem.pendingFields.map((field, idx) => (
                                 <span key={`${creditItem.id}-pending-${idx}`}>{field}</span>
                               ))}
+                            </div>
+                          </div>
+                        ) : null}
+                        {creditItem.repaymentGapSummary ? (
+                          <div className="chat-credit-gap-card">
+                            <div className="chat-credit-gap-head">
+                              <strong>计划 vs 实际</strong>
+                              <span>先看有没有缺口</span>
+                            </div>
+                            <div className="chat-credit-gap-grid">
+                              <div>
+                                <span>计划应还</span>
+                                <strong>{creditItem.repaymentGapSummary.plannedDueAmount || '待确认'}</strong>
+                              </div>
+                              <div>
+                                <span>最近已还</span>
+                                <strong>{creditItem.repaymentGapSummary.recentActualPaidAmount || '暂无记录'}</strong>
+                              </div>
+                              <div>
+                                <span>当前还差</span>
+                                <strong>{creditItem.repaymentGapSummary.gapAmount || '0'}</strong>
+                              </div>
+                              <div>
+                                <span>扣款/还款账户</span>
+                                <strong>{creditItem.repaymentGapSummary.paymentAccountSummary || '待确认'}</strong>
+                              </div>
+                            </div>
+                            <div className="chat-credit-gap-reason">
+                              {creditItem.repaymentGapSummary.gapReason}
                             </div>
                           </div>
                         ) : null}
