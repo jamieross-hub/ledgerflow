@@ -748,6 +748,36 @@ function buildCreditFollowUpPrompts(items: CreditExtractedItem[]): string[] {
   return Array.from(new Set(prompts)).slice(0, 4);
 }
 
+
+function buildChunkedStreamingPreview(raw: string, previous: string): string {
+  const text = String(raw || '');
+  if (!text) return '';
+  if (text.length <= previous.length) return previous || text;
+
+  const nextSlice = text.slice(previous.length);
+  const hasStrongBoundary = /[\n。！？!?；;]/.test(nextSlice) || nextSlice.length >= 48;
+  if (!hasStrongBoundary) {
+    return previous || '';
+  }
+
+  const lastBoundaryIndex = Math.max(
+    nextSlice.lastIndexOf('\n'),
+    nextSlice.lastIndexOf('。'),
+    nextSlice.lastIndexOf('！'),
+    nextSlice.lastIndexOf('？'),
+    nextSlice.lastIndexOf('!'),
+    nextSlice.lastIndexOf('?'),
+    nextSlice.lastIndexOf('；'),
+    nextSlice.lastIndexOf(';')
+  );
+
+  if (lastBoundaryIndex >= 0) {
+    return text.slice(0, previous.length + lastBoundaryIndex + 1);
+  }
+
+  return text;
+}
+
 function buildCreditAssistantMessageText(answer: string): string {
   const plain = stripCreditJsonBlock(answer).trim();
   if (!plain) return answer.trim();
@@ -970,6 +1000,7 @@ export function AssistantPage() {
   const [modelOpen, setModelOpen] = useState(false);
   const [presetQuestions, setPresetQuestions] = useState<PresetQuestion[]>([]);
   const [streamingPreviewMessage, setStreamingPreviewMessage] = useState('');
+  const [streamingDisplayMessage, setStreamingDisplayMessage] = useState('');
   const [isMobileView, setIsMobileView] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
   );
@@ -1493,6 +1524,7 @@ export function AssistantPage() {
     const responseMode = pendingRequestModeRef.current;
     if (mode !== 'bookkeeping' && wb.status === 'recognizing') {
       setStreamingPreviewMessage(wb.rawContent);
+      setStreamingDisplayMessage((prev) => buildChunkedStreamingPreview(wb.rawContent, prev));
       return;
     }
 
@@ -1501,6 +1533,7 @@ export function AssistantPage() {
 
     lastAssistantRef.current[responseMode] = messageText;
     setStreamingPreviewMessage('');
+    setStreamingDisplayMessage('');
     const usageText = wb.lastUsage
       ? `Token 消耗：输入 ${wb.lastUsage.promptTokens} / 输出 ${wb.lastUsage.completionTokens} / 总计 ${wb.lastUsage.totalTokens}`
       : undefined;
@@ -2385,8 +2418,8 @@ export function AssistantPage() {
                     </div>
                   ) : renderCreditCardSkeleton(2);
                 })() : null}
-                <div className="chat-msg-content chat-msg-content-rich">
-                  {renderMarkdownContent(streamingPreviewMessage)}
+                <div className="chat-msg-content chat-msg-content-rich chat-msg-content-streaming">
+                  {renderMarkdownContent(streamingDisplayMessage || streamingPreviewMessage)}
                 </div>
               </div>
             </article>
