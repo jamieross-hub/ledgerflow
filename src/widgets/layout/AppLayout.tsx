@@ -273,7 +273,7 @@ export function AppLayout() {
           ) : null}
           <button
             type="button"
-            className="icon-btn"
+            className="icon-btn sidebar-collapse-btn"
             onClick={() => setCollapsed((v) => !v)}
             aria-label={
               collapsed ? t('layout.toggleSidebarExpand') : t('layout.toggleSidebarCollapse')
