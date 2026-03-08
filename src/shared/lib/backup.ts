@@ -578,21 +578,40 @@ function splitRemoteDirAndFile(remoteFilePath: string): { dir: string; file: str
   return { dir: parts.join('/'), file };
 }
 
-function isVersionedBackupMatch(candidatePath: string, remoteFilePath: string): boolean {
+function isBackupCandidateMatch(candidatePath: string, remoteFilePath: string): boolean {
   const candidate = normalizeRemoteFilePath(candidatePath);
   const target = normalizeRemoteFilePath(remoteFilePath);
   const candidateParts = candidate.split('/');
   const targetParts = target.split('/');
   const candidateFile = candidateParts.pop() || '';
   const targetFile = targetParts.pop() || '';
+
   if (candidateParts.join('/') !== targetParts.join('/')) {
     return false;
   }
+
+  if (candidateFile === targetFile) {
+    return true;
+  }
+
   const dotIndex = targetFile.lastIndexOf('.');
   const baseName = dotIndex > 0 ? targetFile.slice(0, dotIndex) : targetFile;
   const ext = dotIndex > 0 ? targetFile.slice(dotIndex) : '.json';
-  const versionedPattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}${ext.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+  const versionedPattern = new RegExp(
+    `^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}${ext.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`
+  );
   return versionedPattern.test(candidateFile);
+}
+
+function isVersionedBackupMatch(candidatePath: string, remoteFilePath: string): boolean {
+  const candidate = normalizeRemoteFilePath(candidatePath);
+  const target = normalizeRemoteFilePath(remoteFilePath);
+  const candidateFile = candidate.split('/').pop() || '';
+  const targetFile = target.split('/').pop() || '';
+  if (candidateFile === targetFile) {
+    return false;
+  }
+  return isBackupCandidateMatch(candidatePath, remoteFilePath);
 }
 
 function extractHrefText(value: string): string {
@@ -707,7 +726,7 @@ export async function listWebdavBackupVersions(
   try {
     const files = await listWebdavRemoteFiles(sanitized, sanitized.remoteFilePath);
     const matched = files
-      .filter((item) => isVersionedBackupMatch(item, sanitized.remoteFilePath))
+      .filter((item) => isBackupCandidateMatch(item, sanitized.remoteFilePath))
       .sort((a, b) => b.localeCompare(a, 'en'));
 
     if (matched.length === 0) {
@@ -772,18 +791,36 @@ export async function webdavUploadBackup(
   try {
     const sanitized = sanitizeWebdavConfig(config);
     const versionedRemotePath = buildVersionedBackupPath(sanitized.remoteFilePath, payload.exportedAt);
+    const latestRemotePath = sanitized.remoteFilePath;
     await ensureWebdavDirectoriesByPath(sanitized, versionedRemotePath);
-    const url = joinWebdavPath(sanitized, versionedRemotePath);
-    const response = await fetch(url, {
+    const body = JSON.stringify(payload, null, 2);
+    const versionedUrl = joinWebdavPath(sanitized, versionedRemotePath);
+    const response = await fetch(versionedUrl, {
       method: 'PUT',
       headers: buildWebdavHeaders(sanitized, {
         'Content-Type': 'application/json;charset=utf-8'
       }),
-      body: JSON.stringify(payload, null, 2)
+      body
     });
 
     if (!response.ok) {
       throw new Error(`WebDAV 上传失败（HTTP ${response.status}）`);
+    }
+
+    if (latestRemotePath !== versionedRemotePath) {
+      await ensureWebdavDirectoriesByPath(sanitized, latestRemotePath);
+      const latestUrl = joinWebdavPath(sanitized, latestRemotePath);
+      const latestResponse = await fetch(latestUrl, {
+        method: 'PUT',
+        headers: buildWebdavHeaders(sanitized, {
+          'Content-Type': 'application/json;charset=utf-8'
+        }),
+        body
+      });
+
+      if (!latestResponse.ok) {
+        throw new Error(`WebDAV 上传失败（HTTP ${latestResponse.status}）`);
+      }
     }
 
     try {
