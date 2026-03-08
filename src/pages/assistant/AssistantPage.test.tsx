@@ -252,6 +252,62 @@ describe('AssistantPage', () => {
   });
 
 
+
+  it('信贷结果应展示补全进度并提示承接上轮补充', () => {
+    useAssistantWorkbenchMock.mockReturnValue({
+      ...createWorkbenchMock(),
+      rawContent: '已识别完成',
+      status: 'idle'
+    });
+
+    const sessionStorageGetItemSpy = vi
+      .spyOn(window.sessionStorage.__proto__, 'getItem')
+      .mockImplementation((key) => {
+        if (String(key).includes('chatHistory.credit')) {
+          return JSON.stringify([
+            {
+              id: 'credit-assistant-0',
+              role: 'assistant',
+              text: '这是识别后的结果',
+              creditItems: [
+                {
+                  id: 'credit-0',
+                  title: '招联消费贷',
+                  productType: '消费贷',
+                  dueAmount: '998',
+                  totalDebt: '4200',
+                  repaymentDate: '每月12日',
+                  monthlyAmount: '998',
+                  rateType: 'APR',
+                  interest: '15.2%',
+                  pendingFields: ['剩余待还'],
+                  confidence: 'high',
+                  mergedFromHistory: true,
+                  completionRatio: 83,
+                  completionLabel: '5/6 关键字段已补齐'
+                }
+              ]
+            }
+          ]);
+        }
+        return '[]';
+      });
+
+    render(
+      <MemoryRouter>
+        <AssistantPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
+
+    expect(screen.getByText('5/6 关键字段已补齐')).toBeInTheDocument();
+    expect(screen.getByText('83%')).toBeInTheDocument();
+    expect(screen.getByText('已承接上轮补充')).toBeInTheDocument();
+
+    sessionStorageGetItemSpy.mockRestore();
+  });
+
   it('字段较完整的信贷结果应先进入保存前确认态', () => {
     useAssistantWorkbenchMock.mockReturnValue({
       ...createWorkbenchMock(),

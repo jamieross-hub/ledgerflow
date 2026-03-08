@@ -386,6 +386,10 @@ interface CreditExtractedItem {
   confirmationState?: 'ready' | 'needs-more-info';
   confirmationSummary?: string[];
   conflictHint?: string;
+  identityKey?: string;
+  completionRatio?: number;
+  completionLabel?: string;
+  mergedFromHistory?: boolean;
   repaymentGapSummary?: {
     plannedDueAmount?: string;
     recentActualPaidAmount?: string;
@@ -700,21 +704,91 @@ function normalizeCreditIdentity(text: string): string {
   return text.replace(/\s+/g, '').replace(/[（）()\-·:：]/g, '').toLowerCase();
 }
 
+function countCompletedCreditFields(item: CreditExtractedItem): number {
+  return [
+    item.title,
+    item.dueAmount,
+    item.totalDebt,
+    item.repaymentDate,
+    item.monthlyAmount,
+    item.rateType || item.interest
+  ].filter((value) => String(value || '').trim()).length;
+}
+
+function mergeCreditItemPair(base: CreditExtractedItem, incoming: CreditExtractedItem): CreditExtractedItem {
+  const pendingFields = Array.from(new Set([...(base.pendingFields || []), ...(incoming.pendingFields || [])])).filter(
+    (field) => {
+      if (field === '当前应还' && (incoming.dueAmount || base.dueAmount)) return false;
+      if (field === '剩余待还' && (incoming.totalDebt || base.totalDebt)) return false;
+      if (field === '还款日' && (incoming.repaymentDate || base.repaymentDate)) return false;
+      if (field === '每期金额' && (incoming.monthlyAmount || base.monthlyAmount)) return false;
+      return true;
+    }
+  );
+
+  return {
+    ...base,
+    ...incoming,
+    title: incoming.title || base.title,
+    productType: incoming.productType || base.productType,
+    dueAmount: incoming.dueAmount || base.dueAmount,
+    totalDebt: incoming.totalDebt || base.totalDebt,
+    repaymentDate: incoming.repaymentDate || base.repaymentDate,
+    remainingPeriods: incoming.remainingPeriods || base.remainingPeriods,
+    monthlyAmount: incoming.monthlyAmount || base.monthlyAmount,
+    interest: incoming.interest || base.interest,
+    rateType: incoming.rateType || base.rateType,
+    rateSource: incoming.rateSource || base.rateSource,
+    riskHint: incoming.riskHint || base.riskHint,
+    actionSuggestion: incoming.actionSuggestion || base.actionSuggestion,
+    confirmationState: incoming.confirmationState || base.confirmationState,
+    confirmationSummary: incoming.confirmationSummary || base.confirmationSummary,
+    conflictHint: incoming.conflictHint || base.conflictHint,
+    repaymentGapSummary: incoming.repaymentGapSummary || base.repaymentGapSummary,
+    pendingFields,
+    mergedFromHistory: base.mergedFromHistory || incoming.mergedFromHistory,
+    confidence:
+      incoming.confidence === 'high' || base.confidence === 'high'
+        ? 'high'
+        : incoming.confidence === 'medium' || base.confidence === 'medium'
+          ? 'medium'
+          : 'low'
+  };
+}
+
+function dedupeCreditItems(items: CreditExtractedItem[]): CreditExtractedItem[] {
+  if (items.length <= 1) return items;
+
+  const merged = new Map<string, CreditExtractedItem>();
+  items.forEach((item, index) => {
+    const identityKey = normalizeCreditIdentity(`${item.title}${item.productType}`) || `credit-item-${index}`;
+    const nextItem = { ...item, identityKey };
+    const existing = merged.get(identityKey);
+    if (!existing) {
+      merged.set(identityKey, nextItem);
+      return;
+    }
+    merged.set(identityKey, mergeCreditItemPair(existing, nextItem));
+  });
+
+  return Array.from(merged.values());
+}
+
 function mergeCreditItemsWithHistory(
   currentItems: CreditExtractedItem[],
   history: ChatHistoryItem[]
 ): CreditExtractedItem[] {
   if (currentItems.length === 0) return currentItems;
 
-  const previousItems = [...history]
-    .reverse()
-    .filter((item) => item.role === 'assistant' && Array.isArray(item.creditItems) && item.creditItems.length > 0)
-    .flatMap((item) => item.creditItems || [])
-    .slice(0, 8);
+  const previousItems = dedupeCreditItems(
+    [...history]
+      .reverse()
+      .filter((item) => item.role === 'assistant' && Array.isArray(item.creditItems) && item.creditItems.length > 0)
+      .flatMap((item) => item.creditItems || [])
+      .slice(0, 8)
+  );
 
-  if (previousItems.length === 0) return currentItems;
-
-  return currentItems.map((item) => {
+  const mergedCurrentItems = currentItems.map((item) => {
     const currentKey = normalizeCreditIdentity(`${item.title}${item.productType}`);
     const matched = previousItems.find((prev) => {
       const prevKey = normalizeCreditIdentity(`${prev.title}${prev.productType}`);
@@ -722,39 +796,13 @@ function mergeCreditItemsWithHistory(
     });
     if (!matched) return item;
 
-    const pendingFields = Array.from(new Set([...(matched.pendingFields || []), ...(item.pendingFields || [])]))
-      .filter((field) => {
-        if (field === '当前应还' && item.dueAmount) return false;
-        if (field === '剩余待还' && item.totalDebt) return false;
-        if (field === '还款日' && item.repaymentDate) return false;
-        if (field === '每期金额' && item.monthlyAmount) return false;
-        return true;
-      });
-
     return {
-      ...matched,
-      ...item,
-      title: item.title || matched.title,
-      productType: item.productType || matched.productType,
-      dueAmount: item.dueAmount || matched.dueAmount,
-      totalDebt: item.totalDebt || matched.totalDebt,
-      repaymentDate: item.repaymentDate || matched.repaymentDate,
-      remainingPeriods: item.remainingPeriods || matched.remainingPeriods,
-      monthlyAmount: item.monthlyAmount || matched.monthlyAmount,
-      interest: item.interest || matched.interest,
-      rateType: item.rateType || matched.rateType,
-      rateSource: item.rateSource || matched.rateSource,
-      riskHint: item.riskHint || matched.riskHint,
-      actionSuggestion: item.actionSuggestion || matched.actionSuggestion,
-      pendingFields,
-      confidence:
-        item.confidence === 'high' || matched.confidence === 'high'
-          ? 'high'
-          : item.confidence === 'medium' || matched.confidence === 'medium'
-            ? 'medium'
-            : 'low'
+      ...mergeCreditItemPair(matched, item),
+      mergedFromHistory: true
     };
   });
+
+  return dedupeCreditItems(mergedCurrentItems);
 }
 
 
@@ -826,8 +874,7 @@ function buildCreditRepaymentGapSummary(
 }
 
 function countReadyCreditFields(item: CreditExtractedItem): number {
-  return [item.title, item.dueAmount, item.totalDebt, item.repaymentDate, item.monthlyAmount, item.rateType || item.interest]
-    .filter((value) => String(value || '').trim()).length;
+  return countCompletedCreditFields(item);
 }
 
 function buildCreditConfirmationSummary(item: CreditExtractedItem): string[] {
@@ -862,8 +909,15 @@ function enrichCreditItemsForConfirmation(
         })
     ).length;
 
+    const identityKey = normalizeCreditIdentity(`${item.title}${item.productType}`) || item.id;
+    const completedCount = countCompletedCreditFields(item);
+    const completionRatio = Math.min(100, Math.round((completedCount / 6) * 100));
+
     return {
       ...item,
+      identityKey,
+      completionRatio,
+      completionLabel: `${completedCount}/6 关键字段已补齐`,
       confirmationState: readyCount >= 4 ? 'ready' : 'needs-more-info',
       confirmationSummary: buildCreditConfirmationSummary(item),
       conflictHint:
@@ -2356,13 +2410,25 @@ export function AssistantPage() {
                             <strong>{creditItem.title}</strong>
                             <span>{creditItem.productType}</span>
                           </div>
-                          <em className={`chat-credit-confidence is-${creditItem.confidence}`}>
-                            {creditItem.confidence === 'high'
-                              ? '高置信'
-                              : creditItem.confidence === 'low'
-                                ? '低置信'
-                                : '中置信'}
-                          </em>
+                          <div className="chat-credit-card-head-meta">
+                            {creditItem.mergedFromHistory ? <span className="chat-credit-progress-tag">已承接上轮补充</span> : null}
+                            <em className={`chat-credit-confidence is-${creditItem.confidence}`}>
+                              {creditItem.confidence === 'high'
+                                ? '高置信'
+                                : creditItem.confidence === 'low'
+                                  ? '低置信'
+                                  : '中置信'}
+                            </em>
+                          </div>
+                        </div>
+                        <div className="chat-credit-progress" aria-label="字段补全进度">
+                          <div className="chat-credit-progress-head">
+                            <span>{creditItem.completionLabel || '0/6 关键字段已补齐'}</span>
+                            <strong>{creditItem.completionRatio || 0}%</strong>
+                          </div>
+                          <div className="chat-credit-progress-track">
+                            <span style={{ width: `${creditItem.completionRatio || 0}%` }} />
+                          </div>
                         </div>
                         <div className="chat-credit-grid">
                           <div>
