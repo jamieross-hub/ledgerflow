@@ -2233,8 +2233,13 @@ export function AssistantPage() {
                         {creditItem.repaymentLookupSummary ? (
                           <div className="chat-credit-lookup-card">
                             <div className="chat-credit-lookup-head">
-                              <strong>还款检索结果</strong>
-                              <span>{creditItem.repaymentLookupSummary.matchedDebtName || '未稳定命中已保存负债'}</span>
+                              <div className="chat-credit-lookup-title-block">
+                                <strong>还款检索结果</strong>
+                                <span>{creditItem.repaymentLookupSummary.matchedDebtName || '未稳定命中已保存负债'}</span>
+                              </div>
+                              <em className="chat-credit-lookup-status">
+                                {creditItem.repaymentLookupSummary.recordStatusText || '待确认'}
+                              </em>
                             </div>
                             <div className="chat-credit-lookup-grid">
                               <div>
@@ -2242,7 +2247,7 @@ export function AssistantPage() {
                                 <strong>{creditItem.repaymentLookupSummary.plannedRepaymentText || '待确认'}</strong>
                               </div>
                               <div>
-                                <span>计划/实际账户</span>
+                                <span>计划 / 实际账户</span>
                                 <strong>{creditItem.repaymentLookupSummary.paymentAccountText || '待确认'}</strong>
                               </div>
                               <div>

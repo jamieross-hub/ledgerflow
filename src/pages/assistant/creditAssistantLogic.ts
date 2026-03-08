@@ -252,13 +252,21 @@ export function enrichCreditItemsForConfirmation(
     const matchedDebt = findMatchingDebt(item, debts);
     const conflictFields = buildCreditConflictFields(item, matchedDebt);
 
+    const normalizedPendingFields = Array.from(
+      new Set((item.pendingFields || []).map((field) => String(field || '').trim()).filter(Boolean))
+    );
+
     return {
       ...item,
+      pendingFields: normalizedPendingFields,
       identityKey,
       completionRatio,
       completionLabel: `${completedCount}/6 关键字段已补齐`,
       confirmationState: completedCount >= 4 ? 'ready' : 'needs-more-info',
-      confirmationSummary: buildCreditConfirmationSummary(item),
+      confirmationSummary: buildCreditConfirmationSummary({
+        ...item,
+        pendingFields: normalizedPendingFields
+      }),
       matchedDebtId: matchedDebt?.id,
       matchedDebtName: matchedDebt?.name,
       conflictFields,
