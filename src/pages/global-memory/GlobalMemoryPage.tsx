@@ -76,11 +76,37 @@ export function GlobalMemoryPage() {
             <p>这里展示系统当前沉淀下来的长期偏好与稳定习惯。只有经过语言模型提炼且通过嵌入链路参与后，记忆才会正式落库。</p>
           </div>
           <div className="global-memory-summary">
-            <span className="badge badge-primary">共 {memories.length} 条</span>
-            <span className="badge">用户偏好 {summary.user_preference}</span>
-            <span className="badge">账务习惯 {summary.financial_habit}</span>
-            <span className="badge">风险偏好 {summary.risk_preference}</span>
-            <span className="badge">展示偏好 {summary.display_preference}</span>
+            <button type="button" className={`badge ${type === 'all' ? 'badge-primary' : ''}`} onClick={() => setType('all')}>
+              共 {memories.length} 条
+            </button>
+            <button
+              type="button"
+              className={`badge ${type === 'user_preference' ? 'badge-primary' : ''}`}
+              onClick={() => setType('user_preference')}
+            >
+              用户偏好 {summary.user_preference}
+            </button>
+            <button
+              type="button"
+              className={`badge ${type === 'financial_habit' ? 'badge-primary' : ''}`}
+              onClick={() => setType('financial_habit')}
+            >
+              账务习惯 {summary.financial_habit}
+            </button>
+            <button
+              type="button"
+              className={`badge ${type === 'risk_preference' ? 'badge-primary' : ''}`}
+              onClick={() => setType('risk_preference')}
+            >
+              风险偏好 {summary.risk_preference}
+            </button>
+            <button
+              type="button"
+              className={`badge ${type === 'display_preference' ? 'badge-primary' : ''}`}
+              onClick={() => setType('display_preference')}
+            >
+              展示偏好 {summary.display_preference}
+            </button>
           </div>
         </div>
 
