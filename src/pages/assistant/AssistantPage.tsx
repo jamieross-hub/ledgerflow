@@ -249,6 +249,10 @@ interface CreditExtractedItem {
   remainingPeriods?: string;
   monthlyAmount?: string;
   interest?: string;
+  rateType?: string;
+  rateSource?: 'explicit' | 'inferred' | 'pending';
+  riskHint?: string;
+  actionSuggestion?: string;
   pendingFields: string[];
   confidence: 'high' | 'medium' | 'low';
 }
@@ -500,7 +504,7 @@ function buildCreditConversationPrompt(question: string, history: ChatHistoryIte
     .join('\n');
 
   const schema = [
-    '请尽量在回答末尾追加一个 JSON 代码块，格式如下：',
+    '请按“结论 → 依据 → 下一步建议”的顺序回答。若识别到明确的信贷/分期项目，请在回答末尾追加一个 JSON 代码块，格式如下：',
     '',
     '```json',
     '{',
@@ -513,7 +517,11 @@ function buildCreditConversationPrompt(question: string, history: ChatHistoryIte
     '      "repaymentDate": "还款日/扣款日（可为空）",',
     '      "remainingPeriods": "剩余期数（可为空）",',
     '      "monthlyAmount": "每期金额（可为空）",',
-    '      "interest": "利息/手续费（可为空）",',
+    '      "interest": "利息/服务费/APR（可为空）",',
+    '      "rateType": "APR|名义年利率|月利率|日利率|平台口径待确认（可为空）",',
+    '      "rateSource": "explicit|inferred|pending",',
+    '      "riskHint": "一句风险提示（可为空）",',
+    '      "actionSuggestion": "一句下一步建议（可为空）",',
     '      "pendingFields": ["待补充字段1", "待补充字段2"],',
     '      "confidence": "high|medium|low"',
     '    }',
@@ -521,7 +529,7 @@ function buildCreditConversationPrompt(question: string, history: ChatHistoryIte
     '}',
     '```',
     '',
-    '如果没有识别出明确的信贷/分期项目，就不要硬编，改为给出人工核对建议。'
+    '关键要求：1) 原文明确出现的字段才能写明确值；2) 推测值要通过 rateSource 或正文显式标注；3) 无法确认就留空并写入 pendingFields；4) 如果没有识别出明确项目，就不要硬编，改为给出人工核对建议。'
   ].join('\n');
 
   if (!context) {
@@ -550,6 +558,13 @@ function extractCreditStructuredItems(answer: string): CreditExtractedItem[] {
         const remainingPeriods = String(item.remainingPeriods || item.periodsLeft || '').trim();
         const monthlyAmount = String(item.monthlyAmount || item.perPeriodAmount || '').trim();
         const interest = String(item.interest || item.fee || '').trim();
+        const rateType = String(item.rateType || item.rateLabel || '').trim();
+        const rateSource: CreditExtractedItem['rateSource'] =
+          item.rateSource === 'explicit' || item.rateSource === 'inferred' || item.rateSource === 'pending'
+            ? item.rateSource
+            : undefined;
+        const riskHint = String(item.riskHint || item.risk || '').trim();
+        const actionSuggestion = String(item.actionSuggestion || item.nextStep || '').trim();
         const pendingFields = Array.isArray(item.pendingFields)
           ? item.pendingFields.map((field) => String(field).trim()).filter(Boolean)
           : [];
@@ -570,6 +585,10 @@ function extractCreditStructuredItems(answer: string): CreditExtractedItem[] {
           remainingPeriods: remainingPeriods || undefined,
           monthlyAmount: monthlyAmount || undefined,
           interest: interest || undefined,
+          rateType: rateType || undefined,
+          rateSource,
+          riskHint: riskHint || undefined,
+          actionSuggestion: actionSuggestion || undefined,
           pendingFields,
           confidence
         };
@@ -1863,10 +1882,41 @@ export function AssistantPage() {
                             <strong>{creditItem.monthlyAmount || '待补充'}</strong>
                           </div>
                           <div>
-                            <span>利息/手续费</span>
+                            <span>利息/费率</span>
                             <strong>{creditItem.interest || '待补充'}</strong>
                           </div>
                         </div>
+                        {creditItem.rateType || creditItem.rateSource || creditItem.riskHint || creditItem.actionSuggestion ? (
+                          <div className="chat-credit-pending" style={{ marginTop: 10 }}>
+                            {creditItem.rateType || creditItem.rateSource ? (
+                              <div>
+                                <span>利率口径：</span>
+                                <strong>
+                                  {creditItem.rateType || '待确认'}
+                                  {creditItem.rateSource === 'explicit'
+                                    ? ' · 明确值'
+                                    : creditItem.rateSource === 'inferred'
+                                      ? ' · 推测值'
+                                      : creditItem.rateSource === 'pending'
+                                        ? ' · 待确认'
+                                        : ''}
+                                </strong>
+                              </div>
+                            ) : null}
+                            {creditItem.riskHint ? (
+                              <div style={{ marginTop: 6 }}>
+                                <span>风险提示：</span>
+                                <strong>{creditItem.riskHint}</strong>
+                              </div>
+                            ) : null}
+                            {creditItem.actionSuggestion ? (
+                              <div style={{ marginTop: 6 }}>
+                                <span>下一步：</span>
+                                <strong>{creditItem.actionSuggestion}</strong>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
                         {creditItem.pendingFields.length > 0 ? (
                           <div className="chat-credit-pending">
                             <span>待补充：</span>

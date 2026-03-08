@@ -10,6 +10,7 @@ import { buildGlobalMemoryRecallContext } from '../memory/globalMemoryRecall';
 import type { GlobalMemoryItem } from '../../../shared/store/globalMemory';
 import {
   ANALYSIS_AGENT_PROMPT,
+  CREDIT_ANALYSIS_AGENT_PROMPT,
   buildTimeContext,
   buildTransactionPromptContext,
   extractJsonString,
@@ -408,7 +409,11 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     try {
       const isConversationalMode =
         input.sceneMode === 'assistant' || input.sceneMode === 'credit';
-      const basePrompt = isConversationalMode ? ANALYSIS_AGENT_PROMPT : JSON_AGENT_PROMPT;
+      const basePrompt = !isConversationalMode
+        ? JSON_AGENT_PROMPT
+        : input.sceneMode === 'credit'
+          ? CREDIT_ANALYSIS_AGENT_PROMPT
+          : ANALYSIS_AGENT_PROMPT;
 
       let semanticRecallBlock = '';
       let globalMemoryRecallBlock = '';
