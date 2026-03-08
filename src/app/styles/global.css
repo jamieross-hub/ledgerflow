@@ -600,6 +600,10 @@ body {
   padding-left: var(--space-4);
 }
 
+.layout-shell.sidebar-is-collapsed .topbar-left {
+  gap: var(--space-2);
+}
+
 .layout-shell.sidebar-is-collapsed .topbar-brand-copy.compact span {
   display: none;
 }

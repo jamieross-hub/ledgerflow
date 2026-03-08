@@ -395,16 +395,10 @@ export function AppLayout() {
                 ☰
               </button>
               {collapsed ? (
-                <>
-                  <button type="button" className="logo-circle" aria-label={t('layout.userAvatar')}>
-                    👤
-                  </button>
-
-                  <div className="topbar-brand-copy compact">
-                    <h1>{t('layout.brand')}</h1>
-                    <span>{t('layout.workspaceTitle')}</span>
-                  </div>
-                </>
+                <div className="topbar-brand-copy compact">
+                  <h1>{t('layout.brand')}</h1>
+                  <span>{t('layout.workspaceTitle')}</span>
+                </div>
               ) : null}
             </div>
           </header>
