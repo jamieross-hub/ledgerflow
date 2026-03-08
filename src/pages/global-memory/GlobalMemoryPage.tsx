@@ -45,7 +45,7 @@ export function GlobalMemoryPage() {
 
   const filtered = useMemo(
     () => getFilteredMemories({ type, status, includeDisabled: true }),
-    [getFilteredMemories, status, type]
+    [getFilteredMemories, memories, status, type]
   );
 
   const summary = useMemo(
