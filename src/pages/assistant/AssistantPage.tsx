@@ -1009,6 +1009,8 @@ export function AssistantPage() {
     assistant: '',
     credit: ''
   });
+  const activeHistoryModeRef = useRef<AssistantMode>(mode);
+  const skipHistoryPersistRef = useRef(false);
   const todayKey = new Date().toISOString().slice(0, 10);
   const thisMonthKey = todayKey.slice(0, 7);
   const previousMonthDate = new Date();
@@ -1738,16 +1740,35 @@ export function AssistantPage() {
   }, [loadPersonalizedQuestions]);
 
   useEffect(() => {
+    const previousMode = activeHistoryModeRef.current;
+    if (previousMode !== mode) {
+      try {
+        window.sessionStorage.setItem(
+          CHAT_HISTORY_CACHE_KEYS[previousMode],
+          JSON.stringify(chatHistory)
+        );
+      } catch {
+        // ignore storage write errors
+      }
+    }
+
+    activeHistoryModeRef.current = mode;
+    skipHistoryPersistRef.current = true;
     setChatHistory(readChatHistory(mode));
   }, [mode]);
 
   useEffect(() => {
+    if (skipHistoryPersistRef.current) {
+      skipHistoryPersistRef.current = false;
+      return;
+    }
+
     try {
-      window.sessionStorage.setItem(CHAT_HISTORY_CACHE_KEYS[mode], JSON.stringify(chatHistory));
+      window.sessionStorage.setItem(CHAT_HISTORY_CACHE_KEYS[activeHistoryModeRef.current], JSON.stringify(chatHistory));
     } catch {
       // ignore storage write errors
     }
-  }, [chatHistory, mode]);
+  }, [chatHistory]);
 
   return (
     <div
@@ -1843,9 +1864,11 @@ export function AssistantPage() {
             onClick={() => {
               setChatHistory([]);
               setStreamingPreviewMessage('');
+              setStreamingCommittedSegments([]);
+              setStreamingDraftSegment('');
               wb.resetWorkbench();
               try {
-                window.sessionStorage.removeItem(CHAT_HISTORY_CACHE_KEYS[mode]);
+                window.sessionStorage.removeItem(CHAT_HISTORY_CACHE_KEYS[activeHistoryModeRef.current]);
               } catch {
                 // ignore storage write errors
               }
