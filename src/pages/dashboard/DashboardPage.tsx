@@ -200,6 +200,7 @@ export function DashboardPage() {
     value: number;
   } | null>(null);
   const [trendGranularity, setTrendGranularity] = useState<'week' | 'month' | 'year'>('week');
+  const [selectedTrendIndex, setSelectedTrendIndex] = useState<number | null>(null);
   const [cashflowView, setCashflowView] = useState<'expense' | 'cashflow'>('expense');
   const [moduleOrder, setModuleOrder] = useState<DashboardModuleId[]>(() =>
     DASHBOARD_MODULE_CATALOG.map((item) => item.id)
@@ -216,7 +217,6 @@ export function DashboardPage() {
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
-  const currentDay = now.getDate();
   const monthly = transactions.filter((t) => {
     const d = new Date(t.date);
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
@@ -845,52 +845,102 @@ export function DashboardPage() {
       return Array.from({ length: 6 }).map((_, index) => {
         const targetYear = currentYear - (5 - index);
         const rows = transactions.filter((item) => new Date(item.date).getFullYear() === targetYear);
-        const yearIncome = rows
-          .filter((item) => item.type === 'income')
-          .reduce((sum, item) => sum + item.amount, 0);
         const yearExpense = rows
           .filter((item) => isActualExpenseType(item.type))
           .reduce((sum, item) => sum + item.amount, 0);
         return {
           label: `${String(targetYear).slice(-2)}年`,
-          income: yearIncome,
-          expense: yearExpense
+          shortLabel: `${String(targetYear).slice(-2)}`,
+          value: yearExpense,
+          dateFrom: `${targetYear}-01-01`,
+          dateTo: `${targetYear}-12-31`
         };
       });
     }
 
     if (trendGranularity === 'month') {
-      return recentMonths.map((item) => ({
-        label: item.shortLabel,
-        income: item.income,
-        expense: item.expense
-      }));
+      return recentMonths.map((item) => {
+        const [year, month] = item.key.split('-').map(Number);
+        return {
+          label: item.shortLabel,
+          shortLabel: item.shortLabel.replace('月', ''),
+          value: item.expense,
+          dateFrom: `${year}-${String(month).padStart(2, '0')}-01`,
+          dateTo: new Date(year, month, 0).toISOString().slice(0, 10)
+        };
+      });
     }
 
-    const nowPoint = new Date(currentYear, currentMonth, currentDay);
-    return Array.from({ length: 8 }).map((_, index) => {
-      const offset = 7 - index;
-      const end = new Date(nowPoint);
-      end.setDate(end.getDate() - offset * 7);
-      const start = new Date(end);
-      start.setDate(start.getDate() - 6);
-      const rows = transactions.filter((item) => {
-        const date = new Date(item.date);
-        return date >= start && date <= end;
-      });
-      const weekIncome = rows
-        .filter((item) => item.type === 'income')
-        .reduce((sum, item) => sum + item.amount, 0);
-      const weekExpense = rows
-        .filter((item) => isActualExpenseType(item.type))
-        .reduce((sum, item) => sum + item.amount, 0);
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const dailyMap = new Map<number, number>();
+    monthly.forEach((item) => {
+      if (!isActualExpenseType(item.type)) return;
+      const date = new Date(item.date);
+      const day = date.getDate();
+      dailyMap.set(day, (dailyMap.get(day) || 0) + item.amount);
+    });
+
+    return Array.from({ length: daysInMonth }).map((_, index) => {
+      const day = index + 1;
+      const date = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       return {
-        label: `${start.getMonth() + 1}/${start.getDate()}-${end.getMonth() + 1}/${end.getDate()}`,
-        income: weekIncome,
-        expense: weekExpense
+        label: `${day}日`,
+        shortLabel: String(day),
+        value: dailyMap.get(day) || 0,
+        dateFrom: date,
+        dateTo: date
       };
     });
-  }, [currentDay, currentMonth, currentYear, recentMonths, transactions, trendGranularity]);
+  }, [currentMonth, currentYear, monthly, recentMonths, transactions, trendGranularity]);
+
+  const trendPeakIndex = useMemo(() => {
+    if (!trendSeries.length) return -1;
+    return trendSeries.reduce(
+      (bestIndex, item, index, arr) => (item.value > arr[bestIndex].value ? index : bestIndex),
+      0
+    );
+  }, [trendSeries]);
+
+  useEffect(() => {
+    if (!trendSeries.length) {
+      setSelectedTrendIndex(null);
+      return;
+    }
+    setSelectedTrendIndex((prev) => {
+      if (prev !== null && prev >= 0 && prev < trendSeries.length) {
+        return prev;
+      }
+      return trendPeakIndex >= 0 ? trendPeakIndex : 0;
+    });
+  }, [trendPeakIndex, trendSeries]);
+
+  const activeTrendIndex =
+    selectedTrendIndex !== null && selectedTrendIndex >= 0 && selectedTrendIndex < trendSeries.length
+      ? selectedTrendIndex
+      : trendPeakIndex >= 0
+        ? trendPeakIndex
+        : 0;
+
+  const activeTrendItem = trendSeries[activeTrendIndex] || null;
+
+  const trendMaxValue = useMemo(
+    () => Math.max(...trendSeries.map((item) => item.value), 1),
+    [trendSeries]
+  );
+
+  const trendBarHeight = (value: number) => {
+    if (value <= 0 || trendMaxValue <= 0) {
+      return '4px';
+    }
+    return `${Math.max(10, (value / trendMaxValue) * 100)}%`;
+  };
+
+  const expenseTrendAverage = useMemo(() => {
+    if (!trendSeries.length) return 0;
+    return trendSeries.reduce((sum, item) => sum + item.value, 0) / trendSeries.length;
+  }, [trendSeries]);
+
+  const budgetWarningLine = expenseTrendAverage * 1.12;
 
   const netAssetCurve = useMemo(() => {
     const balances = recentMonths.map((item) => item.balance);
@@ -965,25 +1015,6 @@ export function DashboardPage() {
       highlights
     };
   }, [categoryNameMap, monthly, monthlyInsight?.highlights, transactions]);
-
-  const trendMaxValue = useMemo(
-    () => Math.max(...trendSeries.flatMap((item) => [item.income, item.expense]), 1),
-    [trendSeries]
-  );
-
-  const trendBarHeight = (value: number) => {
-    if (value <= 0 || trendMaxValue <= 0) {
-      return '0%';
-    }
-    return `${Math.max(8, (value / trendMaxValue) * 100)}%`;
-  };
-
-  const expenseTrendAverage = useMemo(() => {
-    if (!trendSeries.length) return 0;
-    return trendSeries.reduce((sum, item) => sum + item.expense, 0) / trendSeries.length;
-  }, [trendSeries]);
-
-  const budgetWarningLine = expenseTrendAverage * 1.12;
 
   const cashflowCategoryRows = useMemo(() => {
     const map = new Map<string, { amount: number; prevAmount: number }>();
@@ -1216,14 +1247,14 @@ export function DashboardPage() {
               <section key={moduleId} className="dashboard-dynamic-grid">
                 <article className="panel dashboard-unified-card" style={{ margin: 0 }}>
                   <div className="dashboard-section-header">
-                    <h4>收支趋势（决策视图）</h4>
+                    <h4>支出趋势（单轴柱状图）</h4>
                     <div className="dashboard-segment-control">
                       <button
                         type="button"
                         className={trendGranularity === 'week' ? 'active' : ''}
                         onClick={() => setTrendGranularity('week')}
                       >
-                        周
+                        日
                       </button>
                       <button
                         type="button"
@@ -1241,45 +1272,56 @@ export function DashboardPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="dashboard-mini-bars-legend" aria-label="收支图例">
-                    <span className="legend-income">收入</span>
-                    <span className="legend-expense">支出</span>
-                    <span className="legend-budget">预警线</span>
-                  </div>
-                  <div className="dashboard-mini-bars">
-                    {trendSeries.map((item) => (
-                      <button
-                        key={item.label}
-                        type="button"
-                        className="dashboard-mini-bars-item"
-                        onClick={() => {
-                          if (trendGranularity === 'month') {
-                            const targetMonth = Number(item.label.replace('月', ''));
-                            if (!Number.isFinite(targetMonth)) return;
-                            const from = `${currentYear}-${String(targetMonth).padStart(2, '0')}-01`;
-                            const to = new Date(currentYear, targetMonth, 0).toISOString().slice(0, 10);
-                            navigate(`/transactions?datePreset=custom&dateFrom=${from}&dateTo=${to}`);
-                            return;
-                          }
-                          navigate('/transactions');
-                        }}
-                        title={`${item.label} 收入 ${formatCurrency(item.income)}，支出 ${formatCurrency(item.expense)}`}
-                      >
-                        <strong>{item.label}</strong>
-                        <div className="dashboard-mini-bars-columns" aria-hidden="true">
-                          <span style={{ height: trendBarHeight(item.income) }} className="income" />
-                          <span style={{ height: trendBarHeight(item.expense) }} className="expense" />
-                        </div>
-                        <div className="dashboard-mini-bars-meta">
-                          <small>收 {formatCurrency(item.income)}</small>
-                          <small>支 {formatCurrency(item.expense)}</small>
-                        </div>
-                        {item.expense > budgetWarningLine ? (
-                          <em className="dashboard-mini-bar-warning">超预警</em>
-                        ) : null}
-                      </button>
-                    ))}
-                  </div>
+                  {activeTrendItem ? (
+                    <div className="dashboard-expense-trend-card">
+                      <div className="dashboard-expense-trend-tooltip">
+                        <span>{activeTrendItem.label}</span>
+                        <strong>{formatCurrency(activeTrendItem.value)}</strong>
+                        <em>
+                          {activeTrendIndex === trendPeakIndex
+                            ? '峰值支出'
+                            : activeTrendItem.value > budgetWarningLine
+                              ? '高于均值预警'
+                              : '日常区间'}
+                        </em>
+                      </div>
+                      <div className="dashboard-expense-trend-chart" role="list" aria-label="支出趋势柱状图">
+                        {trendSeries.map((item, index) => {
+                          const isActive = index === activeTrendIndex;
+                          const isPeak = index === trendPeakIndex;
+                          return (
+                            <button
+                              key={`${item.label}-${index}`}
+                              type="button"
+                              role="listitem"
+                              className={`dashboard-expense-trend-bar ${isActive ? 'is-active' : ''} ${
+                                isPeak ? 'is-peak' : ''
+                              }`.trim()}
+                              onMouseEnter={() => setSelectedTrendIndex(index)}
+                              onFocus={() => setSelectedTrendIndex(index)}
+                              onClick={() =>
+                                navigate(
+                                  `/transactions?datePreset=custom&dateFrom=${item.dateFrom}&dateTo=${item.dateTo}`
+                                )
+                              }
+                              title={`${item.label} 支出 ${formatCurrency(item.value)}`}
+                            >
+                              <span className="dashboard-expense-trend-track" aria-hidden="true">
+                                <i style={{ height: trendBarHeight(item.value) }} />
+                              </span>
+                              <strong>{item.shortLabel}</strong>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="dashboard-expense-trend-footnote">
+                        <span>均值 {formatCurrency(expenseTrendAverage)}</span>
+                        <span>点击柱子可查看对应流水</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="muted">暂无可视化数据</p>
+                  )}
                 </article>
                 <article className="panel dashboard-unified-card" style={{ margin: 0 }}>
                   <div className="dashboard-section-header">
