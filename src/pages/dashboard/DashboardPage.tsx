@@ -1179,7 +1179,7 @@ export function DashboardPage() {
               if (!module) return null;
               const checked = moduleVisibility[module.id];
               return (
-                <div
+                <label
                   key={module.id}
                   className={`dashboard-module-manage-item ${checked ? 'is-enabled' : 'is-disabled'}`}
                   draggable
@@ -1191,7 +1191,8 @@ export function DashboardPage() {
                   }}
                   onDragEnd={() => setDraggingModule(null)}
                 >
-                  <label className="dashboard-module-manage-main">
+                  <div className="dashboard-module-manage-topline">
+                    <span className="dashboard-module-drag-handle" aria-hidden="true">↕</span>
                     <input
                       type="checkbox"
                       checked={checked}
@@ -1199,15 +1200,11 @@ export function DashboardPage() {
                         setModuleVisibility((prev) => ({ ...prev, [module.id]: event.target.checked }))
                       }
                     />
-                    <span className="dashboard-module-manage-copy">
-                      <strong>{module.label}</strong>
-                      <small>{checked ? '当前显示中' : '当前已隐藏'}</small>
-                    </span>
-                  </label>
-                  <button type="button" className="dashboard-module-chip" tabIndex={-1} aria-hidden="true">
-                    ↕ 拖动排序
-                  </button>
-                </div>
+                    <strong>{module.label}</strong>
+                    <span className="dashboard-module-state">{checked ? '显示中' : '已隐藏'}</span>
+                  </div>
+                  <small>{module.description}</small>
+                </label>
               );
             })}
           </div>
