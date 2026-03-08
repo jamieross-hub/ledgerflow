@@ -96,6 +96,90 @@ function renderInlineMarkdown(text: string): ReactNode[] {
  * - - / * 无序列表
  * - 1. 2. 有序列表（统一渲染为列表项）
  */
+function extractStreamingCreditPreview(answer: string): CreditExtractedItem[] {
+  const text = String(answer || '').trim();
+  if (!text) return [];
+
+  const blocks = text
+    .split(/\n(?=产品|平台|项目|标题|1\.|2\.|3\.|-\s*(?:产品|平台|项目|标题))/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const candidates: Array<CreditExtractedItem | null> = (blocks.length > 1 ? blocks : [text]).map((block, index) => {
+    const pick = (patterns: RegExp[]) => {
+      for (const pattern of patterns) {
+        const matched = block.match(pattern);
+        if (matched?.[1]?.trim()) return matched[1].trim();
+      }
+      return '';
+    };
+
+    const title = pick([
+      /产品(?:\/平台)?[：:】]\s*([^\n]+)/i,
+      /平台(?:\/产品)?[：:】]\s*([^\n]+)/i,
+      /标题[：:】]\s*([^\n]+)/i
+    ]);
+    const dueAmount = pick([/当前应还(?:金额)?[：:】]\s*([^\n]+)/i, /本期应还[：:】]\s*([^\n]+)/i]);
+    const totalDebt = pick([
+      /总欠款[：:】]\s*([^\n]+)/i,
+      /剩余待还[：:】]\s*([^\n]+)/i,
+      /总待还[：:】]\s*([^\n]+)/i
+    ]);
+    const repaymentDate = pick([/还款日(?:期)?[：:】]\s*([^\n]+)/i, /扣款日[：:】]\s*([^\n]+)/i]);
+    const remainingPeriods = pick([/剩余期数[：:】]\s*([^\n]+)/i, /(剩余[0-9一二三四五六七八九十]+期)/i]);
+    const monthlyAmount = pick([/每期(?:金额|应还)?[：:】]\s*([^\n]+)/i, /月供[：:】]\s*([^\n]+)/i]);
+    const interest = pick([
+      /利息(?:\/费率|\/手续费|\/服务费)?[：:】]\s*([^\n]+)/i,
+      /费率[：:】]\s*([^\n]+)/i,
+      /服务费[：:】]\s*([^\n]+)/i
+    ]);
+    const riskHint = pick([/风险提示[：:】]\s*([^\n]+)/i, /风险[：:】]\s*([^\n]+)/i]);
+    const actionSuggestion = pick([
+      /下一步(?:建议)?[：:】]\s*([^\n]+)/i,
+      /建议动作[：:】]\s*([^\n]+)/i,
+      /建议[：:】]\s*([^\n]+)/i
+    ]);
+
+    const productTypeText = `${title} ${block}`;
+    const productType = /房贷|车贷|按揭|贷款/i.test(productTypeText)
+      ? '贷款'
+      : /花呗|白条|分期|消费贷|借呗|现金贷/i.test(productTypeText)
+        ? '消费贷'
+        : /信用卡/i.test(productTypeText)
+          ? '信用卡'
+          : '待识别';
+
+    const pendingFields = [
+      !dueAmount ? '当前应还' : '',
+      !totalDebt ? '剩余待还' : '',
+      !repaymentDate ? '还款日' : '',
+      !monthlyAmount ? '每期金额' : ''
+    ].filter(Boolean);
+
+    if (!title && !dueAmount && !totalDebt && !repaymentDate && !monthlyAmount && !interest) {
+      return null;
+    }
+
+    return {
+      id: `streaming-credit-${index}`,
+      title: title || `识别中项目 ${index + 1}`,
+      productType,
+      dueAmount: dueAmount || undefined,
+      totalDebt: totalDebt || undefined,
+      repaymentDate: repaymentDate || undefined,
+      remainingPeriods: remainingPeriods || undefined,
+      monthlyAmount: monthlyAmount || undefined,
+      interest: interest || undefined,
+      riskHint: riskHint || undefined,
+      actionSuggestion: actionSuggestion || undefined,
+      pendingFields,
+      confidence: title && (dueAmount || totalDebt || repaymentDate) ? 'medium' : 'low'
+    } satisfies CreditExtractedItem;
+  });
+
+  return candidates.filter((item): item is CreditExtractedItem => item !== null).slice(0, 3);
+}
+
 function renderCreditCardSkeleton(count = 2) {
   return (
     <div className="chat-credit-cards chat-credit-cards-skeleton">
@@ -2127,7 +2211,73 @@ export function AssistantPage() {
               <div className="chat-msg-avatar">🤖</div>
               <div className="chat-msg-body">
                 <div className="chat-msg-header">助手（正在生成）</div>
-                {mode === 'credit' ? renderCreditCardSkeleton(2) : null}
+                {mode === 'credit' ? (() => {
+                  const previewItems = extractStreamingCreditPreview(streamingPreviewMessage);
+                  return previewItems.length > 0 ? (
+                    <div className="chat-credit-cards chat-credit-cards-skeleton">
+                      {previewItems.map((creditItem) => (
+                        <section key={creditItem.id} className="chat-credit-card chat-credit-card-skeleton is-preview">
+                          <div className="chat-credit-card-head">
+                            <div>
+                              <strong>{creditItem.title}</strong>
+                              <span>{creditItem.productType}</span>
+                            </div>
+                            <em className={`chat-credit-confidence is-${creditItem.confidence}`}>流式预览</em>
+                          </div>
+                          <div className="chat-credit-grid">
+                            <div>
+                              <span>当前应还</span>
+                              <strong>{creditItem.dueAmount || '识别中'}</strong>
+                            </div>
+                            <div>
+                              <span>剩余待还</span>
+                              <strong>{creditItem.totalDebt || '识别中'}</strong>
+                            </div>
+                            <div>
+                              <span>还款日</span>
+                              <strong>{creditItem.repaymentDate || '识别中'}</strong>
+                            </div>
+                            <div>
+                              <span>剩余期数</span>
+                              <strong>{creditItem.remainingPeriods || '识别中'}</strong>
+                            </div>
+                            <div>
+                              <span>每期金额</span>
+                              <strong>{creditItem.monthlyAmount || '识别中'}</strong>
+                            </div>
+                            <div>
+                              <span>利息/费率</span>
+                              <strong>{creditItem.interest || '识别中'}</strong>
+                            </div>
+                          </div>
+                          {creditItem.riskHint || creditItem.actionSuggestion || creditItem.pendingFields.length > 0 ? (
+                            <div className="chat-credit-pending">
+                              {creditItem.riskHint ? (
+                                <div>
+                                  <span>风险提示：</span>
+                                  <strong>{creditItem.riskHint}</strong>
+                                </div>
+                              ) : null}
+                              {creditItem.actionSuggestion ? (
+                                <div>
+                                  <span>下一步：</span>
+                                  <strong>{creditItem.actionSuggestion}</strong>
+                                </div>
+                              ) : null}
+                              {creditItem.pendingFields.length > 0 ? (
+                                <div className="chat-credit-pending-list">
+                                  {creditItem.pendingFields.map((field) => (
+                                    <span key={`${creditItem.id}-${field}`}>{field}</span>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </section>
+                      ))}
+                    </div>
+                  ) : renderCreditCardSkeleton(2);
+                })() : null}
                 <div className="chat-msg-content chat-msg-content-rich">
                   {renderMarkdownContent(streamingPreviewMessage)}
                 </div>
