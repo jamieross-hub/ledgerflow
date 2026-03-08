@@ -880,6 +880,7 @@ export function AssistantPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [mode, setMode] = useState<AssistantMode>('assistant');
+  const [isWideLayout, setIsWideLayout] = useState(false);
   const baseUrl = useAiSettings((s) => s.baseUrl);
   const apiKey = useAiSettings((s) => s.apiKey);
   const model = useAiSettings((s) => s.model);
@@ -1798,6 +1799,13 @@ export function AssistantPage() {
         <div className="chat-topbar-right">
           <button
             type="button"
+            className={`chat-secondary-action-btn ${isWideLayout ? 'is-active' : ''}`}
+            onClick={() => setIsWideLayout((prev) => !prev)}
+          >
+            {isWideLayout ? '标准宽度' : '拉伸显示'}
+          </button>
+          <button
+            type="button"
             className="chat-secondary-action-btn"
             onClick={() => navigate('/transactions/new?quick=1')}
           >
@@ -1825,8 +1833,8 @@ export function AssistantPage() {
         </div>
       </header>
 
-      <section className="chat-messages-area">
-        <div className="chat-messages-inner">
+      <section className={`chat-messages-area ${isWideLayout ? 'is-wide' : ''}`}>
+        <div className={`chat-messages-inner ${isWideLayout ? 'is-wide' : ''}`}>
           {!wb.hasApiKey ? (
             <section className="chat-key-required">
               <h3>{t('assistant.ui.needApiKeyTitle')}</h3>

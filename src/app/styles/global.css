@@ -3606,6 +3606,17 @@ small.mono {
   flex-direction: column;
   justify-content: flex-end;
   gap: var(--space-4);
+  transition: max-width var(--transition-base), padding var(--transition-base);
+}
+
+.chat-messages-inner.is-wide {
+  max-width: 1120px;
+}
+
+.chat-topbar-right .chat-secondary-action-btn.is-active {
+  border-color: var(--color-primary-border);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
 }
 
 /* ---------- Message Bubble ---------- */
