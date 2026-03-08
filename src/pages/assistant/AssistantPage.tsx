@@ -18,11 +18,13 @@ import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useGlobalMemoryStore } from '../../shared/store/useGlobalMemoryStore';
 import { extractGlobalMemoriesFromConversation } from '../../features/assistant/memory/extractGlobalMemories';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
+import { useAppPreferences } from '../../shared/store/useAppPreferences';
 import {
   getTransactionDirection,
   summarizeTransactions
 } from '../../shared/lib/transactionMetrics';
 import { Toast } from '../../shared/ui/Toast';
+import type { DebtItem } from '../../features/debt/model/debtMetrics';
 import type { DraftBillEntry } from '../../features/assistant/workbench/workbenchTypes';
 import type { TransactionItem } from '../../entities/transaction/types';
 import type { Category } from '../../entities/category/types';
@@ -605,6 +607,43 @@ function stripCreditJsonBlock(answer: string): string {
   return answer.replace(/```json\s*[\s\S]*?```/gi, '').trim();
 }
 
+function normalizeCreditDebtPayload(item: CreditExtractedItem): Omit<DebtItem, 'id'> {
+  const prefill = mapCreditItemToRepaymentPrefill(item);
+  const toNumber = (value?: string) => {
+    if (!value) return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
+  const balance = toNumber(prefill.balance) || 0;
+  const annualRate = toNumber(prefill.annualRate);
+  const remainingMonths = toNumber(prefill.remainingMonths);
+  const totalPeriods = toNumber(prefill.totalPeriods);
+  const paidPeriods = toNumber(prefill.paidPeriods);
+  const loanPrincipal = toNumber(prefill.loanPrincipal);
+  const totalRepayment = toNumber(prefill.totalRepayment);
+  const repaymentDay = toNumber(prefill.repaymentDay);
+
+  return {
+    name: prefill.name || item.title || '待确认负债',
+    type: prefill.type || 'credit-card',
+    balance,
+    annualRate,
+    remainingMonths,
+    totalPeriods,
+    paidPeriods,
+    loanPrincipal,
+    totalRepayment,
+    repaymentDay,
+    paymentAccount: prefill.paymentAccount || undefined,
+    customMinPayment: undefined,
+    billDay: undefined,
+    repaymentMethod: prefill.type === 'loan' ? 'equal-installment' : 'minimum-payment',
+    repaymentRecordMode: 'manual',
+    graceDays: 0
+  };
+}
+
 function mapCreditItemToRepaymentPrefill(item: CreditExtractedItem) {
   const normalizedTypeText = `${item.productType} ${item.title}`;
   const type: 'credit-card' | 'consumer-loan' | 'loan' = /房贷|车贷|按揭|贷款/i.test(normalizedTypeText)
@@ -685,6 +724,7 @@ export function AssistantPage() {
   const addAccount = useFinanceStore((s) => s.addAccount);
   const addTransaction = useFinanceStore((s) => s.addTransaction);
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
+  const addDebt = useAppPreferences((s) => s.addDebt);
 
   const wb = useAssistantWorkbench({
     baseUrl,
@@ -1146,6 +1186,19 @@ export function AssistantPage() {
       }
     },
     [mode]
+  );
+
+  const handleSaveCreditItem = useCallback(
+    (creditItem: CreditExtractedItem) => {
+      addDebt(normalizeCreditDebtPayload(creditItem));
+      wb.setToastState(
+        creditItem.pendingFields.length > 0
+          ? `已保存“${creditItem.title}”，但仍建议补充：${creditItem.pendingFields.join('、')}`
+          : `已将“${creditItem.title}”保存到还款管理`,
+        creditItem.pendingFields.length > 0 ? 'warning' : 'success'
+      );
+    },
+    [addDebt, wb]
   );
 
   const buildAssistantMessageText = useCallback(
@@ -1931,6 +1984,13 @@ export function AssistantPage() {
                           <button
                             type="button"
                             className="chat-secondary-action-btn"
+                            onClick={() => handleSaveCreditItem(creditItem)}
+                          >
+                            {creditItem.pendingFields.length > 0 ? '先保存，后续补充' : '保存到还款管理'}
+                          </button>
+                          <button
+                            type="button"
+                            className="chat-secondary-action-btn"
                             onClick={() =>
                               navigate('/repayment-management', {
                                 state: {
@@ -1939,7 +1999,7 @@ export function AssistantPage() {
                               })
                             }
                           >
-                            带去还款管理
+                            {creditItem.pendingFields.length > 0 ? '去补充后保存' : '带去还款管理'}
                           </button>
                         </div>
                       </section>

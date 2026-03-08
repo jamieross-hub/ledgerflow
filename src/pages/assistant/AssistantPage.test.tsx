@@ -75,6 +75,16 @@ vi.mock('../../shared/store/useAiSettings', () => ({
     })
 }));
 
+
+const addDebtMock = vi.fn();
+
+vi.mock('../../shared/store/useAppPreferences', () => ({
+  useAppPreferences: (selector: (state: any) => unknown) =>
+    selector({
+      addDebt: addDebtMock
+    })
+}));
+
 vi.mock('../../shared/store/useFinanceStore', () => ({
   useFinanceStore: (selector: (state: any) => unknown) =>
     selector({
@@ -184,6 +194,63 @@ describe('AssistantPage', () => {
     expect(screen.getByText('梳理本月应还')).toBeInTheDocument();
   });
 
+  it('信贷识别结果应支持直接保存到还款管理', () => {
+    useAssistantWorkbenchMock.mockReturnValue({
+      ...createWorkbenchMock(),
+      rawContent: '已识别完成',
+      status: 'ready'
+    });
+
+    const sessionStorageGetItemSpy = vi
+      .spyOn(window.sessionStorage.__proto__, 'getItem')
+      .mockImplementation((key) => {
+        if (String(key).includes('chatHistory.credit')) {
+          return JSON.stringify([
+            {
+              id: 'credit-assistant-0',
+              role: 'assistant',
+              text: '这是识别后的结果',
+              creditItems: [
+                {
+                  id: 'credit-0',
+                  title: '招联消费贷',
+                  productType: '消费贷',
+                  dueAmount: '998',
+                  totalDebt: '4200',
+                  repaymentDate: '每月12日',
+                  remainingPeriods: '5',
+                  monthlyAmount: '998',
+                  interest: '15.2',
+                  pendingFields: [],
+                  confidence: 'high'
+                }
+              ]
+            }
+          ]);
+        }
+        return '[]';
+      });
+
+    render(
+      <MemoryRouter>
+        <AssistantPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
+    fireEvent.click(screen.getByRole('button', { name: '保存到还款管理' }));
+
+    expect(addDebtMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: '招联消费贷',
+        type: 'consumer-loan',
+        balance: 4200
+      })
+    );
+
+    sessionStorageGetItemSpy.mockRestore();
+  });
+
   it('信贷识别结果应支持带去还款管理', () => {
     useAssistantWorkbenchMock.mockReturnValue({
       ...createWorkbenchMock(),
@@ -228,7 +295,7 @@ describe('AssistantPage', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
-    fireEvent.click(screen.getByRole('button', { name: '带去还款管理' }));
+    fireEvent.click(screen.getByRole('button', { name: '去补充后保存' }));
 
     expect(navigateMock).toHaveBeenCalledWith('/repayment-management', {
       state: {
