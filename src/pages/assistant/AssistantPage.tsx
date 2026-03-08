@@ -96,6 +96,48 @@ function renderInlineMarkdown(text: string): ReactNode[] {
  * - - / * 无序列表
  * - 1. 2. 有序列表（统一渲染为列表项）
  */
+function renderCreditCardSkeleton(count = 2) {
+  return (
+    <div className="chat-credit-cards chat-credit-cards-skeleton">
+      {Array.from({ length: count }, (_, index) => (
+        <section key={`credit-skeleton-${index}`} className="chat-credit-card chat-credit-card-skeleton">
+          <div className="chat-credit-card-head">
+            <div>
+              <strong className="chat-skeleton-line chat-skeleton-line-lg">&nbsp;</strong>
+              <span className="chat-skeleton-line chat-skeleton-line-sm">&nbsp;</span>
+            </div>
+            <em className="chat-credit-confidence is-medium chat-skeleton-pill">识别中</em>
+          </div>
+          <div className="chat-credit-grid">
+            {Array.from({ length: 6 }, (_, gridIndex) => (
+              <div key={`credit-skeleton-grid-${index}-${gridIndex}`}>
+                <span className="chat-skeleton-line chat-skeleton-line-sm">&nbsp;</span>
+                <strong className="chat-skeleton-line">&nbsp;</strong>
+              </div>
+            ))}
+          </div>
+          <div className="chat-credit-pending">
+            <span className="chat-skeleton-line chat-skeleton-line-sm">&nbsp;</span>
+            <div className="chat-credit-pending-list">
+              <span className="chat-skeleton-pill">&nbsp;</span>
+              <span className="chat-skeleton-pill">&nbsp;</span>
+              <span className="chat-skeleton-pill">&nbsp;</span>
+            </div>
+          </div>
+          <div className="chat-credit-actions">
+            <button type="button" className="chat-secondary-action-btn" disabled>
+              保存到还款管理
+            </button>
+            <button type="button" className="chat-secondary-action-btn" disabled>
+              带去还款管理
+            </button>
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function renderMarkdownContent(raw: string): ReactNode[] {
   const lines = raw.split(/\n/);
   const nodes: ReactNode[] = [];
@@ -2085,6 +2127,7 @@ export function AssistantPage() {
               <div className="chat-msg-avatar">🤖</div>
               <div className="chat-msg-body">
                 <div className="chat-msg-header">助手（正在生成）</div>
+                {mode === 'credit' ? renderCreditCardSkeleton(2) : null}
                 <div className="chat-msg-content chat-msg-content-rich">
                   {renderMarkdownContent(streamingPreviewMessage)}
                 </div>

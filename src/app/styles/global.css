@@ -7405,6 +7405,52 @@ body.categories-accounts-resizing {
   color: var(--color-text);
 }
 
+.chat-credit-cards-skeleton {
+  margin-bottom: var(--space-3);
+}
+
+.chat-credit-card-skeleton {
+  opacity: 0.92;
+}
+
+.chat-skeleton-line {
+  display: inline-block;
+  min-width: 96px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.16), rgba(148, 163, 184, 0.34), rgba(148, 163, 184, 0.16));
+  background-size: 200% 100%;
+  color: transparent;
+  animation: chat-skeleton-shimmer 1.25s linear infinite;
+}
+
+.chat-skeleton-line-lg {
+  min-width: 156px;
+}
+
+.chat-skeleton-line-sm {
+  min-width: 72px;
+}
+
+.chat-skeleton-pill {
+  display: inline-flex;
+  min-width: 68px;
+  min-height: 20px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.16), rgba(148, 163, 184, 0.34), rgba(148, 163, 184, 0.16));
+  background-size: 200% 100%;
+  color: transparent !important;
+  animation: chat-skeleton-shimmer 1.25s linear infinite;
+}
+
+@keyframes chat-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 .chat-credit-pending {
   display: grid;
   gap: 8px;
