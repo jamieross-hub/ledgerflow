@@ -7982,17 +7982,35 @@ body.categories-accounts-resizing {
 
 .chat-message-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   margin-top: 8px;
 }
 
 .chat-icon-action-btn {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
   padding: 0;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+  background: color-mix(in srgb, var(--color-bg-elevated) 94%, var(--color-bg-subtle));
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1;
+  box-shadow: var(--shadow-xs);
+}
+
+.chat-icon-action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary-bg) 50%, var(--color-bg-elevated));
+  color: var(--color-primary);
+}
+
+.chat-icon-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .chat-semantic-status-panel {
