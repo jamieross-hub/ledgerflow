@@ -24,6 +24,19 @@ export interface CreditRepaymentSummaryItem {
   repaymentDate?: string;
 }
 
+type CreditRepaymentStatus = 'unmatched' | 'partially-paid' | 'account-mismatch' | 'aligned';
+
+interface CreditRepaymentAnalysis {
+  matchedDebt?: DebtItem;
+  relatedRecords: RepaymentRecord[];
+  latestRecord?: RepaymentRecord;
+  paymentAccounts: string[];
+  plannedAmount: number;
+  recentPaidAmount: number;
+  gapAmount: number;
+  status: CreditRepaymentStatus;
+}
+
 function normalizeCreditIdentity(text: string): string {
   return String(text || '')
     .toLocaleLowerCase('zh-CN')
@@ -45,16 +58,16 @@ function toMoneyNumber(raw?: string): number {
 }
 
 function formatGapMoney(value: number): string {
-  return `¥${Math.round((value + Number.EPSILON) * 100) / 100}`;
+  const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+  return `¥${rounded.toFixed(2).replace(/\.00$/, '')}`;
 }
 
-export function buildCreditRepaymentLookupSummary(
+function analyzeCreditRepayment(
   item: CreditRepaymentSummaryItem,
   debts: DebtItem[],
   repaymentRecords: RepaymentRecord[]
-): CreditRepaymentLookupSummary | undefined {
+): CreditRepaymentAnalysis {
   const matchedDebt = findMatchingDebt(item, debts);
-
   const relatedRecords = repaymentRecords
     .filter((record) => (matchedDebt ? record.debtId === matchedDebt.id : false))
     .sort((a, b) => `${b.paidAt}-${b.amount}`.localeCompare(`${a.paidAt}-${a.amount}`, 'zh-CN'));
@@ -63,6 +76,97 @@ export function buildCreditRepaymentLookupSummary(
   const paymentAccounts = Array.from(
     new Set(relatedRecords.map((record) => String(record.paymentAccount || '').trim()).filter(Boolean))
   );
+  const plannedAmount = toMoneyNumber(item.dueAmount) || (matchedDebt ? Number(matchedDebt.customMinPayment || 0) : 0);
+  const recentPaidAmount = relatedRecords.slice(0, 3).reduce((sum, record) => sum + Number(record.amount || 0), 0);
+  const gapAmount = Math.max(0, plannedAmount - recentPaidAmount);
+
+  const hasAccountMismatch = Boolean(
+    matchedDebt?.paymentAccount && paymentAccounts.length > 0 && !paymentAccounts.includes(matchedDebt.paymentAccount)
+  );
+
+  let status: CreditRepaymentStatus = 'unmatched';
+  if (!matchedDebt && relatedRecords.length === 0) {
+    status = 'unmatched';
+  } else if (hasAccountMismatch) {
+    status = 'account-mismatch';
+  } else if ((plannedAmount > 0 && gapAmount > 0) || (plannedAmount > recentPaidAmount && recentPaidAmount > 0)) {
+    status = 'partially-paid';
+  } else {
+    status = 'aligned';
+  }
+
+  return {
+    matchedDebt,
+    relatedRecords,
+    latestRecord,
+    paymentAccounts,
+    plannedAmount,
+    recentPaidAmount,
+    gapAmount,
+    status
+  };
+}
+
+function buildStatusText(status: CreditRepaymentStatus): string {
+  switch (status) {
+    case 'unmatched':
+      return '未匹配';
+    case 'partially-paid':
+      return '部分已还';
+    case 'account-mismatch':
+      return '账户不一致';
+    case 'aligned':
+      return '基本对齐';
+    default:
+      return '待确认';
+  }
+}
+
+function buildLookupHint(status: CreditRepaymentStatus, analysis: CreditRepaymentAnalysis): string {
+  switch (status) {
+    case 'unmatched':
+      return analysis.matchedDebt
+        ? '已找到计划负债，但最近没有稳定命中还款流水；如果实际已还，建议补录记录或核对时间范围。'
+        : '当前还没稳定串起已保存负债和还款流水，建议补充产品名、应还金额或还款日作为锚点。';
+    case 'partially-paid':
+      return '已看到部分还款，但计划应还与最近已还还没完全对齐，建议继续核对是否还有待补录流水。';
+    case 'account-mismatch':
+      return '计划扣款账户与最近还款账户不一致，优先确认是否换卡扣款、代扣账户变化或记录归属错误。';
+    case 'aligned':
+      return '计划应还、最近还款和账户信息基本能对上，可直接继续核对剩余细节。';
+    default:
+      return '待进一步确认。';
+  }
+}
+
+function buildGapReason(status: CreditRepaymentStatus, analysis: CreditRepaymentAnalysis): string {
+  switch (status) {
+    case 'unmatched':
+      return analysis.matchedDebt
+        ? '计划里有应还，但流水侧暂未形成稳定匹配。'
+        : analysis.recentPaidAmount > 0
+          ? '已有还款流水，但当前还没稳定命中对应负债。'
+          : '计划和流水两侧都还缺足够锚点，暂时无法稳定匹配。';
+    case 'partially-paid':
+      return '当前更像“部分已还”，最近已还金额仍低于计划应还，可能还有待补录或未匹配的还款。';
+    case 'account-mismatch':
+      return analysis.matchedDebt?.paymentAccount
+        ? `计划账户是“${analysis.matchedDebt.paymentAccount}”，但最近还款来自“${analysis.paymentAccounts.join(' / ')}”。`
+        : '计划账户与最近还款账户暂未对齐。';
+    case 'aligned':
+      return '计划应还、最近已还和账户信息基本一致，当前没有明显缺口。';
+    default:
+      return '待进一步确认。';
+  }
+}
+
+export function buildCreditRepaymentLookupSummary(
+  item: CreditRepaymentSummaryItem,
+  debts: DebtItem[],
+  repaymentRecords: RepaymentRecord[]
+): CreditRepaymentLookupSummary | undefined {
+  const analysis = analyzeCreditRepayment(item, debts, repaymentRecords);
+  const { matchedDebt, latestRecord, paymentAccounts, relatedRecords, status } = analysis;
 
   const plannedRepaymentText = matchedDebt
     ? [
@@ -88,22 +192,6 @@ export function buildCreditRepaymentLookupSummary(
     ? `${formatGapMoney(Number(latestRecord.amount || 0))} · ${String(latestRecord.paidAt || '').slice(0, 10) || '日期待确认'}`
     : undefined;
 
-  let recordStatusText = '';
-  let lookupHint = '';
-  if (matchedDebt && relatedRecords.length === 0) {
-    recordStatusText = '已命中负债，未命中最近还款流水';
-    lookupHint = '计划存在，但流水侧暂未确认；如果实际已还，建议补录还款记录或核对账户归属。';
-  } else if (matchedDebt && relatedRecords.length > 0) {
-    recordStatusText = '已命中负债，也命中最近还款流水';
-    lookupHint = '这笔信贷的计划、账户和近期还款记录都已串起来，可直接继续核对缺口。';
-  } else if (!matchedDebt && relatedRecords.length > 0) {
-    recordStatusText = '命中还款流水，但未稳定命中负债';
-    lookupHint = '流水里看到了还款，但当前识别结果还没和已保存负债稳定关联，建议确认是否为同一笔。';
-  } else {
-    recordStatusText = '暂未命中已保存负债或还款流水';
-    lookupHint = '当前更像一张新识别卡片，若想继续查台账，需要先补产品名、还款日或金额等锚点。';
-  }
-
   if (!matchedDebt && relatedRecords.length === 0 && !plannedRepaymentText && !paymentAccountText) {
     return undefined;
   }
@@ -113,8 +201,8 @@ export function buildCreditRepaymentLookupSummary(
     plannedRepaymentText,
     paymentAccountText,
     actualRepaymentText,
-    recordStatusText,
-    lookupHint
+    recordStatusText: buildStatusText(status),
+    lookupHint: buildLookupHint(status, analysis)
   };
 }
 
@@ -123,45 +211,18 @@ export function buildCreditRepaymentGapSummary(
   debts: DebtItem[],
   repaymentRecords: RepaymentRecord[]
 ): CreditRepaymentGapSummary | undefined {
-  const matchedDebt = findMatchingDebt(item, debts);
+  const analysis = analyzeCreditRepayment(item, debts, repaymentRecords);
+  const { matchedDebt, paymentAccounts, plannedAmount, recentPaidAmount, gapAmount, status } = analysis;
 
-  const planned = toMoneyNumber(item.dueAmount) || (matchedDebt ? Number(matchedDebt.customMinPayment || 0) : 0);
-  const relatedRecords = repaymentRecords
-    .filter((record) => (matchedDebt ? record.debtId === matchedDebt.id : false))
-    .sort((a, b) => `${b.paidAt}-${b.amount}`.localeCompare(`${a.paidAt}-${a.amount}`, 'zh-CN'));
-
-  const recentPaid = relatedRecords.slice(0, 3).reduce((sum, record) => sum + Number(record.amount || 0), 0);
-  const gap = Math.max(0, planned - recentPaid);
-  const paymentAccounts = Array.from(
-    new Set(relatedRecords.map((record) => String(record.paymentAccount || '').trim()).filter(Boolean))
-  );
-
-  let gapReason = '';
-  if (planned > 0 && recentPaid === 0) {
-    gapReason = '计划里有应还，但流水侧暂未确认已还记录';
-  } else if (planned > recentPaid && recentPaid > 0) {
-    gapReason = '存在部分已还，可能还有待补录或未匹配的还款';
-  } else if (planned === 0 && recentPaid > 0) {
-    gapReason = '已记录到还款流水，但当前卡片里尚未识别出明确计划应还';
-  } else if (
-    matchedDebt?.paymentAccount &&
-    paymentAccounts.length > 0 &&
-    !paymentAccounts.includes(matchedDebt.paymentAccount)
-  ) {
-    gapReason = `计划账户是“${matchedDebt.paymentAccount}”，但最近还款来自“${paymentAccounts.join(' / ')}”`;
-  } else {
-    gapReason = '计划与流水基本一致，若仍有差异建议再核对账单或扣款账户';
-  }
-
-  if (planned <= 0 && recentPaid <= 0 && !matchedDebt) {
+  if (plannedAmount <= 0 && recentPaidAmount <= 0 && !matchedDebt) {
     return undefined;
   }
 
   return {
-    plannedDueAmount: planned > 0 ? formatGapMoney(planned) : undefined,
-    recentActualPaidAmount: recentPaid > 0 ? formatGapMoney(recentPaid) : undefined,
-    gapAmount: gap > 0 ? formatGapMoney(gap) : '0',
-    gapReason,
+    plannedDueAmount: plannedAmount > 0 ? formatGapMoney(plannedAmount) : undefined,
+    recentActualPaidAmount: recentPaidAmount > 0 ? formatGapMoney(recentPaidAmount) : undefined,
+    gapAmount: gapAmount > 0 ? formatGapMoney(gapAmount) : '0',
+    gapReason: buildGapReason(status, analysis),
     paymentAccountSummary:
       paymentAccounts.length > 0
         ? paymentAccounts.join(' / ')
