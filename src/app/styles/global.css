@@ -7876,6 +7876,27 @@ body.categories-accounts-resizing {
   transition: width var(--transition-base);
 }
 
+.chat-credit-binding-note {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-bg-subtle) 92%, var(--color-primary-bg));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 14%, var(--color-border-light));
+}
+
+.chat-credit-binding-note strong {
+  font-size: 11px;
+  color: var(--color-primary);
+}
+
+.chat-credit-binding-note span,
+.chat-credit-binding-note small {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
 .chat-credit-lookup-card {
   margin-top: 12px;
   padding: 14px;

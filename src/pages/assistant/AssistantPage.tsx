@@ -2230,6 +2230,13 @@ export function AssistantPage() {
                           <div className="chat-credit-progress-track">
                             <span style={{ width: `${creditItem.completionRatio || 0}%` }} />
                           </div>
+                          {creditItem.bindingProgressText ? (
+                            <div className="chat-credit-binding-note">
+                              <strong>{creditItem.draftCreditId || creditItem.identityKey}</strong>
+                              <span>{creditItem.bindingProgressText}</span>
+                              {creditItem.matchReason ? <small>{creditItem.matchReason}</small> : null}
+                            </div>
+                          ) : null}
                         </div>
                         <div className="chat-credit-grid">
                           {renderCreditField('当前应还', creditItem.dueAmount, creditItem.fieldMeta?.dueAmount)}

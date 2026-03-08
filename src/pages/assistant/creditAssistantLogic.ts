@@ -62,6 +62,19 @@ function mergeCreditItemPair(base: CreditExtractedItem, incoming: CreditExtracte
     conflictHint: incoming.conflictHint || base.conflictHint,
     repaymentGapSummary: incoming.repaymentGapSummary || base.repaymentGapSummary,
     pendingFields,
+    draftCreditId: incoming.draftCreditId || base.draftCreditId,
+    matchReason: incoming.matchReason || base.matchReason,
+    lastConfirmedFields: Array.from(
+      new Set([...(base.lastConfirmedFields || []), ...(incoming.lastConfirmedFields || [])])
+    ),
+    lastMissingFields: Array.from(
+      new Set([...(incoming.lastMissingFields || []), ...(base.lastMissingFields || [])])
+    ),
+    mergedFromTurns: Array.from(
+      new Set([...(base.mergedFromTurns || []), ...(incoming.mergedFromTurns || [])])
+    ).sort((a, b) => a - b),
+    recommendedNextFields: incoming.recommendedNextFields || base.recommendedNextFields,
+    bindingProgressText: incoming.bindingProgressText || base.bindingProgressText,
     mergedFromHistory: base.mergedFromHistory || incoming.mergedFromHistory,
     confidence:
       incoming.confidence === 'high' || base.confidence === 'high'
@@ -287,11 +300,36 @@ export function enrichCreditItemsForConfirmation(
     const normalizedPendingFields = Array.from(
       new Set((item.pendingFields || []).map((field) => String(field || '').trim()).filter(Boolean))
     );
+    const confirmedFields = [
+      item.title ? '产品名称' : '',
+      item.dueAmount ? '当前应还' : '',
+      item.totalDebt ? '剩余待还' : '',
+      item.repaymentDate ? '还款日' : '',
+      item.remainingPeriods ? '剩余期数' : '',
+      item.monthlyAmount ? '每期金额' : '',
+      item.interest || item.rateType ? '利息/费率' : ''
+    ].filter(Boolean);
+    const recommendedNextFields = normalizedPendingFields.slice(0, 2);
+    const mergedTurns = Array.from(new Set([...(item.mergedFromTurns || []), similarHistoryCount > 0 ? similarHistoryCount + 1 : 1]));
 
     return {
       ...item,
       pendingFields: normalizedPendingFields,
       identityKey,
+      draftCreditId: item.draftCreditId || `draft-${identityKey}`,
+      matchReason: matchedDebt
+        ? `已命中保存负债：${matchedDebt.name}`
+        : similarHistoryCount > 0
+          ? '已承接上轮相似识别结果'
+          : '当前为新识别对象',
+      lastConfirmedFields: confirmedFields,
+      lastMissingFields: normalizedPendingFields,
+      mergedFromTurns: mergedTurns,
+      recommendedNextFields,
+      bindingProgressText:
+        normalizedPendingFields.length > 0
+          ? `当前补的是「${item.title || '这笔负债'}」· 已补 ${confirmedFields.length}/7，优先再补 ${recommendedNextFields.join('、') || '关键信息'}`
+          : `当前补的是「${item.title || '这笔负债'}」· 关键字段已基本补齐，可进入确认保存`,
       completionRatio,
       completionLabel: `${completedCount}/6 关键字段已补齐`,
       confirmationState: completedCount >= 4 ? 'ready' : 'needs-more-info',

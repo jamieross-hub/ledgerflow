@@ -36,6 +36,13 @@ export interface CreditExtractedItem {
   confirmationSummary?: string[];
   conflictHint?: string;
   identityKey?: string;
+  draftCreditId?: string;
+  matchReason?: string;
+  lastConfirmedFields?: string[];
+  lastMissingFields?: string[];
+  mergedFromTurns?: number[];
+  recommendedNextFields?: string[];
+  bindingProgressText?: string;
   completionRatio?: number;
   completionLabel?: string;
   mergedFromHistory?: boolean;
