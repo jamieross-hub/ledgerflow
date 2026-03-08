@@ -2459,6 +2459,16 @@ export function AssistantPage() {
                   >
                     🗑️
                   </button>
+                  {item.role === 'user' ? (
+                    <button
+                      type="button"
+                      className="chat-secondary-action-btn"
+                      onClick={() => retryMessage(index + 1)}
+                      disabled={wb.status === 'recognizing'}
+                    >
+                      重新生成
+                    </button>
+                  ) : null}
                   {item.role === 'assistant' ? (
                     <button
                       type="button"
@@ -2466,7 +2476,7 @@ export function AssistantPage() {
                       onClick={() => retryMessage(index)}
                       disabled={wb.status === 'recognizing'}
                     >
-                      重试
+                      重新生成
                     </button>
                   ) : null}
                 </div>
