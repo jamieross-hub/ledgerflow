@@ -7395,6 +7395,56 @@ body.categories-accounts-resizing {
   background: color-mix(in srgb, var(--color-bg-elevated) 94%, var(--color-primary-bg));
 }
 
+
+.chat-credit-confirmation {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px dashed color-mix(in srgb, var(--color-primary) 38%, var(--color-border-light));
+  background: color-mix(in srgb, var(--color-bg-elevated) 90%, var(--color-primary-bg));
+}
+
+.chat-credit-confirmation-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chat-credit-confirmation-head strong {
+  font-size: var(--font-sm);
+  color: var(--color-text);
+}
+
+.chat-credit-confirmation-head span {
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+}
+
+.chat-credit-confirmation-list {
+  display: grid;
+  gap: 6px;
+}
+
+.chat-credit-confirmation-row {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  font-size: var(--font-xs);
+}
+
+.chat-credit-conflict-hint {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning-border);
+  font-size: var(--font-xs);
+}
+
 .chat-credit-grid span {
   font-size: 11px;
   color: var(--color-text-secondary);

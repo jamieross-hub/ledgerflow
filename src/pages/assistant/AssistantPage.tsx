@@ -383,6 +383,9 @@ interface CreditExtractedItem {
   actionSuggestion?: string;
   pendingFields: string[];
   confidence: 'high' | 'medium' | 'low';
+  confirmationState?: 'ready' | 'needs-more-info';
+  confirmationSummary?: string[];
+  conflictHint?: string;
 }
 
 interface TodayTodoItem {
@@ -729,6 +732,54 @@ function mergeCreditItemsWithHistory(
   });
 }
 
+
+function countReadyCreditFields(item: CreditExtractedItem): number {
+  return [item.title, item.dueAmount, item.totalDebt, item.repaymentDate, item.monthlyAmount, item.rateType || item.interest]
+    .filter((value) => String(value || '').trim()).length;
+}
+
+function buildCreditConfirmationSummary(item: CreditExtractedItem): string[] {
+  const rows = [
+    `产品：${item.title || '待确认'}`,
+    `当前应还：${item.dueAmount || '待确认'}`,
+    `剩余待还：${item.totalDebt || '待确认'}`,
+    `还款日：${item.repaymentDate || '待确认'}`,
+    `每期金额：${item.monthlyAmount || '待确认'}`,
+    `APR/年化：${item.rateType || item.interest || '待确认'}`,
+    `状态：${item.pendingFields.length === 0 ? '字段基本齐全，可确认保存' : `仍待补充 ${item.pendingFields.join('、')}`}`
+  ];
+  return rows;
+}
+
+function enrichCreditItemsForConfirmation(
+  items: CreditExtractedItem[],
+  history: ChatHistoryItem[]
+): CreditExtractedItem[] {
+  return items.map((item) => {
+    const readyCount = countReadyCreditFields(item);
+    const similarHistoryCount = history.filter(
+      (historyItem) =>
+        historyItem.role === 'assistant' &&
+        Array.isArray(historyItem.creditItems) &&
+        (historyItem.creditItems || []).some((prev) => {
+          const prevKey = normalizeCreditIdentity(`${prev.title}${prev.productType}`);
+          const currentKey = normalizeCreditIdentity(`${item.title}${item.productType}`);
+          return prev.id !== item.id && (prevKey === currentKey || prevKey.includes(currentKey) || currentKey.includes(prevKey));
+        })
+    ).length;
+
+    return {
+      ...item,
+      confirmationState: readyCount >= 4 ? 'ready' : 'needs-more-info',
+      confirmationSummary: buildCreditConfirmationSummary(item),
+      conflictHint:
+        similarHistoryCount > 1
+          ? '检测到历史里有相似信贷项目，保存前建议确认是否为同一笔，避免重复合并。'
+          : undefined
+    };
+  });
+}
+
 function buildCreditFollowUpPrompts(items: CreditExtractedItem[]): string[] {
   const prompts: string[] = [];
   items.forEach((item) => {
@@ -1004,6 +1055,7 @@ export function AssistantPage() {
   );
   const [loadingPresets, setLoadingPresets] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(() => readChatHistory(mode));
+  const [confirmingCreditId, setConfirmingCreditId] = useState<string | null>(null);
   const memoryExtractionSignatureRef = useRef<Record<AssistantMode, string>>({
     bookkeeping: '',
     assistant: '',
@@ -1448,6 +1500,7 @@ export function AssistantPage() {
   const handleSaveCreditItem = useCallback(
     (creditItem: CreditExtractedItem) => {
       addDebt(normalizeCreditDebtPayload(creditItem));
+      setConfirmingCreditId(null);
       wb.setToastState(
         creditItem.pendingFields.length > 0
           ? `已保存“${creditItem.title}”，但仍建议补充：${creditItem.pendingFields.join('、')}`
@@ -1569,7 +1622,10 @@ export function AssistantPage() {
         : undefined;
     const creditItems =
       responseMode === 'credit'
-        ? mergeCreditItemsWithHistory(extractCreditStructuredItems(wb.rawContent), chatHistory)
+        ? enrichCreditItemsForConfirmation(
+            mergeCreditItemsWithHistory(extractCreditStructuredItems(wb.rawContent), chatHistory),
+            chatHistory
+          )
         : undefined;
 
     appendMessageToMode(responseMode, {
@@ -2273,13 +2329,73 @@ export function AssistantPage() {
                             </div>
                           </div>
                         ) : null}
+                        {(creditItem.confirmationState === 'ready' || confirmingCreditId === creditItem.id) ? (
+                          <div className="chat-credit-confirmation">
+                            <div className="chat-credit-confirmation-head">
+                              <strong>保存前确认</strong>
+                              <span>
+                                {creditItem.pendingFields.length === 0 ? '字段基本齐全' : '建议确认后再保存'}
+                              </span>
+                            </div>
+                            <div className="chat-credit-confirmation-list">
+                              {(creditItem.confirmationSummary || []).map((row) => (
+                                <div key={`${creditItem.id}-${row}`} className="chat-credit-confirmation-row">{row}</div>
+                              ))}
+                            </div>
+                            {creditItem.conflictHint ? (
+                              <div className="chat-credit-conflict-hint">{creditItem.conflictHint}</div>
+                            ) : null}
+                            <div className="chat-credit-actions">
+                              <button
+                                type="button"
+                                className="chat-secondary-action-btn"
+                                onClick={() => handleSaveCreditItem(creditItem)}
+                              >
+                                确认保存到还款管理
+                              </button>
+                              <button
+                                type="button"
+                                className="chat-secondary-action-btn"
+                                onClick={() =>
+                                  navigate('/repayment-management', {
+                                    state: {
+                                      prefillDebt: mapCreditItemToRepaymentPrefill(creditItem)
+                                    }
+                                  })
+                                }
+                              >
+                                继续补充后保存
+                              </button>
+                              <button
+                                type="button"
+                                className="chat-secondary-action-btn"
+                                onClick={() => {
+                                  setConfirmingCreditId(null);
+                                  wb.setToastState('已按新项目处理，不与当前历史结果自动合并。', 'warning');
+                                }}
+                              >
+                                这不是同一笔
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
                         <div className="chat-credit-actions">
                           <button
                             type="button"
                             className="chat-secondary-action-btn"
-                            onClick={() => handleSaveCreditItem(creditItem)}
+                            onClick={() => {
+                              if (creditItem.confirmationState === 'ready') {
+                                setConfirmingCreditId(creditItem.id);
+                                return;
+                              }
+                              handleSaveCreditItem(creditItem);
+                            }}
                           >
-                            {creditItem.pendingFields.length > 0 ? '先保存，后续补充' : '保存到还款管理'}
+                            {creditItem.confirmationState === 'ready'
+                              ? '进入保存前确认'
+                              : creditItem.pendingFields.length > 0
+                                ? '先保存，后续补充'
+                                : '保存到还款管理'}
                           </button>
                           <button
                             type="button"
