@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, ReactNode, useEffect, useMemo, useRef, useState
 import { useLocation } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import {
+  calculateDebtDerivedMetrics,
   calculateDebtHealthScore,
   calculateDebtMinimumPayment,
   calculateDebtSummary,
@@ -614,13 +615,8 @@ export function RepaymentManagementPage() {
   const repaymentPriority = useMemo(() => {
     const ranked = debts
       .map((item) => {
-        const annualRate = getDebtAssumedAnnualRate(
-          item.type,
-          item.annualRate,
-          item.loanPrincipal,
-          item.totalRepayment,
-          item.totalPeriods
-        );
+        const derived = calculateDebtDerivedMetrics(item);
+        const annualRate = derived.apr;
         const balance = Math.max(0, item.balance);
         return {
           id: item.id,
@@ -628,7 +624,8 @@ export function RepaymentManagementPage() {
           balance,
           type: item.type,
           annualRate,
-          minimumPayment: calculateDebtMinimumPayment(item),
+          minimumPayment: derived.minimumPayment,
+          remainingInterestCost: derived.remainingInterestCost,
           priorityScore: annualRate * 0.7 + Math.log10(balance + 1) * 15
         };
       })
@@ -686,14 +683,9 @@ export function RepaymentManagementPage() {
     const today = new Date().getDate();
     return debts
       .map((item) => {
-        const minimumPayment = calculateDebtMinimumPayment(item);
-        const annualRate = getDebtAssumedAnnualRate(
-          item.type,
-          item.annualRate,
-          item.loanPrincipal,
-          item.totalRepayment,
-          item.totalPeriods
-        );
+        const derived = calculateDebtDerivedMetrics(item);
+        const minimumPayment = derived.minimumPayment;
+        const annualRate = derived.apr;
         const dueInDays =
           typeof item.repaymentDay === 'number'
             ? (item.repaymentDay - today + 31) % 31
@@ -724,7 +716,15 @@ export function RepaymentManagementPage() {
           name: item.name,
           type: item.type,
           annualRate,
+          apr: derived.apr,
+          monthlyRate: derived.monthlyRate,
+          dailyRate: derived.dailyRate,
+          rateSource: derived.rateSource,
           minimumPayment,
+          estimatedMonthlyPayment: derived.estimatedMonthlyPayment,
+          totalInterest: derived.totalInterest,
+          remainingInterestCost: derived.remainingInterestCost,
+          remainingTotalCost: derived.remainingTotalCost,
           repaymentDay: item.repaymentDay,
           billDay: item.billDay,
           paymentAccount: item.paymentAccount,
@@ -1835,7 +1835,16 @@ export function RepaymentManagementPage() {
                     <span>记录方式：{REPAYMENT_RECORD_MODE_LABELS[item.repaymentRecordMode]}</span>
                     <span>扣款账户：{item.paymentAccount || '未设置'}</span>
                     <span>宽限期：{item.graceDays || 0} 天</span>
-                    <span>年化参考：{item.annualRate > 0 ? `${item.annualRate.toFixed(2)}%` : '待补充'}</span>
+                    <span>
+                      APR/年化：
+                      {item.apr > 0 ? `${item.apr.toFixed(2)}%` : '待补充'}
+                      {item.rateSource === 'explicit' ? '（明确值）' : item.rateSource === 'inferred' ? '（推算值）' : ''}
+                    </span>
+                    <span>月利率：{item.monthlyRate > 0 ? `${item.monthlyRate.toFixed(3)}%` : '待补充'}</span>
+                    <span>日利率：{item.dailyRate > 0 ? `${item.dailyRate.toFixed(4)}%` : '待补充'}</span>
+                    <span>预计月供：¥{item.estimatedMonthlyPayment.toFixed(2)}</span>
+                    <span>剩余利息：{item.remainingInterestCost !== null ? `¥${item.remainingInterestCost.toFixed(2)}` : '待补充'}</span>
+                    <span>剩余总成本：{item.remainingTotalCost !== null ? `¥${item.remainingTotalCost.toFixed(2)}` : '待补充'}</span>
                     <span>
                       期数：
                       {item.totalPeriods ? `${item.paidPeriods || 0}/${item.totalPeriods}` : item.remainingMonths ? `剩余 ${item.remainingMonths} 期` : '--'}
@@ -2080,8 +2089,8 @@ export function RepaymentManagementPage() {
                             ? '💡'
                             : '✅'}
                       </span>
-                      {item.name}（年化参考 {item.annualRate.toFixed(1)}%，余额 ¥
-                      {item.balance.toFixed(0)}，最低 ¥{item.minimumPayment.toFixed(0)}）
+                      {item.name}（APR {item.annualRate.toFixed(1)}%，余额 ¥
+                      {item.balance.toFixed(0)}，最低 ¥{item.minimumPayment.toFixed(0)}{item.remainingInterestCost !== null ? `，剩余利息约 ¥${item.remainingInterestCost.toFixed(0)}` : ''}）
                     </li>
                   ))}
                 </ol>

@@ -45,6 +45,22 @@ export type DebtSummary = {
   pressureRatio: number;
 };
 
+export type DebtRateSource = 'explicit' | 'inferred' | 'missing';
+
+export interface DebtDerivedMetrics {
+  annualRate: number;
+  apr: number;
+  monthlyRate: number;
+  dailyRate: number;
+  rateSource: DebtRateSource;
+  minimumPayment: number;
+  estimatedMonthlyPayment: number;
+  totalInterest: number | null;
+  remainingInterestCost: number | null;
+  remainingTotalCost: number | null;
+  remainingMonths: number | null;
+}
+
 export function calculateDebtHealthScore(summary: DebtSummary, monthlyIncome: number): number {
   const income = toPositiveNumber(monthlyIncome);
   if (income === 0) {
@@ -115,6 +131,26 @@ function resolveLoanAnnualRate(debt: DebtItem): number {
   return toPositiveNumber(inferred);
 }
 
+function resolveDebtAnnualRate(debt: DebtItem): { annualRate: number; source: DebtRateSource } {
+  const explicit = toPositiveNumber(debt.annualRate);
+  if (explicit > 0) {
+    return { annualRate: explicit, source: 'explicit' };
+  }
+
+  if (normalizeDebtType(debt.type) === 'loan') {
+    const inferred = inferAnnualRateFromTotals({
+      principal: debt.loanPrincipal,
+      totalRepayment: debt.totalRepayment,
+      totalPeriods: debt.totalPeriods
+    });
+    if (toPositiveNumber(inferred) > 0) {
+      return { annualRate: toPositiveNumber(inferred), source: 'inferred' };
+    }
+  }
+
+  return { annualRate: 0, source: 'missing' };
+}
+
 function resolveLoanRemainingMonths(debt: DebtItem): number {
   const explicit = Math.max(1, Math.floor(toPositiveNumber(debt.remainingMonths)));
   if (explicit > 0) {
@@ -162,6 +198,60 @@ export function calculateDebtMinimumPayment(debt: DebtItem): number {
 
   const rule = debtRules[normalizedType];
   return Math.max(principal * rule.rate, rule.minFloor);
+}
+
+export function calculateDebtDerivedMetrics(debt: DebtItem): DebtDerivedMetrics {
+  const normalizedType = normalizeDebtType(debt.type);
+  const principal = toPositiveNumber(debt.balance);
+  const minimumPayment = calculateDebtMinimumPayment(debt);
+  const rateMeta = resolveDebtAnnualRate(debt);
+  const annualRate = rateMeta.annualRate;
+  const monthlyRate = annualRate > 0 ? annualRate / 12 : 0;
+  const dailyRate = annualRate > 0 ? annualRate / 360 : 0;
+  const remainingMonths =
+    normalizedType === 'loan'
+      ? Math.max(1, resolveLoanRemainingMonths(debt))
+      : typeof debt.remainingMonths === 'number' && debt.remainingMonths > 0
+        ? Math.floor(debt.remainingMonths)
+        : null;
+
+  let totalInterest: number | null = null;
+  let remainingInterestCost: number | null = null;
+  let remainingTotalCost: number | null = null;
+
+  if (normalizedType === 'loan' && principal > 0) {
+    if (
+      toPositiveNumber(debt.loanPrincipal) > 0 &&
+      toPositiveNumber(debt.totalRepayment) > toPositiveNumber(debt.loanPrincipal)
+    ) {
+      totalInterest = Math.max(
+        0,
+        toPositiveNumber(debt.totalRepayment) - toPositiveNumber(debt.loanPrincipal)
+      );
+    }
+
+    if (remainingMonths && minimumPayment > 0) {
+      remainingTotalCost = minimumPayment * remainingMonths;
+      remainingInterestCost = Math.max(0, remainingTotalCost - principal);
+      if (totalInterest === null && remainingInterestCost > 0) {
+        totalInterest = remainingInterestCost;
+      }
+    }
+  }
+
+  return {
+    annualRate,
+    apr: annualRate,
+    monthlyRate,
+    dailyRate,
+    rateSource: rateMeta.source,
+    minimumPayment,
+    estimatedMonthlyPayment: minimumPayment,
+    totalInterest,
+    remainingInterestCost,
+    remainingTotalCost,
+    remainingMonths
+  };
 }
 
 export function calculateDebtSummary(debts: DebtItem[], monthlyIncome: number): DebtSummary {

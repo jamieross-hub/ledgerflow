@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  calculateDebtDerivedMetrics,
   calculateDebtHealthScore,
   calculateDebtMinimumPayment,
   calculateDebtSummary,
@@ -85,5 +86,28 @@ describe('debtMetrics', () => {
     expect(score).toBeGreaterThanOrEqual(0);
     expect(score).toBeLessThanOrEqual(100);
     expect(score).toBe(25);
+  });
+
+  it('derives unified rate and cost metrics for loans', () => {
+    const loan: DebtItem = {
+      id: 'd5',
+      name: '经营贷',
+      type: 'loan',
+      balance: 80000,
+      totalPeriods: 24,
+      paidPeriods: 6,
+      remainingMonths: 18,
+      loanPrincipal: 100000,
+      totalRepayment: 112000
+    };
+
+    const result = calculateDebtDerivedMetrics(loan);
+    expect(result.rateSource).toBe('inferred');
+    expect(result.annualRate).toBeGreaterThan(0);
+    expect(result.apr).toBe(result.annualRate);
+    expect(result.monthlyRate).toBeCloseTo(result.annualRate / 12, 5);
+    expect(result.remainingMonths).toBe(18);
+    expect(result.minimumPayment).toBeGreaterThan(0);
+    expect(result.remainingTotalCost).toBeGreaterThan(result.remainingInterestCost || 0);
   });
 });
