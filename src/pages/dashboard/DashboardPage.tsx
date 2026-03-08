@@ -202,6 +202,7 @@ export function DashboardPage() {
   const [trendGranularity, setTrendGranularity] = useState<'week' | 'month' | 'year'>('week');
   const [selectedTrendIndex, setSelectedTrendIndex] = useState<number | null>(null);
   const [cashflowView, setCashflowView] = useState<'expense' | 'cashflow'>('expense');
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
   const [moduleOrder, setModuleOrder] = useState<DashboardModuleId[]>(() =>
     DASHBOARD_MODULE_CATALOG.map((item) => item.id)
   );
@@ -708,6 +709,13 @@ export function DashboardPage() {
     () => new Map(categories.map((item) => [item.id, item.name])),
     [categories]
   );
+  const categoryMetaMap = useMemo(
+    () =>
+      new Map(
+        categories.map((item) => [item.id, { name: item.name, icon: item.icon || '🏷️', color: item.color }])
+      ),
+    [categories]
+  );
 
   const mysticInsight = useMemo(() => {
     const expenseRows = monthly.filter((item) => isActualExpenseType(item.type));
@@ -1017,7 +1025,7 @@ export function DashboardPage() {
   }, [categoryNameMap, monthly, monthlyInsight?.highlights, transactions]);
 
   const cashflowCategoryRows = useMemo(() => {
-    const map = new Map<string, { amount: number; prevAmount: number }>();
+    const map = new Map<string, { amount: number; prevAmount: number; icon: string; color?: string }>();
 
     const thisMonthRows = transactions.filter((item) => {
       const d = new Date(item.date);
@@ -1037,16 +1045,28 @@ export function DashboardPage() {
 
     thisMonthRows.forEach((item) => {
       if (!includeRow(item.type)) return;
-      const name = categoryNameMap.get(item.categoryId) || item.categoryId || '未分类';
-      const current = map.get(name) || { amount: 0, prevAmount: 0 };
+      const categoryMeta = categoryMetaMap.get(item.categoryId);
+      const name = categoryMeta?.name || item.categoryId || '未分类';
+      const current = map.get(name) || {
+        amount: 0,
+        prevAmount: 0,
+        icon: categoryMeta?.icon || '🏷️',
+        color: categoryMeta?.color
+      };
       current.amount += item.amount;
       map.set(name, current);
     });
 
     prevMonthRows.forEach((item) => {
       if (!includeRow(item.type)) return;
-      const name = categoryNameMap.get(item.categoryId) || item.categoryId || '未分类';
-      const current = map.get(name) || { amount: 0, prevAmount: 0 };
+      const categoryMeta = categoryMetaMap.get(item.categoryId);
+      const name = categoryMeta?.name || item.categoryId || '未分类';
+      const current = map.get(name) || {
+        amount: 0,
+        prevAmount: 0,
+        icon: categoryMeta?.icon || '🏷️',
+        color: categoryMeta?.color
+      };
       current.prevAmount += item.amount;
       map.set(name, current);
     });
@@ -1055,7 +1075,9 @@ export function DashboardPage() {
       .map(([name, value]) => ({
         name,
         amount: value.amount,
-        prevAmount: value.prevAmount
+        prevAmount: value.prevAmount,
+        icon: value.icon,
+        color: value.color
       }))
       .sort((a, b) => b.amount - a.amount);
 
@@ -1069,16 +1091,55 @@ export function DashboardPage() {
       { amount: 0, prevAmount: 0 }
     );
     if (other.amount > 0) {
-      top.push({ name: '其他', amount: other.amount, prevAmount: other.prevAmount });
+      top.push({ name: '其他', amount: other.amount, prevAmount: other.prevAmount, icon: '🧩', color: undefined });
     }
 
     const total = top.reduce((sum, item) => sum + item.amount, 0);
-    return top.map((item) => ({
+    return top.map((item, index) => ({
       ...item,
       percent: total > 0 ? (item.amount / total) * 100 : 0,
-      diffRate: item.prevAmount > 0 ? ((item.amount - item.prevAmount) / item.prevAmount) * 100 : null
+      diffRate: item.prevAmount > 0 ? ((item.amount - item.prevAmount) / item.prevAmount) * 100 : null,
+      ringColor:
+        item.color ||
+        ['#2563eb', '#60a5fa', '#93c5fd', '#c4b5fd', '#34d399', '#d1d5db'][index] || '#d1d5db'
     }));
-  }, [cashflowView, categoryNameMap, currentMonth, currentYear, transactions]);
+  }, [cashflowView, categoryMetaMap, currentMonth, currentYear, transactions]);
+
+  useEffect(() => {
+    if (!cashflowCategoryRows.length) {
+      setSelectedCategoryName(null);
+      return;
+    }
+    setSelectedCategoryName((prev) => {
+      if (prev && cashflowCategoryRows.some((item) => item.name === prev)) {
+        return prev;
+      }
+      return cashflowCategoryRows[0]?.name || null;
+    });
+  }, [cashflowCategoryRows]);
+
+  const activeCategoryItem =
+    cashflowCategoryRows.find((item) => item.name === selectedCategoryName) || cashflowCategoryRows[0] || null;
+
+  const donutChart = useMemo(() => {
+    const size = 220;
+    const radius = 76;
+    const circumference = 2 * Math.PI * radius;
+    let offset = 0;
+    return cashflowCategoryRows.map((item) => {
+      const length = circumference * (item.percent / 100);
+      const segment = {
+        ...item,
+        size,
+        radius,
+        circumference,
+        dasharray: `${length} ${Math.max(circumference - length, 0)}`,
+        dashoffset: -offset
+      };
+      offset += length;
+      return segment;
+    });
+  }, [cashflowCategoryRows]);
 
   const netAssetRows = useMemo(() => {
     return netAssetCurve.map((item, index) => {
@@ -1325,7 +1386,7 @@ export function DashboardPage() {
                 </article>
                 <article className="panel dashboard-unified-card" style={{ margin: 0 }}>
                   <div className="dashboard-section-header">
-                    <h4>分类结构（Top5 + 其他）</h4>
+                    <h4>分类结构（Donut + 联动列表）</h4>
                     <div className="dashboard-segment-control">
                       <button
                         type="button"
@@ -1343,28 +1404,71 @@ export function DashboardPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="dashboard-category-bars" role="list" aria-label="分类占比条形图">
-                    {cashflowCategoryRows.map((item) => (
-                      <article key={item.name} role="listitem" className="dashboard-category-bar-item">
-                        <header>
-                          <strong>{item.name}</strong>
-                          <span>
-                            {formatCurrency(item.amount)} · {item.percent.toFixed(1)}%
-                          </span>
-                        </header>
-                        <div className="dashboard-category-bar-track">
-                          <span style={{ width: `${item.percent}%` }} />
+                  {activeCategoryItem ? (
+                    <div className="dashboard-donut-layout">
+                      <div className="dashboard-donut-wrap" aria-label="分类占比环形图">
+                        <svg viewBox="0 0 220 220" className="dashboard-donut-chart" role="img">
+                          <circle cx="110" cy="110" r="76" className="dashboard-donut-base" />
+                          {donutChart.map((segment) => (
+                            <circle
+                              key={segment.name}
+                              cx="110"
+                              cy="110"
+                              r={segment.radius}
+                              className={`dashboard-donut-segment ${
+                                activeCategoryItem.name === segment.name ? 'is-active' : ''
+                              }`.trim()}
+                              stroke={segment.ringColor}
+                              strokeDasharray={segment.dasharray}
+                              strokeDashoffset={segment.dashoffset}
+                              onMouseEnter={() => setSelectedCategoryName(segment.name)}
+                            />
+                          ))}
+                        </svg>
+                        <div className="dashboard-donut-center">
+                          <span>{activeCategoryItem.icon} {activeCategoryItem.name}</span>
+                          <strong>{formatCurrency(activeCategoryItem.amount)}</strong>
+                          <em>{activeCategoryItem.percent.toFixed(1)}%</em>
                         </div>
-                        <p>
-                          环比：
-                          {item.diffRate === null
-                            ? '—'
-                            : `${item.diffRate >= 0 ? '↑' : '↓'}${Math.abs(item.diffRate).toFixed(1)}%`}
-                        </p>
-                      </article>
-                    ))}
-                    {cashflowCategoryRows.length === 0 ? <p className="muted">暂无可视化数据</p> : null}
-                  </div>
+                      </div>
+                      <div className="dashboard-donut-list" role="list" aria-label="分类联动列表">
+                        {cashflowCategoryRows.map((item) => {
+                          const isActive = activeCategoryItem.name === item.name;
+                          return (
+                            <button
+                              key={item.name}
+                              type="button"
+                              role="listitem"
+                              className={`dashboard-donut-list-item ${isActive ? 'is-active' : ''}`}
+                              onMouseEnter={() => setSelectedCategoryName(item.name)}
+                              onFocus={() => setSelectedCategoryName(item.name)}
+                            >
+                              <span className="dashboard-donut-list-icon">{item.icon}</span>
+                              <div className="dashboard-donut-list-main">
+                                <header>
+                                  <strong>{item.name}</strong>
+                                  <span>{item.percent.toFixed(1)}%</span>
+                                </header>
+                                <div className="dashboard-donut-list-track">
+                                  <i style={{ width: `${item.percent}%`, background: item.ringColor }} />
+                                </div>
+                              </div>
+                              <div className="dashboard-donut-list-side">
+                                <strong>{formatCurrency(item.amount)}</strong>
+                                <small>
+                                  {item.diffRate === null
+                                    ? '环比 —'
+                                    : `环比 ${item.diffRate >= 0 ? '↑' : '↓'}${Math.abs(item.diffRate).toFixed(1)}%`}
+                                </small>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="muted">暂无可视化数据</p>
+                  )}
                 </article>
                 <article className="panel dashboard-unified-card" style={{ margin: 0 }}>
                   <div className="dashboard-section-header dashboard-section-header-tight">
