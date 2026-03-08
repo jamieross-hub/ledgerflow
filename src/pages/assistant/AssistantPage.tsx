@@ -632,7 +632,7 @@ function buildCreditConversationPrompt(question: string, history: ChatHistoryIte
     .join('\n');
 
   const schema = [
-    '请按“结论 → 依据 → 下一步建议”的顺序回答。若识别到明确的信贷/分期项目，请在回答末尾追加一个 JSON 代码块，格式如下：',
+    '请按“结论 → 依据 → 下一步建议”的顺序回答。默认尽量短，不要写成长篇大论。识别类问题优先给 1 句结论 + 最多 3 条依据 + 最多 2 条下一步建议。若识别到明确的信贷/分期项目，请在回答末尾追加一个 JSON 代码块，格式如下：',
     '',
     '```json',
     '{',
@@ -665,6 +665,102 @@ function buildCreditConversationPrompt(question: string, history: ChatHistoryIte
   }
 
   return `请结合以下最近对话上下文连续回答，避免重复追问已确认的信息。\n\n最近对话：\n${context}\n\n当前问题：${question}\n\n${schema}`;
+}
+
+
+function normalizeCreditIdentity(text: string): string {
+  return text.replace(/\s+/g, '').replace(/[（）()\-·:：]/g, '').toLowerCase();
+}
+
+function mergeCreditItemsWithHistory(
+  currentItems: CreditExtractedItem[],
+  history: ChatHistoryItem[]
+): CreditExtractedItem[] {
+  if (currentItems.length === 0) return currentItems;
+
+  const previousItems = [...history]
+    .reverse()
+    .filter((item) => item.role === 'assistant' && Array.isArray(item.creditItems) && item.creditItems.length > 0)
+    .flatMap((item) => item.creditItems || [])
+    .slice(0, 8);
+
+  if (previousItems.length === 0) return currentItems;
+
+  return currentItems.map((item) => {
+    const currentKey = normalizeCreditIdentity(`${item.title}${item.productType}`);
+    const matched = previousItems.find((prev) => {
+      const prevKey = normalizeCreditIdentity(`${prev.title}${prev.productType}`);
+      return prevKey === currentKey || prevKey.includes(currentKey) || currentKey.includes(prevKey);
+    });
+    if (!matched) return item;
+
+    const pendingFields = Array.from(new Set([...(matched.pendingFields || []), ...(item.pendingFields || [])]))
+      .filter((field) => {
+        if (field === '当前应还' && item.dueAmount) return false;
+        if (field === '剩余待还' && item.totalDebt) return false;
+        if (field === '还款日' && item.repaymentDate) return false;
+        if (field === '每期金额' && item.monthlyAmount) return false;
+        return true;
+      });
+
+    return {
+      ...matched,
+      ...item,
+      title: item.title || matched.title,
+      productType: item.productType || matched.productType,
+      dueAmount: item.dueAmount || matched.dueAmount,
+      totalDebt: item.totalDebt || matched.totalDebt,
+      repaymentDate: item.repaymentDate || matched.repaymentDate,
+      remainingPeriods: item.remainingPeriods || matched.remainingPeriods,
+      monthlyAmount: item.monthlyAmount || matched.monthlyAmount,
+      interest: item.interest || matched.interest,
+      rateType: item.rateType || matched.rateType,
+      rateSource: item.rateSource || matched.rateSource,
+      riskHint: item.riskHint || matched.riskHint,
+      actionSuggestion: item.actionSuggestion || matched.actionSuggestion,
+      pendingFields,
+      confidence:
+        item.confidence === 'high' || matched.confidence === 'high'
+          ? 'high'
+          : item.confidence === 'medium' || matched.confidence === 'medium'
+            ? 'medium'
+            : 'low'
+    };
+  });
+}
+
+function buildCreditFollowUpPrompts(items: CreditExtractedItem[]): string[] {
+  const prompts: string[] = [];
+  items.forEach((item) => {
+    const title = item.title || '这笔负债';
+    if (item.pendingFields.includes('还款日')) {
+      prompts.push(`我补充一下“${title}”的还款日，你继续完善这张还款卡片`);
+    }
+    if (item.pendingFields.includes('每期金额')) {
+      prompts.push(`我补充“${title}”的每期金额/月供，你帮我更新识别结果`);
+    }
+    if (item.pendingFields.includes('当前应还') || item.pendingFields.includes('剩余待还')) {
+      prompts.push(`我再补一张“${title}”账单图，你继续识别应还和剩余待还`);
+    }
+  });
+  prompts.push('基于当前信息，直接告诉我还缺哪几个字段才能保存到还款管理');
+  prompts.push('如果我现在继续补充一句说明或再发一张图，你希望我优先补什么？');
+  return Array.from(new Set(prompts)).slice(0, 4);
+}
+
+function buildCreditAssistantMessageText(answer: string): string {
+  const plain = stripCreditJsonBlock(answer).trim();
+  if (!plain) return answer.trim();
+
+  const paragraphs = plain
+    .split(/\n{2,}/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const selected = paragraphs.slice(0, 3);
+  const joined = selected.join('\n\n');
+  if (joined.length <= 280) return joined;
+  return `${joined.slice(0, 280).trimEnd()}…`;
 }
 
 function extractCreditStructuredItems(answer: string): CreditExtractedItem[] {
@@ -1337,7 +1433,7 @@ export function AssistantPage() {
         return `这次我先帮你整理出了 ${wb.entries.length} 条可保存账单。你可以先核对、去重，再决定要不要落到账本。`;
       }
       if (responseMode === 'credit') {
-        return stripCreditJsonBlock(wb.rawContent) || wb.rawContent;
+        return buildCreditAssistantMessageText(wb.rawContent);
       }
       return wb.rawContent;
     },
@@ -1432,7 +1528,10 @@ export function AssistantPage() {
             .filter(Boolean)
             .join('\n')
         : undefined;
-    const creditItems = responseMode === 'credit' ? extractCreditStructuredItems(wb.rawContent) : undefined;
+    const creditItems =
+      responseMode === 'credit'
+        ? mergeCreditItemsWithHistory(extractCreditStructuredItems(wb.rawContent), chatHistory)
+        : undefined;
 
     appendMessageToMode(responseMode, {
       id: `${Date.now()}-assistant`,
@@ -1443,7 +1542,11 @@ export function AssistantPage() {
       embeddingSummaryText,
       embeddingDebugText,
       followUpPrompts:
-        responseMode !== 'bookkeeping' ? buildFollowUpPrompts(wb.rawContent, chatHistory) : undefined,
+        responseMode === 'credit'
+          ? buildCreditFollowUpPrompts(creditItems || [])
+          : responseMode !== 'bookkeeping'
+            ? buildFollowUpPrompts(wb.rawContent, chatHistory)
+            : undefined,
       creditItems
     });
   }, [
