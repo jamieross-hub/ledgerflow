@@ -4,6 +4,26 @@ export interface CreditConflictField {
   nextValue: string;
 }
 
+export interface CreditRepaymentLookupSummary {
+  matchedDebtName?: string;
+  plannedRepaymentText?: string;
+  paymentAccountText?: string;
+  actualRepaymentText?: string;
+  recordStatusText?: string;
+  lookupHint?: string;
+}
+
+export interface CreditRepaymentGapSummary {
+  plannedDueAmount?: string;
+  recentActualPaidAmount?: string;
+  gapAmount?: string;
+  gapReason?: string;
+  paymentAccountSummary?: string;
+  statusText?: string;
+  shortfallAction?: string;
+  explanationItems?: string[];
+}
+
 export type CreditFieldSource = 'explicit' | 'rule' | 'ai-inferred' | 'user-supplemented' | 'pending';
 export type CreditFieldStatus = 'confirmed' | 'needs-confirmation' | 'low-confidence';
 
@@ -49,21 +69,8 @@ export interface CreditExtractedItem {
   matchedDebtId?: string;
   matchedDebtName?: string;
   conflictFields?: CreditConflictField[];
-  repaymentGapSummary?: {
-    plannedDueAmount?: string;
-    recentActualPaidAmount?: string;
-    gapAmount?: string;
-    gapReason?: string;
-    paymentAccountSummary?: string;
-  };
-  repaymentLookupSummary?: {
-    matchedDebtName?: string;
-    plannedRepaymentText?: string;
-    paymentAccountText?: string;
-    actualRepaymentText?: string;
-    recordStatusText?: string;
-    lookupHint?: string;
-  };
+  repaymentGapSummary?: CreditRepaymentGapSummary;
+  repaymentLookupSummary?: CreditRepaymentLookupSummary;
   fieldMeta?: Partial<
     Record<
       'title' | 'dueAmount' | 'totalDebt' | 'repaymentDate' | 'remainingPeriods' | 'monthlyAmount' | 'interest',

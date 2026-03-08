@@ -2315,7 +2315,7 @@ export function AssistantPage() {
                           <div className="chat-credit-gap-card">
                             <div className="chat-credit-gap-head">
                               <strong>计划 vs 实际</strong>
-                              <span>先看有没有缺口</span>
+                              <span>{creditItem.repaymentGapSummary.statusText || '先看有没有缺口'}</span>
                             </div>
                             <div className="chat-credit-gap-grid">
                               <div>
@@ -2335,9 +2335,19 @@ export function AssistantPage() {
                                 <strong>{creditItem.repaymentGapSummary.paymentAccountSummary || '待确认'}</strong>
                               </div>
                             </div>
+                            {creditItem.repaymentGapSummary.explanationItems && creditItem.repaymentGapSummary.explanationItems.length > 0 ? (
+                              <div className="chat-credit-gap-points">
+                                {creditItem.repaymentGapSummary.explanationItems.map((point: string) => (
+                                  <span key={`${creditItem.id}-${point}`}>{point}</span>
+                                ))}
+                              </div>
+                            ) : null}
                             <div className="chat-credit-gap-reason">
                               {creditItem.repaymentGapSummary.gapReason}
                             </div>
+                            {creditItem.repaymentGapSummary.shortfallAction ? (
+                              <div className="chat-credit-gap-action">{creditItem.repaymentGapSummary.shortfallAction}</div>
+                            ) : null}
                           </div>
                         ) : null}
                         {(creditItem.confirmationState === 'ready' || confirmingCreditId === creditItem.id) ? (

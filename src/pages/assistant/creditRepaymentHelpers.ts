@@ -1,21 +1,8 @@
 import type { DebtItem, RepaymentRecord } from '../../features/debt/model/debtMetrics';
-
-export interface CreditRepaymentLookupSummary {
-  matchedDebtName?: string;
-  plannedRepaymentText?: string;
-  paymentAccountText?: string;
-  actualRepaymentText?: string;
-  recordStatusText?: string;
-  lookupHint?: string;
-}
-
-export interface CreditRepaymentGapSummary {
-  plannedDueAmount?: string;
-  recentActualPaidAmount?: string;
-  gapAmount?: string;
-  gapReason?: string;
-  paymentAccountSummary?: string;
-}
+import type {
+  CreditRepaymentGapSummary,
+  CreditRepaymentLookupSummary
+} from './creditAssistantTypes';
 
 export interface CreditRepaymentSummaryItem {
   title: string;
@@ -160,6 +147,65 @@ function buildGapReason(status: CreditRepaymentStatus, analysis: CreditRepayment
   }
 }
 
+function buildGapExplanationItems(status: CreditRepaymentStatus, analysis: CreditRepaymentAnalysis): string[] {
+  const items: string[] = [];
+
+  if (analysis.plannedAmount > 0) {
+    items.push(`计划应还 ${formatGapMoney(analysis.plannedAmount)}`);
+  } else {
+    items.push('计划应还暂未稳定识别');
+  }
+
+  if (analysis.recentPaidAmount > 0) {
+    items.push(`最近已还 ${formatGapMoney(analysis.recentPaidAmount)}`);
+  } else {
+    items.push('最近未命中稳定还款流水');
+  }
+
+  if (analysis.gapAmount > 0) {
+    items.push(`当前缺口 ${formatGapMoney(analysis.gapAmount)}`);
+  } else {
+    items.push('当前金额缺口不明显');
+  }
+
+  if (analysis.matchedDebt?.paymentAccount) {
+    items.push(`计划账户 ${analysis.matchedDebt.paymentAccount}`);
+  }
+
+  if (analysis.paymentAccounts.length > 0) {
+    items.push(`实际还款账户 ${analysis.paymentAccounts.join(' / ')}`);
+  }
+
+  if (status === 'unmatched' && !analysis.matchedDebt) {
+    items.push('还没稳定命中对应负债对象');
+  }
+
+  if (status === 'account-mismatch') {
+    items.push('账户侧存在不一致，需要优先核对');
+  }
+
+  return items;
+}
+
+function buildShortfallAction(status: CreditRepaymentStatus, analysis: CreditRepaymentAnalysis): string {
+  switch (status) {
+    case 'unmatched':
+      return analysis.matchedDebt
+        ? '建议先补录还款流水，或核对最近还款日期范围。'
+        : '建议补充产品名、应还金额或还款日，先把负债和流水串起来。';
+    case 'partially-paid':
+      return analysis.gapAmount > 0
+        ? `建议优先核对是否还有 ${formatGapMoney(analysis.gapAmount)} 未录入，或是否存在分笔还款。`
+        : '建议核对最近是否还有未同步到账的还款记录。';
+    case 'account-mismatch':
+      return '建议先确认是否换卡扣款、代扣账户变更，或流水归属到错了负债。';
+    case 'aligned':
+      return '当前缺口不明显，可继续确认期数、利率和剩余成本等细节。';
+    default:
+      return '建议继续补充关键信息后再判断。';
+  }
+}
+
 export function buildCreditRepaymentLookupSummary(
   item: CreditRepaymentSummaryItem,
   debts: DebtItem[],
@@ -226,6 +272,9 @@ export function buildCreditRepaymentGapSummary(
     paymentAccountSummary:
       paymentAccounts.length > 0
         ? paymentAccounts.join(' / ')
-        : matchedDebt?.paymentAccount || undefined
+        : matchedDebt?.paymentAccount || undefined,
+    statusText: buildStatusText(status),
+    shortfallAction: buildShortfallAction(status, analysis),
+    explanationItems: buildGapExplanationItems(status, analysis)
   };
 }

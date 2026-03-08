@@ -8041,6 +8041,31 @@ body.categories-accounts-resizing {
   color: var(--color-text);
 }
 
+.chat-credit-gap-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chat-credit-gap-points span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-light);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.chat-credit-gap-action {
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-warning-bg) 80%, var(--color-bg-elevated));
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 
 .chat-credit-diff-card {
   display: grid;
