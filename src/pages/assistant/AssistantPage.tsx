@@ -2659,21 +2659,25 @@ export function AssistantPage() {
                   {item.role === 'user' ? (
                     <button
                       type="button"
-                      className="chat-secondary-action-btn"
+                      className="chat-icon-action-btn"
                       onClick={() => retryMessage(index + 1)}
                       disabled={wb.status === 'recognizing'}
+                      aria-label="重新生成"
+                      title="重新生成"
                     >
-                      重新生成
+                      ↻
                     </button>
                   ) : null}
                   {item.role === 'assistant' ? (
                     <button
                       type="button"
-                      className="chat-secondary-action-btn"
+                      className="chat-icon-action-btn"
                       onClick={() => retryMessage(index)}
                       disabled={wb.status === 'recognizing'}
+                      aria-label="重新生成"
+                      title="重新生成"
                     >
-                      重新生成
+                      ↻
                     </button>
                   ) : null}
                 </div>
