@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import {
@@ -6,6 +6,7 @@ import {
   calculateDebtHealthScore,
   calculateDebtMinimumPayment,
   calculateDebtSummary,
+  DebtItem,
   DebtRepaymentMethod,
   DebtRepaymentRecordMode,
   DebtType
@@ -589,6 +590,7 @@ export function RepaymentManagementPage() {
   const [repaymentPaidAt, setRepaymentPaidAt] = useState(() => new Date().toISOString().slice(0, 10));
   const [repaymentPaymentAccount, setRepaymentPaymentAccount] = useState('');
   const [repaymentNote, setRepaymentNote] = useState('');
+  const [editingDebtId, setEditingDebtId] = useState('');
   const [repaymentRecordModeInput, setRepaymentRecordModeInput] =
     useState<DebtRepaymentRecordMode>('manual');
   const [repaymentRecordError, setRepaymentRecordError] = useState('');
@@ -596,6 +598,28 @@ export function RepaymentManagementPage() {
   const [prefillHint, setPrefillHint] = useState('');
   const debtIdsRef = useRef<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const startEditingDebt = useCallback((item: DebtItem) => {
+    setEditingDebtId(item.id);
+    setDebtName(item.name || '');
+    setDebtType(item.type || 'credit-card');
+    setDebtBalance(String(item.balance ?? ''));
+    setDebtAnnualRate(item.annualRate !== undefined ? String(item.annualRate) : '');
+    setDebtMonths(item.remainingMonths !== undefined ? String(item.remainingMonths) : '');
+    setDebtTotalPeriods(item.totalPeriods !== undefined ? String(item.totalPeriods) : '');
+    setDebtPaidPeriods(item.paidPeriods !== undefined ? String(item.paidPeriods) : '');
+    setDebtLoanPrincipal(item.loanPrincipal !== undefined ? String(item.loanPrincipal) : '');
+    setDebtTotalRepayment(item.totalRepayment !== undefined ? String(item.totalRepayment) : '');
+    setDebtBillDay(item.billDay !== undefined ? String(item.billDay) : '');
+    setDebtRepaymentDay(item.repaymentDay !== undefined ? String(item.repaymentDay) : '');
+    setDebtPaymentAccount(item.paymentAccount || '');
+    setDebtRepaymentMethod(item.repaymentMethod || (item.type === 'loan' ? 'equal-installment' : 'minimum-payment'));
+    setDebtRepaymentRecordMode(item.repaymentRecordMode || 'manual');
+    setDebtGraceDays(String(item.graceDays ?? 0));
+    setDebtFormError('');
+    setPrefillHint(`正在编辑“${item.name}”，保存后会直接更新原负债条目。`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   useEffect(() => {
     const prefillDebt = (location.state as { prefillDebt?: RepaymentPrefillDebt } | null)?.prefillDebt;
@@ -1156,7 +1180,7 @@ export function RepaymentManagementPage() {
         ? ((totalRepayment - loanPrincipal) / loanPrincipal) * (12 / totalPeriods) * 100
         : undefined;
 
-    addDebt({
+    const debtPayload = {
       name: trimmedDebtName,
       type: debtType,
       balance,
@@ -1177,7 +1201,13 @@ export function RepaymentManagementPage() {
       repaymentRecordMode: debtRepaymentRecordMode,
       paymentAccount: debtPaymentAccount.trim() || undefined,
       graceDays: debtGraceDays.trim().length > 0 ? graceDays : undefined
-    });
+    };
+
+    if (editingDebtId) {
+      updateDebt(editingDebtId, debtPayload);
+    } else {
+      addDebt(debtPayload);
+    }
 
     setDebtName('');
     setDebtBalance('');
@@ -1194,6 +1224,8 @@ export function RepaymentManagementPage() {
     setDebtRepaymentRecordMode('manual');
     setDebtGraceDays('0');
     setDebtFormError('');
+    setEditingDebtId('');
+    setPrefillHint('');
     setDebtToastVisible(true);
     setAddDebtSuccess(true);
     window.setTimeout(() => setAddDebtSuccess(false), 800);
@@ -1888,8 +1920,41 @@ export function RepaymentManagementPage() {
                 className="primary finance-debt-submit"
                 disabled={!canSubmitDebt}
               >
-                {addDebtSuccess ? '✔ 负债已添加' : '+ 添加这笔负债'}
+                {addDebtSuccess
+                  ? editingDebtId
+                    ? '✔ 负债已更新'
+                    : '✔ 负债已添加'
+                  : editingDebtId
+                    ? '保存这笔负债修改'
+                    : '+ 添加这笔负债'}
               </button>
+              {editingDebtId ? (
+                <button
+                  type="button"
+                  className="finance-debt-secondary-btn"
+                  onClick={() => {
+                    setEditingDebtId('');
+                    setDebtName('');
+                    setDebtBalance('');
+                    setDebtAnnualRate('');
+                    setDebtMonths('');
+                    setDebtTotalPeriods('');
+                    setDebtPaidPeriods('');
+                    setDebtLoanPrincipal('');
+                    setDebtTotalRepayment('');
+                    setDebtBillDay('');
+                    setDebtRepaymentDay('');
+                    setDebtPaymentAccount('');
+                    setDebtRepaymentMethod('minimum-payment');
+                    setDebtRepaymentRecordMode('manual');
+                    setDebtGraceDays('0');
+                    setDebtFormError('');
+                    setPrefillHint('');
+                  }}
+                >
+                  取消编辑
+                </button>
+              ) : null}
             </div>
           </form>
 
@@ -2182,9 +2247,14 @@ export function RepaymentManagementPage() {
                       扣款账户 {item.paymentAccount || '未设置'} · 宽限期 {item.graceDays || 0} 天
                     </p>
                   </div>
-                  <button type="button" onClick={() => removeDebt(item.id)}>
-                    删除
-                  </button>
+                  <div className="finance-debt-item-actions">
+                    <button type="button" onClick={() => startEditingDebt(item)}>
+                      编辑
+                    </button>
+                    <button type="button" onClick={() => removeDebt(item.id)}>
+                      删除
+                    </button>
+                  </div>
                 </div>
               );
             })}
