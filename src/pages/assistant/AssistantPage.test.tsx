@@ -96,7 +96,16 @@ vi.mock('../../shared/store/useAppPreferences', () => ({
           paymentAccount: '招商银行卡'
         }
       ],
-      repaymentRecords: []
+      repaymentRecords: [
+        {
+          debtId: 'saved-debt-1',
+          amount: 666,
+          paidAt: '2026-03-05',
+          paymentAccount: '招商银行卡',
+          recordMode: 'manual',
+          note: '3月已还'
+        }
+      ]
     })
 }));
 
@@ -392,6 +401,62 @@ describe('AssistantPage', () => {
     sessionStorageGetItemSpy.mockRestore();
   });
 
+
+
+  it('信贷卡片应展示还款计划、账户与流水检索结果', () => {
+    useAssistantWorkbenchMock.mockReturnValue({
+      ...createWorkbenchMock(),
+      rawContent: '已识别完成',
+      status: 'ready'
+    });
+
+    const sessionStorageGetItemSpy = vi
+      .spyOn(window.sessionStorage.__proto__, 'getItem')
+      .mockImplementation((key) => {
+        if (String(key).includes('chatHistory.credit')) {
+          return JSON.stringify([
+            {
+              id: 'credit-assistant-lookup',
+              role: 'assistant',
+              text: '这是识别后的结果',
+              creditItems: [
+                {
+                  id: 'credit-lookup-0',
+                  title: '京东白条分期',
+                  productType: '消费贷',
+                  dueAmount: '666',
+                  totalDebt: '3999',
+                  repaymentDate: '每月8日',
+                  remainingPeriods: '6',
+                  monthlyAmount: '666',
+                  interest: '18.6%',
+                  rateType: 'APR',
+                  pendingFields: [],
+                  confidence: 'high'
+                }
+              ]
+            }
+          ]);
+        }
+        return '[]';
+      });
+
+    render(
+      <MemoryRouter>
+        <AssistantPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
+
+    expect(screen.getByText('还款检索结果')).toBeInTheDocument();
+    expect(screen.getByText('计划中的应还')).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes('每月8日') && content.includes('本期约666'))).toBeInTheDocument();
+    expect(screen.getByText('计划/实际账户')).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes('招商') && content.includes('银行卡'))).toBeInTheDocument();
+    
+    sessionStorageGetItemSpy.mockRestore();
+  });
 
   it('保存前确认态应支持更新已有负债', () => {
     useAssistantWorkbenchMock.mockReturnValue({

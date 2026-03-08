@@ -404,6 +404,14 @@ interface CreditExtractedItem {
     gapReason?: string;
     paymentAccountSummary?: string;
   };
+  repaymentLookupSummary?: {
+    matchedDebtName?: string;
+    plannedRepaymentText?: string;
+    paymentAccountText?: string;
+    actualRepaymentText?: string;
+    recordStatusText?: string;
+    lookupHint?: string;
+  };
 }
 
 interface TodayTodoItem {
@@ -872,6 +880,81 @@ function buildCreditConflictFields(item: CreditExtractedItem, matchedDebt?: Debt
   return rows.length > 0 ? rows : undefined;
 }
 
+
+function buildCreditRepaymentLookupSummary(
+  item: CreditExtractedItem,
+  debts: DebtItem[],
+  repaymentRecords: ReturnType<typeof useAppPreferences.getState>['repaymentRecords']
+): CreditExtractedItem['repaymentLookupSummary'] {
+  const currentKey = normalizeCreditIdentity(`${item.title}${item.productType}`);
+  const matchedDebt = debts.find((debt) => {
+    const debtKey = normalizeCreditIdentity(`${debt.name}${debt.type}`);
+    return debtKey === currentKey || debtKey.includes(currentKey) || currentKey.includes(debtKey);
+  });
+
+  const relatedRecords = repaymentRecords
+    .filter((record) => (matchedDebt ? record.debtId === matchedDebt.id : false))
+    .sort((a, b) => `${b.paidAt}-${b.amount}`.localeCompare(`${a.paidAt}-${a.amount}`, 'zh-CN'));
+
+  const latestRecord = relatedRecords[0];
+  const paymentAccounts = Array.from(
+    new Set(relatedRecords.map((record) => String(record.paymentAccount || '').trim()).filter(Boolean))
+  );
+
+  const plannedRepaymentText = matchedDebt
+    ? [
+        matchedDebt.repaymentDay ? `每月${matchedDebt.repaymentDay}日` : '',
+        item.dueAmount ? `本期约${item.dueAmount}` : '',
+        matchedDebt.remainingMonths ? `剩余${matchedDebt.remainingMonths}期` : ''
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : item.repaymentDate || item.dueAmount
+      ? [item.repaymentDate || '', item.dueAmount ? `本期约${item.dueAmount}` : ''].filter(Boolean).join(' · ')
+      : undefined;
+
+  const paymentAccountText = matchedDebt?.paymentAccount
+    ? paymentAccounts.length > 0 && !paymentAccounts.includes(matchedDebt.paymentAccount)
+      ? `${matchedDebt.paymentAccount}（计划） / ${paymentAccounts.join(' / ')}（实际）`
+      : matchedDebt.paymentAccount
+    : paymentAccounts.length > 0
+      ? paymentAccounts.join(' / ')
+      : undefined;
+
+  const actualRepaymentText = latestRecord
+    ? `${formatGapMoney(Number(latestRecord.amount || 0))} · ${String(latestRecord.paidAt || '').slice(0, 10) || '日期待确认'}`
+    : undefined;
+
+  let recordStatusText = '';
+  let lookupHint = '';
+  if (matchedDebt && relatedRecords.length === 0) {
+    recordStatusText = '已命中负债，未命中最近还款流水';
+    lookupHint = '计划存在，但流水侧暂未确认；如果实际已还，建议补录还款记录或核对账户归属。';
+  } else if (matchedDebt && relatedRecords.length > 0) {
+    recordStatusText = '已命中负债，也命中最近还款流水';
+    lookupHint = '这笔信贷的计划、账户和近期还款记录都已串起来，可直接继续核对缺口。';
+  } else if (!matchedDebt && relatedRecords.length > 0) {
+    recordStatusText = '命中还款流水，但未稳定命中负债';
+    lookupHint = '流水里看到了还款，但当前识别结果还没和已保存负债稳定关联，建议确认是否为同一笔。';
+  } else {
+    recordStatusText = '暂未命中已保存负债或还款流水';
+    lookupHint = '当前更像一张新识别卡片，若想继续查台账，需要先补产品名、还款日或金额等锚点。';
+  }
+
+  if (!matchedDebt && relatedRecords.length === 0 && !plannedRepaymentText && !paymentAccountText) {
+    return undefined;
+  }
+
+  return {
+    matchedDebtName: matchedDebt?.name,
+    plannedRepaymentText,
+    paymentAccountText,
+    actualRepaymentText,
+    recordStatusText,
+    lookupHint
+  };
+}
+
 function buildCreditRepaymentGapSummary(
   item: CreditExtractedItem,
   debts: DebtItem[],
@@ -985,7 +1068,8 @@ function enrichCreditItemsForConfirmation(
           : similarHistoryCount > 1
             ? '检测到历史里有相似信贷项目，保存前建议确认是否为同一笔，避免重复合并。'
             : undefined,
-      repaymentGapSummary: buildCreditRepaymentGapSummary(item, debts, repaymentRecords)
+      repaymentGapSummary: buildCreditRepaymentGapSummary(item, debts, repaymentRecords),
+      repaymentLookupSummary: buildCreditRepaymentLookupSummary(item, debts, repaymentRecords)
     };
   });
 }
@@ -2564,6 +2648,35 @@ export function AssistantPage() {
                                 <span key={`${creditItem.id}-pending-${idx}`}>{field}</span>
                               ))}
                             </div>
+                          </div>
+                        ) : null}
+                        {creditItem.repaymentLookupSummary ? (
+                          <div className="chat-credit-lookup-card">
+                            <div className="chat-credit-lookup-head">
+                              <strong>还款检索结果</strong>
+                              <span>{creditItem.repaymentLookupSummary.matchedDebtName || '未稳定命中已保存负债'}</span>
+                            </div>
+                            <div className="chat-credit-lookup-grid">
+                              <div>
+                                <span>计划中的应还</span>
+                                <strong>{creditItem.repaymentLookupSummary.plannedRepaymentText || '待确认'}</strong>
+                              </div>
+                              <div>
+                                <span>计划/实际账户</span>
+                                <strong>{creditItem.repaymentLookupSummary.paymentAccountText || '待确认'}</strong>
+                              </div>
+                              <div>
+                                <span>最近已还流水</span>
+                                <strong>{creditItem.repaymentLookupSummary.actualRepaymentText || '暂无命中'}</strong>
+                              </div>
+                              <div>
+                                <span>流水状态</span>
+                                <strong>{creditItem.repaymentLookupSummary.recordStatusText || '待确认'}</strong>
+                              </div>
+                            </div>
+                            {creditItem.repaymentLookupSummary.lookupHint ? (
+                              <div className="chat-credit-lookup-hint">{creditItem.repaymentLookupSummary.lookupHint}</div>
+                            ) : null}
                           </div>
                         ) : null}
                         {creditItem.repaymentGapSummary ? (

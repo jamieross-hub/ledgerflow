@@ -7493,6 +7493,71 @@ body.categories-accounts-resizing {
   transition: width var(--transition-base);
 }
 
+.chat-credit-lookup-card {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(103, 80, 164, 0.18);
+  background: linear-gradient(180deg, rgba(103, 80, 164, 0.08), rgba(103, 80, 164, 0.03));
+}
+
+.chat-credit-lookup-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.chat-credit-lookup-head strong {
+  font-size: 0.95rem;
+}
+
+.chat-credit-lookup-head span {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.chat-credit-lookup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.chat-credit-lookup-grid div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.chat-credit-lookup-grid span {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.chat-credit-lookup-grid strong {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+.chat-credit-lookup-hint {
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .chat-credit-lookup-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .chat-credit-gap-card {
   display: grid;
   gap: 10px;
