@@ -381,8 +381,11 @@ describe('AssistantPage', () => {
 
     expect(addDebtMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        name: '京东白条分期',
-        balance: 3999
+        name: '分期乐账单',
+        balance: 3999,
+        annualRate: 18.6,
+        remainingMonths: 6,
+        repaymentDay: 10
       })
     );
 
