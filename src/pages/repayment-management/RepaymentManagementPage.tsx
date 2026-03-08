@@ -425,6 +425,27 @@ function getStrategySortedDebts<T extends { annualRate: number; balance: number 
   return [...debts].sort((a, b) => b.annualRate - a.annualRate || a.balance - b.balance);
 }
 
+type RepaymentContextSnapshot = {
+  debtId: string;
+  debtName: string;
+  plannedPaymentAccount?: string;
+  plannedRepaymentDay?: number;
+  actualPaymentAccounts: string[];
+  actualRepaymentCount: number;
+  latestActualRepaymentAt?: string;
+};
+
+type DebtRiskTagTone = 'info' | 'warning' | 'danger';
+
+type DebtRiskTag = {
+  id: string;
+  debtId?: string;
+  label: string;
+  tone: DebtRiskTagTone;
+  explanation: string;
+  dimension: 'rate' | 'schedule' | 'account' | 'actual' | 'data';
+};
+
 function simulateRepaymentPlan(input: {
   debts: {
     id: string;
@@ -767,6 +788,119 @@ export function RepaymentManagementPage() {
       return issues;
     });
   }, [repaymentLedgerPreview]);
+
+  const repaymentContextSnapshots = useMemo<RepaymentContextSnapshot[]>(() => {
+    return debts.map((debt) => {
+      const linkedRecords = repaymentRecords
+        .filter((record) => record.debtId === debt.id)
+        .sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime());
+      const actualPaymentAccounts = Array.from(
+        new Set(
+          linkedRecords
+            .map((record) => String(record.paymentAccount || '').trim())
+            .filter(Boolean)
+        )
+      );
+      return {
+        debtId: debt.id,
+        debtName: debt.name,
+        plannedPaymentAccount: debt.paymentAccount,
+        plannedRepaymentDay: debt.repaymentDay,
+        actualPaymentAccounts,
+        actualRepaymentCount: linkedRecords.length,
+        latestActualRepaymentAt: linkedRecords[0]?.paidAt
+      };
+    });
+  }, [debts, repaymentRecords]);
+
+  const debtRiskTags = useMemo<DebtRiskTag[]>(() => {
+    const tags: DebtRiskTag[] = [];
+    const dueSoonItems = repaymentLedgerPreview.filter((item) => Number.isFinite(item.dueInDays) && item.dueInDays <= 7);
+    if (dueSoonItems.length >= 3) {
+      tags.push({
+        id: 'clustered-due-dates',
+        label: '还款日集中',
+        tone: 'warning',
+        dimension: 'schedule',
+        explanation: `未来 7 天内有 ${dueSoonItems.length} 笔负债集中到期，建议提前准备账户余额。`
+      });
+    }
+
+    repaymentLedgerPreview.forEach((item) => {
+      const ctx = repaymentContextSnapshots.find((entry) => entry.debtId === item.id);
+      if (item.apr >= 24) {
+        tags.push({
+          id: `${item.id}-high-rate`,
+          debtId: item.id,
+          label: '高利率',
+          tone: 'danger',
+          dimension: 'rate',
+          explanation: `${item.name} 的 APR/年化约 ${item.apr.toFixed(2)}%，属于优先压降利息成本的对象。`
+        });
+      } else if (item.apr >= 15) {
+        tags.push({
+          id: `${item.id}-rate-watch`,
+          debtId: item.id,
+          label: '利率偏高',
+          tone: 'warning',
+          dimension: 'rate',
+          explanation: `${item.name} 的 APR/年化约 ${item.apr.toFixed(2)}%，建议和其他负债比较后决定是否提前还。`
+        });
+      }
+      if (!item.paymentAccount) {
+        tags.push({
+          id: `${item.id}-missing-account`,
+          debtId: item.id,
+          label: '缺少扣款账户',
+          tone: 'warning',
+          dimension: 'account',
+          explanation: `${item.name} 尚未设置计划中的扣款账户，后续 AI 无法回答“从哪个账户扣款”。`
+        });
+      }
+      if (!ctx || ctx.actualRepaymentCount === 0) {
+        tags.push({
+          id: `${item.id}-missing-actual-record`,
+          debtId: item.id,
+          label: '缺少已还流水',
+          tone: 'info',
+          dimension: 'actual',
+          explanation: `${item.name} 当前只有计划信息，没有已发生还款流水，后续查询时需区分“计划应还”和“实际已还”。`
+        });
+      }
+      if (ctx && item.paymentAccount && ctx.actualPaymentAccounts.length > 0 && !ctx.actualPaymentAccounts.includes(item.paymentAccount)) {
+        tags.push({
+          id: `${item.id}-account-mismatch`,
+          debtId: item.id,
+          label: '计划账户与实际不一致',
+          tone: 'warning',
+          dimension: 'actual',
+          explanation: `${item.name} 计划扣款账户是“${item.paymentAccount}”，但已记录还款来自“${ctx.actualPaymentAccounts.join(' / ')}”。`
+        });
+      }
+      if (item.missingFields.length >= 2) {
+        tags.push({
+          id: `${item.id}-missing-fields`,
+          debtId: item.id,
+          label: '信息缺失',
+          tone: 'warning',
+          dimension: 'data',
+          explanation: `${item.name} 还缺少 ${item.missingFields.join('、')}，当前测算和提醒都偏保守。`
+        });
+      }
+      if (item.statusTone === 'danger') {
+        tags.push({
+          id: `${item.id}-due-today`,
+          debtId: item.id,
+          label: '今日到期',
+          tone: 'danger',
+          dimension: 'schedule',
+          explanation: `${item.name} 今日应还，若账户余额不足，优先处理这一笔。`
+        });
+      }
+    });
+
+    return tags;
+  }, [repaymentContextSnapshots, repaymentLedgerPreview]);
 
   const recentRepaymentRecords = useMemo(() => {
     return repaymentRecords
@@ -2121,21 +2255,28 @@ export function RepaymentManagementPage() {
               />
             </div>
             {simulatorResult.best ? (
-              <p className="muted" style={{ margin: '8px 0 0' }}>
-                最优策略：
-                <strong>{REPAYMENT_STRATEGY_LABELS[simulatorResult.best.strategy]}</strong>
-                ，预计提前还清
-                <strong> {simulatorResult.best.savedMonths}</strong> 个月，预计节省利息
-                <strong> ¥{simulatorResult.best.savedInterest.toFixed(2)}</strong>。
-              </p>
+              <div className="finance-simulator-best-card">
+                <p className="muted" style={{ margin: 0 }}>
+                  最优策略：
+                  <strong>{REPAYMENT_STRATEGY_LABELS[simulatorResult.best.strategy]}</strong>
+                  ，预计提前还清
+                  <strong> {simulatorResult.best.savedMonths}</strong> 个月，预计节省利息
+                  <strong> ¥{simulatorResult.best.savedInterest.toFixed(2)}</strong>。
+                </p>
+                <p className="muted" style={{ margin: '6px 0 0' }}>
+                  这更接近“提前还款 / 压降利息”场景，不是单纯把月供平均摊开。
+                </p>
+              </div>
             ) : null}
             <div className="finance-strategy-compare-grid">
               {simulatorResult.strategyComparison.map((result) => (
                 <article key={result.strategy} className="finance-strategy-card">
                   <strong>{REPAYMENT_STRATEGY_LABELS[result.strategy]}</strong>
                   <p className="muted" style={{ margin: '6px 0 0' }}>
-                    当前计划：{result.accelerated.months} 个月 · 利息 ¥
-                    {result.accelerated.totalInterest.toFixed(0)}
+                    基线：{result.baseline.months} 个月 · 利息 ¥{result.baseline.totalInterest.toFixed(0)}
+                  </p>
+                  <p className="muted" style={{ margin: '4px 0 0' }}>
+                    加速后：{result.accelerated.months} 个月 · 利息 ¥{result.accelerated.totalInterest.toFixed(0)}
                   </p>
                   <p className="muted" style={{ margin: '4px 0 0' }}>
                     节省：{result.savedMonths} 个月 / ¥{result.savedInterest.toFixed(0)}
@@ -2143,6 +2284,47 @@ export function RepaymentManagementPage() {
                 </article>
               ))}
             </div>
+            {repaymentPriority.length > 0 ? (
+              <div className="finance-prepay-focus-list">
+                <h5 style={{ margin: '12px 0 8px 0' }}>优先考虑提前处理</h5>
+                <div className="finance-prepay-focus-grid">
+                  {repaymentPriority.slice(0, 3).map((item) => (
+                    <article key={item.id} className="finance-prepay-focus-card">
+                      <strong>{item.name}</strong>
+                      <p className="muted" style={{ margin: '6px 0 0' }}>
+                        APR {item.annualRate.toFixed(2)}% · 余额 ¥{item.balance.toFixed(0)}
+                      </p>
+                      <p className="muted" style={{ margin: '4px 0 0' }}>
+                        {item.remainingInterestCost !== null
+                          ? `剩余利息约 ¥${item.remainingInterestCost.toFixed(0)}，更适合拿来做提前还款优先级。`
+                          : '当前缺少完整利息测算，建议先补齐期数/利率后再做提前结清决策。'}
+                      </p>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="finance-ai-insight-card" style={{ marginTop: 10 }}>
+            <h4 style={{ margin: '0 0 8px 0' }}>风险标签与解释</h4>
+            {debtRiskTags.length === 0 ? (
+              <p className="muted" style={{ margin: 0 }}>
+                当前未发现明显的高利率、到期集中、账户缺失或已还流水缺口。
+              </p>
+            ) : (
+              <div className="finance-risk-tag-grid">
+                {debtRiskTags.map((tag) => (
+                  <article key={tag.id} className={`finance-risk-tag-card finance-risk-tag-${tag.tone}`}>
+                    <div className="finance-risk-tag-head">
+                      <strong>{tag.label}</strong>
+                      <span>{tag.dimension === 'rate' ? '利率' : tag.dimension === 'schedule' ? '计划' : tag.dimension === 'account' ? '账户' : tag.dimension === 'actual' ? '流水' : '资料'}</span>
+                    </div>
+                    <p className="muted" style={{ margin: '8px 0 0' }}>{tag.explanation}</p>
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="finance-ai-insight-card" style={{ marginTop: 10 }}>
@@ -2159,6 +2341,33 @@ export function RepaymentManagementPage() {
                   </li>
                 ))}
               </ul>
+            )}
+          </div>
+
+          <div className="finance-ai-insight-card" style={{ marginTop: 10 }}>
+            <h4 style={{ margin: '0 0 8px 0' }}>计划 / 账户 / 已还流水上下文</h4>
+            {repaymentContextSnapshots.length === 0 ? (
+              <p className="muted" style={{ margin: 0 }}>请先录入至少一笔负债。</p>
+            ) : (
+              <div className="finance-risk-tag-grid">
+                {repaymentContextSnapshots.slice(0, 6).map((item) => (
+                  <article key={item.debtId} className="finance-risk-tag-card finance-risk-tag-info">
+                    <div className="finance-risk-tag-head">
+                      <strong>{item.debtName}</strong>
+                      <span>3.4 预留</span>
+                    </div>
+                    <p className="muted" style={{ margin: '8px 0 0' }}>
+                      计划还款日：{item.plannedRepaymentDay || '--'} 日 · 计划账户：{item.plannedPaymentAccount || '未设置'}
+                    </p>
+                    <p className="muted" style={{ margin: '4px 0 0' }}>
+                      已发生还款：{item.actualRepaymentCount} 笔{item.latestActualRepaymentAt ? ` · 最近一次 ${item.latestActualRepaymentAt}` : ''}
+                    </p>
+                    <p className="muted" style={{ margin: '4px 0 0' }}>
+                      实际账户：{item.actualPaymentAccounts.length > 0 ? item.actualPaymentAccounts.join(' / ') : '暂无流水记录'}
+                    </p>
+                  </article>
+                ))}
+              </div>
             )}
           </div>
 
