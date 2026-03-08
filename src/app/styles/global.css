@@ -5464,6 +5464,39 @@ small.mono {
   flex-shrink: 0;
 }
 
+input[type='date'],
+input[type="date"] {
+  color-scheme: light;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-bg-elevated) 96%, white 4%),
+    color-mix(in srgb, var(--color-bg-subtle) 92%, var(--color-bg-elevated))
+  );
+  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, var(--color-border));
+  color: var(--color-text);
+}
+
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 4px;
+  opacity: 0.8;
+  filter: saturate(0.7) hue-rotate(-10deg);
+}
+
+input[type='date']:hover::-webkit-calendar-picker-indicator,
+input[type="date"]:hover::-webkit-calendar-picker-indicator {
+  background: color-mix(in srgb, var(--color-primary-bg) 52%, transparent);
+  opacity: 1;
+}
+
+input[type='date']:focus,
+input[type="date"]:focus {
+  border-color: var(--color-primary-border);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
 .quick-add-overlay {
   position: fixed;
   inset: 0;
@@ -5523,6 +5556,15 @@ small.mono {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
+}
+
+.quick-add-grid {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.quick-add-grid-wide {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .quick-add-keypad {
@@ -5639,6 +5681,12 @@ small.mono {
 
 .transaction-edit-calculator-keypad {
   grid-template-columns: repeat(4, 1fr);
+}
+
+@media (min-width: 1200px) {
+  .quick-add-grid-wide {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1024px) {

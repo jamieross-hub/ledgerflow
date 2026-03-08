@@ -2404,7 +2404,7 @@ export function TransactionsPage() {
                   支持：+ - * / % ( ) ^、sqrt/log/ln/sin/cos/tan、PI、E，回车可快速计算。
                 </small>
               </div>
-              <div className="quick-add-row">
+              <div className="quick-add-grid quick-add-grid-wide">
                 <div className="field" style={{ marginBottom: 0 }}>
                   <label htmlFor="quick-add-type">类型</label>
                   <select
@@ -2425,9 +2425,6 @@ export function TransactionsPage() {
                     onChange={(event) => setQuickAddDate(event.target.value)}
                   />
                 </div>
-              </div>
-
-              <div className="quick-add-row">
                 <div className="field" style={{ marginBottom: 0 }}>
                   <label htmlFor="quick-add-category">分类</label>
                   <select
