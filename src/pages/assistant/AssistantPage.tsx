@@ -28,7 +28,7 @@ import type { DebtItem } from '../../features/debt/model/debtMetrics';
 import type { DraftBillEntry } from '../../features/assistant/workbench/workbenchTypes';
 import type { TransactionItem } from '../../entities/transaction/types';
 import type { Category } from '../../entities/category/types';
-import type { CreditExtractedItem } from './creditAssistantTypes';
+import type { CreditExtractedItem, CreditFieldMeta } from './creditAssistantTypes';
 import {
   buildCreditFollowUpPrompts,
   enrichCreditItemsForConfirmation,
@@ -882,6 +882,46 @@ function buildFollowUpPrompts(answer: string, history: ChatHistoryItem[]): strin
   ].filter(Boolean);
 
   return Array.from(new Set(candidates)).slice(0, 4);
+}
+
+function renderFieldMetaTag(meta?: CreditFieldMeta) {
+  if (!meta) return null;
+
+  const sourceLabel =
+    meta.source === 'explicit'
+      ? '原文识别'
+      : meta.source === 'rule'
+        ? '规则推算'
+        : meta.source === 'ai-inferred'
+          ? 'AI推断'
+          : meta.source === 'user-supplemented'
+            ? '用户补充'
+            : '待确认';
+
+  const statusLabel =
+    meta.status === 'confirmed'
+      ? '已确认'
+      : meta.status === 'low-confidence'
+        ? '低置信'
+        : '待确认';
+
+  return (
+    <div className="chat-credit-field-meta">
+      <span className={`chat-credit-field-chip is-${meta.status}`}>{statusLabel}</span>
+      <span>{sourceLabel}</span>
+      {meta.evidence ? <small>{meta.evidence}</small> : null}
+    </div>
+  );
+}
+
+function renderCreditField(label: string, value: string | undefined, meta?: CreditFieldMeta) {
+  return (
+    <div className="chat-credit-field-card">
+      <span>{label}</span>
+      <strong>{value || '待补充'}</strong>
+      {renderFieldMetaTag(meta)}
+    </div>
+  );
 }
 
 export function AssistantPage() {
@@ -2192,30 +2232,12 @@ export function AssistantPage() {
                           </div>
                         </div>
                         <div className="chat-credit-grid">
-                          <div>
-                            <span>当前应还</span>
-                            <strong>{creditItem.dueAmount || '待补充'}</strong>
-                          </div>
-                          <div>
-                            <span>剩余待还</span>
-                            <strong>{creditItem.totalDebt || '待补充'}</strong>
-                          </div>
-                          <div>
-                            <span>还款日</span>
-                            <strong>{creditItem.repaymentDate || '待补充'}</strong>
-                          </div>
-                          <div>
-                            <span>剩余期数</span>
-                            <strong>{creditItem.remainingPeriods || '待补充'}</strong>
-                          </div>
-                          <div>
-                            <span>每期金额</span>
-                            <strong>{creditItem.monthlyAmount || '待补充'}</strong>
-                          </div>
-                          <div>
-                            <span>利息/费率</span>
-                            <strong>{creditItem.interest || '待补充'}</strong>
-                          </div>
+                          {renderCreditField('当前应还', creditItem.dueAmount, creditItem.fieldMeta?.dueAmount)}
+                          {renderCreditField('剩余待还', creditItem.totalDebt, creditItem.fieldMeta?.totalDebt)}
+                          {renderCreditField('还款日', creditItem.repaymentDate, creditItem.fieldMeta?.repaymentDate)}
+                          {renderCreditField('剩余期数', creditItem.remainingPeriods, creditItem.fieldMeta?.remainingPeriods)}
+                          {renderCreditField('每期金额', creditItem.monthlyAmount, creditItem.fieldMeta?.monthlyAmount)}
+                          {renderCreditField('利息/费率', creditItem.interest, creditItem.fieldMeta?.interest)}
                         </div>
                         {creditItem.rateType || creditItem.rateSource || creditItem.riskHint || creditItem.actionSuggestion ? (
                           <div className="chat-credit-pending" style={{ marginTop: 10 }}>

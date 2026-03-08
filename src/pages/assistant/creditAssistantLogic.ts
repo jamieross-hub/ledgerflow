@@ -3,7 +3,13 @@ import {
   buildCreditRepaymentGapSummary,
   buildCreditRepaymentLookupSummary
 } from './creditRepaymentHelpers';
-import type { CreditConflictField, CreditExtractedItem } from './creditAssistantTypes';
+import type {
+  CreditConflictField,
+  CreditExtractedItem,
+  CreditFieldMeta,
+  CreditFieldSource,
+  CreditFieldStatus
+} from './creditAssistantTypes';
 
 export interface CreditHistoryLikeItem {
   role: 'user' | 'assistant';
@@ -228,6 +234,32 @@ function buildCreditConfirmationSummary(item: CreditExtractedItem): string[] {
   ];
 }
 
+function buildCreditFieldMeta(
+  value: string | undefined,
+  pendingFields: string[],
+  label: string,
+  source: CreditFieldSource,
+  confidence: 'high' | 'medium' | 'low',
+  evidence?: string
+): CreditFieldMeta {
+  const trimmedValue = String(value || '').trim();
+  const isPending = !trimmedValue || pendingFields.includes(label);
+  const status: CreditFieldStatus = isPending
+    ? 'needs-confirmation'
+    : confidence === 'low'
+      ? 'low-confidence'
+      : 'confirmed';
+
+  return {
+    value,
+    source: isPending ? 'pending' : source,
+    status,
+    confidence: isPending ? 'low' : confidence,
+    evidence,
+    updatedAt: new Date().toISOString()
+  };
+}
+
 export function enrichCreditItemsForConfirmation(
   items: CreditExtractedItem[],
   history: CreditHistoryLikeItem[],
@@ -277,7 +309,73 @@ export function enrichCreditItemsForConfirmation(
             ? '检测到历史里有相似信贷项目，保存前建议确认是否为同一笔，避免重复合并。'
             : undefined,
       repaymentGapSummary: buildCreditRepaymentGapSummary(item, debts, repaymentRecords),
-      repaymentLookupSummary: buildCreditRepaymentLookupSummary(item, debts, repaymentRecords)
+      repaymentLookupSummary: buildCreditRepaymentLookupSummary(item, debts, repaymentRecords),
+      fieldMeta: {
+        title: buildCreditFieldMeta(
+          item.title,
+          normalizedPendingFields,
+          '产品名称',
+          'explicit',
+          item.confidence,
+          item.title ? '来自识别标题' : '尚未识别到标题'
+        ),
+        dueAmount: buildCreditFieldMeta(
+          item.dueAmount,
+          normalizedPendingFields,
+          '当前应还',
+          'explicit',
+          item.confidence,
+          item.dueAmount ? '来自账单应还字段' : '账单中未稳定识别'
+        ),
+        totalDebt: buildCreditFieldMeta(
+          item.totalDebt,
+          normalizedPendingFields,
+          '剩余待还',
+          'explicit',
+          item.confidence,
+          item.totalDebt ? '来自总欠款/剩余待还字段' : '尚缺总待还信息'
+        ),
+        repaymentDate: buildCreditFieldMeta(
+          item.repaymentDate,
+          normalizedPendingFields,
+          '还款日',
+          'explicit',
+          item.confidence,
+          item.repaymentDate ? '来自还款日期字段' : '尚未识别到还款日'
+        ),
+        remainingPeriods: buildCreditFieldMeta(
+          item.remainingPeriods,
+          normalizedPendingFields,
+          '剩余期数',
+          item.remainingPeriods ? 'ai-inferred' : 'pending',
+          item.confidence,
+          item.remainingPeriods ? '来自期数字段或上下文推断' : '当前未识别到期数'
+        ),
+        monthlyAmount: buildCreditFieldMeta(
+          item.monthlyAmount,
+          normalizedPendingFields,
+          '每期金额',
+          item.monthlyAmount ? 'explicit' : 'pending',
+          item.confidence,
+          item.monthlyAmount ? '来自每期/月供字段' : '尚缺每期金额'
+        ),
+        interest: buildCreditFieldMeta(
+          item.interest || item.rateType,
+          normalizedPendingFields,
+          '利息/费率',
+          item.rateSource === 'explicit'
+            ? 'explicit'
+            : item.rateSource === 'inferred'
+              ? 'ai-inferred'
+              : 'pending',
+          item.confidence,
+          item.rateSource === 'explicit'
+            ? '平台明确给出的费率/利率'
+            : item.rateSource === 'inferred'
+              ? '根据识别信息推测口径'
+              : '需要补充利率口径'
+        )
+      }
     };
   });
 }

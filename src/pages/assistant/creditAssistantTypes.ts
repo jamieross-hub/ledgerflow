@@ -4,6 +4,18 @@ export interface CreditConflictField {
   nextValue: string;
 }
 
+export type CreditFieldSource = 'explicit' | 'rule' | 'ai-inferred' | 'user-supplemented' | 'pending';
+export type CreditFieldStatus = 'confirmed' | 'needs-confirmation' | 'low-confidence';
+
+export interface CreditFieldMeta {
+  value?: string;
+  source: CreditFieldSource;
+  status: CreditFieldStatus;
+  confidence: 'high' | 'medium' | 'low';
+  evidence?: string;
+  updatedAt?: string;
+}
+
 export interface CreditExtractedItem {
   id: string;
   title: string;
@@ -45,4 +57,10 @@ export interface CreditExtractedItem {
     recordStatusText?: string;
     lookupHint?: string;
   };
+  fieldMeta?: Partial<
+    Record<
+      'title' | 'dueAmount' | 'totalDebt' | 'repaymentDate' | 'remainingPeriods' | 'monthlyAmount' | 'interest',
+      CreditFieldMeta
+    >
+  >;
 }

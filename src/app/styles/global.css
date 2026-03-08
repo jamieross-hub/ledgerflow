@@ -7728,15 +7728,56 @@ body.categories-accounts-resizing {
   gap: 10px;
 }
 
-.chat-credit-grid > div {
+.chat-credit-field-card {
   display: grid;
-  gap: 4px;
+  gap: 6px;
   padding: 10px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border-light);
   background: color-mix(in srgb, var(--color-bg-elevated) 94%, var(--color-primary-bg));
 }
 
+.chat-credit-field-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.chat-credit-field-meta small {
+  width: 100%;
+  line-height: 1.4;
+}
+
+.chat-credit-field-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+}
+
+.chat-credit-field-chip.is-confirmed {
+  border-color: var(--color-success-border);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.chat-credit-field-chip.is-needs-confirmation {
+  border-color: var(--color-warning-border);
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.chat-credit-field-chip.is-low-confidence {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
 
 .chat-credit-confirmation {
   display: grid;
