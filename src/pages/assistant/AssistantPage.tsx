@@ -2627,6 +2627,59 @@ export function AssistantPage() {
                               ) : null}
                             </div>
                           ) : null}
+                          <div className="chat-credit-lookup-card chat-credit-preview-block">
+                            <div className="chat-credit-lookup-head">
+                              <div className="chat-credit-lookup-title-block">
+                                <strong>还款检索结果</strong>
+                                <span>计划 / 账户 / 流水检索中</span>
+                              </div>
+                              <em className="chat-credit-lookup-status">预加载中</em>
+                            </div>
+                            <div className="chat-credit-lookup-grid">
+                              <div>
+                                <span>计划中的应还</span>
+                                <strong>检索中</strong>
+                              </div>
+                              <div>
+                                <span>计划 / 实际账户</span>
+                                <strong>检索中</strong>
+                              </div>
+                              <div>
+                                <span>最近已还流水</span>
+                                <strong>检索中</strong>
+                              </div>
+                              <div>
+                                <span>流水状态</span>
+                                <strong>等待串联</strong>
+                              </div>
+                            </div>
+                            <div className="chat-credit-lookup-hint">先把台账骨架亮出来，正文和检索结果会继续补齐。</div>
+                          </div>
+                          <div className="chat-credit-gap-card chat-credit-preview-block">
+                            <div className="chat-credit-gap-head">
+                              <strong>计划 vs 实际</strong>
+                              <span>差异分析预加载中</span>
+                            </div>
+                            <div className="chat-credit-gap-grid">
+                              <div>
+                                <span>计划应还</span>
+                                <strong>检索中</strong>
+                              </div>
+                              <div>
+                                <span>最近已还</span>
+                                <strong>检索中</strong>
+                              </div>
+                              <div>
+                                <span>当前还差</span>
+                                <strong>待计算</strong>
+                              </div>
+                              <div>
+                                <span>扣款/还款账户</span>
+                                <strong>待串联</strong>
+                              </div>
+                            </div>
+                            <div className="chat-credit-gap-reason">流式阶段先展示台账卡片骨架，等模型继续输出后再补全差额原因。</div>
+                          </div>
                         </section>
                       ))}
                     </div>

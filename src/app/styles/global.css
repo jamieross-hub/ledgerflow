@@ -8158,6 +8158,34 @@ body.categories-accounts-resizing {
   opacity: 0.92;
 }
 
+.chat-credit-card-skeleton.is-preview {
+  opacity: 0.88;
+}
+
+.chat-credit-preview-block {
+  position: relative;
+  overflow: hidden;
+}
+
+.chat-credit-preview-block::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.08) 45%, transparent 100%);
+  transform: translateX(-100%);
+  animation: creditPreviewSweep 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes creditPreviewSweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 .chat-skeleton-line {
   display: inline-block;
   min-width: 96px;
