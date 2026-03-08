@@ -281,25 +281,16 @@ export function FinancePage() {
         {news.length === 0 ? (
           <p className="muted">{t('finance.ui.noCachedNews')}</p>
         ) : (
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div className="finance-news-compact-list">
             {news.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                className="card"
+                className={`finance-news-compact-item ${activeNews?.id === item.id ? 'is-active' : ''}`}
                 onClick={() => setActiveNewsId(item.id)}
-                style={{
-                  padding: 12,
-                  textAlign: 'left',
-                  border:
-                    activeNews?.id === item.id
-                      ? '1px solid var(--color-primary, #2563eb)'
-                      : '1px solid var(--color-border)',
-                  background: 'transparent'
-                }}
               >
                 <strong>{item.title}</strong>
-                <p className="muted" style={{ marginBottom: 0 }}>
+                <p className="muted">
                   {item.source} · {item.publishedAt}
                 </p>
               </button>
