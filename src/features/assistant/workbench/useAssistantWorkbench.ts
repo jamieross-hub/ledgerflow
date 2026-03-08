@@ -13,6 +13,7 @@ import {
   CREDIT_ANALYSIS_AGENT_PROMPT,
   buildTimeContext,
   buildTransactionPromptContext,
+  buildRepaymentPromptContext,
   extractJsonString,
   JSON_AGENT_PROMPT,
   normalizeAiBill,
@@ -89,6 +90,28 @@ interface UseAssistantWorkbenchInput {
   addAccount: (name: string, type?: Account['type'], initialBalance?: number) => string;
   addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
   updateTransaction: (id: string, payload: Omit<TransactionItem, 'id'>) => void;
+  debts?: Array<{
+    id: string;
+    name: string;
+    type: string;
+    balance: number;
+    annualRate?: number;
+    repaymentDay?: number;
+    paymentAccount?: string;
+    repaymentMethod?: string;
+    repaymentRecordMode?: string;
+    totalPeriods?: number;
+    paidPeriods?: number;
+    remainingMonths?: number;
+  }>;
+  repaymentRecords?: Array<{
+    debtId: string;
+    amount: number;
+    paidAt: string;
+    paymentAccount?: string;
+    recordMode?: string;
+    note?: string;
+  }>;
   sceneMode?: 'bookkeeping' | 'assistant' | 'credit';
   globalMemories?: GlobalMemoryItem[];
 }
@@ -198,6 +221,14 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
   const transactionContext = useMemo(
     () => buildTransactionPromptContext(input.transactions, input.categories, input.accounts),
     [input.transactions, input.categories, input.accounts]
+  );
+  const repaymentContext = useMemo(
+    () =>
+      buildRepaymentPromptContext({
+        debts: input.debts || [],
+        repaymentRecords: input.repaymentRecords || []
+      }),
+    [input.debts, input.repaymentRecords]
   );
 
   const detectDuplicate = (entry: DraftBillEntry) => {
@@ -553,7 +584,9 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
 
       refreshSemanticRecallCacheMeta();
 
-      const prompt = `${basePrompt}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}${semanticRecallBlock}${globalMemoryRecallBlock}`;
+      const repaymentContextBlock =
+        input.sceneMode === 'credit' ? `\n\n还款管理上下文：\n${repaymentContext}` : '';
+      const prompt = `${basePrompt}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}${repaymentContextBlock}${semanticRecallBlock}${globalMemoryRecallBlock}`;
       if (isConversationalMode) {
         let streamedContent = '';
         await sendAiChatStream(

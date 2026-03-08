@@ -837,6 +837,8 @@ export function AssistantPage() {
   const model = useAiSettings((s) => s.model);
   const setModel = useAiSettings((s) => s.setModel);
   const showEmbeddingSummary = useAiSettings((s) => s.showEmbeddingSummary);
+  const debts = useAppPreferences((s) => s.debts);
+  const repaymentRecords = useAppPreferences((s) => s.repaymentRecords);
   const showEmbeddingDebug = useAiSettings((s) => s.showEmbeddingDebug);
   const embeddingModel = useAiSettings((s) => s.embeddingModel);
   const enableEmbeddingModel = useAiSettings((s) => s.enableEmbeddingModel);
@@ -863,6 +865,8 @@ export function AssistantPage() {
     addAccount,
     addTransaction,
     updateTransaction,
+    debts,
+    repaymentRecords,
     sceneMode: mode,
     globalMemories
   });
