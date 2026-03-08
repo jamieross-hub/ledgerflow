@@ -305,8 +305,6 @@ export function AppLayout() {
 
         {collapsed ? null : (
           <section className="sidebar-overview-card">
-            <h3>{monthLabel}</h3>
-            <p>{t('layout.overviewHint')}</p>
             <div className="sidebar-overview-actions">
               <Link to="/assistant" className="sidebar-overview-action">
                 {t('layout.actionAi')}

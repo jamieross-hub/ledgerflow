@@ -578,6 +578,19 @@ function splitRemoteDirAndFile(remoteFilePath: string): { dir: string; file: str
   return { dir: parts.join('/'), file };
 }
 
+function buildBackupFileMatchers(remoteFilePath: string): { targetFile: string; versionedPattern: RegExp } {
+  const { file: targetFile } = splitRemoteDirAndFile(remoteFilePath);
+  const dotIndex = targetFile.lastIndexOf('.');
+  const baseName = dotIndex > 0 ? targetFile.slice(0, dotIndex) : targetFile;
+  const ext = dotIndex > 0 ? targetFile.slice(dotIndex) : '.json';
+  return {
+    targetFile,
+    versionedPattern: new RegExp(
+      `^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}${ext.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`
+    )
+  };
+}
+
 function isBackupCandidateMatch(candidatePath: string, remoteFilePath: string): boolean {
   const candidate = normalizeRemoteFilePath(candidatePath);
   const target = normalizeRemoteFilePath(remoteFilePath);
@@ -585,33 +598,28 @@ function isBackupCandidateMatch(candidatePath: string, remoteFilePath: string): 
   const targetParts = target.split('/');
   const candidateFile = candidateParts.pop() || '';
   const targetFile = targetParts.pop() || '';
+  const { versionedPattern } = buildBackupFileMatchers(remoteFilePath);
 
-  if (candidateParts.join('/') !== targetParts.join('/')) {
-    return false;
+  if (candidateParts.join('/') === targetParts.join('/')) {
+    if (candidateFile === targetFile) {
+      return true;
+    }
+    if (versionedPattern.test(candidateFile)) {
+      return true;
+    }
   }
 
-  if (candidateFile === targetFile) {
-    return true;
-  }
-
-  const dotIndex = targetFile.lastIndexOf('.');
-  const baseName = dotIndex > 0 ? targetFile.slice(0, dotIndex) : targetFile;
-  const ext = dotIndex > 0 ? targetFile.slice(dotIndex) : '.json';
-  const versionedPattern = new RegExp(
-    `^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}${ext.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`
-  );
-  return versionedPattern.test(candidateFile);
+  return candidateFile === targetFile || versionedPattern.test(candidateFile);
 }
 
 function isVersionedBackupMatch(candidatePath: string, remoteFilePath: string): boolean {
   const candidate = normalizeRemoteFilePath(candidatePath);
-  const target = normalizeRemoteFilePath(remoteFilePath);
   const candidateFile = candidate.split('/').pop() || '';
-  const targetFile = target.split('/').pop() || '';
+  const { targetFile, versionedPattern } = buildBackupFileMatchers(remoteFilePath);
   if (candidateFile === targetFile) {
     return false;
   }
-  return isBackupCandidateMatch(candidatePath, remoteFilePath);
+  return versionedPattern.test(candidateFile);
 }
 
 function extractHrefText(value: string): string {
