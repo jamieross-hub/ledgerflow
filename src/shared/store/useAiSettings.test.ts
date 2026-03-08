@@ -3,11 +3,13 @@ import { useAiSettings } from './useAiSettings';
 
 const AI_SETTINGS_KEY = 'ledgerflow-ai-settings';
 const AI_SETTINGS_API_KEY_SESSION_KEY = 'ledgerflow-ai-settings-api-key';
+const AI_SETTINGS_API_KEY_LOCAL_KEY = 'ledgerflow-ai-settings-api-key-persistent';
 
 describe('useAiSettings', () => {
   beforeEach(() => {
     localStorage.removeItem(AI_SETTINGS_KEY);
     sessionStorage.removeItem(AI_SETTINGS_API_KEY_SESSION_KEY);
+    localStorage.removeItem(AI_SETTINGS_API_KEY_LOCAL_KEY);
     useAiSettings.setState({
       baseUrl: 'https://ai.shuaihong.fun/v1',
       apiKey: '',
@@ -18,7 +20,10 @@ describe('useAiSettings', () => {
       enableRerankModel: true,
       memoryDays: 3,
       memoryBackend: 'local',
-      bulkRecategorizeConcurrency: 8
+      bulkRecategorizeConcurrency: 8,
+      showEmbeddingDebug: false,
+      showEmbeddingSummary: true,
+      rememberApiKey: false
     });
   });
 
@@ -64,4 +69,25 @@ describe('useAiSettings', () => {
     expect(sessionStorage.getItem(AI_SETTINGS_API_KEY_SESSION_KEY)).toBeNull();
     nowSpy.mockRestore();
   });
+});
+
+
+it('stores API Key in localStorage when rememberApiKey is enabled', () => {
+  useAiSettings.getState().setRememberApiKey(true);
+  useAiSettings.getState().setApiKey('sk-test-persist');
+
+  expect(localStorage.getItem(AI_SETTINGS_API_KEY_LOCAL_KEY)).toBe('sk-test-persist');
+  expect(sessionStorage.getItem(AI_SETTINGS_API_KEY_SESSION_KEY)).toBeNull();
+});
+
+it('moves stored API Key back to sessionStorage when rememberApiKey is disabled', () => {
+  useAiSettings.getState().setRememberApiKey(true);
+  useAiSettings.getState().setApiKey('sk-move-back');
+  useAiSettings.getState().setRememberApiKey(false);
+
+  expect(localStorage.getItem(AI_SETTINGS_API_KEY_LOCAL_KEY)).toBeNull();
+  const raw = sessionStorage.getItem(AI_SETTINGS_API_KEY_SESSION_KEY);
+  expect(raw).toBeTruthy();
+  const parsed = JSON.parse(String(raw)) as { value: string; expiresAt: number };
+  expect(parsed.value).toBe('sk-move-back');
 });

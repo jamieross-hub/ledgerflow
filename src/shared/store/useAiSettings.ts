@@ -4,11 +4,32 @@ import { ENV } from '../config/env';
 
 const AI_SETTINGS_STORAGE_KEY = 'ledgerflow-ai-settings';
 const AI_SETTINGS_API_KEY_SESSION_KEY = 'ledgerflow-ai-settings-api-key';
+const AI_SETTINGS_API_KEY_LOCAL_KEY = 'ledgerflow-ai-settings-api-key-persistent';
 const AI_SETTINGS_API_KEY_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface ApiKeySessionPayload {
   value: string;
   expiresAt: number;
+}
+
+function readLocalApiKey() {
+  try {
+    return window.localStorage.getItem(AI_SETTINGS_API_KEY_LOCAL_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeLocalApiKey(apiKey: string) {
+  try {
+    if (apiKey) {
+      window.localStorage.setItem(AI_SETTINGS_API_KEY_LOCAL_KEY, apiKey);
+      return;
+    }
+    window.localStorage.removeItem(AI_SETTINGS_API_KEY_LOCAL_KEY);
+  } catch {
+    // ignore storage errors
+  }
 }
 
 function readSessionApiKey() {
@@ -71,6 +92,7 @@ type PersistedAiSettingsState = Omit<
   | 'setBulkRecategorizeConcurrency'
   | 'setShowEmbeddingDebug'
   | 'setShowEmbeddingSummary'
+  | 'setRememberApiKey'
 > & {
   baseUrl: string;
   model: string;
@@ -83,6 +105,7 @@ type PersistedAiSettingsState = Omit<
   bulkRecategorizeConcurrency: number;
   showEmbeddingDebug: boolean;
   showEmbeddingSummary: boolean;
+  rememberApiKey: boolean;
 };
 
 interface AiSettingsState {
@@ -98,6 +121,7 @@ interface AiSettingsState {
   bulkRecategorizeConcurrency: number;
   showEmbeddingDebug: boolean;
   showEmbeddingSummary: boolean;
+  rememberApiKey: boolean;
   setBaseUrl: (baseUrl: string) => void;
   setApiKey: (apiKey: string) => void;
   setModel: (model: string) => void;
@@ -110,6 +134,7 @@ interface AiSettingsState {
   setBulkRecategorizeConcurrency: (value: number) => void;
   setShowEmbeddingDebug: (enabled: boolean) => void;
   setShowEmbeddingSummary: (enabled: boolean) => void;
+  setRememberApiKey: (enabled: boolean) => void;
 }
 
 const DEFAULT_BULK_RECATEGORIZE_CONCURRENCY = 8;
@@ -135,7 +160,7 @@ export const useAiSettings = create<AiSettingsState>()(
   persist(
     (set) => ({
       baseUrl: ENV.aiBaseUrl,
-      apiKey: readSessionApiKey() || ENV.aiApiKey,
+      apiKey: readLocalApiKey() || readSessionApiKey() || ENV.aiApiKey,
       model: ENV.aiDefaultModel,
       embeddingModel: 'text-embedding-3-small',
       enableEmbeddingModel: true,
@@ -146,12 +171,20 @@ export const useAiSettings = create<AiSettingsState>()(
       bulkRecategorizeConcurrency: DEFAULT_BULK_RECATEGORIZE_CONCURRENCY,
       showEmbeddingDebug: false,
       showEmbeddingSummary: true,
+      rememberApiKey: Boolean(readLocalApiKey()),
       setBaseUrl: (baseUrl: string) => set({ baseUrl: baseUrl.trim() }),
-      setApiKey: (apiKey: string) => {
-        const nextApiKey = apiKey.trim();
-        writeSessionApiKey(nextApiKey);
-        set({ apiKey: nextApiKey });
-      },
+      setApiKey: (apiKey: string) =>
+        set((state) => {
+          const nextApiKey = apiKey.trim();
+          if (state.rememberApiKey) {
+            writeLocalApiKey(nextApiKey);
+            writeSessionApiKey('');
+          } else {
+            writeSessionApiKey(nextApiKey);
+            writeLocalApiKey('');
+          }
+          return { apiKey: nextApiKey };
+        }),
       setModel: (model: string) => set({ model: model.trim() || ENV.aiDefaultModel }),
       setEmbeddingModel: (model: string) => set({ embeddingModel: model.trim() }),
       setEnableEmbeddingModel: (enabled: boolean) => set({ enableEmbeddingModel: enabled }),
@@ -163,7 +196,19 @@ export const useAiSettings = create<AiSettingsState>()(
       setBulkRecategorizeConcurrency: (value: number) =>
         set({ bulkRecategorizeConcurrency: normalizeBulkRecategorizeConcurrency(value) }),
       setShowEmbeddingDebug: (enabled: boolean) => set({ showEmbeddingDebug: enabled }),
-      setShowEmbeddingSummary: (enabled: boolean) => set({ showEmbeddingSummary: enabled })
+      setShowEmbeddingSummary: (enabled: boolean) => set({ showEmbeddingSummary: enabled }),
+      setRememberApiKey: (enabled: boolean) =>
+        set((state) => {
+          const nextApiKey = state.apiKey.trim();
+          if (enabled) {
+            writeLocalApiKey(nextApiKey);
+            writeSessionApiKey('');
+          } else {
+            writeSessionApiKey(nextApiKey);
+            writeLocalApiKey('');
+          }
+          return { rememberApiKey: enabled };
+        })
     }),
     {
       name: AI_SETTINGS_STORAGE_KEY,
@@ -178,11 +223,15 @@ export const useAiSettings = create<AiSettingsState>()(
         memoryBackend: state.memoryBackend,
         bulkRecategorizeConcurrency: state.bulkRecategorizeConcurrency,
         showEmbeddingDebug: state.showEmbeddingDebug,
-        showEmbeddingSummary: state.showEmbeddingSummary
+        showEmbeddingSummary: state.showEmbeddingSummary,
+        rememberApiKey: state.rememberApiKey
       }),
       merge: (persisted: unknown, current: AiSettingsState) => {
         const next = { ...current, ...(persisted as Partial<PersistedAiSettingsState>) };
-        next.apiKey = readSessionApiKey() || ENV.aiApiKey;
+        next.rememberApiKey = Boolean(next.rememberApiKey);
+        next.apiKey = next.rememberApiKey
+          ? readLocalApiKey() || readSessionApiKey() || ENV.aiApiKey
+          : readSessionApiKey() || readLocalApiKey() || ENV.aiApiKey;
         if (!next.model?.trim()) {
           next.model = ENV.aiDefaultModel;
         }

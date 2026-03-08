@@ -127,8 +127,10 @@ export function SettingsPage() {
   const enableEmbeddingModel = useAiSettings((s) => s.enableEmbeddingModel);
   const rerankModel = useAiSettings((s) => s.rerankModel);
   const enableRerankModel = useAiSettings((s) => s.enableRerankModel);
+  const rememberApiKey = useAiSettings((s) => s.rememberApiKey);
   const setBaseUrl = useAiSettings((s) => s.setBaseUrl);
   const setApiKey = useAiSettings((s) => s.setApiKey);
+  const setRememberApiKey = useAiSettings((s) => s.setRememberApiKey);
   const setModel = useAiSettings((s) => s.setModel);
   const setAccentTheme = useAppPreferences((s) => s.setAccentTheme);
   const setEmbeddingModel = useAiSettings((s) => s.setEmbeddingModel);
@@ -238,6 +240,20 @@ export function SettingsPage() {
           >
             {masked ? t('settings.show') : t('settings.hide')}
           </button>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={rememberApiKey}
+              onChange={(e) => {
+                setRememberApiKey(e.target.checked);
+                showSaveToast();
+              }}
+            />
+            记住 API Key（版本更新后无需重填）
+          </label>
+          <small>
+            开启后会将 API Key 持久保存在当前浏览器；关闭时仅保留在当前会话。
+          </small>
         </div>
 
         <div className="field">
