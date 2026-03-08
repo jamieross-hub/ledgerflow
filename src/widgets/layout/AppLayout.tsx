@@ -306,13 +306,16 @@ export function AppLayout() {
         {collapsed ? null : (
           <section className="sidebar-overview-card">
             <div className="sidebar-overview-actions">
-              <Link to="/assistant" className="sidebar-overview-action">
+              <Link to="/assistant" className="sidebar-overview-action motion-pill-btn">
                 {t('layout.actionAi')}
               </Link>
-              <Link to="/transactions?quickAdd=1&entry=layout" className="sidebar-overview-action">
+              <Link
+                to="/transactions?quickAdd=1&entry=layout"
+                className="sidebar-overview-action motion-pill-btn"
+              >
                 {t('layout.actionQuickAdd')}
               </Link>
-              <Link to="/transactions" className="sidebar-overview-action">
+              <Link to="/transactions" className="sidebar-overview-action motion-pill-btn">
                 {t('layout.actionTaskList')}
               </Link>
             </div>
@@ -325,7 +328,7 @@ export function AppLayout() {
               {collapsed ? null : (
                 <button
                   type="button"
-                  className="sidebar-section-toggle"
+                  className="sidebar-section-toggle motion-pill-btn"
                   onClick={() =>
                     setExpandedSections((prev) => ({
                       ...prev,
@@ -360,7 +363,7 @@ export function AppLayout() {
                       to={item.to}
                       end={item.end}
                       className={({ isActive }) =>
-                        isActive ? 'sidebar-link active' : 'sidebar-link'
+                        isActive ? 'sidebar-link active motion-pill-btn' : 'sidebar-link motion-pill-btn'
                       }
                       title={item.label}
                     >
@@ -459,7 +462,7 @@ export function AppLayout() {
                       key={`${group.title}-${item.label}`}
                       to={item.to}
                       end={item.end}
-                      className="mobile-nav-grid-item"
+                      className="mobile-nav-grid-item motion-pill-btn"
                       onClick={() => setMobileNavOpen(false)}
                     >
                       <span>{item.icon}</span>

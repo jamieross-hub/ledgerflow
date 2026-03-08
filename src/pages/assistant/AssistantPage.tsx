@@ -505,6 +505,14 @@ function writePresetQuestionsCache(signature: string, questions: CachedPresetQue
   }
 }
 
+function readWideLayoutPreference() {
+  try {
+    return window.localStorage.getItem('ledgerflow.assistant.wide-layout') === '1';
+  } catch {
+    return false;
+  }
+}
+
 function readChatHistory(mode: AssistantMode): ChatHistoryItem[] {
   try {
     const raw = window.sessionStorage.getItem(CHAT_HISTORY_CACHE_KEYS[mode]);
@@ -880,7 +888,7 @@ export function AssistantPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [mode, setMode] = useState<AssistantMode>('assistant');
-  const [isWideLayout, setIsWideLayout] = useState(false);
+  const [isWideLayout, setIsWideLayout] = useState(() => readWideLayoutPreference());
   const baseUrl = useAiSettings((s) => s.baseUrl);
   const apiKey = useAiSettings((s) => s.apiKey);
   const model = useAiSettings((s) => s.model);
@@ -971,6 +979,14 @@ export function AssistantPage() {
   const [duplicateReviewPairs, setDuplicateReviewPairs] = useState<DuplicateReviewPair[]>([]);
   const [duplicateReviewIndex, setDuplicateReviewIndex] = useState(0);
   const [overwriteEntryIds, setOverwriteEntryIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('ledgerflow.assistant.wide-layout', isWideLayout ? '1' : '0');
+    } catch {
+      // ignore storage write errors
+    }
+  }, [isWideLayout]);
 
   // 仅保留“被勾选且通过校验”的条目，作为一键保存候选。
   const selectedValidEntries = useMemo(
