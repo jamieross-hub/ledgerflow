@@ -1799,17 +1799,21 @@ export function AssistantPage() {
         <div className="chat-topbar-right">
           <button
             type="button"
-            className={`chat-secondary-action-btn ${isWideLayout ? 'is-active' : ''}`}
+            className={`chat-icon-topbar-btn ${isWideLayout ? 'is-active' : ''}`}
             onClick={() => setIsWideLayout((prev) => !prev)}
+            aria-label={isWideLayout ? '切换为标准宽度' : '拉伸显示'}
+            title={isWideLayout ? '切换为标准宽度' : '拉伸显示'}
           >
-            {isWideLayout ? '标准宽度' : '拉伸显示'}
+            {isWideLayout ? '↔' : '⤢'}
           </button>
           <button
             type="button"
-            className="chat-secondary-action-btn"
+            className="chat-icon-topbar-btn"
             onClick={() => navigate('/transactions/new?quick=1')}
+            aria-label={t('assistant.ui.quickAdd')}
+            title={t('assistant.ui.quickAdd')}
           >
-            {t('assistant.ui.quickAdd')}
+            ＋
           </button>
           <button
             type="button"

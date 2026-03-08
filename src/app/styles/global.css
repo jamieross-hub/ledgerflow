@@ -3420,6 +3420,34 @@ small.mono {
   gap: var(--space-2);
 }
 
+.chat-icon-topbar-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.chat-icon-topbar-btn:hover {
+  border-color: var(--color-primary-border);
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-bg-elevated) 92%, var(--color-primary-bg));
+}
+
+.chat-icon-topbar-btn.is-active {
+  border-color: var(--color-primary-border);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
 .chat-clear-btn {
   padding: 4px 10px;
   border-radius: var(--radius-sm);
@@ -3612,12 +3640,6 @@ small.mono {
 
 .chat-messages-inner.is-wide {
   max-width: 1120px;
-}
-
-.chat-topbar-right .chat-secondary-action-btn.is-active {
-  border-color: var(--color-primary-border);
-  background: var(--color-primary-bg);
-  color: var(--color-primary);
 }
 
 /* ---------- Message Bubble ---------- */
