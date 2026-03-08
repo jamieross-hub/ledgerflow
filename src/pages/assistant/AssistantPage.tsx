@@ -390,6 +390,13 @@ interface CreditExtractedItem {
   completionRatio?: number;
   completionLabel?: string;
   mergedFromHistory?: boolean;
+  matchedDebtId?: string;
+  matchedDebtName?: string;
+  conflictFields?: Array<{
+    label: string;
+    currentValue: string;
+    nextValue: string;
+  }>;
   repaymentGapSummary?: {
     plannedDueAmount?: string;
     recentActualPaidAmount?: string;
@@ -818,6 +825,53 @@ function formatGapMoney(value: number): string {
   return value > 0 ? value.toFixed(2).replace(/\.00$/, '') : '0';
 }
 
+
+function findMatchingDebt(item: CreditExtractedItem, debts: DebtItem[]): DebtItem | undefined {
+  const currentKey = normalizeCreditIdentity(`${item.title}${item.productType}`);
+  const currentNameKey = normalizeCreditIdentity(item.title);
+  return debts.find((debt) => {
+    const debtKey = normalizeCreditIdentity(`${debt.name}${debt.type}`);
+    const debtNameKey = normalizeCreditIdentity(debt.name);
+    return (
+      debtNameKey === currentNameKey ||
+      debtNameKey.includes(currentNameKey) ||
+      currentNameKey.includes(debtNameKey) ||
+      debtKey === currentKey ||
+      debtKey.includes(currentKey) ||
+      currentKey.includes(debtKey)
+    );
+  });
+}
+
+function formatDebtCompareValue(value: unknown): string {
+  if (value === undefined || value === null || value === '') return '未填写';
+  return String(value);
+}
+
+function buildCreditConflictFields(item: CreditExtractedItem, matchedDebt?: DebtItem): CreditExtractedItem['conflictFields'] {
+  if (!matchedDebt) return undefined;
+
+  const nextPayload = normalizeCreditDebtPayload(item);
+  const comparisons = [
+    { label: '名称', currentValue: matchedDebt.name, nextValue: nextPayload.name },
+    { label: '余额/待还', currentValue: matchedDebt.balance, nextValue: nextPayload.balance },
+    { label: 'APR/年化', currentValue: matchedDebt.annualRate, nextValue: nextPayload.annualRate },
+    { label: '还款日', currentValue: matchedDebt.repaymentDay, nextValue: nextPayload.repaymentDay },
+    { label: '剩余期数', currentValue: matchedDebt.remainingMonths, nextValue: nextPayload.remainingMonths },
+    { label: '扣款账户', currentValue: matchedDebt.paymentAccount, nextValue: nextPayload.paymentAccount }
+  ];
+
+  const rows = comparisons
+    .map((row) => ({
+      label: row.label,
+      currentValue: formatDebtCompareValue(row.currentValue),
+      nextValue: formatDebtCompareValue(row.nextValue)
+    }))
+    .filter((row) => row.currentValue !== row.nextValue);
+
+  return rows.length > 0 ? rows : undefined;
+}
+
 function buildCreditRepaymentGapSummary(
   item: CreditExtractedItem,
   debts: DebtItem[],
@@ -912,6 +966,8 @@ function enrichCreditItemsForConfirmation(
     const identityKey = normalizeCreditIdentity(`${item.title}${item.productType}`) || item.id;
     const completedCount = countCompletedCreditFields(item);
     const completionRatio = Math.min(100, Math.round((completedCount / 6) * 100));
+    const matchedDebt = findMatchingDebt(item, debts);
+    const conflictFields = buildCreditConflictFields(item, matchedDebt);
 
     return {
       ...item,
@@ -920,10 +976,15 @@ function enrichCreditItemsForConfirmation(
       completionLabel: `${completedCount}/6 关键字段已补齐`,
       confirmationState: readyCount >= 4 ? 'ready' : 'needs-more-info',
       confirmationSummary: buildCreditConfirmationSummary(item),
+      matchedDebtId: matchedDebt?.id,
+      matchedDebtName: matchedDebt?.name,
+      conflictFields,
       conflictHint:
-        similarHistoryCount > 1
-          ? '检测到历史里有相似信贷项目，保存前建议确认是否为同一笔，避免重复合并。'
-          : undefined,
+        conflictFields && conflictFields.length > 0
+          ? `检测到这张结果可能对应已保存负债“${matchedDebt?.name || '已有负债'}”，建议先确认是更新原条目还是另存为新。`
+          : similarHistoryCount > 1
+            ? '检测到历史里有相似信贷项目，保存前建议确认是否为同一笔，避免重复合并。'
+            : undefined,
       repaymentGapSummary: buildCreditRepaymentGapSummary(item, debts, repaymentRecords)
     };
   });
@@ -1161,6 +1222,7 @@ export function AssistantPage() {
   const setModel = useAiSettings((s) => s.setModel);
   const showEmbeddingSummary = useAiSettings((s) => s.showEmbeddingSummary);
   const debts = useAppPreferences((s) => s.debts);
+  const updateDebt = useAppPreferences((s) => s.updateDebt);
   const repaymentRecords = useAppPreferences((s) => s.repaymentRecords);
   const showEmbeddingDebug = useAiSettings((s) => s.showEmbeddingDebug);
   const embeddingModel = useAiSettings((s) => s.embeddingModel);
@@ -1647,17 +1709,24 @@ export function AssistantPage() {
   );
 
   const handleSaveCreditItem = useCallback(
-    (creditItem: CreditExtractedItem) => {
-      addDebt(normalizeCreditDebtPayload(creditItem));
+    (creditItem: CreditExtractedItem, strategy: 'create' | 'update' = 'create') => {
+      const payload = normalizeCreditDebtPayload(creditItem);
+      if (strategy === 'update' && creditItem.matchedDebtId) {
+        updateDebt(creditItem.matchedDebtId, payload);
+      } else {
+        addDebt(payload);
+      }
       setConfirmingCreditId(null);
       wb.setToastState(
-        creditItem.pendingFields.length > 0
-          ? `已保存“${creditItem.title}”，但仍建议补充：${creditItem.pendingFields.join('、')}`
-          : `已将“${creditItem.title}”保存到还款管理`,
-        creditItem.pendingFields.length > 0 ? 'warning' : 'success'
+        strategy === 'update'
+          ? `已将“${creditItem.title}”的最新识别结果更新到现有负债`
+          : creditItem.pendingFields.length > 0
+            ? `已保存“${creditItem.title}”，但仍建议补充：${creditItem.pendingFields.join('、')}`
+            : `已将“${creditItem.title}”保存到还款管理`,
+        creditItem.pendingFields.length > 0 && strategy !== 'update' ? 'warning' : 'success'
       );
     },
-    [addDebt, wb]
+    [addDebt, updateDebt, wb]
   );
 
   const buildAssistantMessageText = useCallback(
@@ -2403,7 +2472,7 @@ export function AssistantPage() {
                 ) : null}
                 {item.role === 'assistant' && item.creditItems && item.creditItems.length > 0 ? (
                   <div className="chat-credit-cards">
-                    {item.creditItems.map((creditItem) => (
+                    {enrichCreditItemsForConfirmation(item.creditItems, chatHistory, debts, repaymentRecords).map((creditItem) => (
                       <section key={creditItem.id} className="chat-credit-card">
                         <div className="chat-credit-card-head">
                           <div>
@@ -2542,14 +2611,43 @@ export function AssistantPage() {
                             {creditItem.conflictHint ? (
                               <div className="chat-credit-conflict-hint">{creditItem.conflictHint}</div>
                             ) : null}
+                            {creditItem.conflictFields && creditItem.conflictFields.length > 0 ? (
+                              <div className="chat-credit-diff-card">
+                                <div className="chat-credit-diff-head">
+                                  <strong>与已保存负债的差异</strong>
+                                  <span>{creditItem.matchedDebtName || '已有负债'}</span>
+                                </div>
+                                <div className="chat-credit-diff-list">
+                                  {creditItem.conflictFields.map((field) => (
+                                    <div key={`${creditItem.id}-${field.label}`} className="chat-credit-diff-row">
+                                      <span>{field.label}</span>
+                                      <div>
+                                        <em>当前：{field.currentValue}</em>
+                                        <strong>识别：{field.nextValue}</strong>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
                             <div className="chat-credit-actions">
-                              <button
-                                type="button"
-                                className="chat-secondary-action-btn"
-                                onClick={() => handleSaveCreditItem(creditItem)}
-                              >
-                                确认保存到还款管理
-                              </button>
+                              {creditItem.matchedDebtId && creditItem.conflictFields && creditItem.conflictFields.length > 0 ? (
+                                <button
+                                  type="button"
+                                  className="chat-secondary-action-btn"
+                                  onClick={() => handleSaveCreditItem(creditItem, 'update')}
+                                >
+                                  更新已有负债
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="chat-secondary-action-btn"
+                                  onClick={() => handleSaveCreditItem(creditItem)}
+                                >
+                                  确认保存到还款管理
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 className="chat-secondary-action-btn"
@@ -2568,10 +2666,17 @@ export function AssistantPage() {
                                 className="chat-secondary-action-btn"
                                 onClick={() => {
                                   setConfirmingCreditId(null);
-                                  wb.setToastState('已按新项目处理，不与当前历史结果自动合并。', 'warning');
+                                  handleSaveCreditItem({
+                                    ...creditItem,
+                                    matchedDebtId: undefined,
+                                    matchedDebtName: undefined,
+                                    conflictFields: undefined,
+                                    conflictHint: undefined
+                                  });
+                                  wb.setToastState('已按新项目另存，不与已有负债自动合并。', 'warning');
                                 }}
                               >
-                                这不是同一笔
+                                另存为新负债
                               </button>
                             </div>
                           </div>

@@ -77,11 +77,26 @@ vi.mock('../../shared/store/useAiSettings', () => ({
 
 
 const addDebtMock = vi.fn();
+const updateDebtMock = vi.fn();
 
 vi.mock('../../shared/store/useAppPreferences', () => ({
   useAppPreferences: (selector: (state: any) => unknown) =>
     selector({
-      addDebt: addDebtMock
+      addDebt: addDebtMock,
+      updateDebt: updateDebtMock,
+      debts: [
+        {
+          id: 'saved-debt-1',
+          name: '京东白条分期',
+          type: 'consumer-loan',
+          balance: 5200,
+          annualRate: 12.8,
+          remainingMonths: 9,
+          repaymentDay: 8,
+          paymentAccount: '招商银行卡'
+        }
+      ],
+      repaymentRecords: []
     })
 }));
 
@@ -238,7 +253,8 @@ describe('AssistantPage', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
-    fireEvent.click(screen.getByRole('button', { name: '保存到还款管理' }));
+    fireEvent.click(screen.getByRole('button', { name: '进入保存前确认' }));
+    fireEvent.click(screen.getByRole('button', { name: '确认保存到还款管理' }));
 
     expect(addDebtMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -280,7 +296,8 @@ describe('AssistantPage', () => {
                   monthlyAmount: '998',
                   rateType: 'APR',
                   interest: '15.2%',
-                  pendingFields: ['剩余待还'],
+                  remainingPeriods: '6',
+                  pendingFields: ['扣款账户'],
                   confidence: 'high',
                   mergedFromHistory: true,
                   completionRatio: 83,
@@ -301,8 +318,8 @@ describe('AssistantPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
 
-    expect(screen.getByText('5/6 关键字段已补齐')).toBeInTheDocument();
-    expect(screen.getByText('83%')).toBeInTheDocument();
+    expect(screen.getByText('6/6 关键字段已补齐')).toBeInTheDocument();
+    expect(screen.getByText('100%')).toBeInTheDocument();
     expect(screen.getByText('已承接上轮补充')).toBeInTheDocument();
 
     sessionStorageGetItemSpy.mockRestore();
@@ -327,7 +344,7 @@ describe('AssistantPage', () => {
               creditItems: [
                 {
                   id: 'credit-confirm-0',
-                  title: '京东白条分期',
+                  title: '分期乐账单',
                   productType: '消费贷',
                   dueAmount: '666',
                   totalDebt: '3999',
@@ -339,7 +356,7 @@ describe('AssistantPage', () => {
                   pendingFields: ['扣款账户'],
                   confidence: 'high',
                   confirmationState: 'ready',
-                  confirmationSummary: ['产品：京东白条分期']
+                  confirmationSummary: ['产品：分期乐账单']
                 }
               ]
             }
@@ -366,6 +383,75 @@ describe('AssistantPage', () => {
       expect.objectContaining({
         name: '京东白条分期',
         balance: 3999
+      })
+    );
+
+    sessionStorageGetItemSpy.mockRestore();
+  });
+
+
+  it('保存前确认态应支持更新已有负债', () => {
+    useAssistantWorkbenchMock.mockReturnValue({
+      ...createWorkbenchMock(),
+      rawContent: '已识别完成',
+      status: 'ready'
+    });
+
+    const sessionStorageGetItemSpy = vi
+      .spyOn(window.sessionStorage.__proto__, 'getItem')
+      .mockImplementation((key) => {
+        if (String(key).includes('chatHistory.credit')) {
+          return JSON.stringify([
+            {
+              id: 'credit-assistant-update',
+              role: 'assistant',
+              text: '这是识别后的结果',
+              creditItems: [
+                {
+                  id: 'credit-update-0',
+                  title: '京东白条分期',
+                  productType: '消费贷',
+                  dueAmount: '666',
+                  totalDebt: '3999',
+                  repaymentDate: '每月10日',
+                  remainingPeriods: '6',
+                  monthlyAmount: '666',
+                  interest: '18.6%',
+                  rateType: 'APR',
+                  pendingFields: [],
+                  confidence: 'high',
+                  confirmationState: 'ready',
+                  confirmationSummary: ['产品：分期乐账单']
+                }
+              ]
+            }
+          ]);
+        }
+        return '[]';
+      });
+
+    render(
+      <MemoryRouter>
+        <AssistantPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
+    fireEvent.click(screen.getByRole('button', { name: '进入保存前确认' }));
+
+    expect(screen.getByText('与已保存负债的差异')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '更新已有负债' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '更新已有负债' }));
+
+    expect(updateDebtMock).toHaveBeenCalledWith(
+      'saved-debt-1',
+      expect.objectContaining({
+        name: '京东白条分期',
+        balance: 3999,
+        annualRate: 18.6,
+        remainingMonths: 6,
+        repaymentDay: 10
       })
     );
 
