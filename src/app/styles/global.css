@@ -3134,11 +3134,47 @@ small.mono {
     width: 100%;
     min-width: 0;
   }
+
+  .panel {
+    padding: 14px;
+    border-radius: 16px;
+    margin-bottom: 12px;
+  }
+
+  .panel h2 {
+    margin-bottom: 12px;
+    font-size: var(--font-md);
+  }
+
+  .panel h3 {
+    margin-bottom: 8px;
+    font-size: var(--font-base);
+  }
+
+  .grid {
+    gap: 12px;
+  }
+
+  .stat-card {
+    gap: 10px;
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .stat-card h3 {
+    font-size: 12px;
+  }
+
   .stat-icon {
     font-size: 22px;
   }
+
   .stat-value {
     font-size: var(--font-lg);
+  }
+
+  .dashboard-main-grid {
+    gap: 12px;
   }
 
   .dashboard-panel-header {
@@ -3148,7 +3184,7 @@ small.mono {
 
   .dashboard-panel-header h3 {
     margin-top: 2px;
-    font-size: var(--font-xl);
+    font-size: var(--font-lg);
     line-height: 1.25;
   }
 
@@ -3168,7 +3204,26 @@ small.mono {
   .dashboard-trend-summary {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-2);
-    padding: var(--space-3);
+    padding: 12px;
+  }
+
+  .dashboard-summary-title {
+    font-size: 12px;
+  }
+
+  .dashboard-summary-main {
+    gap: 6px;
+    font-size: var(--font-sm);
+  }
+
+  .dashboard-summary-main-amount {
+    font-size: var(--font-lg);
+  }
+
+  .dashboard-summary-change {
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 12px;
   }
 
   .dashboard-inline-help {
@@ -3206,6 +3261,8 @@ small.mono {
     max-width: none;
     width: 100%;
     word-break: break-word;
+    font-size: 12px;
+    padding: 8px 10px;
   }
 
   .dashboard-summary-sub {
