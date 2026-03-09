@@ -10041,17 +10041,41 @@ body.categories-accounts-resizing {
 }
 
 .finance-unit-input .finance-debt-form-control {
-  padding-right: 42px;
+  padding-right: 56px;
+  background: color-mix(in srgb, var(--color-bg-elevated) 88%, var(--color-primary-soft));
+}
+
+.finance-unit-input.is-filled .finance-debt-form-control {
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary-soft) 55%, var(--color-bg-elevated));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 .finance-unit-input > span {
   position: absolute;
-  right: 12px;
+  right: 10px;
   top: 50%;
   transform: translateY(-50%);
+  min-width: 28px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 12px;
-  color: var(--color-text-secondary);
+  font-weight: 700;
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg-elevated));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, transparent);
   pointer-events: none;
+}
+
+.finance-unit-input.is-filled > span {
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 70%, #7c4dff));
+  border-color: transparent;
+  box-shadow: 0 6px 12px color-mix(in srgb, var(--color-primary) 22%, transparent);
 }
 
 .finance-unit-input.is-disabled > span {

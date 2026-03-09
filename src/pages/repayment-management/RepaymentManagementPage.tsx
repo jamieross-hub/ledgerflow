@@ -543,7 +543,7 @@ function RepaymentUnitInput(props: {
 }) {
   const { value, onChange, unit, placeholder, ariaLabel, min, max, step, inputMode, disabled } = props;
   return (
-    <label className={`finance-unit-input ${disabled ? 'is-disabled' : ''}`}>
+    <label className={`finance-unit-input ${disabled ? 'is-disabled' : ''} ${value.trim() ? 'is-filled' : ''}`}>
       <input
         className="finance-debt-form-control"
         type="number"
