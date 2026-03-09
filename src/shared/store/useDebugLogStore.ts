@@ -8,7 +8,7 @@ export interface DebugLogItem {
   timestamp: string;
   action: string;
   status: DebugLogStatus;
-  dbType?: 'redis';
+  dbType?: 'redis' | 'mysql';
   message: string;
 }
 

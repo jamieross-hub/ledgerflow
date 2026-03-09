@@ -28,14 +28,14 @@ describe('connectionFormSchema', () => {
 
   it('应支持解析合法连接串并通过校验', () => {
     const result = connectionFormSchema.safeParse({
-      name: 'redis-dev',
-      type: 'redis',
+      name: 'mysql-dev',
+      type: 'mysql',
       host: 'localhost',
-      port: 6379,
+      port: 3306,
       username: '',
       password: '',
       database: '',
-      connectionString: 'redis://:pass@127.0.0.1:6379/0',
+      connectionString: 'mysql://ledgerflow:pass@127.0.0.1:3306/ledgerflow',
       enabled: true,
       timeoutMs: 8000,
       pool: { min: 1, max: 10, idleTimeoutMs: 10000 },

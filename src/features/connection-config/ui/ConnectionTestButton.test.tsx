@@ -15,13 +15,13 @@ vi.mock('../model/connectionTest', () => ({
 }));
 
 const baseValues = {
-  name: 'redis-dev',
-  type: 'redis' as const,
-  host: 'localhost',
-  port: 6379,
-  username: '',
+  name: 'mysql-dev',
+  type: 'mysql' as const,
+  host: 'db.example.com',
+  port: 3306,
+  username: 'ledgerflow',
   password: '123456',
-  database: '0',
+  database: 'ledgerflow',
   connectionString: '',
   enabled: true,
   timeoutMs: 1200,

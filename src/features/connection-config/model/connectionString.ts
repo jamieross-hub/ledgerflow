@@ -6,15 +6,16 @@ export interface ParsedConnectionString {
   database?: string;
 }
 
-const PROTOCOL_MAP: Record<'redis', string[]> = {
-  redis: ['redis', 'rediss']
+const PROTOCOL_MAP: Record<'redis' | 'mysql', string[]> = {
+  redis: ['redis', 'rediss'],
+  mysql: ['mysql', 'mysqls']
 };
 
 function normalizeProtocol(raw: string) {
   return raw.replace(':', '').toLowerCase();
 }
 
-export function parseConnectionString(connectionString: string, type: 'redis') {
+export function parseConnectionString(connectionString: string, type: 'redis' | 'mysql') {
   try {
     const url = new URL(connectionString);
     const protocol = normalizeProtocol(url.protocol);

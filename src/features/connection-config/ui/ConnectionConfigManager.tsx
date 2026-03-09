@@ -35,7 +35,7 @@ export function ConnectionConfigManager() {
         style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}
       >
         <div>
-          <h3 style={{ margin: 0 }}>连接配置管理（Redis）</h3>
+          <h3 style={{ margin: 0 }}>连接配置管理（MySQL / Redis）</h3>
           <p
             style={{
               margin: '6px 0 0',
@@ -43,7 +43,7 @@ export function ConnectionConfigManager() {
               fontSize: 'var(--font-sm)'
             }}
           >
-            支持直接填写地址、端口、用户名、密码、连接串及 TLS
+            支持直接填写 MySQL / Redis 的地址、端口、用户名、密码、连接串及 TLS
             参数。敏感字段会在浏览器本地做混淆存储，勿视为强加密。
           </p>
         </div>

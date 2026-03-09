@@ -1,11 +1,12 @@
 import { ConnectionFormValues } from './connectionFormSchema';
 
 const DEFAULT_PORT: Record<ConnectionFormValues['type'], number> = {
-  redis: 6379
+  redis: 6379,
+  mysql: 3306
 };
 
 export function getConnectionDefaults(
-  type: ConnectionFormValues['type'] = 'redis'
+  type: ConnectionFormValues['type'] = 'mysql'
 ): ConnectionFormValues {
   return {
     name: '',
@@ -14,7 +15,7 @@ export function getConnectionDefaults(
     port: DEFAULT_PORT[type],
     username: '',
     password: '',
-    database: type === 'redis' ? '0' : '',
+    database: type === 'redis' ? '0' : 'ledgerflow',
     connectionString: '',
     enabled: true,
     timeoutMs: 8000,

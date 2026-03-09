@@ -17,7 +17,7 @@ export const connectionFormSchema = z
   .object({
     id: z.string().optional(),
     name: z.string().min(2, '名称至少 2 个字符'),
-    type: z.enum(['redis']),
+    type: z.enum(['redis', 'mysql']),
     host: z.string().min(1, '主机必填'),
     port: z.coerce.number().int().min(1, '端口必须在 1-65535').max(65535, '端口必须在 1-65535'),
     username: z.string().optional(),

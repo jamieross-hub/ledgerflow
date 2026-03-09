@@ -76,7 +76,7 @@ export function ConnectionConfigForm({
         <section className="connection-main">
           <header className="connection-section-header">
             <h3>{initialValues?.id ? '编辑连接配置' : '新增连接配置'}</h3>
-            <p>数据库连接配置区</p>
+            <p>数据库连接配置区（MySQL / Redis）</p>
           </header>
 
           <div className="grid grid-3">
@@ -87,7 +87,7 @@ export function ConnectionConfigForm({
             </div>
 
             <div className="field">
-              <label title="当前仅支持 Redis，切换会自动填充默认端口">数据库类型</label>
+              <label title="支持 MySQL / Redis，切换会自动填充默认端口">数据库类型</label>
               <select
                 {...form.register('type')}
                 onChange={(e) => {
@@ -100,6 +100,7 @@ export function ConnectionConfigForm({
                   form.setValue('username', '');
                 }}
               >
+                <option value="mysql">MySQL</option>
                 <option value="redis">Redis</option>
               </select>
             </div>
@@ -113,25 +114,35 @@ export function ConnectionConfigForm({
           <div className="grid grid-3">
             <div className="field">
               <label title="数据库服务器地址">Host</label>
-              <input {...form.register('host')} placeholder="localhost / 10.0.0.5" />
+              <input {...form.register('host')} placeholder="db.example.com / 10.0.0.5" />
               <small className="error">{form.formState.errors.host?.message}</small>
             </div>
             <div className="field">
               <label title="系统会根据数据库类型自动填充默认端口">Port</label>
-              <input type="number" {...form.register('port')} placeholder="6379" />
+              <input type="number" {...form.register('port')} placeholder="3306 / 6379" />
               <small className="error">{form.formState.errors.port?.message}</small>
             </div>
             <div className="field">
-              <label title="Redis 数据库编号">数据库编号</label>
-              <input {...form.register('database')} placeholder="0" />
+              <label title={form.watch('type') === 'redis' ? 'Redis 数据库编号' : 'MySQL 数据库名'}>
+                {form.watch('type') === 'redis' ? '数据库编号' : '数据库名'}
+              </label>
+              <input
+                {...form.register('database')}
+                placeholder={form.watch('type') === 'redis' ? '0' : 'ledgerflow'}
+              />
               <small className="error">{form.formState.errors.database?.message}</small>
             </div>
           </div>
 
           <div className="grid grid-3">
             <div className="field">
-              <label title="Redis 用户名（大多数场景可留空）">用户名</label>
-              <input {...form.register('username')} placeholder="可选，默认留空" />
+              <label title={form.watch('type') === 'redis' ? 'Redis 用户名（大多数场景可留空）' : 'MySQL 用户名'}>
+                用户名
+              </label>
+              <input
+                {...form.register('username')}
+                placeholder={form.watch('type') === 'redis' ? '可选，默认留空' : '例如：ledgerflow'}
+              />
               <small className="error">{form.formState.errors.username?.message}</small>
             </div>
             <div className="field">
@@ -145,7 +156,11 @@ export function ConnectionConfigForm({
             <div className="row connection-inline-row">
               <input
                 {...form.register('connectionString')}
-                placeholder="redis://:password@localhost:6379/0"
+                placeholder={
+                  form.watch('type') === 'redis'
+                    ? 'redis://:password@localhost:6379/0'
+                    : 'mysql://user:password@db.example.com:3306/ledgerflow'
+                }
               />
               <button type="button" onClick={applyConnectionString}>
                 解析连接串

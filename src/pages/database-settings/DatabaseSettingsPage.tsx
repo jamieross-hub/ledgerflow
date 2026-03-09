@@ -1,4 +1,5 @@
 import { ChangeEvent, useMemo, useRef, useState } from 'react';
+import { ConnectionConfigManager } from '../../features/connection-config/ui/ConnectionConfigManager';
 import {
   applyBillImportMode,
   BillImportMode,
@@ -281,11 +282,12 @@ export function DatabaseSettingsPage() {
     <div>
       <section className="panel">
         <h2>备份设置</h2>
-        <p>已移除在线数据库连接配置，当前统一使用备份与恢复方案。</p>
+        <p>当前支持本地备份 / WebDAV 同步，同时可单独维护远程 MySQL 连接配置；两者相互独立，不会互相覆盖。</p>
         <ul style={{ marginTop: 10, color: 'var(--color-text-secondary)', lineHeight: 1.7 }}>
           <li>支持本地 JSON 一键导出与导入。</li>
           <li>支持导入微信 / 支付宝账单 CSV / XLSX。</li>
           <li>支持 WebDAV 远程同步（上传与下载恢复）。</li>
+          <li>支持远程 MySQL / Redis 连接信息的保存、编辑与测试。</li>
         </ul>
       </section>
 
@@ -365,6 +367,19 @@ export function DatabaseSettingsPage() {
         <button type="button" className="danger" onClick={() => setClearBillsOpen(true)}>
           一键清空所有账户账单
         </button>
+      </section>
+
+      <section className="panel" style={{ marginTop: 12 }}>
+        <h3 style={{ marginTop: 0 }}>远程数据库连接</h3>
+        <p className="sync-tip" style={{ marginTop: 0 }}>
+          这里用于保存和测试远程 MySQL / Redis 连接信息，仅管理连接配置，不会替代本地数据存储，也不会影响 WebDAV 备份设置。
+        </p>
+        <ul style={{ margin: '8px 0 12px', color: 'var(--color-text-secondary)', lineHeight: 1.7 }}>
+          <li>当前阶段仅支持：连接参数录入、保存、启用/停用、基础连通性测试。</li>
+          <li>当前阶段暂不支持：直接把交易/分类/账户写入远程 MySQL，也不会自动从远程库回填本地 store。</li>
+          <li>本地存储、WebDAV 备份、远程数据库连接三者并存，但职责不同：本地负责当前数据，WebDAV 负责备份恢复，MySQL 负责连接配置预留。</li>
+        </ul>
+        <ConnectionConfigManager />
       </section>
 
       <section className="panel" style={{ marginTop: 12 }}>
