@@ -43,19 +43,14 @@ function isAlipayAccountName(name: string): boolean {
 
 function AlipayBrandIcon() {
   return (
-    <svg
+    <img
       className="alipay-icon"
-      viewBox="0 0 24 24"
+      src="https://play-lh.googleusercontent.com/quzvssC112NXIlt4YBkclEo7f9ZnhaNtZ5fvaCs_P19X7KL71DiUqd2ysR8ZHsTaRTY"
+      alt=""
       width="16"
       height="16"
       aria-hidden="true"
-      focusable="false"
-    >
-      <rect x="1.5" y="1.5" width="21" height="21" rx="5" fill="#1677ff" />
-      <text x="12" y="16" textAnchor="middle" fontSize="11" fontWeight="700" fill="#ffffff">
-        支
-      </text>
-    </svg>
+    />
   );
 }
 

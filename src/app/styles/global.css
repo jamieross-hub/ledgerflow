@@ -1854,6 +1854,11 @@ tr:hover td {
   display: block;
 }
 
+.alipay-icon {
+  border-radius: 4px;
+  object-fit: cover;
+}
+
 .transaction-amount-cell {
   text-align: right;
   font-size: var(--font-lg);

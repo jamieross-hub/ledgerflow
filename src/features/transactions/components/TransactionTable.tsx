@@ -25,20 +25,14 @@ function detectAccountBrand(name: string): AccountBrand | null {
 
 function AlipayBrandIcon() {
   return (
-    <svg
+    <img
       className="alipay-icon"
-      viewBox="0 0 24 24"
+      src="https://play-lh.googleusercontent.com/quzvssC112NXIlt4YBkclEo7f9ZnhaNtZ5fvaCs_P19X7KL71DiUqd2ysR8ZHsTaRTY"
+      alt=""
       width="16"
       height="16"
       aria-hidden="true"
-      focusable="false"
-    >
-      <rect x="1.5" y="1.5" width="21" height="21" rx="5" fill="#1677FF" />
-      <path
-        d="M7.2 8.1h9.6v1.4H7.2zm2 2.7h7.5v1.3H9.2zm-2 2.4h10.2v1.35H7.2zm3.8-6.2h2v7.2h-2z"
-        fill="#fff"
-      />
-    </svg>
+    />
   );
 }
 
