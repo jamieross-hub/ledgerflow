@@ -1578,14 +1578,14 @@ export function RepaymentManagementPage() {
           </div>
           <div className="finance-overview-grid finance-overview-grid-strong">
             <article className="finance-overview-metric-card">
-              <p className="finance-overview-label">总负债</p>
+              <p className="finance-overview-label">💰 总负债</p>
               <p className="finance-overview-value">
                 <span className="finance-overview-number">{overviewTotalDebt.toFixed(2)}</span>
                 <span className="finance-overview-unit">¥</span>
               </p>
             </article>
             <article className="finance-overview-metric-card">
-              <p className="finance-overview-label">每月最低还款</p>
+              <p className="finance-overview-label">📉 每月最低还款</p>
               <p className="finance-overview-value">
                 <span className="finance-overview-number">
                   {debtSummary.totalMinimumPayment.toFixed(2)}
@@ -1596,7 +1596,7 @@ export function RepaymentManagementPage() {
             <article
               className={`finance-overview-metric-card finance-overview-pressure-card finance-overview-pressure-${pressureLevel.tone}`}
             >
-              <p className="finance-overview-label">负债率（{pressureLevel.label}）</p>
+              <p className="finance-overview-label">⚠️ 负债率（{pressureLevel.label}）</p>
               <p className="finance-overview-value">
                 <span className="finance-overview-number">
                   {(debtSummary.pressureRatio * 100).toFixed(1)}
@@ -1605,8 +1605,7 @@ export function RepaymentManagementPage() {
               </p>
             </article>
             <article className="finance-overview-metric-card finance-overview-health-card">
-              <p className="finance-overview-label">
-                负债健康度
+              <p className="finance-overview-label">🩺 负债健康度
                 <span
                   className="finance-metric-help"
                   title="健康度≈(1-最低月还款/可用月收入)×100。数值越高，现金流压力越低。"
@@ -1621,21 +1620,21 @@ export function RepaymentManagementPage() {
               </p>
             </article>
             <article className="finance-overview-metric-card">
-              <p className="finance-overview-label">净负债</p>
+              <p className="finance-overview-label">🧾 净负债</p>
               <p className="finance-overview-value">
                 <span className="finance-overview-number">{overviewTotalDebt.toFixed(2)}</span>
                 <span className="finance-overview-unit">¥</span>
               </p>
             </article>
             <article className="finance-overview-metric-card">
-              <p className="finance-overview-label">负债笔数</p>
+              <p className="finance-overview-label">📚 负债笔数</p>
               <p className="finance-overview-value">
                 <span className="finance-overview-number">{debts.length}</span>
                 <span className="finance-overview-unit">笔</span>
               </p>
             </article>
             <article className="finance-overview-metric-card">
-              <p className="finance-overview-label">月收入</p>
+              <p className="finance-overview-label">💼 月收入</p>
               <p className="finance-overview-value">
                 <span className="finance-overview-number">{monthlyIncome > 0 ? monthlyIncome.toFixed(2) : '--'}</span>
                 <span className="finance-overview-unit">¥</span>
@@ -1677,8 +1676,8 @@ export function RepaymentManagementPage() {
         </div>
 
         <FinanceCollapsibleSection
-          title="添加负债"
-          subtitle="上传截图自动识别，或手动逐项填写；手机端默认折叠以减少首屏长度。"
+          title="第 1 步：添加负债"
+          subtitle="先把欠款录进去，再继续补日期、账户和规则。"
           icon="💳"
           defaultOpen={debts.length === 0}
           className="card finance-secondary-panel finance-debt-entry-card finance-mobile-collapsible-section"
@@ -1768,6 +1767,41 @@ export function RepaymentManagementPage() {
               </select>
             </div>
             <div className="finance-debt-form-row finance-debt-form-row-detail">
+              <input
+                className="finance-debt-form-control"
+                value={debtPaymentAccount}
+                onChange={(event) => {
+                  setDebtPaymentAccount(event.target.value);
+                  setDebtFormError('');
+                }}
+                placeholder="扣款账户（如：招商银行储蓄卡）"
+                aria-label="扣款账户"
+              />
+              <RepaymentUnitInput
+                value={debtBillDay}
+                onChange={(value) => {
+                  setDebtBillDay(value);
+                  setDebtFormError('');
+                }}
+                unit="日"
+                min={1}
+                max={31}
+                placeholder={isLoanType ? '贷款无账单日' : '账单日'}
+                ariaLabel="账单日"
+                disabled={isLoanType}
+              />
+              <RepaymentUnitInput
+                value={debtRepaymentDay}
+                onChange={(value) => {
+                  setDebtRepaymentDay(value);
+                  setDebtFormError('');
+                }}
+                unit="日"
+                min={1}
+                max={31}
+                placeholder="还款日"
+                ariaLabel="还款日"
+              />
               <select
                 className="finance-debt-form-control"
                 value={debtRepaymentMethod}
@@ -1795,16 +1829,6 @@ export function RepaymentManagementPage() {
                 <option value="transaction-match">记录方式：交易匹配</option>
                 <option value="auto-debit">记录方式：自动扣款</option>
               </select>
-              <input
-                className="finance-debt-form-control"
-                value={debtPaymentAccount}
-                onChange={(event) => {
-                  setDebtPaymentAccount(event.target.value);
-                  setDebtFormError('');
-                }}
-                placeholder="扣款账户（如：招商银行储蓄卡）"
-                aria-label="扣款账户"
-              />
               <RepaymentUnitInput
                 value={debtGraceDays}
                 onChange={(value) => {
@@ -1890,31 +1914,6 @@ export function RepaymentManagementPage() {
                 step="0.01"
                 placeholder="总还款"
                 ariaLabel="总还款"
-              />
-              <RepaymentUnitInput
-                value={debtBillDay}
-                onChange={(value) => {
-                  setDebtBillDay(value);
-                  setDebtFormError('');
-                }}
-                unit="日"
-                min={1}
-                max={31}
-                placeholder={isLoanType ? '贷款无账单日' : '账单日'}
-                ariaLabel="账单日"
-                disabled={isLoanType}
-              />
-              <RepaymentUnitInput
-                value={debtRepaymentDay}
-                onChange={(value) => {
-                  setDebtRepaymentDay(value);
-                  setDebtFormError('');
-                }}
-                unit="日"
-                min={1}
-                max={31}
-                placeholder="还款日"
-                ariaLabel="还款日"
               />
             </div>
             <p className="muted finance-debt-form-helper">
@@ -2006,8 +2005,8 @@ export function RepaymentManagementPage() {
         </FinanceCollapsibleSection>
 
         <FinanceCollapsibleSection
-          title="还款台账预览"
-          subtitle="核对每笔负债的应还日、方式、账户与风险缺口。"
+          title="第 2 步：检查还款安排"
+          subtitle="重点看日期、金额、扣款账户和是否有缺口。"
           icon="🧮"
           defaultOpen={debts.length > 0 && debts.length <= 2}
           className="card finance-debt-ledger-panel finance-mobile-collapsible-section"
@@ -2072,8 +2071,8 @@ export function RepaymentManagementPage() {
         </FinanceCollapsibleSection>
 
         <FinanceCollapsibleSection
-          title="登记一笔还款"
-          subtitle="登记实际还款时间、金额、扣款账户和备注，手机端可按需展开。"
+          title="第 3 步：登记实际还款"
+          subtitle="记录你已经还了多少钱、哪天还的、从哪个账户扣的。"
           icon="💸"
           defaultOpen={recentRepaymentRecords.length === 0}
           className="card finance-debt-manager-panel finance-mobile-collapsible-section"
@@ -2213,8 +2212,8 @@ export function RepaymentManagementPage() {
         </FinanceCollapsibleSection>
 
         <FinanceCollapsibleSection
-          title="负债列表管理"
-          subtitle="集中查看与维护全部负债，避免页面长列表直接铺到底。"
+          title="第 4 步：管理全部负债"
+          subtitle="最后统一改、删、核对，不用在上面来回翻。"
           icon="📚"
           defaultOpen={debts.length > 0 && debts.length <= 3}
           className="card finance-debt-manager-panel finance-mobile-collapsible-section"
