@@ -7099,6 +7099,27 @@ body.categories-accounts-resizing {
   gap: var(--space-3);
 }
 
+.database-import-actions {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.database-import-mode-field {
+  min-width: min(280px, 100%);
+  flex: 1 1 280px;
+}
+
+.database-import-mode-field select {
+  width: 100%;
+}
+
+.database-import-actions > button {
+  min-height: 42px;
+}
+
 .sync-reminder {
   margin-top: var(--space-3);
   padding: var(--space-3);

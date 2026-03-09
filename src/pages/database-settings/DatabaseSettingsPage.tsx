@@ -316,8 +316,8 @@ export function DatabaseSettingsPage() {
       <section className="panel" style={{ marginTop: 12 }}>
         <h3 style={{ marginTop: 0 }}>账单导入</h3>
         <p className="sync-tip">支持微信、支付宝官方账单 CSV / TXT（含制表符）与微信 XLSX 格式。</p>
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div className="database-import-actions">
+          <label className="field database-import-mode-field" style={{ marginBottom: 0 }}>
             导入模式
             <select
               aria-label="账单导入模式"
