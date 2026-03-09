@@ -425,6 +425,7 @@ export function TransactionDetailDrawer({
 
             <section class="grid">
               <div class="kv"><label>日期时间</label><strong>${escapeHtml(formatDateTime(transaction.date))}</strong></div>
+              <div class="kv"><label>最后修改</label><strong>${escapeHtml(formatDateTime(transaction.updatedAt || transaction.date))}</strong></div>
               <div class="kv"><label>类型</label><strong>${escapeHtml(typeText)}</strong></div>
               <div class="kv"><label>分类</label><strong>${escapeHtml(categoryName)}</strong></div>
               <div class="kv"><label>账户</label><strong>${escapeHtml(accountName)}</strong></div>
@@ -695,6 +696,10 @@ export function TransactionDetailDrawer({
               <div className="drawer-kv">
                 <span>日期时间</span>
                 <strong>{formatDateTime(transaction.date)}</strong>
+              </div>
+              <div className="drawer-kv">
+                <span>最后修改</span>
+                <strong>{formatDateTime(transaction.updatedAt || transaction.date)}</strong>
               </div>
               <div className="drawer-kv">
                 <span>类型</span>

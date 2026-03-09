@@ -31,4 +31,5 @@ export interface TransactionItem {
   adjustmentKind?: TransactionAdjustmentKind;
   refundOfTransactionId?: string;
   attachments?: TransactionAttachmentItem[];
+  updatedAt?: string;
 }

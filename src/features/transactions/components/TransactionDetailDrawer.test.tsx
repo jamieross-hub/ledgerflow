@@ -23,6 +23,7 @@ const sample = {
   accountId: 'acc-1',
   amount: 100,
   date: new Date('2026-01-01').toISOString(),
+  updatedAt: new Date('2026-01-02T10:30:00').toISOString(),
   note: '午餐',
   tags: ['餐饮'],
   merchantOrderNo: 'MERCHANT-123456'
@@ -95,6 +96,7 @@ describe('TransactionDetailDrawer', () => {
 
     expect(screen.getByLabelText('支出')).toBeInTheDocument();
     expect(document.querySelectorAll('.alipay-icon').length).toBeGreaterThan(0);
+    expect(screen.getByText('最后修改')).toBeInTheDocument();
   });
 
   it('应展示退款冲正关系，并可在时间轴模式显示关联原单', () => {

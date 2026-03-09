@@ -246,7 +246,8 @@ function normalizeTransactionSemantic(
     ...tx,
     type: nextType,
     categoryId: nextCategoryId,
-    adjustmentKind
+    adjustmentKind,
+    updatedAt: tx.updatedAt || tx.date || new Date().toISOString()
   };
 }
 
@@ -338,6 +339,7 @@ export const useFinanceStore = create<FinanceState>()(
         const row = {
           ...payload,
           adjustmentKind: payload.adjustmentKind || 'normal',
+          updatedAt: payload.updatedAt || new Date().toISOString(),
           id
         };
         set((s) => {
@@ -354,6 +356,7 @@ export const useFinanceStore = create<FinanceState>()(
         const row = {
           ...payload,
           adjustmentKind: payload.adjustmentKind || 'normal',
+          updatedAt: new Date().toISOString(),
           id
         };
         set((s) => {
