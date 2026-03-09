@@ -1,7 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { AppAccentTheme, AppTheme } from '../types/app';
-import { DebtItem, DebtType, RepaymentRecord } from '../../features/debt/model/debtMetrics';
+import {
+  DebtItem,
+  DebtLifecycleStatus,
+  DebtType,
+  RepaymentRecord
+} from '../../features/debt/model/debtMetrics';
 
 export type RssSubscription = {
   id: string;
@@ -59,6 +64,20 @@ function normalizeFeedUrl(rawUrl: string): string {
   return String(rawUrl || '').trim();
 }
 
+function normalizeDebtStatus(status: unknown, balance?: number): DebtLifecycleStatus {
+  if (status === 'settled' || status === 'closed' || status === 'paused' || status === 'active') {
+    return status;
+  }
+  return Number(balance || 0) <= 0 ? 'settled' : 'active';
+}
+
+function normalizeDebtItem(item: DebtItem): DebtItem {
+  return {
+    ...item,
+    status: normalizeDebtStatus(item.status, item.balance)
+  };
+}
+
 function createSubscriptionId(url: string): string {
   const normalized = normalizeFeedUrl(url)
     .toLocaleLowerCase('en-US')
@@ -83,10 +102,12 @@ export const useAppPreferences = create<AppPreferencesState>()(
       setRepaymentState: ({ debts, monthlyIncome }) =>
         set({
           debts: Array.isArray(debts)
-            ? debts.map((item) => ({
-                ...item,
-                id: item.id || createDebtId(item.type)
-              }))
+            ? debts.map((item) =>
+                normalizeDebtItem({
+                  ...item,
+                  id: item.id || createDebtId(item.type)
+                })
+              )
             : [],
           monthlyIncome: Number.isFinite(monthlyIncome) ? monthlyIncome : 0
         }),
@@ -139,20 +160,24 @@ export const useAppPreferences = create<AppPreferencesState>()(
       },
       addDebt: (payload) => {
         set((state) => ({
-          debts: [{ ...payload, id: createDebtId(payload.type) }, ...state.debts]
+          debts: [normalizeDebtItem({ ...payload, id: createDebtId(payload.type) }), ...state.debts]
         }));
       },
       replaceDebts: (payload) => {
         set({
-          debts: payload.map((item) => ({
-            ...item,
-            id: createDebtId(item.type)
-          }))
+          debts: payload.map((item) =>
+            normalizeDebtItem({
+              ...item,
+              id: createDebtId(item.type)
+            })
+          )
         });
       },
       updateDebt: (id, payload) => {
         set((state) => ({
-          debts: state.debts.map((item) => (item.id === id ? { ...payload, id } : item))
+          debts: state.debts.map((item) =>
+            item.id === id ? normalizeDebtItem({ ...payload, id }) : item
+          )
         }));
       },
       removeDebt: (id) => {

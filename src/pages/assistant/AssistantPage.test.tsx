@@ -76,37 +76,47 @@ vi.mock('../../shared/store/useAiSettings', () => ({
 }));
 
 
-const addDebtMock = vi.fn();
-const updateDebtMock = vi.fn();
+const appPreferencesMocks = vi.hoisted(() => {
+  const addDebtMock = vi.fn();
+  const updateDebtMock = vi.fn();
+  const state = {
+    addDebt: addDebtMock,
+    updateDebt: updateDebtMock,
+    debts: [
+      {
+        id: 'saved-debt-1',
+        name: '京东白条分期',
+        type: 'consumer-loan',
+        balance: 5200,
+        annualRate: 12.8,
+        remainingMonths: 9,
+        repaymentDay: 8,
+        paymentAccount: '招商银行卡'
+      }
+    ],
+    repaymentRecords: [
+      {
+        debtId: 'saved-debt-1',
+        amount: 666,
+        paidAt: '2026-03-05',
+        paymentAccount: '招商银行卡',
+        recordMode: 'manual',
+        note: '3月已还'
+      }
+    ]
+  };
+  const useAppPreferences = Object.assign(
+    (selector: (state: any) => unknown) => selector(state),
+    { getState: () => state }
+  );
+  return { addDebtMock, updateDebtMock, state, useAppPreferences };
+});
+
+const addDebtMock = appPreferencesMocks.addDebtMock;
+const updateDebtMock = appPreferencesMocks.updateDebtMock;
 
 vi.mock('../../shared/store/useAppPreferences', () => ({
-  useAppPreferences: (selector: (state: any) => unknown) =>
-    selector({
-      addDebt: addDebtMock,
-      updateDebt: updateDebtMock,
-      debts: [
-        {
-          id: 'saved-debt-1',
-          name: '京东白条分期',
-          type: 'consumer-loan',
-          balance: 5200,
-          annualRate: 12.8,
-          remainingMonths: 9,
-          repaymentDay: 8,
-          paymentAccount: '招商银行卡'
-        }
-      ],
-      repaymentRecords: [
-        {
-          debtId: 'saved-debt-1',
-          amount: 666,
-          paidAt: '2026-03-05',
-          paymentAccount: '招商银行卡',
-          recordMode: 'manual',
-          note: '3月已还'
-        }
-      ]
-    })
+  useAppPreferences: appPreferencesMocks.useAppPreferences
 }));
 
 vi.mock('../../shared/store/useFinanceStore', () => ({
@@ -452,7 +462,7 @@ describe('AssistantPage', () => {
     expect(screen.getByText('还款检索结果')).toBeInTheDocument();
     expect(screen.getByText('计划中的应还')).toBeInTheDocument();
     expect(screen.getByText((content) => content.includes('每月8日') && content.includes('本期约666'))).toBeInTheDocument();
-    expect(screen.getByText('计划/实际账户')).toBeInTheDocument();
+    expect(screen.getByText('计划 / 实际账户')).toBeInTheDocument();
     expect(screen.getByText((content) => content.includes('招商') && content.includes('银行卡'))).toBeInTheDocument();
     
     sessionStorageGetItemSpy.mockRestore();

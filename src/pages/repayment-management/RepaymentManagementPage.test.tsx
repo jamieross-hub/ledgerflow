@@ -66,4 +66,20 @@ describe('RepaymentManagementPage', () => {
     const repaymentDayInputs = screen.getAllByDisplayValue('12');
     expect(repaymentDayInputs.length).toBeGreaterThan(0);
   });
+
+  it('应展示负债状态选项', () => {
+    render(
+      <MemoryRouter initialEntries={['/repayment-management']}>
+        <Routes>
+          <Route path="/repayment-management" element={<RepaymentManagementPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByLabelText('负债状态')).toHaveValue('active');
+    expect(screen.getByText('状态：进行中')).toBeInTheDocument();
+    expect(screen.getByText('状态：已结清')).toBeInTheDocument();
+    expect(screen.getByText('状态：已关闭')).toBeInTheDocument();
+    expect(screen.getByText('状态：暂缓处理')).toBeInTheDocument();
+  });
 });

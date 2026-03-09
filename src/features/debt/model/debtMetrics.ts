@@ -1,5 +1,7 @@
 export type DebtType = 'credit-card' | 'consumer-loan' | 'loan';
 
+export type DebtLifecycleStatus = 'active' | 'settled' | 'closed' | 'paused';
+
 export type DebtRepaymentMethod =
   | 'minimum-payment'
   | 'equal-installment'
@@ -23,6 +25,7 @@ export type DebtItem = {
   id: string;
   name: string;
   type: DebtType;
+  status?: DebtLifecycleStatus;
   balance: number;
   annualRate?: number;
   remainingMonths?: number;
