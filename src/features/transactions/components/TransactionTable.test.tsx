@@ -445,7 +445,15 @@ describe('TransactionTable', () => {
               accountId: 'acc-2',
               amount: 42,
               note: '午餐',
-              tags: []
+              tags: [],
+              attachments: [
+                {
+                  id: 'att-1',
+                  name: 'receipt.jpg',
+                  uploadedAt: '2026-03-13T10:00:00.000Z',
+                  remotePath: '/receipts/receipt.jpg'
+                }
+              ]
             },
             categoryName: '餐饮',
             accountName: '现金'
@@ -472,6 +480,7 @@ describe('TransactionTable', () => {
     expect(screen.getByLabelText('收入')).toBeInTheDocument();
     expect(screen.getByLabelText('支出')).toBeInTheDocument();
     expect(document.querySelectorAll('.alipay-icon').length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText('有附件').length).toBeGreaterThan(0);
   });
 
   it('应展示任务条统计并高亮退款/冲正行', () => {
@@ -565,10 +574,10 @@ describe('TransactionTable', () => {
     expect(within(taskStrip).getByText('退款 / 冲正')).toBeInTheDocument();
     expect(within(taskStrip).getByText('失败单')).toBeInTheDocument();
     expect(within(taskStrip).getByText('已完成')).toBeInTheDocument();
-    expect(within(taskStrip).getByText('100.00')).toBeInTheDocument();
-    expect(within(taskStrip).getByText('20.00')).toBeInTheDocument();
-    expect(within(taskStrip).getByText('30.00')).toBeInTheDocument();
-    expect(within(taskStrip).getByText('200.00')).toBeInTheDocument();
+    expect(within(taskStrip).getByText('¥100.00')).toBeInTheDocument();
+    expect(within(taskStrip).getByText('¥20.00')).toBeInTheDocument();
+    expect(within(taskStrip).getByText('¥30.00')).toBeInTheDocument();
+    expect(within(taskStrip).getByText('¥200.00')).toBeInTheDocument();
 
     expect(document.querySelector('#transaction-row-tx-refund')).toHaveClass(
       'transaction-row-refund-like'

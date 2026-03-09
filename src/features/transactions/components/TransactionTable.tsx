@@ -90,6 +90,21 @@ function renderAccountLabel(accountName: string) {
   );
 }
 
+function renderAttachmentIndicator(count?: number, compact = false) {
+  const safeCount = Math.max(0, Number(count) || 0);
+  if (safeCount <= 0) return null;
+  const label = safeCount > 1 ? `有 ${safeCount} 个附件` : '有附件';
+  return (
+    <span
+      className={`transaction-attachment-indicator ${compact ? 'is-compact' : ''}`.trim()}
+      aria-label={label}
+      title={label}
+    >
+      📎{compact ? '' : safeCount > 1 ? ` ${safeCount}` : ''}
+    </span>
+  );
+}
+
 function getMinColumnWidth(key: TransactionColumnKey): number {
   return key === 'amount' ? AMOUNT_COLUMN_MIN_WIDTH : DEFAULT_MIN_COLUMN_WIDTH;
 }
@@ -926,8 +941,11 @@ export function TransactionTable({
                           if (column.key === 'note') {
                             return (
                               <td key={`${item.id}-${column.key}`}>
-                                <span title={note}>
-                                  {renderCellValue(column.key, { item, categoryName, accountName })}
+                                <span title={note} className="transaction-note-with-attachment">
+                                  <span>
+                                    {renderCellValue(column.key, { item, categoryName, accountName })}
+                                  </span>
+                                  {renderAttachmentIndicator(item.attachments?.length)}
                                 </span>
                               </td>
                             );
@@ -1035,7 +1053,10 @@ export function TransactionTable({
                           ) : null}
                         </div>
                       </header>
-                      <p>{note}</p>
+                      <p>
+                        {note}
+                        {renderAttachmentIndicator(item.attachments?.length, true)}
+                      </p>
                       {item.orderNo || item.merchantOrderNo ? (
                         <small>
                           交易订单：{item.orderNo || '-'} · 商家订单：
