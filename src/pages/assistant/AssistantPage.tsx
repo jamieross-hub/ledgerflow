@@ -25,6 +25,10 @@ import {
 } from '../../shared/lib/transactionMetrics';
 import { Toast } from '../../shared/ui/Toast';
 import type { DebtItem } from '../../features/debt/model/debtMetrics';
+import {
+  calculateDebtDerivedMetrics,
+  calculateDebtSummary
+} from '../../features/debt/model/debtMetrics';
 import type { DraftBillEntry } from '../../features/assistant/workbench/workbenchTypes';
 import type { TransactionItem } from '../../entities/transaction/types';
 import type { Category } from '../../entities/category/types';
@@ -1002,6 +1006,35 @@ export function AssistantPage() {
         .find((item) => item.type !== 'budget') ?? null,
     [transactions]
   );
+  const creditOverview = useMemo(() => {
+    const monthlyIncome = useAppPreferences.getState().monthlyIncome || 0;
+    const summary = calculateDebtSummary(debts, monthlyIncome);
+    const monthKey = new Date().toISOString().slice(0, 7);
+    const monthRepaymentRecords = repaymentRecords.filter((record) => String(record.paidAt || '').slice(0, 7) === monthKey);
+    const totalPaidThisMonth = monthRepaymentRecords.reduce((sum, record) => sum + Number(record.amount || 0), 0);
+    const totalDueThisMonth = debts.reduce((sum, item) => sum + calculateDebtDerivedMetrics(item).minimumPayment, 0);
+    const dueSoonItems = debts
+      .filter((item) => typeof item.repaymentDay === 'number')
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        repaymentDay: item.repaymentDay || 0,
+        minimumPayment: calculateDebtDerivedMetrics(item).minimumPayment
+      }))
+      .sort((a, b) => a.repaymentDay - b.repaymentDay)
+      .slice(0, 3);
+    const totalRemainingInterest = debts.reduce((sum, item) => sum + (calculateDebtDerivedMetrics(item).remainingInterestCost || 0), 0);
+
+    return {
+      totalDebt: summary.totalDebt,
+      totalMinimumPayment: summary.totalMinimumPayment,
+      totalDueThisMonth,
+      totalPaidThisMonth,
+      currentGap: Math.max(0, totalDueThisMonth - totalPaidThisMonth),
+      totalRemainingInterest,
+      dueSoonItems
+    };
+  }, [debts, repaymentRecords]);
   const recentTimelineTransactions = useMemo(
     () =>
       [...transactions]
@@ -2200,6 +2233,73 @@ export function AssistantPage() {
               </div>
             </div>
           </article>
+
+          {mode === 'credit' && debts.length > 0 ? (
+            <article className="chat-msg">
+              <div className="chat-msg-avatar">📊</div>
+              <div className="chat-msg-body">
+                <div className="chat-msg-header">信贷汇总快照</div>
+                <div className="chat-credit-overview-card">
+                  <div className="chat-credit-overview-grid">
+                    <div>
+                      <span>当前总欠款</span>
+                      <strong>¥{creditOverview.totalDebt.toFixed(2)}</strong>
+                    </div>
+                    <div>
+                      <span>本月总应还</span>
+                      <strong>¥{creditOverview.totalDueThisMonth.toFixed(2)}</strong>
+                    </div>
+                    <div>
+                      <span>本月已还</span>
+                      <strong>¥{creditOverview.totalPaidThisMonth.toFixed(2)}</strong>
+                    </div>
+                    <div>
+                      <span>当前还差</span>
+                      <strong>¥{creditOverview.currentGap.toFixed(2)}</strong>
+                    </div>
+                    <div>
+                      <span>最低还款合计</span>
+                      <strong>¥{creditOverview.totalMinimumPayment.toFixed(2)}</strong>
+                    </div>
+                    <div>
+                      <span>剩余利息估算</span>
+                      <strong>¥{creditOverview.totalRemainingInterest.toFixed(2)}</strong>
+                    </div>
+                  </div>
+                  {creditOverview.dueSoonItems.length > 0 ? (
+                    <div className="chat-credit-overview-due-list">
+                      {creditOverview.dueSoonItems.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className="chat-credit-overview-due-chip"
+                          onClick={() => navigate('/repayment-management')}
+                        >
+                          {item.name} · {item.repaymentDay}日 · ¥{item.minimumPayment.toFixed(0)}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="chat-credit-actions">
+                    <button
+                      type="button"
+                      className="chat-secondary-action-btn"
+                      onClick={() => navigate('/repayment-management')}
+                    >
+                      去看完整台账
+                    </button>
+                    <button
+                      type="button"
+                      className="chat-secondary-action-btn"
+                      onClick={() => submitPrompt('帮我看本月总应还、已还多少、还差多少，并指出最值得先处理的项目')}
+                    >
+                      继续做汇总分析
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          ) : null}
 
           {chatHistory.map((item, index) => (
             <article
