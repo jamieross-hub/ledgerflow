@@ -10035,6 +10035,29 @@ body.categories-accounts-resizing {
   outline: none;
 }
 
+.finance-unit-input {
+  position: relative;
+  display: block;
+}
+
+.finance-unit-input .finance-debt-form-control {
+  padding-right: 42px;
+}
+
+.finance-unit-input > span {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+
+.finance-unit-input.is-disabled > span {
+  opacity: 0.55;
+}
+
 .finance-debt-submit {
   min-height: 46px;
   padding-inline: 20px;

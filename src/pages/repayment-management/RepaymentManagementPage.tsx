@@ -529,6 +529,39 @@ function simulateRepaymentPlan(input: {
   };
 }
 
+function RepaymentUnitInput(props: {
+  value: string;
+  onChange: (value: string) => void;
+  unit: string;
+  placeholder: string;
+  ariaLabel: string;
+  min?: number;
+  max?: number;
+  step?: string | number;
+  inputMode?: 'decimal' | 'numeric';
+  disabled?: boolean;
+}) {
+  const { value, onChange, unit, placeholder, ariaLabel, min, max, step, inputMode, disabled } = props;
+  return (
+    <label className={`finance-unit-input ${disabled ? 'is-disabled' : ''}`}>
+      <input
+        className="finance-debt-form-control"
+        type="number"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        inputMode={inputMode}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        disabled={disabled}
+      />
+      <span>{unit}</span>
+    </label>
+  );
+}
+
 export function RepaymentManagementPage() {
   const location = useLocation();
   const {
@@ -1626,15 +1659,14 @@ export function RepaymentManagementPage() {
               {incomeLoading ? '估算中...' : '刷新 AI 月收入'}
             </button>
             <form className="finance-income-inline-manual" onSubmit={onManualIncomeSubmit}>
-              <input
-                className="finance-debt-form-control"
-                type="number"
+              <RepaymentUnitInput
+                value={manualIncomeInput}
+                onChange={setManualIncomeInput}
+                unit="¥"
                 min={0}
                 step="1"
-                value={manualIncomeInput}
-                onChange={(event) => setManualIncomeInput(event.target.value)}
-                placeholder="手动填入月收入（¥）"
-                aria-label="手动填入月收入"
+                placeholder="手动填入月收入"
+                ariaLabel="手动填入月收入"
               />
               <button type="submit" className="finance-income-inline-action">
                 保存手动月收入
@@ -1773,129 +1805,116 @@ export function RepaymentManagementPage() {
                 placeholder="扣款账户（如：招商银行储蓄卡）"
                 aria-label="扣款账户"
               />
-              <input
-                className="finance-debt-form-control"
-                type="number"
-                min={0}
-                max={30}
+              <RepaymentUnitInput
                 value={debtGraceDays}
-                onChange={(event) => {
-                  setDebtGraceDays(event.target.value);
+                onChange={(value) => {
+                  setDebtGraceDays(value);
                   setDebtFormError('');
                 }}
-                placeholder="宽限期（天，0-30）"
-                aria-label="宽限期"
+                unit="天"
+                min={0}
+                max={30}
+                placeholder="宽限期"
+                ariaLabel="宽限期"
               />
             </div>
             <div className="finance-debt-form-row finance-debt-form-row-detail">
-              <input
-                className="finance-debt-form-control"
-                type="number"
-                min={0}
-                step="0.01"
+              <RepaymentUnitInput
                 value={debtAnnualRate}
-                onChange={(event) => {
-                  setDebtAnnualRate(event.target.value);
+                onChange={(value) => {
+                  setDebtAnnualRate(value);
                   setDebtFormError('');
                 }}
+                unit="%"
+                min={0}
+                step="0.01"
                 inputMode="decimal"
-                placeholder={
-                  isLoanType
-                    ? '年化利率（%，可留空并由公式反推）'
-                    : '年化利率（非贷款可留空）'
-                }
+                placeholder={isLoanType ? '年化利率（可留空并由公式反推）' : '年化利率'}
+                ariaLabel="年化利率"
                 disabled={!isLoanType}
-                aria-label="年化利率"
               />
-              <input
-                className="finance-debt-form-control"
-                type="number"
-                min={1}
+              <RepaymentUnitInput
                 value={debtMonths}
-                onChange={(event) => {
-                  setDebtMonths(event.target.value);
+                onChange={(value) => {
+                  setDebtMonths(value);
                   setDebtFormError('');
                 }}
-                placeholder={isLoanType ? '剩余期数（月，如：24）' : '剩余期数（贷款类型可填）'}
+                unit="月"
+                min={1}
+                placeholder={isLoanType ? '剩余期数' : '剩余期数'}
+                ariaLabel="剩余期数"
                 disabled={!isLoanType}
-                aria-label="剩余期数"
               />
-              <input
-                className="finance-debt-form-control"
-                type="number"
-                min={1}
+              <RepaymentUnitInput
                 value={debtTotalPeriods}
-                onChange={(event) => {
-                  setDebtTotalPeriods(event.target.value);
+                onChange={(value) => {
+                  setDebtTotalPeriods(value);
                   setDebtFormError('');
                 }}
-                placeholder="总期数（如：36）"
-                aria-label="总期数"
+                unit="期"
+                min={1}
+                placeholder="总期数"
+                ariaLabel="总期数"
               />
-              <input
-                className="finance-debt-form-control"
-                type="number"
-                min={0}
+              <RepaymentUnitInput
                 value={debtPaidPeriods}
-                onChange={(event) => {
-                  setDebtPaidPeriods(event.target.value);
+                onChange={(value) => {
+                  setDebtPaidPeriods(value);
                   setDebtFormError('');
                 }}
-                placeholder="已还期数（如：12）"
-                aria-label="已还期数"
-              />
-              <input
-                className="finance-debt-form-control"
-                type="number"
+                unit="期"
                 min={0}
-                step="0.01"
+                placeholder="已还期数"
+                ariaLabel="已还期数"
+              />
+              <RepaymentUnitInput
                 value={debtLoanPrincipal}
-                onChange={(event) => {
-                  setDebtLoanPrincipal(event.target.value);
+                onChange={(value) => {
+                  setDebtLoanPrincipal(value);
                   setDebtFormError('');
                 }}
-                placeholder="借款金额（¥，用于反推利率）"
-                aria-label="借款金额"
-              />
-              <input
-                className="finance-debt-form-control"
-                type="number"
+                unit="¥"
                 min={0}
                 step="0.01"
+                placeholder="借款金额"
+                ariaLabel="借款金额"
+              />
+              <RepaymentUnitInput
                 value={debtTotalRepayment}
-                onChange={(event) => {
-                  setDebtTotalRepayment(event.target.value);
+                onChange={(value) => {
+                  setDebtTotalRepayment(value);
                   setDebtFormError('');
                 }}
-                placeholder="总还款（¥，用于反推利率）"
-                aria-label="总还款"
+                unit="¥"
+                min={0}
+                step="0.01"
+                placeholder="总还款"
+                ariaLabel="总还款"
               />
-              <input
-                className="finance-debt-form-control"
-                type="number"
-                min={1}
-                max={31}
+              <RepaymentUnitInput
                 value={debtBillDay}
-                onChange={(event) => {
-                  setDebtBillDay(event.target.value);
+                onChange={(value) => {
+                  setDebtBillDay(value);
                   setDebtFormError('');
                 }}
-                placeholder={isLoanType ? '贷款无账单日（留空）' : '账单日（1-31，可选）'}
-                disabled={isLoanType}
-                aria-label="账单日"
-              />
-              <input
-                className="finance-debt-form-control"
-                type="number"
+                unit="日"
                 min={1}
                 max={31}
+                placeholder={isLoanType ? '贷款无账单日' : '账单日'}
+                ariaLabel="账单日"
+                disabled={isLoanType}
+              />
+              <RepaymentUnitInput
                 value={debtRepaymentDay}
-                onChange={(event) => {
-                  setDebtRepaymentDay(event.target.value);
+                onChange={(value) => {
+                  setDebtRepaymentDay(value);
                   setDebtFormError('');
                 }}
-                placeholder="还款日（1-31，可选）"
-                aria-label="还款日"
+                unit="日"
+                min={1}
+                max={31}
+                placeholder="还款日"
+                ariaLabel="还款日"
               />
             </div>
             <p className="muted finance-debt-form-helper">
@@ -2088,18 +2107,17 @@ export function RepaymentManagementPage() {
                   </option>
                 ))}
               </select>
-              <input
-                className="finance-debt-form-control"
-                type="number"
-                min={0}
-                step="0.01"
+              <RepaymentUnitInput
                 value={repaymentAmount}
-                onChange={(event) => {
-                  setRepaymentAmount(event.target.value);
+                onChange={(value) => {
+                  setRepaymentAmount(value);
                   setRepaymentRecordError('');
                 }}
-                placeholder="实际还款金额（¥）"
-                aria-label="实际还款金额"
+                unit="¥"
+                min={0}
+                step="0.01"
+                placeholder="实际还款金额"
+                ariaLabel="实际还款金额"
               />
               <input
                 className="finance-debt-form-control"
