@@ -936,6 +936,8 @@ export function AssistantPage() {
   const showEmbeddingSummary = useAiSettings((s) => s.showEmbeddingSummary);
   const debts = useAppPreferences((s) => s.debts);
   const updateDebt = useAppPreferences((s) => s.updateDebt);
+  const removeDebt = useAppPreferences((s) => s.removeDebt);
+  const addRepaymentRecord = useAppPreferences((s) => s.addRepaymentRecord);
   const repaymentRecords = useAppPreferences((s) => s.repaymentRecords);
   const showEmbeddingDebug = useAiSettings((s) => s.showEmbeddingDebug);
   const embeddingModel = useAiSettings((s) => s.embeddingModel);
@@ -1448,6 +1450,40 @@ export function AssistantPage() {
       );
     },
     [addDebt, updateDebt, wb]
+  );
+
+  const handleDeleteMatchedDebt = useCallback(
+    (creditItem: CreditExtractedItem) => {
+      if (!creditItem.matchedDebtId) return;
+      removeDebt(creditItem.matchedDebtId);
+      wb.setToastState(`已删除“${creditItem.matchedDebtName || creditItem.title}”对应负债`, 'warning');
+    },
+    [removeDebt, wb]
+  );
+
+  const handleQuickRepaymentRecord = useCallback(
+    (creditItem: CreditExtractedItem) => {
+      if (!creditItem.matchedDebtId) {
+        wb.setToastState('这张卡片还没稳定命中已保存负债，先保存或补全后再登记还款。', 'warning');
+        return;
+      }
+      const amountText = String(creditItem.dueAmount || '').replace(/[^\d.-]/g, '');
+      const amount = Number(amountText);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        wb.setToastState('当前应还金额还不够稳定，先补全金额后再登记还款。', 'warning');
+        return;
+      }
+      addRepaymentRecord({
+        debtId: creditItem.matchedDebtId,
+        amount,
+        paidAt: new Date().toISOString().slice(0, 10),
+        paymentAccount: creditItem.repaymentGapSummary?.paymentAccountSummary || undefined,
+        note: `来自 AI 信贷助手：${creditItem.title}`,
+        recordMode: 'manual'
+      });
+      wb.setToastState(`已为“${creditItem.title}”快速登记一笔 ¥${amount.toFixed(2)} 还款记录`, 'success');
+    },
+    [addRepaymentRecord, wb]
   );
 
   const buildAssistantMessageText = useCallback(
@@ -2460,13 +2496,32 @@ export function AssistantPage() {
                             onClick={() =>
                               navigate('/repayment-management', {
                                 state: {
-                                  prefillDebt: mapCreditItemToRepaymentPrefill(creditItem)
+                                  prefillDebt: mapCreditItemToRepaymentPrefill(creditItem),
+                                  editingDebtId: creditItem.matchedDebtId
                                 }
                               })
                             }
                           >
-                            {creditItem.pendingFields.length > 0 ? '去补充后保存' : '带去还款管理'}
+                            {creditItem.matchedDebtId ? '编辑这笔负债' : creditItem.pendingFields.length > 0 ? '去补充后保存' : '带去还款管理'}
                           </button>
+                          {creditItem.matchedDebtId ? (
+                            <>
+                              <button
+                                type="button"
+                                className="chat-secondary-action-btn"
+                                onClick={() => handleQuickRepaymentRecord(creditItem)}
+                              >
+                                快速登记已还
+                              </button>
+                              <button
+                                type="button"
+                                className="chat-secondary-action-btn danger"
+                                onClick={() => handleDeleteMatchedDebt(creditItem)}
+                              >
+                                删除这笔负债
+                              </button>
+                            </>
+                          ) : null}
                         </div>
                       </section>
                     ))}

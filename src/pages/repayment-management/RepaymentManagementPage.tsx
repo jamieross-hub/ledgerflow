@@ -622,9 +622,11 @@ export function RepaymentManagementPage() {
   }, []);
 
   useEffect(() => {
-    const prefillDebt = (location.state as { prefillDebt?: RepaymentPrefillDebt } | null)?.prefillDebt;
+    const locationState = (location.state as { prefillDebt?: RepaymentPrefillDebt; editingDebtId?: string } | null) || null;
+    const prefillDebt = locationState?.prefillDebt;
     if (!prefillDebt) return;
 
+    setEditingDebtId(locationState?.editingDebtId || '');
     setDebtName(prefillDebt.name || '');
     setDebtType(prefillDebt.type || 'credit-card');
     setDebtBalance(prefillDebt.balance || '');
@@ -637,7 +639,11 @@ export function RepaymentManagementPage() {
     setDebtRepaymentDay(prefillDebt.repaymentDay || '');
     setDebtPaymentAccount(prefillDebt.paymentAccount || '');
     setDebtFormError('');
-    setPrefillHint(`已从 AI 信贷管家带入“${prefillDebt.name || '待确认负债'}”的识别结果，请核对后再保存。`);
+    setPrefillHint(
+      locationState?.editingDebtId
+        ? `已从 AI 信贷管家带入“${prefillDebt.name || '待确认负债'}”并进入编辑模式，请核对后保存。`
+        : `已从 AI 信贷管家带入“${prefillDebt.name || '待确认负债'}”的识别结果，请核对后再保存。`
+    );
   }, [location.state]);
 
   const debtSummary = useMemo(
