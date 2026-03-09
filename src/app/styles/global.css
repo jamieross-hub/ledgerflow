@@ -10592,7 +10592,8 @@ body.categories-accounts-resizing {
   .finance-income-inline-manual,
   .finance-overview-income-actions,
   .finance-ledger-grid,
-  .finance-ledger-meta-grid {
+  .finance-ledger-meta-grid,
+  .dashboard-donut-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -10946,6 +10947,10 @@ body.categories-accounts-resizing {
   align-items: center;
 }
 
+.dashboard-donut-layout > * {
+  min-width: 0;
+}
+
 .dashboard-donut-wrap {
   position: relative;
   width: min(100%, 260px);
@@ -11002,6 +11007,8 @@ body.categories-accounts-resizing {
 .dashboard-donut-center span {
   font-size: 11px;
   color: var(--color-text-secondary);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-donut-center strong {
@@ -11016,11 +11023,15 @@ body.categories-accounts-resizing {
 }
 
 .dashboard-donut-list {
+  min-width: 0;
   display: grid;
   gap: 10px;
 }
 
 .dashboard-donut-list-item {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
   border: 1px solid var(--color-border-light);
   border-radius: 14px;
   background: color-mix(in srgb, var(--color-bg-subtle) 94%, var(--color-bg-elevated));
@@ -11063,13 +11074,17 @@ body.categories-accounts-resizing {
 
 .dashboard-donut-list-main header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
 }
 
 .dashboard-donut-list-main strong,
 .dashboard-donut-list-side strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 13px;
   color: var(--color-text);
 }
@@ -11095,6 +11110,7 @@ body.categories-accounts-resizing {
 }
 
 .dashboard-donut-list-side {
+  min-width: 72px;
   text-align: right;
   display: grid;
   gap: 4px;

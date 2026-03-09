@@ -1047,7 +1047,7 @@ export function DashboardPage() {
     });
 
     const includeRow = (type: string) =>
-      cashflowView === 'cashflow' ? type !== 'income' : type === 'expense';
+      cashflowView === 'cashflow' ? type === 'income' || type === 'expense' || type === 'repayment' : type === 'expense';
 
     thisMonthRows.forEach((item) => {
       if (!includeRow(item.type)) return;
@@ -1465,6 +1465,7 @@ export function DashboardPage() {
                               className={`dashboard-donut-list-item ${isActive ? 'is-active' : ''}`}
                               onMouseEnter={() => setSelectedCategoryName(item.name)}
                               onFocus={() => setSelectedCategoryName(item.name)}
+                              onClick={() => setSelectedCategoryName(item.name)}
                             >
                               <span className="dashboard-donut-list-icon">{item.icon}</span>
                               <div className="dashboard-donut-list-main">
