@@ -39,9 +39,12 @@ export function GlobalMemoryPage() {
   const setMemoryDisabled = useGlobalMemoryStore((s) => s.setMemoryDisabled);
   const pinMemory = useGlobalMemoryStore((s) => s.pinMemory);
   const removeMemory = useGlobalMemoryStore((s) => s.removeMemory);
+  const removeMemories = useGlobalMemoryStore((s) => s.removeMemories);
+  const clearMemories = useGlobalMemoryStore((s) => s.clearMemories);
 
   const [type, setType] = useState<GlobalMemoryType | 'all'>('all');
   const [status, setStatus] = useState<GlobalMemoryStatus | 'all'>('active');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ visible: boolean; message: string; variant: ToastVariant }>({
     visible: false,
@@ -71,6 +74,18 @@ export function GlobalMemoryPage() {
 
   const showToast = (message: string, variant: ToastVariant = 'success') => {
     setToast({ visible: true, message, variant });
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  };
+
+  const selectAllFiltered = () => {
+    setSelectedIds(filtered.map((item) => item.id));
+  };
+
+  const clearSelection = () => {
+    setSelectedIds([]);
   };
 
   return (
@@ -136,6 +151,35 @@ export function GlobalMemoryPage() {
             </select>
           </label>
         </div>
+        <div className="global-memory-bulkbar">
+          <span>已选 {selectedIds.length} 条</span>
+          <button type="button" onClick={selectAllFiltered}>全选当前筛选</button>
+          <button type="button" onClick={clearSelection}>清空选择</button>
+          <button
+            type="button"
+            className="danger"
+            disabled={selectedIds.length === 0}
+            onClick={() => {
+              removeMemories(selectedIds);
+              showToast(`已删除 ${selectedIds.length} 条记忆`, 'warning');
+              clearSelection();
+            }}
+          >
+            批量删除
+          </button>
+          <button
+            type="button"
+            className="danger"
+            disabled={memories.length === 0}
+            onClick={() => {
+              clearMemories();
+              showToast('已重置全部全局记忆', 'warning');
+              clearSelection();
+            }}
+          >
+            重置记忆
+          </button>
+        </div>
       </section>
 
       {filtered.length === 0 ? (
@@ -154,6 +198,14 @@ export function GlobalMemoryPage() {
 
             return (
               <article key={item.id} className="panel global-memory-card">
+                <label className="global-memory-check">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(item.id)}
+                    onChange={() => toggleSelect(item.id)}
+                    aria-label={`选择记忆 ${item.title || '未命名记忆'}`}
+                  />
+                </label>
                 <div className="global-memory-card-main">
                   <div className="global-memory-card-head">
                     <div className="global-memory-card-title-wrap">

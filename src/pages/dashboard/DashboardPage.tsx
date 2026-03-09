@@ -200,6 +200,7 @@ export function DashboardPage() {
     value: number;
   } | null>(null);
   const [trendGranularity, setTrendGranularity] = useState<'week' | 'month' | 'year'>('week');
+  const [trendMonthOffset, setTrendMonthOffset] = useState(0);
   const [selectedTrendIndex, setSelectedTrendIndex] = useState<number | null>(null);
   const [cashflowView, setCashflowView] = useState<'expense' | 'cashflow'>('expense');
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
@@ -571,6 +572,10 @@ export function DashboardPage() {
   const reducedHistoryMonths = useMemo(() => recentMonths.slice(-4), [recentMonths]);
   const currentIndex = Math.max(reducedHistoryMonths.length - 1, 0);
 
+  const trendBaseDate = useMemo(() => new Date(currentYear, currentMonth + trendMonthOffset, 1), [currentMonth, currentYear, trendMonthOffset]);
+  const trendBaseMonth = trendBaseDate.getMonth();
+  const trendBaseYear = trendBaseDate.getFullYear();
+
   const chartData = useMemo(() => {
     const history = reducedHistoryMonths.map((item) => ({
       label: item.shortLabel,
@@ -879,18 +884,19 @@ export function DashboardPage() {
       });
     }
 
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const daysInMonth = new Date(trendBaseYear, trendBaseMonth + 1, 0).getDate();
     const dailyMap = new Map<number, number>();
-    monthly.forEach((item) => {
+    transactions.forEach((item) => {
       if (!isActualExpenseType(item.type)) return;
       const date = new Date(item.date);
+      if (date.getMonth() !== trendBaseMonth || date.getFullYear() !== trendBaseYear) return;
       const day = date.getDate();
       dailyMap.set(day, (dailyMap.get(day) || 0) + item.amount);
     });
 
     return Array.from({ length: daysInMonth }).map((_, index) => {
       const day = index + 1;
-      const date = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const date = `${trendBaseYear}-${String(trendBaseMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       return {
         label: `${day}日`,
         shortLabel: String(day),
@@ -899,7 +905,7 @@ export function DashboardPage() {
         dateTo: date
       };
     });
-  }, [currentMonth, currentYear, monthly, recentMonths, transactions, trendGranularity]);
+  }, [currentMonth, currentYear, monthly, recentMonths, transactions, trendBaseMonth, trendBaseYear, trendGranularity]);
 
   const trendPeakIndex = useMemo(() => {
     if (!trendSeries.length) return -1;
@@ -1309,6 +1315,22 @@ export function DashboardPage() {
                 <article className="panel dashboard-unified-card" style={{ margin: 0 }}>
                   <div className="dashboard-section-header">
                     <h4>支出趋势（单轴柱状图）</h4>
+                    <div className="dashboard-trend-header-actions">
+                      {trendGranularity === 'week' ? (
+                        <div className="dashboard-trend-month-switcher">
+                          <button type="button" onClick={() => setTrendMonthOffset((prev) => prev - 1)}>
+                            上月
+                          </button>
+                          <strong>{trendBaseYear}年{trendBaseMonth + 1}月</strong>
+                          <button
+                            type="button"
+                            onClick={() => setTrendMonthOffset((prev) => Math.min(prev + 1, 0))}
+                            disabled={trendMonthOffset >= 0}
+                          >
+                            下月
+                          </button>
+                        </div>
+                      ) : null}
                     <div className="dashboard-segment-control">
                       <button
                         type="button"
@@ -1331,6 +1353,7 @@ export function DashboardPage() {
                       >
                         年
                       </button>
+                    </div>
                     </div>
                   </div>
                   {activeTrendItem ? (
@@ -1385,8 +1408,8 @@ export function DashboardPage() {
                   )}
                 </article>
                 <article className="panel dashboard-unified-card" style={{ margin: 0 }}>
-                  <div className="dashboard-section-header">
-                    <h4>分类结构（Donut + 联动列表）</h4>
+                  <div className="dashboard-section-header dashboard-section-header-tight">
+                    <h4>分类结构</h4>
                     <div className="dashboard-segment-control">
                       <button
                         type="button"
@@ -1425,7 +1448,7 @@ export function DashboardPage() {
                             />
                           ))}
                         </svg>
-                        <div className="dashboard-donut-center">
+                        <div className="dashboard-donut-center" title={activeCategoryItem.name}>
                           <span>{activeCategoryItem.icon} {activeCategoryItem.name}</span>
                           <strong>{formatCurrency(activeCategoryItem.amount)}</strong>
                           <em>{activeCategoryItem.percent.toFixed(1)}%</em>
@@ -1446,7 +1469,7 @@ export function DashboardPage() {
                               <span className="dashboard-donut-list-icon">{item.icon}</span>
                               <div className="dashboard-donut-list-main">
                                 <header>
-                                  <strong>{item.name}</strong>
+                                  <strong title={item.name}>{item.name}</strong>
                                   <span>{item.percent.toFixed(1)}%</span>
                                 </header>
                                 <div className="dashboard-donut-list-track">
@@ -1879,11 +1902,11 @@ export function DashboardPage() {
                 <span className="history">历史</span>
                 <span className="forecast">预测</span>
               </div>
-              <p className="dashboard-forecast-hover">
-                {hoveredChartPoint
-                  ? `${hoveredChartPoint.label}：${formatCurrency(hoveredChartPoint.value)}`
-                  : '悬停数据点查看具体数值'}
-              </p>
+              <div className="dashboard-forecast-hover-card">
+                <strong>{hoveredChartPoint ? hoveredChartPoint.label : '悬停数据点'}</strong>
+                <span>{hoveredChartPoint ? formatCurrency(hoveredChartPoint.value) : '查看具体数值'}</span>
+                <em>{hoveredChartPoint ? '历史 / 预测属性预览' : '支持鼠标悬停预览'}</em>
+              </div>
               <div className="dashboard-forecast-legend">
                 {chartData.map((item, index) => {
                   const klass = item.type === 'forecast' ? 'forecast' : 'history';

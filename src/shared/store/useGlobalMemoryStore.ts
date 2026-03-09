@@ -69,6 +69,8 @@ interface GlobalMemoryState {
   addMemory: (payload: GlobalMemoryDraft) => { ok: boolean; id?: string; reason?: string };
   updateMemory: (payload: GlobalMemoryUpdatePayload) => { ok: boolean; reason?: string };
   removeMemory: (id: string) => void;
+  removeMemories: (ids: string[]) => void;
+  clearMemories: () => void;
   archiveMemory: (id: string) => void;
   restoreMemory: (id: string) => void;
   setMemoryDisabled: (id: string, disabled: boolean) => void;
@@ -111,6 +113,15 @@ export const useGlobalMemoryStore = create<GlobalMemoryState>()(
         set((state) => ({
           memories: state.memories.filter((item) => item.id !== id)
         }));
+      },
+      removeMemories: (ids) => {
+        const idSet = new Set(ids);
+        set((state) => ({
+          memories: state.memories.filter((item) => !idSet.has(item.id))
+        }));
+      },
+      clearMemories: () => {
+        set(() => ({ memories: [] }));
       },
       archiveMemory: (id) => {
         set((state) => ({
