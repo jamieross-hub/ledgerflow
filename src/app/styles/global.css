@@ -10041,7 +10041,7 @@ body.categories-accounts-resizing {
 }
 
 .finance-unit-input .finance-debt-form-control {
-  padding-right: 56px;
+  padding-right: 44px;
   background: color-mix(in srgb, var(--color-bg-elevated) 88%, var(--color-primary-soft));
 }
 
@@ -10053,13 +10053,13 @@ body.categories-accounts-resizing {
 
 .finance-unit-input > span {
   position: absolute;
-  right: 10px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  min-width: 28px;
-  height: 24px;
-  padding: 0 8px;
-  border-radius: 999px;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
