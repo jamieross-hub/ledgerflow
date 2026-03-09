@@ -10066,6 +10066,21 @@ body.categories-accounts-resizing {
   background: color-mix(in srgb, var(--color-primary-soft) 45%, var(--color-bg-elevated));
 }
 
+.finance-overview-income-actions {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.finance-overview-income-actions .finance-income-inline-manual {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) auto;
+  gap: 10px;
+  align-items: center;
+}
+
 .finance-debt-dual-entry {
   display: flex;
   gap: 10px;
@@ -10494,6 +10509,7 @@ body.categories-accounts-resizing {
   .finance-strategy-compare-grid,
   .finance-income-inline,
   .finance-income-inline-manual,
+  .finance-overview-income-actions,
   .finance-ledger-grid,
   .finance-ledger-meta-grid {
     grid-template-columns: minmax(0, 1fr);

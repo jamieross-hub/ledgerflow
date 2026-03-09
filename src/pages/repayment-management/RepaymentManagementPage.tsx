@@ -1601,6 +1601,14 @@ export function RepaymentManagementPage() {
                 <span className="finance-overview-unit">笔</span>
               </p>
             </article>
+            <article className="finance-overview-metric-card">
+              <p className="finance-overview-label">月收入</p>
+              <p className="finance-overview-value">
+                <span className="finance-overview-number">{monthlyIncome > 0 ? monthlyIncome.toFixed(2) : '--'}</span>
+                <span className="finance-overview-unit">¥</span>
+              </p>
+              <p className="muted" style={{ margin: 0, fontSize: 12 }}>来源：{incomeConfidenceTag}</p>
+            </article>
           </div>
           <p className="muted" style={{ margin: '8px 0 0' }}>
             总负债与净负债均基于“负债明细”计算；负债率按“每月最低还款 / 月收入”计算。
@@ -1608,53 +1616,31 @@ export function RepaymentManagementPage() {
           <p className="muted" style={{ margin: '8px 0 0' }}>
             负债健康度基于负债明细中的还款压力；建议补充账单日/还款日以获得更准确提醒。
           </p>
-        </div>
-
-        <div className="finance-income-inline">
-          <div>
-            <p className="finance-income-inline-title">💡 月收入（AI辅助估算）</p>
-            <p className="finance-income-inline-value">
-              当前月收入：{monthlyIncome > 0 ? `¥${monthlyIncome.toFixed(2)}` : '尚未估算'}
-            </p>
-            <p className="finance-income-inline-badge">收入可信度：{incomeConfidenceTag}</p>
-          </div>
-          <button
-            type="button"
-            className="finance-income-inline-action"
-            onClick={() => void resolveMonthlyIncomeByAi(true)}
-            disabled={incomeLoading}
-          >
-            {incomeLoading ? '估算中...' : '刷新 AI 月收入'}
-          </button>
-          <div className="finance-income-inline-faq">
-            <details>
-              <summary>为什么估算会有误差？</summary>
-              <p className="muted" style={{ margin: '6px 0 0' }}>
-                AI 只基于已记录流水估算：若账单记录不完整、存在一次性收入或备注不清晰，估算会偏高/偏低。
-              </p>
-            </details>
-            <details>
-              <summary>我可以手动填入吗？</summary>
-              <p className="muted" style={{ margin: '6px 0 0' }}>
-                可以。手动输入会覆盖当前值，并标记为“你手动输入”，后续仍可随时刷新 AI 估算。
-              </p>
-            </details>
-          </div>
-          <form className="finance-income-inline-manual" onSubmit={onManualIncomeSubmit}>
-            <input
-              className="finance-debt-form-control"
-              type="number"
-              min={0}
-              step="1"
-              value={manualIncomeInput}
-              onChange={(event) => setManualIncomeInput(event.target.value)}
-              placeholder="手动填入月收入（¥）"
-              aria-label="手动填入月收入"
-            />
-            <button type="submit" className="finance-income-inline-action">
-              保存手动月收入
+          <div className="finance-overview-income-actions">
+            <button
+              type="button"
+              className="finance-income-inline-action"
+              onClick={() => void resolveMonthlyIncomeByAi(true)}
+              disabled={incomeLoading}
+            >
+              {incomeLoading ? '估算中...' : '刷新 AI 月收入'}
             </button>
-          </form>
+            <form className="finance-income-inline-manual" onSubmit={onManualIncomeSubmit}>
+              <input
+                className="finance-debt-form-control"
+                type="number"
+                min={0}
+                step="1"
+                value={manualIncomeInput}
+                onChange={(event) => setManualIncomeInput(event.target.value)}
+                placeholder="手动填入月收入（¥）"
+                aria-label="手动填入月收入"
+              />
+              <button type="submit" className="finance-income-inline-action">
+                保存手动月收入
+              </button>
+            </form>
+          </div>
           {incomeHint ? <p className="muted finance-income-inline-hint">{incomeHint}</p> : null}
         </div>
 
