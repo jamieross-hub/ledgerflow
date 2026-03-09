@@ -312,7 +312,7 @@ docker build -t ledgerflow:local .
 - `README.md`：项目介绍、安装、开发、部署
 - `.github/workflows/ci.yml`：CI 构建与镜像推送
 - `plans/`：产品迭代与阶段任务计划
-- `RELEASE_NOTES_v0.4.2.md`：版本说明
+- `release-notes/`：版本说明与发布记录
 
 如果后续继续补全，建议优先增加：
 - `.github/ISSUE_TEMPLATE/`
