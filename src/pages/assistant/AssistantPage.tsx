@@ -27,6 +27,7 @@ import { Toast } from '../../shared/ui/Toast';
 import type { DebtItem } from '../../features/debt/model/debtMetrics';
 import {
   calculateDebtDerivedMetrics,
+  calculateDebtMinimumPayment,
   calculateDebtSummary
 } from '../../features/debt/model/debtMetrics';
 import type { DraftBillEntry } from '../../features/assistant/workbench/workbenchTypes';
@@ -1500,23 +1501,48 @@ export function AssistantPage() {
         wb.setToastState('这张卡片还没稳定命中已保存负债，先保存或补全后再登记还款。', 'warning');
         return;
       }
+      const matchedDebt = debts.find((item) => item.id === creditItem.matchedDebtId);
+      if (!matchedDebt) {
+        wb.setToastState('没找到对应负债，先刷新或去还款管理页核对。', 'warning');
+        return;
+      }
       const amountText = String(creditItem.dueAmount || '').replace(/[^\d.-]/g, '');
       const amount = Number(amountText);
       if (!Number.isFinite(amount) || amount <= 0) {
         wb.setToastState('当前应还金额还不够稳定，先补全金额后再登记还款。', 'warning');
         return;
       }
+      const minimumPayment = calculateDebtMinimumPayment(matchedDebt);
+      const nextBalance = Math.max(0, Number((matchedDebt.balance - amount).toFixed(2)));
+      const shouldAdvancePeriod = amount >= Math.max(1, minimumPayment * 0.98);
+      const nextPaidPeriods = matchedDebt.totalPeriods
+        ? Math.min(matchedDebt.totalPeriods, (matchedDebt.paidPeriods || 0) + (shouldAdvancePeriod ? 1 : 0))
+        : matchedDebt.paidPeriods;
+      const nextRemainingMonths =
+        typeof matchedDebt.remainingMonths === 'number'
+          ? Math.max(0, matchedDebt.remainingMonths - (shouldAdvancePeriod ? 1 : 0))
+          : matchedDebt.remainingMonths;
+      const paymentAccount = creditItem.repaymentGapSummary?.paymentAccountSummary || matchedDebt.paymentAccount || undefined;
+
       addRepaymentRecord({
         debtId: creditItem.matchedDebtId,
         amount,
         paidAt: new Date().toISOString().slice(0, 10),
-        paymentAccount: creditItem.repaymentGapSummary?.paymentAccountSummary || undefined,
+        paymentAccount,
         note: `来自 AI 信贷助手：${creditItem.title}`,
         recordMode: 'manual'
       });
-      wb.setToastState(`已为“${creditItem.title}”快速登记一笔 ¥${amount.toFixed(2)} 还款记录`, 'success');
+      updateDebt(creditItem.matchedDebtId, {
+        ...matchedDebt,
+        balance: nextBalance,
+        paidPeriods: nextPaidPeriods,
+        remainingMonths: nextRemainingMonths,
+        paymentAccount,
+        repaymentRecordMode: 'manual'
+      });
+      wb.setToastState(`已为“${creditItem.title}”快速登记一笔 ¥${amount.toFixed(2)} 还款记录，并同步回写剩余待还`, 'success');
     },
-    [addRepaymentRecord, wb]
+    [addRepaymentRecord, debts, updateDebt, wb]
   );
 
   const buildAssistantMessageText = useCallback(
