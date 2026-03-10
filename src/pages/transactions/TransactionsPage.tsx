@@ -199,6 +199,73 @@ function txStatusLabel(status?: TransactionItem['status']) {
   );
 }
 
+type BillShareTemplate = 'full' | 'masked' | 'summary';
+
+function maskShareText(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '—';
+  if (trimmed.length <= 2) return '••';
+  if (trimmed.length <= 6) return `${trimmed.slice(0, 1)}•••${trimmed.slice(-1)}`;
+  return `${trimmed.slice(0, 2)}***${trimmed.slice(-2)}`;
+}
+
+function buildTransactionShareText(input: {
+  transaction: TransactionItem;
+  categoryName: string;
+  accountName: string;
+  source: TransactionSource;
+  template: BillShareTemplate;
+  includeNote: boolean;
+  includeAttachments: boolean;
+  includeAccount: boolean;
+}) {
+  const { transaction, categoryName, accountName, source, template, includeNote, includeAttachments, includeAccount } = input;
+  const isMasked = template === 'masked';
+  const isSummary = template === 'summary';
+  const amountText = isMasked ? '¥••••' : formatCurrencyAuto(transaction.amount);
+  const noteText = transaction.note?.trim() || '—';
+  const attachmentCount = transaction.attachments?.length || 0;
+  const lines = [
+    `【账单分享】${txTypeLabel(transaction.type)}`,
+    `金额：${amountText}`,
+    `日期：${formatDate(transaction.date)}`,
+    `分类：${isMasked ? maskShareText(categoryName) : categoryName || '—'}`
+  ];
+
+  if (!isSummary && includeAccount) {
+    lines.push(`账户：${isMasked ? maskShareText(accountName) : accountName || '—'}`);
+  }
+
+  if (!isSummary) {
+    lines.push(`状态：${txStatusLabel(transaction.status)}`);
+    lines.push(`来源：${source === 'ai' ? 'AI 记账' : source === 'wechat' ? '微信导入' : source === 'alipay' ? '支付宝' : '手工录入'}`);
+  }
+
+  if (includeNote) {
+    lines.push(`备注：${isMasked ? maskShareText(noteText) : noteText}`);
+  }
+
+  if (!isSummary && transaction.tags?.length) {
+    lines.push(`标签：${isMasked ? `${transaction.tags.length} 个标签` : transaction.tags.join(' / ')}`);
+  }
+
+  if (!isSummary && includeAttachments) {
+    lines.push(`附件：${attachmentCount > 0 ? `有 ${attachmentCount} 个附件` : '无附件'}`);
+  }
+
+  if (!isSummary && transaction.updatedAt) {
+    lines.push(`最后修改：${formatDate(transaction.updatedAt)}`);
+  }
+
+  if (isSummary) {
+    lines.push('说明：摘要模式默认只保留关键信息，适合直接转发。');
+  } else if (isMasked) {
+    lines.push('说明：当前为脱敏分享模板。');
+  }
+
+  return lines.join('\n');
+}
+
 function buildBulkPrintStyles() {
   return `
     @page { size: A4; margin: 10mm; }
@@ -556,6 +623,11 @@ export function TransactionsPage() {
     result: ApplyBillImportModeResult;
     parseSummary: BillImportParseSummary;
   } | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareTemplate, setShareTemplate] = useState<BillShareTemplate>('full');
+  const [shareIncludeNote, setShareIncludeNote] = useState(true);
+  const [shareIncludeAttachments, setShareIncludeAttachments] = useState(true);
+  const [shareIncludeAccount, setShareIncludeAccount] = useState(true);
 
   const [quickFilters, setQuickFilters] = useState<TransactionQuickFilters>(DEFAULT_QUICK_FILTERS);
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
@@ -1884,6 +1956,62 @@ export function TransactionsPage() {
     ? detectSource(selected.source, selected.note, selected.tags)
     : 'manual';
 
+  const shareText = useMemo(() => {
+    if (!selected) {
+      return '';
+    }
+    return buildTransactionShareText({
+      transaction: selected,
+      categoryName: selectedCategoryName,
+      accountName: selectedAccountName,
+      source: selectedSource,
+      template: shareTemplate,
+      includeNote: shareIncludeNote,
+      includeAttachments: shareIncludeAttachments,
+      includeAccount: shareIncludeAccount
+    });
+  }, [
+    selected,
+    selectedCategoryName,
+    selectedAccountName,
+    selectedSource,
+    shareTemplate,
+    shareIncludeNote,
+    shareIncludeAttachments,
+    shareIncludeAccount
+  ]);
+
+  const handleCopyShareText = useCallback(async () => {
+    if (!shareText) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareText);
+      showToast('分享文案已复制。', 'success');
+    } catch {
+      showToast('复制失败，请检查浏览器权限。', 'error');
+    }
+  }, [shareText]);
+
+  const handleOpenShareDialog = useCallback(() => {
+    if (!selected) {
+      return;
+    }
+    setShareDialogOpen(true);
+  }, [selected]);
+
+  const handleOpenShareDialogForId = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      setShareDialogOpen(true);
+    },
+    []
+  );
+
+  const handleCloseShareDialog = useCallback(() => {
+    setShareDialogOpen(false);
+  }, []);
+
   const availableDateBounds = useMemo(() => {
     let min = '';
     let max = '';
@@ -2191,6 +2319,7 @@ export function TransactionsPage() {
               setPage(1);
             }}
             onOpenDetail={setSelectedId}
+            onShare={handleOpenShareDialogForId}
             selectedIds={selectedIds}
             bulkSelectionEnabled={bulkSelectionEnabled}
             canSelectAllOnPage={canSelectAllOnPage}
@@ -2331,6 +2460,7 @@ export function TransactionsPage() {
         onClose={() => setSelectedId(null)}
         onCopyNote={() => void copyText(selected?.note ?? '', '备注已复制')}
         onCopyJson={() => void copyText(JSON.stringify(selected, null, 2), 'JSON 已复制')}
+        onShareBill={handleOpenShareDialog}
         onDelete={() => {
           if (!selected) {
             return;
@@ -2553,6 +2683,84 @@ export function TransactionsPage() {
         onConfirm={handleConfirmPendingImport}
         onCancel={() => setPendingImport(null)}
       />
+
+      {shareDialogOpen && selected ? (
+        <div className="dialog-overlay" role="presentation" onClick={handleCloseShareDialog}>
+          <section
+            className="dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="分享账单"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="dialog-header">分享账单</header>
+            <div className="dialog-body" style={{ display: 'grid', gap: 12 }}>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <strong>分享模板</strong>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button type="button" className={shareTemplate === 'full' ? 'primary' : ''} onClick={() => setShareTemplate('full')}>
+                    完整
+                  </button>
+                  <button type="button" className={shareTemplate === 'masked' ? 'primary' : ''} onClick={() => setShareTemplate('masked')}>
+                    脱敏
+                  </button>
+                  <button type="button" className={shareTemplate === 'summary' ? 'primary' : ''} onClick={() => setShareTemplate('summary')}>
+                    摘要
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gap: 8 }}>
+                <strong>包含字段</strong>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={shareIncludeAccount}
+                    onChange={(event) => setShareIncludeAccount(event.target.checked)}
+                    disabled={shareTemplate === 'summary'}
+                  />
+                  <span>账户</span>
+                </label>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={shareIncludeNote}
+                    onChange={(event) => setShareIncludeNote(event.target.checked)}
+                  />
+                  <span>备注</span>
+                </label>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={shareIncludeAttachments}
+                    onChange={(event) => setShareIncludeAttachments(event.target.checked)}
+                    disabled={shareTemplate === 'summary'}
+                  />
+                  <span>附件提示</span>
+                </label>
+              </div>
+
+              <div style={{ display: 'grid', gap: 8 }}>
+                <strong>预览</strong>
+                <textarea
+                  readOnly
+                  value={shareText}
+                  rows={12}
+                  style={{ width: '100%', resize: 'vertical' }}
+                />
+              </div>
+            </div>
+            <footer className="dialog-footer">
+              <button type="button" onClick={handleCloseShareDialog}>
+                关闭
+              </button>
+              <button type="button" className="primary" onClick={() => void handleCopyShareText()}>
+                复制文案
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
 
       <ConfirmDialog
         open={pendingDeleteIds.length > 0}

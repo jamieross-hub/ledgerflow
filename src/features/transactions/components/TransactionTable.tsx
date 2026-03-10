@@ -229,6 +229,7 @@ interface TransactionTableProps {
   onLastPage: () => void;
   onPageSizeChange: (size: number) => void;
   onOpenDetail: (id: string) => void;
+  onShare: (id: string) => void;
   onDelete: (id: string) => void;
   onDeleteSelected: () => void;
   onBulkEditCategory: (categoryId: string) => void;
@@ -283,6 +284,7 @@ export function TransactionTable({
   onLastPage,
   onPageSizeChange,
   onOpenDetail,
+  onShare,
   onDelete,
   onDeleteSelected,
   onBulkEditCategory,
@@ -1080,6 +1082,17 @@ export function TransactionTable({
                     >
                       删除
                     </button>
+                    <button
+                      type="button"
+                      className="transaction-mobile-delete"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setSwipedId(null);
+                        onShare(item.id);
+                      }}
+                    >
+                      分享
+                    </button>
                   </div>
                 </article>
               );
@@ -1144,6 +1157,15 @@ export function TransactionTable({
                     }}
                   >
                     查看详情
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onShare(contextMenu.id);
+                      setContextMenu(null);
+                    }}
+                  >
+                    分享账单
                   </button>
                   <button
                     type="button"

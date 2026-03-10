@@ -44,6 +44,7 @@ describe('TransactionDetailDrawer', () => {
           onClose={() => undefined}
           onCopyNote={() => undefined}
           onCopyJson={onCopyJson}
+          onShareBill={() => undefined}
           onDelete={() => undefined}
           onAiRecategorize={() => undefined}
           visibleSections={{
@@ -79,6 +80,7 @@ describe('TransactionDetailDrawer', () => {
           onClose={() => undefined}
           onCopyNote={() => undefined}
           onCopyJson={() => undefined}
+          onShareBill={() => undefined}
           onDelete={() => undefined}
           onAiRecategorize={() => undefined}
           visibleSections={{
@@ -128,6 +130,7 @@ describe('TransactionDetailDrawer', () => {
           onClose={() => undefined}
           onCopyNote={() => undefined}
           onCopyJson={() => undefined}
+          onShareBill={() => undefined}
           onDelete={() => undefined}
           onAiRecategorize={() => undefined}
           visibleSections={{
@@ -166,6 +169,7 @@ describe('TransactionDetailDrawer', () => {
           onClose={() => undefined}
           onCopyNote={() => undefined}
           onCopyJson={() => undefined}
+          onShareBill={() => undefined}
           onDelete={() => undefined}
           onAiRecategorize={() => undefined}
           onAttachmentUploadStatus={onAttachmentUploadStatus}
@@ -188,5 +192,39 @@ describe('TransactionDetailDrawer', () => {
       expect.stringContaining('WebDAV 配置'),
       'warning'
     );
+  });
+
+  it('点击分享账单触发回调', () => {
+    const onShareBill = vi.fn();
+
+    render(
+      <MemoryRouter>
+        <TransactionDetailDrawer
+          open
+          transaction={sample}
+          categoryName="餐饮"
+          accountName="现金"
+          source="manual"
+          onClose={() => undefined}
+          onCopyNote={() => undefined}
+          onCopyJson={() => undefined}
+          onShareBill={onShareBill}
+          onDelete={() => undefined}
+          onAiRecategorize={() => undefined}
+          visibleSections={{
+            base: true,
+            source: true,
+            note: true,
+            tags: true,
+            json: false
+          }}
+          onToggleSection={() => undefined}
+          onQuickAdd={() => undefined}
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '📤 分享账单' }));
+    expect(onShareBill).toHaveBeenCalledTimes(1);
   });
 });

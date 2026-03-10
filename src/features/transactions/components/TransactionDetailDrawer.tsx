@@ -287,6 +287,7 @@ interface TransactionDetailDrawerProps {
   onClose: () => void;
   onCopyNote: () => void;
   onCopyJson: () => void;
+  onShareBill: () => void;
   onDelete: () => void;
   onAiRecategorize: () => void;
   onAttachmentUploaded?: (attachment: TransactionAttachmentItem) => void;
@@ -309,6 +310,7 @@ export function TransactionDetailDrawer({
   onClose,
   onCopyNote,
   onCopyJson,
+  onShareBill,
   onDelete,
   onAiRecategorize,
   onAttachmentUploaded,
@@ -914,6 +916,9 @@ export function TransactionDetailDrawer({
           </button>
           <button type="button" onClick={onCopyJson}>
             复制 JSON
+          </button>
+          <button type="button" onClick={onShareBill}>
+            📤 分享账单
           </button>
           <button type="button" onClick={handlePrint}>
             🖨️ 打印 A4

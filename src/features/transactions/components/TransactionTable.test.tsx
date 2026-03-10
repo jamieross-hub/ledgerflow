@@ -11,6 +11,7 @@ const baseProps = {
   onLastPage: vi.fn(),
   onPageSizeChange: vi.fn(),
   onOpenDetail: vi.fn(),
+  onShare: vi.fn(),
   onDelete: vi.fn(),
   onDeleteSelected: vi.fn(),
   onBulkEditCategory: vi.fn(),
@@ -108,6 +109,7 @@ describe('TransactionTable', () => {
         onLastPage={vi.fn()}
         onPageSizeChange={vi.fn()}
         onOpenDetail={vi.fn()}
+        onShare={vi.fn()}
         onDelete={vi.fn()}
         onDeleteSelected={vi.fn()}
         onBulkEditCategory={vi.fn()}
@@ -212,6 +214,7 @@ describe('TransactionTable', () => {
         onLastPage={vi.fn()}
         onPageSizeChange={vi.fn()}
         onOpenDetail={vi.fn()}
+        onShare={vi.fn()}
         onDelete={vi.fn()}
         onDeleteSelected={vi.fn()}
         onBulkEditCategory={vi.fn()}
@@ -327,6 +330,7 @@ describe('TransactionTable', () => {
         onLastPage={vi.fn()}
         onPageSizeChange={vi.fn()}
         onOpenDetail={vi.fn()}
+        onShare={vi.fn()}
         onDelete={vi.fn()}
         onDeleteSelected={vi.fn()}
         onBulkEditCategory={vi.fn()}
