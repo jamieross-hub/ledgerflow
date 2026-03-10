@@ -1,7 +1,12 @@
+# syntax=docker/dockerfile:1.7
 FROM node:20-alpine AS build
 WORKDIR /app
-COPY package.json ./
-RUN npm install
+
+ENV HUSKY=0
+
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
+
 COPY . .
 RUN npm run build
 
