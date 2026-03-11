@@ -5,8 +5,15 @@ import type { Category } from '../../../entities/category/types';
 import type { TransactionItem } from '../../../entities/transaction/types';
 import { useDebugLogStore } from '../../../shared/store/useDebugLogStore';
 import { useAiSettings } from '../../../shared/store/useAiSettings';
-import { buildSemanticRecallContext, clearSemanticRecallCache, getSemanticRecallCacheMeta, type SemanticRecallHit } from './semanticRecall';
-import { buildGlobalMemoryRecallContext } from '../memory/globalMemoryRecall';
+import {
+  clearSemanticRecallIndexCache,
+  createIdleEmbeddingDebug,
+  createSemanticRecallMeta,
+  readSemanticRecallCacheMeta,
+  runBlockingSemanticRecall,
+  type EmbeddingRecallDebug,
+  type SemanticRecallCacheMeta
+} from './assistantSemanticRecall';
 import type { GlobalMemoryItem } from '../../../shared/store/globalMemory';
 import {
   ANALYSIS_AGENT_PROMPT,
@@ -56,27 +63,6 @@ function normalizeEntryDate(inputDate?: string) {
   const day = parsed.toISOString().slice(0, 10);
   if (day < MIN_ALLOWED_DATE || day > MAX_ALLOWED_DATE) return fallback;
   return parsed.toISOString();
-}
-
-interface EmbeddingRecallDebug {
-  enabled: boolean;
-  model: string;
-  used: boolean;
-  downgraded: boolean;
-  reason: string;
-  latencyMs: number;
-  indexedDocs: number;
-  hitCount: number;
-  topScore: number;
-  averageScore: number;
-  hits: SemanticRecallHit[];
-}
-
-interface SemanticRecallCacheMeta {
-  exists: boolean;
-  model: string;
-  updatedAt: number;
-  indexedDocs: number;
 }
 
 interface UseAssistantWorkbenchInput {
@@ -147,25 +133,8 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     completionTokens: number;
     totalTokens: number;
   } | null>(null);
-  const [embeddingDebug, setEmbeddingDebug] = useState<EmbeddingRecallDebug>({
-    enabled: false,
-    model: '',
-    used: false,
-    downgraded: false,
-    reason: '',
-    latencyMs: 0,
-    indexedDocs: 0,
-    hitCount: 0,
-    topScore: 0,
-    averageScore: 0,
-    hits: []
-  });
-  const [semanticRecallCacheMeta, setSemanticRecallCacheMeta] = useState<SemanticRecallCacheMeta>({
-    exists: false,
-    model: embeddingModel.trim(),
-    updatedAt: 0,
-    indexedDocs: 0
-  });
+  const [embeddingDebug, setEmbeddingDebug] = useState<EmbeddingRecallDebug>(createIdleEmbeddingDebug());
+  const [semanticRecallCacheMeta, setSemanticRecallCacheMeta] = useState<SemanticRecallCacheMeta>(createSemanticRecallMeta(embeddingModel.trim()));
   const [toast, setToast] = useState<AssistantToastState>({
     message: '',
     variant: 'success',
@@ -174,35 +143,23 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
 
   const refreshSemanticRecallCacheMeta = useCallback(() => {
     if (!input.baseUrl.trim() || !embeddingModel.trim()) {
-      setSemanticRecallCacheMeta({
-        exists: false,
-        model: embeddingModel.trim(),
-        updatedAt: 0,
-        indexedDocs: 0
-      });
+      setSemanticRecallCacheMeta(createSemanticRecallMeta(embeddingModel.trim()));
       return;
     }
-    const next = getSemanticRecallCacheMeta(input.baseUrl, embeddingModel.trim());
+    const next = readSemanticRecallCacheMeta(input.baseUrl, embeddingModel.trim());
     setSemanticRecallCacheMeta(next);
   }, [embeddingModel, input.baseUrl]);
 
   const clearSemanticRecallIndex = useCallback(() => {
     if (!input.baseUrl.trim() || !embeddingModel.trim()) return false;
-    clearSemanticRecallCache(input.baseUrl, embeddingModel.trim());
+    clearSemanticRecallIndexCache(input.baseUrl, embeddingModel.trim());
     refreshSemanticRecallCacheMeta();
     setEmbeddingDebug((prev) => ({
+      ...createIdleEmbeddingDebug(embeddingModel.trim()),
       ...prev,
       enabled: enableEmbeddingModel,
       model: embeddingModel.trim(),
-      used: false,
-      downgraded: false,
-      reason: 'cache-cleared',
-      latencyMs: 0,
-      indexedDocs: 0,
-      hitCount: 0,
-      topScore: 0,
-      averageScore: 0,
-      hits: []
+      reason: 'cache-cleared'
     }));
     setToast({ visible: true, variant: 'success', message: '语义召回索引缓存已清理' });
     addLog({ action: 'assistant.embedding', status: 'info', message: '已清理语义召回索引缓存' });
@@ -446,147 +403,49 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
           ? CREDIT_ANALYSIS_AGENT_PROMPT
           : ANALYSIS_AGENT_PROMPT;
 
-      let semanticRecallBlock = '';
-      let globalMemoryRecallBlock = '';
-      const embeddingStart = performance.now();
-      setEmbeddingDebug({
-        enabled: isConversationalMode && enableEmbeddingModel && Boolean(embeddingModel.trim()),
-        model: embeddingModel.trim(),
-        used: false,
-        downgraded: false,
-        reason: '',
-        latencyMs: 0,
-        indexedDocs: 0,
-        hitCount: 0,
-        topScore: 0,
-        averageScore: 0,
-        hits: []
+      const semanticRecallDebug = await runBlockingSemanticRecall({
+        baseUrl: input.baseUrl,
+        apiKey: input.apiKey,
+        embeddingModel,
+        rerankModel,
+        enableEmbeddingModel,
+        enableRerankModel,
+        question: cleanPrompt,
+        transactions: input.transactions,
+        categories: input.categories,
+        accounts: input.accounts,
+        globalMemories: input.globalMemories || [],
+        signal: controller.signal
       });
-      if (
-        isConversationalMode &&
-        enableEmbeddingModel &&
-        Boolean(embeddingModel.trim()) &&
-        cleanPrompt
-      ) {
-        try {
-          const recall = await buildSemanticRecallContext({
-            baseUrl: input.baseUrl,
-            apiKey: input.apiKey,
-            model: embeddingModel,
-            question: cleanPrompt,
-            transactions: input.transactions,
-            categories: input.categories,
-            accounts: input.accounts,
-            signal: controller.signal
-          });
+      setEmbeddingDebug(semanticRecallDebug);
 
-          if (recall && recall.context) {
-            semanticRecallBlock = `\n\n语义召回候选（按相似度排序，仅作辅助参考）：\n${recall.context}`;
-            const globalMemoryRecall = await buildGlobalMemoryRecallContext({
-              baseUrl: input.baseUrl,
-              apiKey: input.apiKey,
-              embeddingModel,
-              rerankModel,
-              enableRerankModel,
-              question: cleanPrompt,
-              memories: input.globalMemories || [],
-              signal: controller.signal
-            });
-            if (globalMemoryRecall?.context) {
-              globalMemoryRecallBlock = `\n\n用户长期记忆（embedding 召回 + rerank 选优，仅在相关时参考）：\n${globalMemoryRecall.context}`;
-            }
-            setEmbeddingDebug({
-              enabled: true,
-              model: embeddingModel.trim(),
-              used: true,
-              downgraded: false,
-              reason: '',
-              latencyMs: recall.latencyMs || Math.round(performance.now() - embeddingStart),
-              indexedDocs: recall.indexedDocs || 0,
-              hitCount: recall.hitCount,
-              topScore: recall.topScore,
-              averageScore: recall.averageScore || 0,
-              hits: recall.hits || []
-            });
-            addLog({
-              action: 'assistant.embedding',
-              status: 'success',
-              message: `语义召回命中 ${recall.hitCount} 条，最高相似度 ${recall.topScore.toFixed(2)}；平均相似度 ${(recall.averageScore || 0).toFixed(2)}；索引 ${recall.indexedDocs} 条；耗时 ${recall.latencyMs}ms`
-            });
-          } else {
-            const latencyMs = Math.round(performance.now() - embeddingStart);
-            setEmbeddingDebug({
-              enabled: true,
-              model: embeddingModel.trim(),
-              used: false,
-              downgraded: false,
-              reason: 'no-hit',
-              latencyMs,
-              indexedDocs: input.transactions.length,
-              hitCount: 0,
-              topScore: 0,
-              averageScore: 0,
-              hits: []
-            });
-            addLog({
-              action: 'assistant.embedding',
-              status: 'info',
-              message: `语义召回未命中可用上下文；耗时 ${latencyMs}ms`
-            });
-          }
-        } catch (embeddingError) {
-          const reason =
-            embeddingError instanceof Error
-              ? embeddingError.message
-              : '语义召回失败，已自动降级为普通分析';
-          const latencyMs = Math.round(performance.now() - embeddingStart);
-          setEmbeddingDebug({
-            enabled: true,
-            model: embeddingModel.trim(),
-            used: false,
-            downgraded: true,
-            reason,
-            latencyMs,
-            indexedDocs: 0,
-            hitCount: 0,
-            topScore: 0,
-            averageScore: 0,
-            hits: []
+      if (semanticRecallDebug.enabled) {
+        if (semanticRecallDebug.used) {
+          addLog({
+            action: 'assistant.embedding',
+            status: 'success',
+            message: `语义召回命中 ${semanticRecallDebug.hitCount} 条，最高相似度 ${semanticRecallDebug.topScore.toFixed(2)}；平均相似度 ${(semanticRecallDebug.averageScore || 0).toFixed(2)}；索引 ${semanticRecallDebug.indexedDocs} 条；耗时 ${semanticRecallDebug.latencyMs}ms`
           });
+        } else if (semanticRecallDebug.downgraded) {
           addLog({
             action: 'assistant.embedding',
             status: 'info',
-            message: `语义召回失败并已降级：${reason}；耗时 ${latencyMs}ms`
+            message: `语义召回失败并已降级：${semanticRecallDebug.reason}；耗时 ${semanticRecallDebug.latencyMs}ms`
+          });
+        } else {
+          addLog({
+            action: 'assistant.embedding',
+            status: 'info',
+            message: `语义召回未命中可用上下文；耗时 ${semanticRecallDebug.latencyMs}ms`
           });
         }
-      }
-
-      if (!(
-        isConversationalMode &&
-        enableEmbeddingModel &&
-        Boolean(embeddingModel.trim()) &&
-        cleanPrompt
-      )) {
-        setEmbeddingDebug({
-          enabled: false,
-          model: embeddingModel.trim(),
-          used: false,
-          downgraded: false,
-          reason: !isConversationalMode ? 'not-assistant-mode' : !enableEmbeddingModel ? 'disabled' : !embeddingModel.trim() ? 'model-empty' : 'empty-question',
-          latencyMs: 0,
-          indexedDocs: 0,
-          hitCount: 0,
-          topScore: 0,
-          averageScore: 0,
-          hits: []
-        });
       }
 
       refreshSemanticRecallCacheMeta();
 
       const repaymentContextBlock =
         input.sceneMode === 'credit' ? `\n\n还款管理上下文：\n${repaymentContext}` : '';
-      const prompt = `${basePrompt}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}${repaymentContextBlock}${semanticRecallBlock}${globalMemoryRecallBlock}`;
+      const prompt = `${basePrompt}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}${repaymentContextBlock}`;
       if (isConversationalMode) {
         let streamedContent = '';
         await sendAiChatStream(
@@ -882,19 +741,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     setRawContent('');
     setRawReasoning('');
     setLastUsage(null);
-    setEmbeddingDebug({
-      enabled: false,
-      model: '',
-      used: false,
-      downgraded: false,
-      reason: '',
-      latencyMs: 0,
-      indexedDocs: 0,
-      hitCount: 0,
-      topScore: 0,
-      averageScore: 0,
-      hits: []
-    });
+    setEmbeddingDebug(createIdleEmbeddingDebug());
     setError('');
     setStatus('idle');
   };

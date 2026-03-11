@@ -2133,9 +2133,9 @@ export function TransactionsPage() {
     ? 0.7 + Math.min(1, Math.max(0, pieAnimationProgress)) * 0.3
     : 1;
 
-  const pendingImportDescription = useMemo(() => {
+  const pendingImportPreview = useMemo(() => {
     if (!pendingImport) {
-      return '';
+      return null;
     }
 
     const modeLabel =
@@ -2145,30 +2145,6 @@ export function TransactionsPage() {
           ? '合并（覆盖重复）'
           : '增量（跳过重复）';
 
-    const appendSample = pendingImport.result.append
-      .slice(0, 3)
-      .map((item, index) => {
-        const sign = item.type === 'income' ? '+' : '-';
-        return `  +${index + 1}. ${item.date.slice(0, 10)} ${sign}${formatCurrencyAuto(item.amount)} ${item.note || '无备注'}`;
-      })
-      .join('\n');
-
-    const updateSample = pendingImport.result.update
-      .slice(0, 3)
-      .map(({ payload }, index) => {
-        const sign = payload.type === 'income' ? '+' : '-';
-        return `  ~${index + 1}. ${payload.date.slice(0, 10)} ${sign}${formatCurrencyAuto(payload.amount)} ${payload.note || '无备注'}`;
-      })
-      .join('\n');
-
-    const previewLines = pendingImport.normalizedParsed
-      .slice(0, 5)
-      .map((item, index) => {
-        const sign = item.type === 'income' ? '+' : '-';
-        return `  ${index + 1}. ${item.date.slice(0, 10)} ${sign}${formatCurrencyAuto(item.amount)} ${item.note || '无备注'}`;
-      })
-      .join('\n');
-
     const modeHint =
       pendingImport.mode === 'overwrite'
         ? `⚠️ 覆盖模式将先清空当前账本的 ${transactions.length} 条交易，再导入新记录。`
@@ -2176,22 +2152,187 @@ export function TransactionsPage() {
           ? '合并模式会覆盖已存在的重复账单。'
           : '增量模式会跳过已存在的重复账单。';
 
-    return [
-      `文件：${pendingImport.fileName}`,
-      `来源：${pendingImport.source === 'wechat' ? '微信' : '支付宝'}`,
-      `模式：${modeLabel}`,
+    const previewLines = pendingImport.normalizedParsed.slice(0, 5);
+    const appendLines = pendingImport.result.append.slice(0, 3);
+    const updateLines = pendingImport.result.update.slice(0, 3);
+
+    return {
+      fileName: pendingImport.fileName,
+      sourceLabel: pendingImport.source === 'wechat' ? '微信' : '支付宝',
+      modeLabel,
       modeHint,
+      parsedCount: pendingImport.parseSummary.parsedCount,
+      dataLines: pendingImport.parseSummary.dataLines,
+      skippedCount: pendingImport.parseSummary.skippedCount,
+      appendCount: pendingImport.result.append.length,
+      updateCount: pendingImport.result.update.length,
+      skippedDuplicateCount: pendingImport.result.skipped,
+      previewLines,
+      appendLines,
+      updateLines
+    };
+  }, [pendingImport, transactions.length]);
+
+  const pendingImportDescription = useMemo(() => {
+    if (!pendingImportPreview) {
+      return '';
+    }
+
+    const renderLine = (
+      item: { date: string; type: TransactionType; amount: number; note?: string | null },
+      index: number,
+      marker?: string
+    ) => {
+      const sign = item.type === 'income' ? '+' : '-';
+      return `${marker || `${index + 1}.`} ${item.date.slice(0, 10)} ${sign}${formatCurrencyAuto(item.amount)} ${item.note || '无备注'}`;
+    };
+
+    return [
+      `文件：${pendingImportPreview.fileName}`,
+      `来源：${pendingImportPreview.sourceLabel}`,
+      `模式：${pendingImportPreview.modeLabel}`,
+      pendingImportPreview.modeHint,
       '',
-      `识别结果：${pendingImport.parseSummary.parsedCount} 条（数据行 ${pendingImport.parseSummary.dataLines}，跳过 ${pendingImport.parseSummary.skippedCount}）`,
-      `执行影响：新增 ${pendingImport.result.append.length} 条，更新 ${pendingImport.result.update.length} 条，跳过重复 ${pendingImport.result.skipped} 条`,
+      `识别结果：${pendingImportPreview.parsedCount} 条（数据行 ${pendingImportPreview.dataLines}，跳过 ${pendingImportPreview.skippedCount}）`,
+      `执行影响：新增 ${pendingImportPreview.appendCount} 条，更新 ${pendingImportPreview.updateCount} 条，跳过重复 ${pendingImportPreview.skippedDuplicateCount} 条`,
       '',
-      previewLines ? `预检样例（前 5 条）：\n${previewLines}` : '',
-      appendSample ? `\n将新增（前 3 条）：\n${appendSample}` : '',
-      updateSample ? `\n将更新（前 3 条）：\n${updateSample}` : ''
+      pendingImportPreview.previewLines.length
+        ? `预检样例（前 5 条）：\n${pendingImportPreview.previewLines.map((item, index) => renderLine(item, index)).join('\n')}`
+        : '',
+      pendingImportPreview.appendLines.length
+        ? `\n将新增（前 3 条）：\n${pendingImportPreview.appendLines.map((item, index) => renderLine(item, index, `+${index + 1}.`)).join('\n')}`
+        : '',
+      pendingImportPreview.updateLines.length
+        ? `\n将更新（前 3 条）：\n${pendingImportPreview.updateLines
+            .map(({ payload }, index) => renderLine(payload, index, `~${index + 1}.`))
+            .join('\n')}`
+        : ''
     ]
       .filter(Boolean)
       .join('\n');
-  }, [pendingImport, transactions.length]);
+  }, [pendingImportPreview]);
+
+  const pendingImportDialogDescription = pendingImportPreview ? (
+    <div className="import-confirm-dialog">
+      <section className="import-confirm-hero">
+        <div>
+          <div className="import-confirm-eyebrow">导入预检</div>
+          <strong>{pendingImportPreview.fileName}</strong>
+          <p>{pendingImportPreview.modeHint}</p>
+        </div>
+        <span className={`import-confirm-mode-badge ${pendingImport?.mode === 'overwrite' ? 'danger' : pendingImport?.mode === 'merge' ? 'warning' : 'safe'}`}>
+          {pendingImportPreview.modeLabel}
+        </span>
+      </section>
+
+      <section className="import-confirm-meta-grid">
+        <div className="import-confirm-meta-card">
+          <span>来源</span>
+          <strong>{pendingImportPreview.sourceLabel}</strong>
+        </div>
+        <div className="import-confirm-meta-card">
+          <span>识别</span>
+          <strong>{pendingImportPreview.parsedCount} 条</strong>
+          <small>数据行 {pendingImportPreview.dataLines} · 跳过 {pendingImportPreview.skippedCount}</small>
+        </div>
+        <div className="import-confirm-meta-card import-confirm-meta-card-accent">
+          <span>新增</span>
+          <strong>{pendingImportPreview.appendCount} 条</strong>
+        </div>
+        <div className="import-confirm-meta-card">
+          <span>更新</span>
+          <strong>{pendingImportPreview.updateCount} 条</strong>
+        </div>
+        <div className="import-confirm-meta-card">
+          <span>跳过重复</span>
+          <strong>{pendingImportPreview.skippedDuplicateCount} 条</strong>
+        </div>
+      </section>
+
+      <section className="import-confirm-section">
+        <div className="import-confirm-section-head">
+          <strong>预检样例</strong>
+          <span>前 {pendingImportPreview.previewLines.length} 条</span>
+        </div>
+        <div className="import-confirm-list">
+          {pendingImportPreview.previewLines.length ? (
+            pendingImportPreview.previewLines.map((item, index) => {
+              const sign = item.type === 'income' ? '+' : '-';
+              return (
+                <div key={`preview-${index}-${item.date}-${item.amount}`} className="import-confirm-row">
+                  <span className="import-confirm-row-index">{index + 1}</span>
+                  <div className="import-confirm-row-main">
+                    <strong>{item.note || '无备注'}</strong>
+                    <small>{item.date.slice(0, 10)}</small>
+                  </div>
+                  <span className={`import-confirm-row-amount ${item.type === 'income' ? 'income' : 'expense'}`}>
+                    {sign}{formatCurrencyAuto(item.amount)}
+                  </span>
+                </div>
+              );
+            })
+          ) : (
+            <div className="import-confirm-empty">暂无可展示样例</div>
+          )}
+        </div>
+      </section>
+
+      {(pendingImportPreview.appendLines.length || pendingImportPreview.updateLines.length) ? (
+        <section className="import-confirm-impact-grid">
+          <div className="import-confirm-section">
+            <div className="import-confirm-section-head">
+              <strong>将新增</strong>
+              <span>{pendingImportPreview.appendLines.length} 条样例</span>
+            </div>
+            <div className="import-confirm-list compact">
+              {pendingImportPreview.appendLines.length ? (
+                pendingImportPreview.appendLines.map((item, index) => (
+                  <div key={`append-${index}-${item.date}-${item.amount}`} className="import-confirm-row compact">
+                    <span className="import-confirm-row-index positive">+{index + 1}</span>
+                    <div className="import-confirm-row-main">
+                      <strong>{item.note || '无备注'}</strong>
+                      <small>{item.date.slice(0, 10)}</small>
+                    </div>
+                    <span className={`import-confirm-row-amount ${item.type === 'income' ? 'income' : 'expense'}`}>
+                      {item.type === 'income' ? '+' : '-'}{formatCurrencyAuto(item.amount)}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="import-confirm-empty">无新增样例</div>
+              )}
+            </div>
+          </div>
+
+          <div className="import-confirm-section">
+            <div className="import-confirm-section-head">
+              <strong>将更新</strong>
+              <span>{pendingImportPreview.updateLines.length} 条样例</span>
+            </div>
+            <div className="import-confirm-list compact">
+              {pendingImportPreview.updateLines.length ? (
+                pendingImportPreview.updateLines.map(({ payload }, index) => (
+                  <div key={`update-${index}-${payload.date}-${payload.amount}`} className="import-confirm-row compact">
+                    <span className="import-confirm-row-index neutral">~{index + 1}</span>
+                    <div className="import-confirm-row-main">
+                      <strong>{payload.note || '无备注'}</strong>
+                      <small>{payload.date.slice(0, 10)}</small>
+                    </div>
+                    <span className={`import-confirm-row-amount ${payload.type === 'income' ? 'income' : 'expense'}`}>
+                      {payload.type === 'income' ? '+' : '-'}{formatCurrencyAuto(payload.amount)}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="import-confirm-empty">无更新样例</div>
+              )}
+            </div>
+          </div>
+        </section>
+      ) : null}
+    </div>
+  ) : pendingImportDescription;
+
 
   return (
     <div className="transactions-page">
@@ -2700,7 +2841,7 @@ export function TransactionsPage() {
       <ConfirmDialog
         open={Boolean(pendingImport)}
         title="第 2 步：导入预检确认"
-        description={pendingImportDescription}
+        description={pendingImportDialogDescription}
         confirmText={pendingImport?.mode === 'overwrite' ? '确认进入第 3 步（覆盖写入）' : '确认进入第 3 步（写入账本）'}
         cancelText="取消"
         danger={pendingImport?.mode === 'overwrite'}
