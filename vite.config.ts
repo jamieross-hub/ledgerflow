@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg'],
+      includeAssets: ['logo.png'],
       manifest: {
         name: 'LedgerFlow 记账软件',
         short_name: 'LedgerFlow',
@@ -17,9 +17,9 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: '/icon.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
+            src: '/logo.png',
+            sizes: '720x720',
+            type: 'image/png',
             purpose: 'any maskable'
           }
         ]
