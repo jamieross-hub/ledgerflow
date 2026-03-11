@@ -11457,10 +11457,10 @@ body.categories-accounts-resizing {
 
 .global-memory-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
   padding: 10px 12px;
-  align-items: center;
+  align-items: start;
   border-radius: 14px;
 }
 
@@ -11470,11 +11470,13 @@ body.categories-accounts-resizing {
   gap: 6px;
 }
 
-.global-memory-card-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: start;
+.global-memory-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  align-items: center;
+  min-width: 220px;
 }
 
 .global-memory-card-title-wrap {
@@ -11690,5 +11692,11 @@ body.categories-accounts-resizing {
 .global-memory-check {
   display: inline-flex;
   align-items: flex-start;
+  justify-content: center;
+  width: 20px;
   padding-top: 4px;
+}
+
+.global-memory-check input {
+  margin: 2px 0 0;
 }
