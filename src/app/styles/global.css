@@ -7042,6 +7042,17 @@ body.categories-accounts-resizing {
   vertical-align: bottom;
 }
 
+.settings-baseurl-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.settings-baseurl-row select,
+.settings-baseurl-row input {
+  width: 100%;
+}
+
 .settings-model-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -7124,6 +7135,10 @@ body.categories-accounts-resizing {
   }
 
   .settings-model-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-baseurl-row {
     grid-template-columns: 1fr;
   }
 }

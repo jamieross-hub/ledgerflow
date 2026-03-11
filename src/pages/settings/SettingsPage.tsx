@@ -7,6 +7,14 @@ import { useAppPreferences } from '../../shared/store/useAppPreferences';
 import { AppAccentTheme } from '../../shared/types/app';
 import { Toast } from '../../shared/ui/Toast';
 
+const AI_PROVIDER_PRESETS = [
+  { value: 'https://api.openai.com/v1', label: 'OpenAI' },
+  { value: 'https://generativelanguage.googleapis.com/v1beta/openai', label: 'Gemini' },
+  { value: 'https://api.deepseek.com/v1', label: 'DeepSeek' },
+  { value: 'https://openrouter.ai/api/v1', label: 'OpenRouter' },
+  { value: 'https://api.siliconflow.cn/v1', label: '硅基流动' }
+] as const;
+
 const MODEL_PRESETS = [
   'gpt-5.2',
   'gemini-2.5-flash-lite',
@@ -219,14 +227,32 @@ export function SettingsPage() {
 
         <div className="field">
           <label>{t('settings.baseUrl')}</label>
-          <input
-            value={baseUrl}
-            onChange={(e) => {
-              setBaseUrl(e.target.value);
-              showSaveToast();
-            }}
-            placeholder="https://api.openai.com/v1"
-          />
+          <div className="settings-baseurl-row">
+            <select
+              value=""
+              onChange={(e) => {
+                const next = e.target.value;
+                if (!next) return;
+                setBaseUrl(next);
+                showSaveToast();
+              }}
+            >
+              <option value="">选择渠道商（快速填充）</option>
+              {AI_PROVIDER_PRESETS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            <input
+              value={baseUrl}
+              onChange={(e) => {
+                setBaseUrl(e.target.value);
+                showSaveToast();
+              }}
+              placeholder="https://api.openai.com/v1"
+            />
+          </div>
         </div>
 
         <div className="field">
