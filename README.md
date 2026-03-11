@@ -233,6 +233,12 @@ docker compose up -d
 docker run -d --name ledgerflow -p 8080:80 34v0wphix/ledgerflow:latest
 ```
 
+如果你希望固定到当前版本：
+
+```bash
+docker run -d --name ledgerflow -p 8080:80 34v0wphix/ledgerflow:v0.5.1
+```
+
 访问：
 
 ```text
