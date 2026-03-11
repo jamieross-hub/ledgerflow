@@ -8934,10 +8934,11 @@ body.categories-accounts-resizing {
 
 .chat-disclaimer {
   margin: 0;
-  padding: 8px var(--space-5) 4px;
-  font-size: 11px;
-  color: var(--color-text-placeholder);
+  padding: 4px var(--space-5) 2px;
+  font-size: 10px;
+  color: var(--color-text-tertiary);
   text-align: center;
+  opacity: 0.82;
 }
 
 .chat-dup-alert {
