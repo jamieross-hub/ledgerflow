@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   TransactionDatePreset,
   TransactionFilterState,
@@ -66,6 +66,39 @@ export function TransactionFilters({
   onToggleSidePanel
 }: TransactionFiltersProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      if (!menuRef.current) {
+        return;
+      }
+      const target = event.target;
+      if (target instanceof Node && !menuRef.current.contains(target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown, { passive: true });
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [menuOpen]);
 
   return (
     <section className="panel transaction-filters-panel">
@@ -197,12 +230,13 @@ export function TransactionFilters({
         <button type="button" className="transaction-filter-trigger" onClick={onTogglePrivacy}>
           {privacyMode ? '🙈 关闭隐私模式' : '🕶️ 开启隐私模式'}
         </button>
-        <div className={`transaction-filter-popover ${menuOpen ? 'open' : ''}`}>
+        <div ref={menuRef} className={`transaction-filter-popover ${menuOpen ? 'open' : ''}`}>
           <button
             type="button"
             className="transaction-filter-trigger"
             onClick={() => setMenuOpen((prev) => !prev)}
             aria-haspopup="true"
+            aria-expanded={menuOpen}
           >
             筛选与操作
           </button>
