@@ -1610,6 +1610,25 @@ export function AssistantPage() {
     submitPrompt(wb.textInput);
   };
 
+  const syncTextareaHeight = useCallback(() => {
+    const el = wb.textareaRef.current;
+    if (!el) return;
+
+    const minHeight = 40;
+    const maxHeight = 170;
+
+    // Reset first so it can shrink.
+    el.style.height = '0px';
+    const nextHeight = Math.min(maxHeight, Math.max(minHeight, el.scrollHeight));
+    el.style.height = `${nextHeight}px`;
+    el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
+  }, [wb.textareaRef]);
+
+  useEffect(() => {
+    // Defer to ensure DOM updated with latest value.
+    requestAnimationFrame(syncTextareaHeight);
+  }, [syncTextareaHeight, wb.textInput]);
+
   // 非记账分析时，模型返回自由文本，解析 JSON 失败属于预期，不展示底部红条。
   const shouldShowError =
     Boolean(wb.error) && !/unexpected token|invalid json|json/i.test(wb.error.toLowerCase());
@@ -3008,7 +3027,7 @@ export function AssistantPage() {
             <textarea
               ref={wb.textareaRef}
               className="chat-input-textarea"
-              rows={3}
+              rows={1}
               placeholder={inputPlaceholder(wb.status, wb.hasApiKey, mode, t)}
               value={wb.textInput}
               onChange={(e) => wb.setTextInput(e.target.value)}
