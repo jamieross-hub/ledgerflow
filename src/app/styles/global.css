@@ -8583,7 +8583,7 @@ body.categories-accounts-resizing {
   overflow: hidden;
 }
 
-.chat-semantic-status-panel summary {
+.chat-semantic-status-summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -8592,14 +8592,12 @@ body.categories-accounts-resizing {
   padding: 8px 10px;
   font-size: var(--font-xs);
   color: var(--color-text-secondary);
-  list-style: none;
+  border: none;
+  background: transparent;
+  text-align: left;
 }
 
-.chat-semantic-status-panel summary::-webkit-details-marker {
-  display: none;
-}
-
-.chat-semantic-status-panel summary span {
+.chat-semantic-status-summary span:last-child {
   color: var(--color-text-tertiary);
 }
 
@@ -11699,4 +11697,41 @@ body.categories-accounts-resizing {
 
 .global-memory-check input {
   margin: 2px 0 0;
+}
+
+
+.chat-semantic-drawer {
+  width: min(720px, 100vw);
+  height: min(72vh, 680px);
+  min-height: 320px;
+}
+
+.chat-semantic-drawer-card {
+  display: grid;
+  gap: 8px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+}
+
+.chat-semantic-drawer-card strong {
+  font-size: var(--font-sm);
+}
+
+.chat-semantic-drawer-card span,
+.chat-semantic-drawer-text {
+  margin: 0;
+  font-size: var(--font-xs);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.chat-semantic-drawer-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-primary);
 }

@@ -1061,6 +1061,7 @@ export function AssistantPage() {
   const [duplicateReviewPairs, setDuplicateReviewPairs] = useState<DuplicateReviewPair[]>([]);
   const [duplicateReviewIndex, setDuplicateReviewIndex] = useState(0);
   const [overwriteEntryIds, setOverwriteEntryIds] = useState<string[]>([]);
+  const [semanticPanelOpen, setSemanticPanelOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -2668,12 +2669,6 @@ export function AssistantPage() {
                 {item.role === 'assistant' && item.embeddingSummaryText ? (
                   <p className="chat-token-usage">{item.embeddingSummaryText}</p>
                 ) : null}
-                {item.role === 'assistant' && item.embeddingDebugText ? (
-                  <details className="chat-reasoning-collapse">
-                    <summary>语义召回调试详情（点击展开）</summary>
-                    <pre>{item.embeddingDebugText}</pre>
-                  </details>
-                ) : null}
                 {item.role === 'assistant' && item.followUpPrompts && item.followUpPrompts.length > 0 ? (
                   <div className="chat-follow-up-block">
                     <span className="chat-follow-up-title">你可以顺手继续问：</span>
@@ -2918,47 +2913,20 @@ export function AssistantPage() {
 
       <section className="chat-input-bar">
         {mode !== 'bookkeeping' ? (
-          <details className="chat-semantic-status-panel">
-            <summary>
-              语义召回
+          <div className="chat-semantic-status-panel">
+            <button
+              type="button"
+              className="chat-semantic-status-summary"
+              onClick={() => setSemanticPanelOpen(true)}
+            >
+              <span>语义召回</span>
               <span>
                 {wb.semanticRecallCacheMeta.exists
                   ? `已建立 · ${wb.semanticRecallCacheMeta.indexedDocs} 条`
                   : '未建立'}
               </span>
-            </summary>
-            <div className="chat-semantic-status-bar">
-              <span className="chat-semantic-status-text">
-                {wb.semanticRecallCacheMeta.exists
-                  ? `索引已建立 · ${wb.semanticRecallCacheMeta.indexedDocs} 条 · ${wb.semanticRecallCacheMeta.updatedAt ? new Date(wb.semanticRecallCacheMeta.updatedAt).toLocaleString() : '-'}`
-                  : '当前尚未建立语义召回索引'}
-              </span>
-              <div className="chat-semantic-status-actions">
-                <button
-                  type="button"
-                  className="chat-secondary-action-btn"
-                  onClick={() => {
-                    wb.refreshSemanticRecallCacheMeta();
-                    wb.setToastState('语义召回索引状态已刷新', 'success');
-                  }}
-                >
-                  刷新
-                </button>
-                <button
-                  type="button"
-                  className="chat-secondary-action-btn"
-                  onClick={() => {
-                    const ok = wb.clearSemanticRecallIndex();
-                    if (!ok) {
-                      wb.setToastState('请先配置 Base URL 与 Embedding 模型后再清理缓存', 'warning');
-                    }
-                  }}
-                >
-                  清缓存
-                </button>
-              </div>
-            </div>
-          </details>
+            </button>
+          </div>
         ) : null}
         {shouldShowError ? (
           <div className="chat-error-strip" role="alert">
@@ -3072,6 +3040,89 @@ export function AssistantPage() {
           </button>
         </form>
       </section>
+
+      {semanticPanelOpen ? (
+        <div className="drawer-overlay" role="presentation" onClick={() => setSemanticPanelOpen(false)}>
+          <aside
+            className="drawer-panel chat-semantic-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="语义召回详情"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="drawer-header">
+              <h3>语义召回</h3>
+              <button type="button" onClick={() => setSemanticPanelOpen(false)}>
+                关闭
+              </button>
+            </header>
+            <div className="drawer-body">
+              <div className="chat-semantic-drawer-card">
+                <strong>索引状态</strong>
+                <span>
+                  {wb.semanticRecallCacheMeta.exists
+                    ? `已建立 · ${wb.semanticRecallCacheMeta.indexedDocs} 条 · ${wb.semanticRecallCacheMeta.updatedAt ? new Date(wb.semanticRecallCacheMeta.updatedAt).toLocaleString() : '-'}`
+                    : '当前尚未建立语义召回索引'}
+                </span>
+                <div className="chat-semantic-status-actions">
+                  <button
+                    type="button"
+                    className="chat-secondary-action-btn"
+                    onClick={() => {
+                      wb.refreshSemanticRecallCacheMeta();
+                      wb.setToastState('语义召回索引状态已刷新', 'success');
+                    }}
+                  >
+                    刷新
+                  </button>
+                  <button
+                    type="button"
+                    className="chat-secondary-action-btn"
+                    onClick={() => {
+                      const ok = wb.clearSemanticRecallIndex();
+                      if (!ok) {
+                        wb.setToastState('请先配置 Base URL 与 Embedding 模型后再清理缓存', 'warning');
+                      }
+                    }}
+                  >
+                    清缓存
+                  </button>
+                </div>
+              </div>
+              {(showEmbeddingSummary && wb.embeddingDebug.enabled) || (showEmbeddingDebug && wb.embeddingDebug.enabled) ? (
+                <div className="chat-semantic-drawer-card">
+                  <strong>当前状态</strong>
+                  {showEmbeddingSummary && wb.embeddingDebug.enabled ? (
+                    <p className="chat-semantic-drawer-text">
+                      {wb.embeddingDebug.used
+                        ? `语义召回：命中 ${wb.embeddingDebug.hitCount} 条，最高相似度 ${wb.embeddingDebug.topScore.toFixed(2)}，平均相似度 ${wb.embeddingDebug.averageScore.toFixed(2)}，耗时 ${wb.embeddingDebug.latencyMs}ms，索引 ${wb.embeddingDebug.indexedDocs} 条。`
+                        : wb.embeddingDebug.downgraded
+                          ? `语义召回已降级：${wb.embeddingDebug.reason || '服务不可用'}（耗时 ${wb.embeddingDebug.latencyMs}ms）。`
+                          : `语义召回未命中可用上下文（耗时 ${wb.embeddingDebug.latencyMs}ms）。`}
+                    </p>
+                  ) : null}
+                  {showEmbeddingDebug && wb.embeddingDebug.enabled ? (
+                    <pre className="chat-semantic-drawer-pre">
+                      {[
+                        `模型：${wb.embeddingDebug.model || '-'} | 启用：${wb.embeddingDebug.enabled ? '是' : '否'} | 使用召回：${wb.embeddingDebug.used ? '是' : '否'} | 降级：${wb.embeddingDebug.downgraded ? '是' : '否'}`,
+                        `命中：${wb.embeddingDebug.hitCount} | 最高：${wb.embeddingDebug.topScore.toFixed(4)} | 平均：${wb.embeddingDebug.averageScore.toFixed(4)} | 索引：${wb.embeddingDebug.indexedDocs} | 耗时：${wb.embeddingDebug.latencyMs}ms`,
+                        wb.embeddingDebug.reason ? `原因：${wb.embeddingDebug.reason}` : '',
+                        wb.embeddingDebug.hits.length > 0
+                          ? `Top Hits:\n${wb.embeddingDebug.hits
+                              .map((hit, idx) => `${idx + 1}. [${hit.score.toFixed(4)}] ${hit.id}`)
+                              .join('\n')}`
+                          : ''
+                      ]
+                        .filter(Boolean)
+                        .join('\n')}
+                    </pre>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </aside>
+        </div>
+      ) : null}
 
       {duplicateReviewOpen && currentDuplicateReview ? (
         <div className="dialog-overlay" role="presentation" onClick={handleCancelDuplicateReview}>
