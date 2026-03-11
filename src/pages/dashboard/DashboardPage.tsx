@@ -121,8 +121,11 @@ const DASHBOARD_MODULE_CATALOG = [
     description: 'AI + 本地模式识别消费异动和节省机会'
   },
   { id: 'top-transactions', label: '支出排行', description: '展示本月金额较高的重点账目' },
-  { id: 'history-compare', label: '历史对比维度', description: '上月 / 季度 / 年度支出对比' },
-  { id: 'profile', label: '消费画像', description: '时段偏好、商家偏好、消费人格' }
+  {
+    id: 'history-compare',
+    label: '历史对比与画像',
+    description: '上月 / 季度 / 年度对比 + 消费行为画像'
+  }
 ] as const;
 
 type DashboardModuleId = (typeof DASHBOARD_MODULE_CATALOG)[number]['id'];
@@ -202,7 +205,7 @@ export function DashboardPage() {
   const [trendGranularity, setTrendGranularity] = useState<'week' | 'month' | 'year'>('week');
   const [trendMonthOffset, setTrendMonthOffset] = useState(0);
   const [selectedTrendIndex, setSelectedTrendIndex] = useState<number | null>(null);
-  const [cashflowView, setCashflowView] = useState<'expense' | 'cashflow'>('expense');
+  const [cashflowView, setCashflowView] = useState<'expense' | 'income' | 'net'>('expense');
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
   const [moduleOrder, setModuleOrder] = useState<DashboardModuleId[]>(() =>
     DASHBOARD_MODULE_CATALOG.map((item) => item.id)
@@ -1046,8 +1049,22 @@ export function DashboardPage() {
       return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
     });
 
-    const includeRow = (type: string) =>
-      cashflowView === 'cashflow' ? type === 'income' || type === 'expense' || type === 'repayment' : type === 'expense';
+    const includeRow = (type: string) => {
+      if (cashflowView === 'expense') {
+        return type === 'expense' || type === 'repayment';
+      }
+      if (cashflowView === 'income') {
+        return type === 'income';
+      }
+      return type === 'income' || type === 'expense' || type === 'repayment';
+    };
+
+    const signedAmount = (type: string, amount: number) => {
+      if (cashflowView === 'net') {
+        return type === 'income' ? amount : -amount;
+      }
+      return amount;
+    };
 
     thisMonthRows.forEach((item) => {
       if (!includeRow(item.type)) return;
@@ -1059,7 +1076,7 @@ export function DashboardPage() {
         icon: categoryMeta?.icon || '🏷️',
         color: categoryMeta?.color
       };
-      current.amount += item.amount;
+      current.amount += signedAmount(item.type, item.amount);
       map.set(name, current);
     });
 
@@ -1073,7 +1090,7 @@ export function DashboardPage() {
         icon: categoryMeta?.icon || '🏷️',
         color: categoryMeta?.color
       };
-      current.prevAmount += item.amount;
+      current.prevAmount += signedAmount(item.type, item.amount);
       map.set(name, current);
     });
 
@@ -1085,7 +1102,7 @@ export function DashboardPage() {
         icon: value.icon,
         color: value.color
       }))
-      .sort((a, b) => b.amount - a.amount);
+      .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
 
     const top = rows.slice(0, 5);
     const other = rows.slice(5).reduce(
@@ -1096,15 +1113,16 @@ export function DashboardPage() {
       },
       { amount: 0, prevAmount: 0 }
     );
-    if (other.amount > 0) {
+    if (Math.abs(other.amount) > 0) {
       top.push({ name: '其他', amount: other.amount, prevAmount: other.prevAmount, icon: '🧩', color: undefined });
     }
 
-    const total = top.reduce((sum, item) => sum + item.amount, 0);
+    const total = top.reduce((sum, item) => sum + Math.abs(item.amount), 0);
     return top.map((item, index) => ({
       ...item,
-      percent: total > 0 ? (item.amount / total) * 100 : 0,
-      diffRate: item.prevAmount > 0 ? ((item.amount - item.prevAmount) / item.prevAmount) * 100 : null,
+      percent: total > 0 ? (Math.abs(item.amount) / total) * 100 : 0,
+      diffRate:
+        item.prevAmount !== 0 ? ((item.amount - item.prevAmount) / Math.abs(item.prevAmount)) * 100 : null,
       ringColor:
         item.color ||
         ['#2563eb', '#60a5fa', '#93c5fd', '#c4b5fd', '#34d399', '#d1d5db'][index] || '#d1d5db'
@@ -1420,10 +1438,17 @@ export function DashboardPage() {
                       </button>
                       <button
                         type="button"
-                        className={cashflowView === 'cashflow' ? 'active' : ''}
-                        onClick={() => setCashflowView('cashflow')}
+                        className={cashflowView === 'income' ? 'active' : ''}
+                        onClick={() => setCashflowView('income')}
                       >
-                        现金流结构
+                        收入结构
+                      </button>
+                      <button
+                        type="button"
+                        className={cashflowView === 'net' ? 'active' : ''}
+                        onClick={() => setCashflowView('net')}
+                      >
+                        收支结构
                       </button>
                     </div>
                   </div>
@@ -1610,33 +1635,36 @@ export function DashboardPage() {
             );
           }
 
-          if (moduleId === 'profile') {
+          if (moduleId === 'history-compare') {
             const profile = monthlyInsight?.profile;
             return (
               <article key={moduleId} className="panel" style={{ marginTop: 12 }}>
-                <h3>消费行为画像</h3>
-                <p>时段偏好：{profile?.timePreference || '暂无足够数据'}</p>
-                <p>高频商家：{profile?.topMerchant || '暂无足够数据'}</p>
-                <p>消费人格：{profile?.personality || '暂无足够数据'}</p>
-                <p>同类人群对比：{profile?.crowdCompare || '暂无足够数据'}</p>
-                {monthlyInsightStatus !== 'done' ? (
-                  <p className="dashboard-ai-error" style={{ marginTop: 8 }}>
-                    当前画像优先由大模型生成，暂无结果时不做本地臆测。
-                  </p>
-                ) : null}
-              </article>
-            );
-          }
+                <div className="dashboard-section-header">
+                  <h3>历史对比与消费画像</h3>
+                  <span>结构对比 + 行为画像</span>
+                </div>
 
-          if (moduleId === 'history-compare') {
-            return (
-              <article key={moduleId} className="panel" style={{ marginTop: 12 }}>
-                <h3>历史对比维度</h3>
-                <p>
-                  上月支出：{formatCurrency(recentMonths[recentMonths.length - 2]?.expense || 0)}
-                </p>
-                <p>本季度支出：{formatCurrency(quarterExpense)}</p>
-                <p>本年度支出：{formatCurrency(yearlyExpense)}</p>
+                <div className="grid grid-2" style={{ gap: 12 }}>
+                  <section className="panel" style={{ margin: 0 }}>
+                    <h4>历史对比维度</h4>
+                    <p>上月支出：{formatCurrency(recentMonths[recentMonths.length - 2]?.expense || 0)}</p>
+                    <p>本季度支出：{formatCurrency(quarterExpense)}</p>
+                    <p>本年度支出：{formatCurrency(yearlyExpense)}</p>
+                  </section>
+
+                  <section className="panel" style={{ margin: 0 }}>
+                    <h4>消费行为画像</h4>
+                    <p>时段偏好：{profile?.timePreference || '暂无足够数据'}</p>
+                    <p>高频商家：{profile?.topMerchant || '暂无足够数据'}</p>
+                    <p>消费人格：{profile?.personality || '暂无足够数据'}</p>
+                    <p>同类人群对比：{profile?.crowdCompare || '暂无足够数据'}</p>
+                    {monthlyInsightStatus !== 'done' ? (
+                      <p className="dashboard-ai-error" style={{ marginTop: 8 }}>
+                        当前画像优先由大模型生成，暂无结果时不做本地臆测。
+                      </p>
+                    ) : null}
+                  </section>
+                </div>
               </article>
             );
           }
