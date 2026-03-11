@@ -12,6 +12,13 @@ LedgerFlow 是一个围绕 **“记得快、看得清、能追溯、可优化”
 
 ---
 
+## Live Demo
+
+测试 Demo：
+- https://ledgerflow.up.railway.app
+
+---
+
 ## Why LedgerFlow
 
 很多记账工具的问题不是“不能记”，而是：
