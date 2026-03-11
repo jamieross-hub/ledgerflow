@@ -1641,26 +1641,39 @@ export function DashboardPage() {
               <article key={moduleId} className="panel" style={{ marginTop: 12 }}>
                 <div className="dashboard-section-header">
                   <h3>历史对比与消费画像</h3>
-                  <span>结构对比 + 行为画像</span>
+                  <span>少字显示 · 金额优先</span>
                 </div>
 
-                <div className="grid grid-2" style={{ gap: 12 }}>
-                  <section className="panel" style={{ margin: 0 }}>
-                    <h4>历史对比维度</h4>
-                    <p>上月支出：{formatCurrency(recentMonths[recentMonths.length - 2]?.expense || 0)}</p>
-                    <p>本季度支出：{formatCurrency(quarterExpense)}</p>
-                    <p>本年度支出：{formatCurrency(yearlyExpense)}</p>
+                <div className="grid grid-2 dashboard-history-profile-grid" style={{ gap: 12 }}>
+                  <section className="panel dashboard-history-card" style={{ margin: 0 }}>
+                    <h4>历史对比</h4>
+                    <div className="dashboard-history-metrics dashboard-history-metrics--compact">
+                      <article>
+                        <span>上月</span>
+                        <strong className="expense">{formatCurrency(recentMonths[recentMonths.length - 2]?.expense || 0)}</strong>
+                      </article>
+                      <article>
+                        <span>本季</span>
+                        <strong className="expense">{formatCurrency(quarterExpense)}</strong>
+                      </article>
+                      <article>
+                        <span>本年</span>
+                        <strong className="expense">{formatCurrency(yearlyExpense)}</strong>
+                      </article>
+                    </div>
                   </section>
 
-                  <section className="panel" style={{ margin: 0 }}>
-                    <h4>消费行为画像</h4>
-                    <p>时段偏好：{profile?.timePreference || '暂无足够数据'}</p>
-                    <p>高频商家：{profile?.topMerchant || '暂无足够数据'}</p>
-                    <p>消费人格：{profile?.personality || '暂无足够数据'}</p>
-                    <p>同类人群对比：{profile?.crowdCompare || '暂无足够数据'}</p>
+                  <section className="panel dashboard-profile-card" style={{ margin: 0 }}>
+                    <h4>消费画像</h4>
+                    <div className="dashboard-profile-tags dashboard-profile-tags--compact">
+                      <span>时段：{profile?.timePreference || '暂无'}</span>
+                      <span>商家：{profile?.topMerchant || '暂无'}</span>
+                      <span>风格：{profile?.personality || '暂无'}</span>
+                      <span>对比：{profile?.crowdCompare || '暂无'}</span>
+                    </div>
                     {monthlyInsightStatus !== 'done' ? (
-                      <p className="dashboard-ai-error" style={{ marginTop: 8 }}>
-                        当前画像优先由大模型生成，暂无结果时不做本地臆测。
+                      <p className="dashboard-ai-error dashboard-profile-tip" style={{ marginTop: 8 }}>
+                        暂无 AI 画像
                       </p>
                     ) : null}
                   </section>

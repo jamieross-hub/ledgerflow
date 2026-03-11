@@ -8,6 +8,7 @@ import { AppAccentTheme } from '../../shared/types/app';
 import { Toast } from '../../shared/ui/Toast';
 
 const AI_PROVIDER_PRESETS = [
+  { value: 'https://ai.shuaihong.fun/v1', label: 'SH API' },
   { value: 'https://api.openai.com/v1', label: 'OpenAI' },
   { value: 'https://generativelanguage.googleapis.com/v1beta/openai', label: 'Gemini' },
   { value: 'https://api.deepseek.com/v1', label: 'DeepSeek' },
@@ -34,6 +35,7 @@ const MODEL_PRESETS = [
 ];
 
 const EMBEDDING_MODEL_PRESETS = [
+  'jina-embeddings-v3',
   'text-embedding-3-small',
   'text-embedding-3-large',
   'text-embedding-v4',
@@ -289,19 +291,50 @@ export function SettingsPage() {
           </small>
         </div>
 
-        <div className="field">
-          <label>{t('settings.language.label')}</label>
-          <select
-            value={currentLanguage}
-            onChange={(e) => {
-              void i18n.changeLanguage(e.target.value === 'en' ? 'en' : 'zh');
-              showSaveToast();
-            }}
-          >
-            <option value="zh">{t('settings.language.zh')}</option>
-            <option value="en">{t('settings.language.en')}</option>
-          </select>
-          <small>{t('settings.language.hint')}</small>
+        <div className="settings-inline-grid settings-inline-grid--triple">
+          <div className="field">
+            <label>{t('settings.language.label')}</label>
+            <select
+              value={currentLanguage}
+              onChange={(e) => {
+                void i18n.changeLanguage(e.target.value === 'en' ? 'en' : 'zh');
+                showSaveToast();
+              }}
+            >
+              <option value="zh">{t('settings.language.zh')}</option>
+              <option value="en">{t('settings.language.en')}</option>
+            </select>
+            <small>{t('settings.language.hint')}</small>
+          </div>
+
+          <div className="field">
+            <label>{t('settings.memoryDays.label')}</label>
+            <select
+              value={memoryDays}
+              onChange={(e) => {
+                setMemoryDays(Number(e.target.value));
+                showSaveToast();
+              }}
+            >
+              <option value={1}>{t('settings.memoryDays.d1')}</option>
+              <option value={2}>{t('settings.memoryDays.d2')}</option>
+              <option value={3}>{t('settings.memoryDays.d3')}</option>
+            </select>
+          </div>
+
+          <div className="field">
+            <label>{t('settings.memoryBackend.label')}</label>
+            <select
+              value={memoryBackend}
+              onChange={(e) => {
+                setMemoryBackend(e.target.value === 'redis' ? 'redis' : 'local');
+                showSaveToast();
+              }}
+            >
+              <option value="local">{t('settings.memoryBackend.local')}</option>
+              <option value="redis">{t('settings.memoryBackend.redis')}</option>
+            </select>
+          </div>
         </div>
 
         <div className="field">
@@ -367,93 +400,66 @@ export function SettingsPage() {
         </div>
         {modelLoadError ? <p className="settings-model-error">{modelLoadError}</p> : null}
 
-        <div className="field">
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={enableEmbeddingModel}
-              onChange={(e) => {
-                setEnableEmbeddingModel(e.target.checked);
-                showSaveToast();
-              }}
-            />
-            {t('settings.embeddingToggle.label')}
-          </label>
-          <small>{t('settings.embeddingToggle.hint')}</small>
-        </div>
+        <div className="settings-inline-grid settings-inline-grid--double">
+          <div className="field">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={enableEmbeddingModel}
+                onChange={(e) => {
+                  setEnableEmbeddingModel(e.target.checked);
+                  showSaveToast();
+                }}
+              />
+              {t('settings.embeddingToggle.label')}
+            </label>
+            <small>{t('settings.embeddingToggle.hint')}</small>
+          </div>
 
-        <div className="field">
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={enableRerankModel}
-              onChange={(e) => {
-                setEnableRerankModel(e.target.checked);
-                showSaveToast();
-              }}
-            />
-            {t('settings.rerankToggle.label')}
-          </label>
-          <small>{t('settings.rerankToggle.hint')}</small>
-        </div>
+          <div className="field">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={enableRerankModel}
+                onChange={(e) => {
+                  setEnableRerankModel(e.target.checked);
+                  showSaveToast();
+                }}
+              />
+              {t('settings.rerankToggle.label')}
+            </label>
+            <small>{t('settings.rerankToggle.hint')}</small>
+          </div>
 
-        <div className="field">
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={showEmbeddingSummary}
-              onChange={(e) => {
-                setShowEmbeddingSummary(e.target.checked);
-                showSaveToast();
-              }}
-            />
-            {t('settings.embeddingSummaryToggle.label')}
-          </label>
-          <small>{t('settings.embeddingSummaryToggle.hint')}</small>
-        </div>
+          <div className="field">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={showEmbeddingSummary}
+                onChange={(e) => {
+                  setShowEmbeddingSummary(e.target.checked);
+                  showSaveToast();
+                }}
+              />
+              {t('settings.embeddingSummaryToggle.label')}
+            </label>
+            <small>{t('settings.embeddingSummaryToggle.hint')}</small>
+          </div>
 
-        <div className="field">
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={showEmbeddingDebug}
-              onChange={(e) => {
-                setShowEmbeddingDebug(e.target.checked);
-                showSaveToast();
-              }}
-            />
-            {t('settings.embeddingDebugToggle.label')}
-          </label>
-          <small>{t('settings.embeddingDebugToggle.hint')}</small>
-        </div>
-
-        <div className="field">
-          <label>{t('settings.memoryDays.label')}</label>
-          <select
-            value={memoryDays}
-            onChange={(e) => {
-              setMemoryDays(Number(e.target.value));
-              showSaveToast();
-            }}
-          >
-            <option value={1}>{t('settings.memoryDays.d1')}</option>
-            <option value={2}>{t('settings.memoryDays.d2')}</option>
-            <option value={3}>{t('settings.memoryDays.d3')}</option>
-          </select>
-        </div>
-
-        <div className="field">
-          <label>{t('settings.memoryBackend.label')}</label>
-          <select
-            value={memoryBackend}
-            onChange={(e) => {
-              setMemoryBackend(e.target.value === 'redis' ? 'redis' : 'local');
-              showSaveToast();
-            }}
-          >
-            <option value="local">{t('settings.memoryBackend.local')}</option>
-            <option value="redis">{t('settings.memoryBackend.redis')}</option>
-          </select>
+          <div className="field">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={showEmbeddingDebug}
+                onChange={(e) => {
+                  setShowEmbeddingDebug(e.target.checked);
+                  showSaveToast();
+                }}
+              />
+              {t('settings.embeddingDebugToggle.label')}
+            </label>
+            <small>{t('settings.embeddingDebugToggle.hint')}</small>
+          </div>
         </div>
 
         <div className="field">

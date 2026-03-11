@@ -3100,6 +3100,37 @@ small.mono {
   color: var(--color-text-secondary);
 }
 
+.dashboard-history-metrics--compact article span {
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+}
+
+.dashboard-history-metrics--compact article strong {
+  font-size: calc(var(--font-lg) * 1.1);
+  letter-spacing: -0.3px;
+}
+
+.dashboard-profile-tags--compact {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.dashboard-profile-tags--compact span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-xs);
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-subtle);
+}
+
+.dashboard-profile-tip {
+  margin: 0;
+  font-size: var(--font-xs);
+  opacity: 0.9;
+}
+
 .dashboard-future-focus-item {
   color: var(--color-primary);
   text-decoration: underline;
@@ -7046,6 +7077,7 @@ body.categories-accounts-resizing {
   display: grid;
   grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
   gap: 8px;
+  align-items: center;
 }
 
 .settings-baseurl-row select,
@@ -7053,10 +7085,18 @@ body.categories-accounts-resizing {
   width: 100%;
 }
 
-.settings-model-grid {
+.settings-inline-grid {
   display: grid;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.settings-inline-grid--double {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  font-weight: 600;
+}
+
+.settings-inline-grid--triple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .settings-model-grid {
@@ -7139,6 +7179,11 @@ body.categories-accounts-resizing {
   }
 
   .settings-baseurl-row {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-inline-grid--double,
+  .settings-inline-grid--triple {
     grid-template-columns: 1fr;
   }
 }
@@ -8947,6 +8992,11 @@ body.categories-accounts-resizing {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-2);
   align-items: center;
+}
+
+.settings-model-field label,
+.settings-model-field small {
+  display: block;
 }
 
 .settings-model-refresh {
