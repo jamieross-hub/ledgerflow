@@ -162,7 +162,7 @@ export const useAiSettings = create<AiSettingsState>()(
       baseUrl: ENV.aiBaseUrl,
       apiKey: readLocalApiKey() || readSessionApiKey() || ENV.aiApiKey,
       model: ENV.aiDefaultModel,
-      embeddingModel: 'text-embedding-3-small',
+      embeddingModel: 'jina-embeddings-v3',
       enableEmbeddingModel: true,
       rerankModel: 'bge-reranker-v2-m3',
       enableRerankModel: true,
@@ -236,7 +236,7 @@ export const useAiSettings = create<AiSettingsState>()(
           next.model = ENV.aiDefaultModel;
         }
         if (!next.embeddingModel?.trim()) {
-          next.embeddingModel = 'text-embedding-3-small';
+          next.embeddingModel = 'jina-embeddings-v3';
         }
         if (typeof next.enableEmbeddingModel !== 'boolean') {
           next.enableEmbeddingModel = true;

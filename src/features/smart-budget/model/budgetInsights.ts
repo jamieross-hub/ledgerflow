@@ -16,6 +16,17 @@ export type BudgetTrackingRow = {
   isOverspent: boolean;
 };
 
+function parseDateInput(input: string | Date): Date {
+  if (input instanceof Date) return new Date(input.getTime());
+  const text = String(input || '').trim();
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    const [, year, month, day] = match;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+  return new Date(text);
+}
+
 export function formatMonthKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -39,7 +50,7 @@ export function getRecentMonthOptions(
   const monthSet = new Set<string>();
 
   transactions.forEach((item) => {
-    const date = new Date(item.date);
+    const date = parseDateInput(item.date);
     if (Number.isNaN(date.getTime())) {
       return;
     }
@@ -73,7 +84,7 @@ export function buildBudgetTrackingRows(params: {
       return;
     }
 
-    const date = new Date(item.date);
+    const date = parseDateInput(item.date);
     if (Number.isNaN(date.getTime()) || formatMonthKey(date) !== monthKey) {
       return;
     }
@@ -105,5 +116,16 @@ export function buildBudgetTrackingRows(params: {
         isOverspent: diff > 0
       };
     })
-    .sort((a, b) => b.ratio - a.ratio);
+    .sort((a, b) => {
+      if (b.isOverspent !== a.isOverspent) {
+        return Number(b.isOverspent) - Number(a.isOverspent);
+      }
+      if (b.ratio !== a.ratio) {
+        return b.ratio - a.ratio;
+      }
+      if (b.spentAmount !== a.spentAmount) {
+        return b.spentAmount - a.spentAmount;
+      }
+      return a.category.localeCompare(b.category, 'zh-CN');
+    });
 }

@@ -14,7 +14,7 @@ describe('useAiSettings', () => {
       baseUrl: 'https://ai.shuaihong.fun/v1',
       apiKey: '',
       model: 'gemini-2.5-flash-lite',
-      embeddingModel: 'text-embedding-3-small',
+      embeddingModel: 'jina-embeddings-v3',
       enableEmbeddingModel: true,
       rerankModel: 'bge-reranker-v2-m3',
       enableRerankModel: true,
