@@ -2912,19 +2912,17 @@ export function AssistantPage() {
       </section>
 
       <section className="chat-input-bar">
-        {mode !== 'bookkeeping' ? (
+        {mode !== 'bookkeeping' && wb.semanticRecallCacheMeta.exists ? (
           <div className="chat-semantic-status-panel">
             <button
               type="button"
               className="chat-semantic-status-summary"
               onClick={() => setSemanticPanelOpen(true)}
+              title="查看语义召回详情"
+              aria-label="查看语义召回详情"
             >
               <span>语义召回</span>
-              <span>
-                {wb.semanticRecallCacheMeta.exists
-                  ? `已建立 · ${wb.semanticRecallCacheMeta.indexedDocs} 条`
-                  : '未建立'}
-              </span>
+              <span>{wb.semanticRecallCacheMeta.indexedDocs} 条</span>
             </button>
           </div>
         ) : null}

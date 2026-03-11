@@ -8851,28 +8851,33 @@ body.categories-accounts-resizing {
 
 .chat-semantic-status-panel {
   margin-bottom: 8px;
-  border: 1px solid var(--color-border-light);
+  border: none;
   border-radius: var(--radius-md);
-  background: var(--color-bg-subtle);
-  overflow: hidden;
+  background: transparent;
+  overflow: visible;
 }
 
 .chat-semantic-status-summary {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   cursor: pointer;
-  padding: 8px 10px;
-  font-size: var(--font-xs);
-  color: var(--color-text-secondary);
-  border: none;
-  background: transparent;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  border: 1px solid var(--color-border-light);
+  background: color-mix(in srgb, var(--color-bg-elevated) 70%, transparent);
+  border-radius: 999px;
   text-align: left;
 }
 
+.chat-semantic-status-summary:hover {
+  background: color-mix(in srgb, var(--color-bg-elevated) 84%, transparent);
+  color: var(--color-text-secondary);
+}
+
 .chat-semantic-status-summary span:last-child {
-  color: var(--color-text-tertiary);
+  color: inherit;
 }
 
 .chat-semantic-status-bar {
