@@ -40,6 +40,12 @@ import {
   mergeCreditItemsWithHistory
 } from './creditAssistantLogic';
 
+function getModelDisplayLabel(modelId: string): string {
+  const value = modelId.trim();
+  if (!value) return value;
+  return value === 'gpt-5.2' ? `${value}（推荐）` : value;
+}
+
 function inputPlaceholder(
   status: ReturnType<typeof useAssistantWorkbench>['status'],
   hasApiKey: boolean,
@@ -1883,7 +1889,7 @@ export function AssistantPage() {
               onClick={() => setModelOpen((v) => !v)}
               aria-haspopup="listbox"
             >
-              {model || t('assistant.ui.selectModel')}
+              {getModelDisplayLabel(model || t('assistant.ui.selectModel'))}
               <span className="chat-model-arrow">▼</span>
             </button>
 
@@ -1913,7 +1919,7 @@ export function AssistantPage() {
                           setModelOpen(false);
                         }}
                       >
-                        {item}
+                        {getModelDisplayLabel(item)}
                       </button>
                     ))
                   )}

@@ -8,6 +8,7 @@ import { AppAccentTheme } from '../../shared/types/app';
 import { Toast } from '../../shared/ui/Toast';
 
 const MODEL_PRESETS = [
+  'gpt-5.2',
   'gemini-2.5-flash-lite',
   'gpt-4o-mini',
   'gpt-4o',
@@ -60,6 +61,12 @@ interface ModelSelectorProps {
   refreshText: string;
 }
 
+function getModelDisplayLabel(modelId: string): string {
+  const value = modelId.trim();
+  if (!value) return value;
+  return value === 'gpt-5.2' ? `${value}（推荐）` : value;
+}
+
 function mergeModelOptions(value: string, presets: string[], remoteModels: string[]): string[] {
   const uniq = new Set<string>();
   const options = [value, ...remoteModels, ...presets]
@@ -98,7 +105,7 @@ function ModelSelector({
         <select value={value} onChange={(e) => onChange(e.target.value)}>
           {options.map((item) => (
             <option key={item} value={item}>
-              {item}
+              {getModelDisplayLabel(item)}
             </option>
           ))}
         </select>
