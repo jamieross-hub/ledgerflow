@@ -403,45 +403,62 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
           ? CREDIT_ANALYSIS_AGENT_PROMPT
           : ANALYSIS_AGENT_PROMPT;
 
-      const semanticRecallDebug = await runBlockingSemanticRecall({
-        baseUrl: input.baseUrl,
-        apiKey: input.apiKey,
-        embeddingModel,
-        rerankModel,
-        enableEmbeddingModel,
-        enableRerankModel,
-        question: cleanPrompt,
-        transactions: input.transactions,
-        categories: input.categories,
-        accounts: input.accounts,
-        globalMemories: input.globalMemories || [],
-        signal: controller.signal
-      });
-      setEmbeddingDebug(semanticRecallDebug);
+      setEmbeddingDebug(
+        createIdleEmbeddingDebug(
+          isConversationalMode && enableEmbeddingModel ? embeddingModel.trim() : ''
+        )
+      );
 
-      if (semanticRecallDebug.enabled) {
-        if (semanticRecallDebug.used) {
-          addLog({
-            action: 'assistant.embedding',
-            status: 'success',
-            message: `语义召回命中 ${semanticRecallDebug.hitCount} 条，最高相似度 ${semanticRecallDebug.topScore.toFixed(2)}；平均相似度 ${(semanticRecallDebug.averageScore || 0).toFixed(2)}；索引 ${semanticRecallDebug.indexedDocs} 条；耗时 ${semanticRecallDebug.latencyMs}ms`
-          });
-        } else if (semanticRecallDebug.downgraded) {
-          addLog({
-            action: 'assistant.embedding',
-            status: 'info',
-            message: `语义召回失败并已降级：${semanticRecallDebug.reason}；耗时 ${semanticRecallDebug.latencyMs}ms`
-          });
-        } else {
-          addLog({
-            action: 'assistant.embedding',
-            status: 'info',
-            message: `语义召回未命中可用上下文；耗时 ${semanticRecallDebug.latencyMs}ms`
-          });
-        }
-      }
+      const semanticRecallTask = isConversationalMode
+        ? runBlockingSemanticRecall({
+            baseUrl: input.baseUrl,
+            apiKey: input.apiKey,
+            embeddingModel,
+            rerankModel,
+            enableEmbeddingModel,
+            enableRerankModel,
+            question: cleanPrompt,
+            transactions: input.transactions,
+            categories: input.categories,
+            accounts: input.accounts,
+            globalMemories: input.globalMemories || [],
+            signal: controller.signal
+          })
+            .then((semanticRecallDebug) => {
+              setEmbeddingDebug(semanticRecallDebug);
 
-      refreshSemanticRecallCacheMeta();
+              if (semanticRecallDebug.enabled) {
+                if (semanticRecallDebug.used) {
+                  addLog({
+                    action: 'assistant.embedding',
+                    status: 'success',
+                    message: `语义召回命中 ${semanticRecallDebug.hitCount} 条，最高相似度 ${semanticRecallDebug.topScore.toFixed(2)}；平均相似度 ${(semanticRecallDebug.averageScore || 0).toFixed(2)}；索引 ${semanticRecallDebug.indexedDocs} 条；耗时 ${semanticRecallDebug.latencyMs}ms`
+                  });
+                } else if (semanticRecallDebug.downgraded) {
+                  addLog({
+                    action: 'assistant.embedding',
+                    status: 'info',
+                    message: `语义召回失败并已降级：${semanticRecallDebug.reason}；耗时 ${semanticRecallDebug.latencyMs}ms`
+                  });
+                } else {
+                  addLog({
+                    action: 'assistant.embedding',
+                    status: 'info',
+                    message: `语义召回未命中可用上下文；耗时 ${semanticRecallDebug.latencyMs}ms`
+                  });
+                }
+              }
+
+              refreshSemanticRecallCacheMeta();
+              return semanticRecallDebug;
+            })
+            .catch((error) => {
+              if (error instanceof DOMException && error.name === 'AbortError') {
+                return createIdleEmbeddingDebug(embeddingModel.trim());
+              }
+              throw error;
+            })
+        : Promise.resolve(createIdleEmbeddingDebug());
 
       const repaymentContextBlock =
         input.sceneMode === 'credit' ? `\n\n还款管理上下文：\n${repaymentContext}` : '';
@@ -471,6 +488,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
             }
           }
         );
+        await semanticRecallTask;
         setRawReasoning('');
         setLastUsage(null);
         setEntries([]);
