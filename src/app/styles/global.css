@@ -3249,6 +3249,17 @@ small.mono {
     gap: 12px;
   }
 
+  .dashboard-dynamic-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .dashboard-unified-card {
+    padding: 12px;
+    gap: 10px;
+    min-height: 0;
+  }
+
   .dashboard-panel-header {
     align-items: flex-start;
     gap: var(--space-2);
@@ -3357,6 +3368,73 @@ small.mono {
 
   .dashboard-top-item strong {
     font-size: var(--font-base);
+  }
+
+  .dashboard-expense-trend-card {
+    gap: 8px;
+  }
+
+  .dashboard-expense-trend-chart {
+    min-height: 132px;
+    padding: 10px 8px 8px;
+    gap: 4px;
+  }
+
+  .dashboard-expense-trend-track {
+    height: 96px;
+  }
+
+  .dashboard-forecast-chart {
+    padding: 8px;
+  }
+
+  .dashboard-forecast-axes {
+    grid-template-columns: 42px 1fr;
+    gap: 8px;
+  }
+
+  .dashboard-forecast-axis-y {
+    font-size: 10px;
+    padding: 4px 0;
+  }
+
+  .dashboard-forecast-chart svg {
+    height: 124px;
+  }
+
+  .dashboard-forecast-axis-x {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    font-size: 10px;
+  }
+
+  .dashboard-forecast-quick-card {
+    padding: 10px;
+  }
+
+  .dashboard-forecast-quick-values {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .dashboard-donut-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+
+  .dashboard-donut-wrap {
+    width: min(100%, 200px);
+  }
+
+  .dashboard-donut-center {
+    width: 92px;
+    height: 92px;
+    padding: 8px;
+  }
+
+  .dashboard-donut-center strong {
+    font-size: 14px;
   }
 }
 
