@@ -1405,12 +1405,41 @@ export function TransactionsPage() {
     setPendingDeleteIds([]);
   };
 
+  const fallbackCopyText = (text: string) => {
+    if (typeof document === 'undefined') {
+      throw new Error('document unavailable');
+    }
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', 'true');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-9999px';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const succeeded = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    if (!succeeded) {
+      throw new Error('execCommand copy failed');
+    }
+  };
+
   const copyText = async (text: string, successMessage: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        fallbackCopyText(text);
+      }
       showToast(successMessage, 'success');
     } catch {
-      showToast('复制失败，请检查浏览器权限。', 'error');
+      try {
+        fallbackCopyText(text);
+        showToast(successMessage, 'success');
+      } catch {
+        showToast('复制失败，请检查浏览器权限。', 'error');
+      }
     }
   };
 
@@ -1985,13 +2014,8 @@ export function TransactionsPage() {
     if (!shareText) {
       return;
     }
-    try {
-      await navigator.clipboard.writeText(shareText);
-      showToast('分享文案已复制。', 'success');
-    } catch {
-      showToast('复制失败，请检查浏览器权限。', 'error');
-    }
-  }, [shareText]);
+    await copyText(shareText, '分享文案已复制。');
+  }, [copyText, shareText]);
 
   const handleOpenShareDialog = useCallback(() => {
     if (!selected) {
