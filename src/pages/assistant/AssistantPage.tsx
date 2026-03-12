@@ -3072,8 +3072,10 @@ export function AssistantPage() {
               </button>
             </header>
             <div className="drawer-body">
-              <div className="chat-semantic-drawer-card">
-                <strong>索引状态</strong>
+              <details className="chat-semantic-drawer-card" open>
+                <summary>
+                  <strong>索引状态</strong>
+                </summary>
                 <span>
                   {wb.semanticRecallCacheMeta.exists
                     ? `已建立 · ${wb.semanticRecallCacheMeta.indexedDocs} 条 · ${wb.semanticRecallCacheMeta.updatedAt ? new Date(wb.semanticRecallCacheMeta.updatedAt).toLocaleString() : '-'}`
@@ -3103,10 +3105,12 @@ export function AssistantPage() {
                     清缓存
                   </button>
                 </div>
-              </div>
+              </details>
               {(showEmbeddingSummary && wb.embeddingDebug.enabled) || (showEmbeddingDebug && wb.embeddingDebug.enabled) ? (
-                <div className="chat-semantic-drawer-card">
-                  <strong>当前状态</strong>
+                <details className="chat-semantic-drawer-card">
+                  <summary>
+                    <strong>当前状态</strong>
+                  </summary>
                   {showEmbeddingSummary && wb.embeddingDebug.enabled ? (
                     <p className="chat-semantic-drawer-text">
                       {wb.embeddingDebug.used
@@ -3132,7 +3136,7 @@ export function AssistantPage() {
                         .join('\n')}
                     </pre>
                   ) : null}
-                </div>
+                </details>
               ) : null}
             </div>
           </aside>

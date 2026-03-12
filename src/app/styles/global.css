@@ -11981,15 +11981,15 @@ body.categories-accounts-resizing {
 
 
 .chat-semantic-drawer {
-  width: min(720px, 100vw);
-  height: min(72vh, 680px);
-  min-height: 320px;
+  width: min(520px, 94vw);
+  max-height: min(60vh, 520px);
+  min-height: 240px;
 }
 
 .chat-semantic-drawer-card {
   display: grid;
-  gap: 8px;
-  padding: var(--space-3);
+  gap: 6px;
+  padding: var(--space-2);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   background: var(--color-bg-subtle);
@@ -12007,11 +12007,29 @@ body.categories-accounts-resizing {
   color: var(--color-text-secondary);
 }
 
-.chat-semantic-drawer-pre {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--color-text-primary);
+.chat-semantic-drawer-card summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.chat-semantic-drawer-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.chat-semantic-drawer-card summary strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-semantic-drawer-card summary strong::before {
+  content: '▸';
+  display: inline-block;
+  opacity: 0.7;
+  transform: rotate(0deg);
+  transition: transform 150ms ease;
+}
+
+.chat-semantic-drawer-card[open] summary strong::before {
+  transform: rotate(90deg);
 }
