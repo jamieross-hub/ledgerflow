@@ -43,6 +43,32 @@ LedgerFlow 是一个围绕 **“记得快、看得清、能追溯、可优化”
 
 ---
 
+## 已实现功能（Feature Matrix）
+
+| 模块 | 功能 | 说明 |
+| --- | --- | --- |
+| 交易（Transactions） | 交易录入 | 快速新增收入/支出/转账等流水 |
+| 交易（Transactions） | 列表筛选/排序 | 按时间、分类、状态等筛选与排序 |
+| 交易（Transactions） | 批量操作 | 批量改分类、改状态等（按 UI 提供的动作） |
+| 交易（Transactions） | 退款/冲正关联 | 支持退款与原交易关联，便于对账追溯 |
+| 负债（Repayment Management） | 负债管理 | 维护贷款/分期/信用账单等负债清单 |
+| 负债（Repayment Management） | 还款台账 | 记录还款并联动回写余额/期数等状态 |
+| 负债（Repayment Management） | 还款计算 | 最低还款/期供等辅助计算（按页面能力） |
+| 预算（Smart Budget） | 预算方案与跟踪 | 分类级预算跟踪与执行反馈 |
+| 预算（Smart Budget） | 超预算提醒 | 超预算提示与反馈闭环（按 UI 呈现） |
+| 看板（Dashboard） | 总览与趋势 | 净资产/本月结余、趋势、分类结构等 |
+| AI 助手（Assistant） | 自然语言问答 | 支持财务相关问答与分析 |
+| AI 助手（Assistant） | 账单/截图识别 | 支持上传账单/截图进行结构化提炼 |
+| AI 助手（Assistant） | AI 辅助分类 | 辅助交易分类与建议 |
+| AI 助手（Assistant） | 信贷管家模式 | 信贷结果卡片化展示，可带去还款管理预填 |
+| AI 设置（AI Settings） | OpenAI-compatible 接入 | 支持自定义 Base URL / API Key / Model |
+| WebDAV | 备份到 WebDAV | 支持备份上传/下载，并显示过程状态与完成提醒 |
+| WebDAV | 账单附件上传 | 可选把票据/截图等附件上传到 WebDAV |
+
+> 注：这是基于当前仓库 UI/代码的「已实现能力」概览；细节以实际页面与版本更新为准。
+
+---
+
 ## 快速开始（推荐：Docker 部署）
 
 ### Docker Compose
