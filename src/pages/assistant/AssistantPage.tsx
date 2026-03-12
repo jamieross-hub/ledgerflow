@@ -1614,7 +1614,8 @@ export function AssistantPage() {
     const el = wb.textareaRef.current;
     if (!el) return;
 
-    const minHeight = 40;
+    const isEmpty = !el.value.trim();
+    const minHeight = isEmpty ? 56 : 40;
     const maxHeight = 170;
 
     // Reset first so it can shrink.
@@ -1974,6 +1975,17 @@ export function AssistantPage() {
         </div>
 
         <div className="chat-topbar-right">
+          {mode !== 'bookkeeping' && wb.semanticRecallCacheMeta.exists ? (
+            <button
+              type="button"
+              className="chat-icon-topbar-btn"
+              onClick={() => setSemanticPanelOpen(true)}
+              aria-label="语义召回"
+              title={`语义召回 · ${wb.semanticRecallCacheMeta.indexedDocs} 条`}
+            >
+              语
+            </button>
+          ) : null}
           <button
             type="button"
             className={`chat-icon-topbar-btn ${isWideLayout ? 'is-active' : ''}`}
@@ -2931,20 +2943,6 @@ export function AssistantPage() {
       </section>
 
       <section className="chat-input-bar">
-        {mode !== 'bookkeeping' && wb.semanticRecallCacheMeta.exists ? (
-          <div className="chat-semantic-status-panel">
-            <button
-              type="button"
-              className="chat-semantic-status-summary"
-              onClick={() => setSemanticPanelOpen(true)}
-              title="查看语义召回详情"
-              aria-label="查看语义召回详情"
-            >
-              <span>语义召回</span>
-              <span>{wb.semanticRecallCacheMeta.indexedDocs} 条</span>
-            </button>
-          </div>
-        ) : null}
         {shouldShowError ? (
           <div className="chat-error-strip" role="alert">
             <span>{wb.error}</span>
