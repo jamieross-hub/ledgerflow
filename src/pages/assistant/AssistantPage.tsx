@@ -389,6 +389,9 @@ interface TodayTodoItem {
   label: string;
   detail: string;
   level?: 'default' | 'warning';
+  count?: number;
+  statusLabel?: string;
+  href?: string;
 }
 
 interface DuplicateReviewPair {
@@ -1241,38 +1244,38 @@ export function AssistantPage() {
       {
         id: 'todo-uncategorized',
         label: '待分类交易',
-        detail:
-          uncategorizedCount > 0
-            ? `还有 ${uncategorizedCount} 笔交易未分类，建议今天先补齐。`
-            : '暂无待分类交易，分类状态良好。',
-        level: uncategorizedCount > 0 ? 'warning' : 'default'
+        detail: `还有 ${uncategorizedCount} 笔交易未分类，建议今天先补齐。`,
+        level: uncategorizedCount > 0 ? 'warning' : 'default',
+        count: uncategorizedCount,
+        statusLabel: uncategorizedCount > 0 ? '今日 / 需处理' : undefined,
+        href: '/transactions?categoryId=uncategorized'
       },
       {
         id: 'todo-refund-link',
         label: '待关联退款',
-        detail:
-          pendingRefundCount > 0
-            ? `检测到 ${pendingRefundCount} 笔退款/冲正相关记录，可核对原单关联。`
-            : '暂无待关联退款记录。',
-        level: pendingRefundCount > 0 ? 'warning' : 'default'
+        detail: `检测到 ${pendingRefundCount} 笔退款/冲正相关记录，可核对原单关联。`,
+        level: pendingRefundCount > 0 ? 'warning' : 'default',
+        count: pendingRefundCount,
+        statusLabel: pendingRefundCount > 0 ? '今日 / 需处理' : undefined,
+        href: '/transactions?status=refunded'
       },
       {
         id: 'todo-pending',
         label: '待处理流水',
-        detail:
-          pendingCount > 0
-            ? `当前有 ${pendingCount} 笔待处理交易，建议优先确认状态。`
-            : '暂无待处理流水。',
-        level: pendingCount > 0 ? 'warning' : 'default'
+        detail: `当前有 ${pendingCount} 笔待处理交易，建议优先确认状态。`,
+        level: pendingCount > 0 ? 'warning' : 'default',
+        count: pendingCount,
+        statusLabel: pendingCount > 0 ? '今日 / 需处理' : undefined,
+        href: '/transactions?status=pending'
       },
       {
         id: 'todo-repayment',
         label: '到期还款检查',
-        detail:
-          repaymentTodoCount > 0
-            ? `当前有 ${repaymentTodoCount} 笔还款记录待确认，请核对到期日。`
-            : '暂无明显到期还款风险。',
-        level: repaymentTodoCount > 0 ? 'warning' : 'default'
+        detail: `当前有 ${repaymentTodoCount} 笔还款记录待确认，请核对到期日。`,
+        level: repaymentTodoCount > 0 ? 'warning' : 'default',
+        count: repaymentTodoCount,
+        statusLabel: repaymentTodoCount > 0 ? '今日 / 需处理' : undefined,
+        href: '/repayment-management'
       }
     ];
 
@@ -2088,26 +2091,6 @@ export function AssistantPage() {
                   </div>
                 </div>
               </div>
-              <div className="chat-preset-head">
-                <strong>信贷场景提问</strong>
-                <button type="button" onClick={() => setMode('credit')}>
-                  当前模式
-                </button>
-              </div>
-              <div className="chat-preset-list chat-preset-list-smart">
-                {displayBehaviorQuestions.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="chat-preset-item chat-preset-item-smart"
-                    onClick={() => submitPrompt(item.prompt)}
-                    disabled={wb.status === 'recognizing'}
-                  >
-                    <span className="chat-preset-item-tag">信贷优先推荐</span>
-                    <strong>{item.label}</strong>
-                  </button>
-                ))}
-              </div>
               <div className="chat-preset-list">
                 {displayPresetQuestions.map((item) => (
                   <button
@@ -2139,17 +2122,28 @@ export function AssistantPage() {
                       <h3>🗓 今日要做</h3>
                       <span>提醒 / 风险 / 待处理</span>
                     </div>
-                    <div className="chat-push-insights">
-                      {assistantOverview.todayTodos.map((item) => (
-                        <article
-                          key={item.id}
-                          className={`chat-push-insight-item ${item.level === 'warning' ? 'warning' : ''}`}
-                        >
-                          <h4>{item.label}</h4>
-                          <p>{item.detail}</p>
-                        </article>
-                      ))}
-                    </div>
+                    {assistantOverview.todayTodos.filter((item) => (item.count ?? 0) > 0).length > 0 ? (
+                      <div className="chat-push-insights">
+                        {assistantOverview.todayTodos
+                          .filter((item) => (item.count ?? 0) > 0)
+                          .map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              className={`chat-push-insight-item ${item.level === 'warning' ? 'warning' : ''}`}
+                              onClick={() => item.href && navigate(item.href)}
+                            >
+                              <div className="chat-push-insight-top">
+                                <h4>{item.label}</h4>
+                                {item.statusLabel ? (
+                                  <span className="chat-push-insight-tag">{item.statusLabel}</span>
+                                ) : null}
+                              </div>
+                              <p>{item.detail}</p>
+                            </button>
+                          ))}
+                      </div>
+                    ) : null}
                   </div>
 
                   {recentTimelineTransactions.length > 0 ? (

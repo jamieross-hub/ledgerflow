@@ -80,6 +80,7 @@ export function DatabaseSettingsPage() {
   const [importSource, setImportSource] = useState<BillSource | null>(null);
   const [importMode, setImportMode] = useState<BillImportMode>('incremental');
   const [busy, setBusy] = useState(false);
+  const [webdavStatus, setWebdavStatus] = useState('');
   const [toast, setToast] = useState<{ visible: boolean; variant: ToastVariant; message: string }>({
     visible: false,
     variant: 'success',
@@ -99,6 +100,10 @@ export function DatabaseSettingsPage() {
 
   const showToast = (message: string, variant: ToastVariant) => {
     setToast({ visible: true, message, variant });
+  };
+
+  const showWebdavStatus = (message: string) => {
+    setWebdavStatus(message);
   };
 
   const ensureDefaultRefs = (source?: BillSource) => {
@@ -231,14 +236,20 @@ export function DatabaseSettingsPage() {
       ensureHydrated();
       validateWebdav();
       setBusy(true);
+      showWebdavStatus('正在打包备份...');
       const payload = createFinanceBackupPayload({ transactions, categories, accounts });
-      await webdavUploadBackup(webdav, payload);
+      await webdavUploadBackup(webdav, payload, (stage) => {
+        showWebdavStatus(stage);
+      });
       saveWebdavConfig(webdav);
-      showToast('WebDAV 上传成功', 'success');
+      showWebdavStatus('备份完成');
+      showToast('WebDAV 备份成功', 'success');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'WebDAV 上传失败', 'error');
+      showWebdavStatus('备份失败');
+      showToast(error instanceof Error ? error.message : 'WebDAV 备份失败', 'error');
     } finally {
       setBusy(false);
+      window.setTimeout(() => setWebdavStatus(''), 2400);
     }
   };
 
@@ -247,14 +258,18 @@ export function DatabaseSettingsPage() {
       ensureHydrated();
       validateWebdav();
       setBusy(true);
+      showWebdavStatus('拉取备份列表...');
       const versions = await listWebdavBackupVersions(webdav);
       setWebdavRestoreVersions(versions);
       setSelectedRestorePath(versions[0]?.remotePath || '');
       setWebdavRestoreDialogOpen(true);
+      showWebdavStatus('已获取备份列表');
     } catch (error) {
+      showWebdavStatus('获取失败');
       showToast(error instanceof Error ? error.message : 'WebDAV 下载失败', 'error');
     } finally {
       setBusy(false);
+      window.setTimeout(() => setWebdavStatus(''), 2400);
     }
   };
 
@@ -266,15 +281,19 @@ export function DatabaseSettingsPage() {
         throw new Error('请选择一个可恢复版本');
       }
       setBusy(true);
+      showWebdavStatus('正在下载并恢复...');
       const payload = await webdavDownloadBackup(webdav, selectedRestorePath);
       replaceAllData(payload.data);
       saveWebdavConfig(webdav);
       setWebdavRestoreDialogOpen(false);
-      showToast('WebDAV 下载并恢复成功', 'success');
+      showWebdavStatus('恢复完成');
+      showToast('WebDAV 备份恢复成功', 'success');
     } catch (error) {
+      showWebdavStatus('恢复失败');
       showToast(error instanceof Error ? error.message : 'WebDAV 下载失败', 'error');
     } finally {
       setBusy(false);
+      window.setTimeout(() => setWebdavStatus(''), 2400);
     }
   };
 
@@ -479,11 +498,12 @@ export function DatabaseSettingsPage() {
             onClick={() => void handleWebdavUpload()}
             disabled={busy}
           >
-            上传到 WebDAV
+            备份到 WebDAV
           </button>
           <button type="button" onClick={() => void handleWebdavDownload()} disabled={busy}>
             从 WebDAV 下载并恢复
           </button>
+          {webdavStatus ? <span className="sync-tip">{webdavStatus}</span> : null}
         </div>
       </section>
 

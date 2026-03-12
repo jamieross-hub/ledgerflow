@@ -4393,11 +4393,31 @@ small.mono {
   display: grid;
   gap: 4px;
   box-shadow: var(--shadow-xs);
+  text-align: left;
   transition:
     transform var(--transition-base),
     box-shadow var(--transition-base),
     border-color var(--transition-fast),
     background var(--transition-fast);
+}
+
+.chat-push-insight-item:disabled {
+  cursor: default;
+}
+
+.chat-push-insight-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chat-push-insight-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-warning-bg) 70%, white 30%);
+  color: var(--color-text-warning);
 }
 
 .chat-push-insight-item h4 {
@@ -11483,7 +11503,7 @@ body.categories-accounts-resizing {
   background: color-mix(in srgb, var(--color-bg-subtle) 94%, var(--color-bg-elevated));
   padding: 10px 12px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) minmax(92px, auto);
   gap: 10px;
   align-items: center;
   text-align: left;
@@ -11519,9 +11539,9 @@ body.categories-accounts-resizing {
 }
 
 .dashboard-donut-list-main header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 8px;
 }
 
@@ -11556,10 +11576,16 @@ body.categories-accounts-resizing {
 }
 
 .dashboard-donut-list-side {
-  min-width: 72px;
+  min-width: 0;
   text-align: right;
   display: grid;
   gap: 4px;
+  justify-items: end;
+}
+
+.dashboard-donut-list-side strong,
+.dashboard-donut-list-side small {
+  text-align: right;
 }
 
 .dashboard-net-curve {

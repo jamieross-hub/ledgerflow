@@ -224,7 +224,6 @@ describe('AssistantPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
 
     expect(screen.getAllByRole('button', { name: 'AI 信贷管家' }).length).toBeGreaterThan(0);
-    expect(screen.getByText('信贷场景提问')).toBeInTheDocument();
     expect(screen.getByText('梳理本月应还')).toBeInTheDocument();
   });
 

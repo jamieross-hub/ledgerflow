@@ -818,15 +818,18 @@ function buildBasicAuth(username: string, password: string): string {
 
 export async function webdavUploadBackup(
   config: BackupWebdavConfig,
-  payload: FinanceBackupPayload
+  payload: FinanceBackupPayload,
+  onProgress?: (stage: string) => void
 ): Promise<void> {
   try {
     const sanitized = sanitizeWebdavConfig(config);
+    onProgress?.('准备 WebDAV 备份...');
     const versionedRemotePath = buildVersionedBackupPath(sanitized.remoteFilePath, payload.exportedAt);
     const latestRemotePath = sanitized.remoteFilePath;
     await ensureWebdavDirectoriesByPath(sanitized, versionedRemotePath);
     const body = JSON.stringify(payload, null, 2);
     const versionedUrl = joinWebdavPath(sanitized, versionedRemotePath);
+    onProgress?.('上传版本备份...');
     const response = await fetch(versionedUrl, {
       method: 'PUT',
       headers: buildWebdavHeaders(sanitized, {
@@ -842,6 +845,7 @@ export async function webdavUploadBackup(
     if (latestRemotePath !== versionedRemotePath) {
       await ensureWebdavDirectoriesByPath(sanitized, latestRemotePath);
       const latestUrl = joinWebdavPath(sanitized, latestRemotePath);
+      onProgress?.('更新最新版本...');
       const latestResponse = await fetch(latestUrl, {
         method: 'PUT',
         headers: buildWebdavHeaders(sanitized, {
@@ -856,6 +860,7 @@ export async function webdavUploadBackup(
     }
 
     try {
+      onProgress?.('清理旧版本...');
       await pruneWebdavBackupVersions(sanitized);
     } catch {
       // 版本清理失败不阻断主上传成功，避免代理 / WebDAV 实现差异导致上传整体失败。
