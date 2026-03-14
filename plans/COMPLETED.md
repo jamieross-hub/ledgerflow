@@ -47,3 +47,13 @@
 - 验收方式：
   - NODE_OPTIONS=--max-old-space-size=4096 npx vitest run --config vitest.config.ts src/features/transactions/components/TransactionFilters.test.tsx src/features/transactions/components/TransactionTable.test.tsx src/features/transactions/hooks/useTransactionFilters.test.ts --poolOptions.threads.singleThread=true（通过）
   - npm run build（通过）
+
+- 日期：2026-03-14
+- 来源计划文件：plans/v0.4.x-transactions-focus.md
+- 完成任务：- [ ] 页面在移动端不出现关键控件被挤压或不可点击
+- 关联提交/PR：待提交
+- 变更摘要：
+  - 增加超小屏（<=520px）下交易筛选区的响应式规则：筛选主行改为单列，按钮全宽，避免控件挤压不可点
+- 验收方式：
+  - NODE_OPTIONS=--max-old-space-size=4096 npx vitest run --config vitest.config.ts src/features/transactions/components/TransactionFilters.test.tsx --poolOptions.threads.singleThread=true（通过）
+  - npm run build（通过）

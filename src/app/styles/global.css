@@ -1080,6 +1080,21 @@ button.danger:hover:not(:disabled) {
   }
 }
 
+@media (max-width: 520px) {
+  .transaction-filters-panel {
+    padding: var(--space-3);
+  }
+
+  .transaction-filters-primary-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .transaction-filter-trigger {
+    flex: 1 1 100%;
+  }
+}
+
 .transaction-filter-actions-grid {
   display: grid;
   gap: var(--space-2);
