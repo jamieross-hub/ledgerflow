@@ -20,7 +20,7 @@
 - 日期：2026-03-14
 - 来源计划文件：plans/v0.4.x-transactions-focus.md
 - 完成任务：- [ ] 筛选条件生效速度与结果正确性不下降
-- 关联提交/PR：待提交（参考：d5ab0da）
+- 关联提交/PR：5a13376
 - 变更摘要：
   - 回归跑通 transactions 相关单测（TransactionFilters / TransactionTable / useTransactionFilters）
   - `npm run build` 通过，确认本次首屏调整未影响筛选链路编译与构建
