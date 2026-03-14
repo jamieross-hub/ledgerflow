@@ -2365,18 +2365,22 @@ export function TransactionsPage() {
           sidePanelVisible={sidePanelVisible}
           onToggleSidePanel={() => setSidePanelVisible((prev) => !prev)}
         />
-        <p className="transactions-flow-focus-hint surface-caption">
-          当前默认聚焦流水列表；图表与洞察改为按需展开，避免首屏注意力被分散。
-        </p>
-        <div className="transactions-current-bill-strip" aria-label={t('transactions.ui.billFilterState')}>
-          <span>{t('transactions.ui.billPeriod')}: {currentPeriodLabel}</span>
-          <span>
-            {t('transactions.ui.filteredCount')}: {sortedRows.length} {t('transactions.ui.items')}
-          </span>
-          <span>
-            {t('transactions.ui.totalCount')}: {transactions.length} {t('transactions.ui.items')}
-          </span>
-        </div>
+        {sidePanelVisible ? (
+          <p className="transactions-flow-focus-hint surface-caption">
+            当前默认聚焦流水列表；图表与洞察改为按需展开，避免首屏注意力被分散。
+          </p>
+        ) : null}
+        {sidePanelVisible ? (
+          <div className="transactions-current-bill-strip" aria-label={t('transactions.ui.billFilterState')}>
+            <span>{t('transactions.ui.billPeriod')}: {currentPeriodLabel}</span>
+            <span>
+              {t('transactions.ui.filteredCount')}: {sortedRows.length} {t('transactions.ui.items')}
+            </span>
+            <span>
+              {t('transactions.ui.totalCount')}: {transactions.length} {t('transactions.ui.items')}
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {bulkAiProgress.visible ? (

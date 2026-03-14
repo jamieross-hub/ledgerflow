@@ -57,3 +57,12 @@
 - 验收方式：
   - NODE_OPTIONS=--max-old-space-size=4096 npx vitest run --config vitest.config.ts src/features/transactions/components/TransactionFilters.test.tsx --poolOptions.threads.singleThread=true（通过）
   - npm run build（通过）
+
+- 日期：2026-03-14
+- 来源计划文件：plans/v0.4.x-transactions-focus.md
+- 完成任务：- [ ] 洞察区默认不展示，页面视觉焦点集中在表格
+- 关联提交/PR：待提交
+- 变更摘要：
+  - 将“聚焦提示文案/账期条”等洞察辅助信息绑定到右侧图表面板（side panel）展开状态；默认关闭时不占首屏
+- 验收方式：
+  - npm run build（通过）
