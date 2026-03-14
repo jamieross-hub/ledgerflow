@@ -2455,6 +2455,7 @@ export function TransactionsPage() {
       <div
         className={`transactions-split-layout ${sidePanelVisible ? '' : 'transactions-split-layout-no-side'}`.trim()}
         ref={splitLayoutRef}
+        style={sidePanelVisible ? { scrollbarGutter: 'stable' } : undefined}
       >
         <section
           className="transactions-split-main"
