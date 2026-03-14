@@ -1773,6 +1773,12 @@ export function TransactionsPage() {
   };
 
   useEffect(() => {
+    if (!sidePanelVisible) {
+      document.body.classList.remove('transactions-split-resizing');
+    }
+  }, [sidePanelVisible]);
+
+  useEffect(() => {
     if (!splitLayoutRef.current) {
       return;
     }
