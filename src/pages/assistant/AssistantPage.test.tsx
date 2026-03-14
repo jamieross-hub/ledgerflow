@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AssistantPage } from './AssistantPage';
@@ -212,7 +212,7 @@ function createWorkbenchMock() {
 }
 
 describe('AssistantPage', () => {
-  it('应支持切换到 AI 信贷管家并展示信贷首屏内容', () => {
+  it('应支持切换到 AI 信贷管家并展示信贷首屏内容', async () => {
     useAssistantWorkbenchMock.mockReturnValue(createWorkbenchMock());
 
     render(
@@ -221,13 +221,15 @@ describe('AssistantPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
+    });
 
     expect(screen.getAllByRole('button', { name: 'AI 信贷管家' }).length).toBeGreaterThan(0);
-    expect(screen.getByText('梳理本月应还')).toBeInTheDocument();
+    expect(await screen.findByText('梳理本月应还')).toBeInTheDocument();
   });
 
-  it('信贷识别结果应支持直接保存到还款管理', () => {
+  it('信贷识别结果应支持直接保存到还款管理', async () => {
     useAssistantWorkbenchMock.mockReturnValue({
       ...createWorkbenchMock(),
       rawContent: '已识别完成',
@@ -270,24 +272,34 @@ describe('AssistantPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
-    fireEvent.click(screen.getByRole('button', { name: '进入保存前确认' }));
-    fireEvent.click(screen.getByRole('button', { name: '确认保存到还款管理' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
+    });
 
-    expect(addDebtMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: '招联消费贷',
-        type: 'consumer-loan',
-        balance: 4200
-      })
-    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '进入保存前确认' }));
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '确认保存到还款管理' }));
+    });
+
+    await waitFor(() => {
+      expect(addDebtMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: '招联消费贷',
+          type: 'consumer-loan',
+          balance: 4200
+        })
+      );
+    });
 
     sessionStorageGetItemSpy.mockRestore();
   });
 
 
 
-  it('信贷结果应展示补全进度并提示承接上轮补充', () => {
+  it('信贷结果应展示补全进度并提示承接上轮补充', async () => {
     useAssistantWorkbenchMock.mockReturnValue({
       ...createWorkbenchMock(),
       rawContent: '已识别完成',
@@ -334,16 +346,18 @@ describe('AssistantPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
+    });
 
-    expect(screen.getByText('6/6 关键字段已补齐')).toBeInTheDocument();
+    expect(await screen.findByText('6/6 关键字段已补齐')).toBeInTheDocument();
     expect(screen.getByText('100%')).toBeInTheDocument();
     expect(screen.getByText('已承接上轮补充')).toBeInTheDocument();
 
     sessionStorageGetItemSpy.mockRestore();
   });
 
-  it('字段较完整的信贷结果应先进入保存前确认态', () => {
+  it('字段较完整的信贷结果应先进入保存前确认态', async () => {
     useAssistantWorkbenchMock.mockReturnValue({
       ...createWorkbenchMock(),
       rawContent: '已识别完成',
@@ -389,30 +403,39 @@ describe('AssistantPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
-    fireEvent.click(screen.getByRole('button', { name: '进入保存前确认' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
+    });
 
-    expect(screen.getByText('保存前确认')).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '进入保存前确认' }));
+    });
+
+    expect(await screen.findByText('保存前确认')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '确认保存到还款管理' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '确认保存到还款管理' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '确认保存到还款管理' }));
+    });
 
-    expect(addDebtMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: '分期乐账单',
-        balance: 3999,
-        annualRate: 18.6,
-        remainingMonths: 6,
-        repaymentDay: 10
-      })
-    );
+    await waitFor(() => {
+      expect(addDebtMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: '分期乐账单',
+          balance: 3999,
+          annualRate: 18.6,
+          remainingMonths: 6,
+          repaymentDay: 10
+        })
+      );
+    });
 
     sessionStorageGetItemSpy.mockRestore();
   });
 
 
 
-  it('信贷卡片应展示还款计划、账户与流水检索结果', () => {
+  it('信贷卡片应展示还款计划、账户与流水检索结果', async () => {
     useAssistantWorkbenchMock.mockReturnValue({
       ...createWorkbenchMock(),
       rawContent: '已识别完成',
@@ -456,18 +479,20 @@ describe('AssistantPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
+    });
 
-    expect(screen.getByText('还款检索结果')).toBeInTheDocument();
+    expect(await screen.findByText('还款检索结果')).toBeInTheDocument();
     expect(screen.getByText('计划中的应还')).toBeInTheDocument();
     expect(screen.getByText((content) => content.includes('每月8日') && content.includes('本期约666'))).toBeInTheDocument();
     expect(screen.getByText('计划 / 实际账户')).toBeInTheDocument();
     expect(screen.getByText((content) => content.includes('招商') && content.includes('银行卡'))).toBeInTheDocument();
-    
+
     sessionStorageGetItemSpy.mockRestore();
   });
 
-  it('保存前确认态应支持更新已有负债', () => {
+  it('保存前确认态应支持更新已有负债', async () => {
     useAssistantWorkbenchMock.mockReturnValue({
       ...createWorkbenchMock(),
       rawContent: '已识别完成',
@@ -513,29 +538,38 @@ describe('AssistantPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
-    fireEvent.click(screen.getByRole('button', { name: '进入保存前确认' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
+    });
 
-    expect(screen.getByText('与已保存负债的差异')).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '进入保存前确认' }));
+    });
+
+    expect(await screen.findByText('与已保存负债的差异')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '更新已有负债' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '更新已有负债' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '更新已有负债' }));
+    });
 
-    expect(updateDebtMock).toHaveBeenCalledWith(
-      'saved-debt-1',
-      expect.objectContaining({
-        name: '京东白条分期',
-        balance: 3999,
-        annualRate: 18.6,
-        remainingMonths: 6,
-        repaymentDay: 10
-      })
-    );
+    await waitFor(() => {
+      expect(updateDebtMock).toHaveBeenCalledWith(
+        'saved-debt-1',
+        expect.objectContaining({
+          name: '京东白条分期',
+          balance: 3999,
+          annualRate: 18.6,
+          remainingMonths: 6,
+          repaymentDay: 10
+        })
+      );
+    });
 
     sessionStorageGetItemSpy.mockRestore();
   });
 
-  it('信贷识别结果应支持带去还款管理', () => {
+  it('信贷识别结果应支持带去还款管理', async () => {
     useAssistantWorkbenchMock.mockReturnValue({
       ...createWorkbenchMock(),
       rawContent: '已识别完成',
@@ -578,16 +612,23 @@ describe('AssistantPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
-    fireEvent.click(screen.getByRole('button', { name: '去补充后保存' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'AI 信贷管家' }));
+    });
 
-    expect(navigateMock).toHaveBeenCalledWith('/repayment-management', {
-      state: {
-        prefillDebt: expect.objectContaining({
-          name: '花呗分期',
-          type: 'consumer-loan'
-        })
-      }
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '去补充后保存' }));
+    });
+
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith('/repayment-management', {
+        state: {
+          prefillDebt: expect.objectContaining({
+            name: '花呗分期',
+            type: 'consumer-loan'
+          })
+        }
+      });
     });
 
     sessionStorageGetItemSpy.mockRestore();
