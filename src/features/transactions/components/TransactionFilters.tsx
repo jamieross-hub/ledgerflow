@@ -225,7 +225,7 @@ export function TransactionFilters({
           className={`transaction-filter-trigger ${sidePanelVisible ? 'active' : ''}`}
           onClick={onToggleSidePanel}
         >
-          {sidePanelVisible ? '收起图表' : '展开图表'}
+          {sidePanelVisible ? '收起洞察' : '查看洞察'}
         </button>
         <button type="button" className="transaction-filter-trigger" onClick={onTogglePrivacy}>
           {privacyMode ? '🙈 关闭隐私模式' : '🕶️ 开启隐私模式'}
