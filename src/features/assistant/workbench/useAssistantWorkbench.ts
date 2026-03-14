@@ -112,6 +112,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
   const { addLog } = useDebugLogStore();
   const embeddingModel = useAiSettings((s) => s.embeddingModel);
   const enableEmbeddingModel = useAiSettings((s) => s.enableEmbeddingModel);
+  const embeddingChannel = useAiSettings((s) => s.embedding);
   const rerankModel = useAiSettings((s) => s.rerankModel);
   const enableRerankModel = useAiSettings((s) => s.enableRerankModel);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -141,24 +142,42 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     visible: false
   });
 
+  const embeddingOverrideActive =
+    Boolean(embeddingChannel.enabled) &&
+    Boolean(
+      embeddingChannel.baseUrl.trim() ||
+        embeddingChannel.apiKey.trim() ||
+        embeddingChannel.model.trim()
+    );
+
+  const effectiveEmbeddingBaseUrl = embeddingOverrideActive
+    ? (embeddingChannel.baseUrl.trim() || input.baseUrl)
+    : input.baseUrl;
+  const effectiveEmbeddingApiKey = embeddingOverrideActive
+    ? (embeddingChannel.apiKey.trim() || input.apiKey)
+    : input.apiKey;
+  const effectiveEmbeddingModel = embeddingOverrideActive
+    ? (embeddingChannel.model.trim() || embeddingModel.trim())
+    : embeddingModel.trim();
+
   const refreshSemanticRecallCacheMeta = useCallback(() => {
-    if (!input.baseUrl.trim() || !embeddingModel.trim()) {
-      setSemanticRecallCacheMeta(createSemanticRecallMeta(embeddingModel.trim()));
+    if (!effectiveEmbeddingBaseUrl.trim() || !effectiveEmbeddingModel.trim()) {
+      setSemanticRecallCacheMeta(createSemanticRecallMeta(effectiveEmbeddingModel.trim()));
       return;
     }
-    const next = readSemanticRecallCacheMeta(input.baseUrl, embeddingModel.trim());
+    const next = readSemanticRecallCacheMeta(effectiveEmbeddingBaseUrl, effectiveEmbeddingModel.trim());
     setSemanticRecallCacheMeta(next);
-  }, [embeddingModel, input.baseUrl]);
+  }, [effectiveEmbeddingBaseUrl, effectiveEmbeddingModel]);
 
   const clearSemanticRecallIndex = useCallback(() => {
-    if (!input.baseUrl.trim() || !embeddingModel.trim()) return false;
-    clearSemanticRecallIndexCache(input.baseUrl, embeddingModel.trim());
+    if (!effectiveEmbeddingBaseUrl.trim() || !effectiveEmbeddingModel.trim()) return false;
+    clearSemanticRecallIndexCache(effectiveEmbeddingBaseUrl, effectiveEmbeddingModel.trim());
     refreshSemanticRecallCacheMeta();
     setEmbeddingDebug((prev) => ({
-      ...createIdleEmbeddingDebug(embeddingModel.trim()),
+      ...createIdleEmbeddingDebug(effectiveEmbeddingModel.trim()),
       ...prev,
       enabled: enableEmbeddingModel,
-      model: embeddingModel.trim(),
+      model: effectiveEmbeddingModel.trim(),
       reason: 'cache-cleared'
     }));
     setToast({ visible: true, variant: 'success', message: '语义召回索引缓存已清理' });
@@ -166,9 +185,9 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
     return true;
   }, [
     addLog,
-    embeddingModel,
+    effectiveEmbeddingBaseUrl,
+    effectiveEmbeddingModel,
     enableEmbeddingModel,
-    input.baseUrl,
     refreshSemanticRecallCacheMeta
   ]);
 
@@ -405,15 +424,15 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
 
       setEmbeddingDebug(
         createIdleEmbeddingDebug(
-          isConversationalMode && enableEmbeddingModel ? embeddingModel.trim() : ''
+          isConversationalMode && enableEmbeddingModel ? effectiveEmbeddingModel.trim() : ''
         )
       );
 
       const semanticRecallTask = isConversationalMode
         ? runBlockingSemanticRecall({
-            baseUrl: input.baseUrl,
-            apiKey: input.apiKey,
-            embeddingModel,
+            baseUrl: effectiveEmbeddingBaseUrl,
+            apiKey: effectiveEmbeddingApiKey,
+            embeddingModel: effectiveEmbeddingModel,
             rerankModel,
             enableEmbeddingModel,
             enableRerankModel,
@@ -454,7 +473,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
             })
             .catch((error) => {
               if (error instanceof DOMException && error.name === 'AbortError') {
-                return createIdleEmbeddingDebug(embeddingModel.trim());
+                return createIdleEmbeddingDebug(effectiveEmbeddingModel.trim());
               }
               throw error;
             })
