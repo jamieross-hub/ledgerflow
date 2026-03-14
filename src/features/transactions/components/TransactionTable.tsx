@@ -274,7 +274,7 @@ export function TransactionTable({
   hasFilters,
   highlightId,
   privacyMode = false,
-  showTaskSummary = false,
+  showTaskSummary = true,
   selectedIds,
   bulkSelectionEnabled,
   canSelectAllOnPage,
