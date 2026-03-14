@@ -2,17 +2,17 @@
 
 LedgerFlow 的计划文件已从“按日期命名”调整为“按版本命名”。
 
+## 目录结构（当前约定）
+
+- `plans/`：当前主线 + 当前正在执行的计划文件
+- `plans/archive/`：历史计划归档（已完成/不再作为主线推进的文件，保留用于追溯）
+- `plans/COMPLETED.md`：已完成任务归档（按任务维度追加记录）
+
 ## 优先阅读顺序
 
 1. `plans/VERSIONS.md` —— 查看版本计划索引
-2. 当前主线计划：`plans/v0.4.8-testing-theme-mobile.md`
-3. 上一阶段主线：`plans/v0.4.7-credit-assistant.md`
-4. 后续版本候选：`plans/v0.4.9-global-memory.md`
-5. 更早主线：`plans/v0.4.6-assistant-experience.md`
-6. 更早主线：`plans/v0.4.5-ui-ux-dynamic.md`
-7. 更早主线：`plans/v0.4.4-bugfix.md`
-8. 更早主线：`plans/v0.4.3-ui-priority.md`
-9. 其他专项版本计划按主题查看
+2. 当前执行计划：`plans/v0.4.x-transactions-focus.md`
+3. 后续版本候选：`plans/v0.5.1-transaction-visibility-sharing-remote-db.md` / `plans/v0.5.2-chart-visual-redesign.md` / `plans/v0.6.0-user-system-collaboration.md`
 
 ## 命名规范
 
@@ -23,4 +23,3 @@ LedgerFlow 的计划文件已从“按日期命名”调整为“按版本命名
 
 - 主线工作优先写入版本计划
 - 专项方案也按版本维度归档
-- 日期可以写在文档头部，但不再放进文件名里
