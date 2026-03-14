@@ -16,3 +16,14 @@
 - 验收方式：
   - npm run build（通过）
   - 说明：当前环境浏览器自动化不可用，未做截图；以最小首屏占位变更确保表格更靠前
+
+- 日期：2026-03-14
+- 来源计划文件：plans/v0.4.x-transactions-focus.md
+- 完成任务：- [ ] 筛选条件生效速度与结果正确性不下降
+- 关联提交/PR：待提交（参考：d5ab0da）
+- 变更摘要：
+  - 回归跑通 transactions 相关单测（TransactionFilters / TransactionTable / useTransactionFilters）
+  - `npm run build` 通过，确认本次首屏调整未影响筛选链路编译与构建
+- 验收方式：
+  - NODE_OPTIONS=--max-old-space-size=4096 npx vitest run --config vitest.config.ts src/features/transactions/components/TransactionFilters.test.tsx src/features/transactions/components/TransactionTable.test.tsx src/features/transactions/hooks/useTransactionFilters.test.ts --poolOptions.threads.singleThread=true（通过）
+  - npm run build（通过）
