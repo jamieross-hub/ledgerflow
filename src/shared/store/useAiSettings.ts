@@ -93,6 +93,8 @@ type PersistedAiSettingsState = Omit<
   | 'setShowEmbeddingDebug'
   | 'setShowEmbeddingSummary'
   | 'setRememberApiKey'
+  | 'embedding'
+  | 'setEmbedding'
 > & {
   baseUrl: string;
   model: string;
@@ -106,7 +108,15 @@ type PersistedAiSettingsState = Omit<
   showEmbeddingDebug: boolean;
   showEmbeddingSummary: boolean;
   rememberApiKey: boolean;
+  embedding: EmbeddingChannelSettings;
 };
+
+export interface EmbeddingChannelSettings {
+  enabled: boolean;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
 
 interface AiSettingsState {
   baseUrl: string;
@@ -122,6 +132,7 @@ interface AiSettingsState {
   showEmbeddingDebug: boolean;
   showEmbeddingSummary: boolean;
   rememberApiKey: boolean;
+  embedding: EmbeddingChannelSettings;
   setBaseUrl: (baseUrl: string) => void;
   setApiKey: (apiKey: string) => void;
   setModel: (model: string) => void;
@@ -135,11 +146,19 @@ interface AiSettingsState {
   setShowEmbeddingDebug: (enabled: boolean) => void;
   setShowEmbeddingSummary: (enabled: boolean) => void;
   setRememberApiKey: (enabled: boolean) => void;
+  setEmbedding: (patch: Partial<EmbeddingChannelSettings>) => void;
 }
 
 const DEFAULT_BULK_RECATEGORIZE_CONCURRENCY = 8;
 const MIN_BULK_RECATEGORIZE_CONCURRENCY = 5;
 const MAX_BULK_RECATEGORIZE_CONCURRENCY = 30;
+
+const DEFAULT_EMBEDDING_CHANNEL_SETTINGS: EmbeddingChannelSettings = {
+  enabled: false,
+  baseUrl: '',
+  apiKey: '',
+  model: ''
+};
 
 function normalizeBulkRecategorizeConcurrency(value: number): number {
   return Math.min(
@@ -172,6 +191,7 @@ export const useAiSettings = create<AiSettingsState>()(
       showEmbeddingDebug: false,
       showEmbeddingSummary: true,
       rememberApiKey: Boolean(readLocalApiKey()),
+      embedding: DEFAULT_EMBEDDING_CHANNEL_SETTINGS,
       setBaseUrl: (baseUrl: string) => set({ baseUrl: baseUrl.trim() }),
       setApiKey: (apiKey: string) =>
         set((state) => {
@@ -208,7 +228,18 @@ export const useAiSettings = create<AiSettingsState>()(
             writeLocalApiKey('');
           }
           return { rememberApiKey: enabled };
-        })
+        }),
+      setEmbedding: (patch: Partial<EmbeddingChannelSettings>) =>
+        set((state) => ({
+          embedding: {
+            ...state.embedding,
+            ...patch,
+            enabled: typeof patch.enabled === 'boolean' ? patch.enabled : state.embedding.enabled,
+            baseUrl: typeof patch.baseUrl === 'string' ? patch.baseUrl.trim() : state.embedding.baseUrl,
+            apiKey: typeof patch.apiKey === 'string' ? patch.apiKey.trim() : state.embedding.apiKey,
+            model: typeof patch.model === 'string' ? patch.model.trim() : state.embedding.model
+          }
+        }))
     }),
     {
       name: AI_SETTINGS_STORAGE_KEY,
@@ -224,7 +255,8 @@ export const useAiSettings = create<AiSettingsState>()(
         bulkRecategorizeConcurrency: state.bulkRecategorizeConcurrency,
         showEmbeddingDebug: state.showEmbeddingDebug,
         showEmbeddingSummary: state.showEmbeddingSummary,
-        rememberApiKey: state.rememberApiKey
+        rememberApiKey: state.rememberApiKey,
+        embedding: state.embedding
       }),
       merge: (persisted: unknown, current: AiSettingsState) => {
         const next = { ...current, ...(persisted as Partial<PersistedAiSettingsState>) };
@@ -256,6 +288,17 @@ export const useAiSettings = create<AiSettingsState>()(
         if (typeof next.showEmbeddingSummary !== 'boolean') {
           next.showEmbeddingSummary = true;
         }
+
+        const embedding = (next as Partial<PersistedAiSettingsState>).embedding;
+        next.embedding = {
+          ...DEFAULT_EMBEDDING_CHANNEL_SETTINGS,
+          ...(embedding && typeof embedding === 'object' ? embedding : {})
+        };
+        next.embedding.enabled = Boolean(next.embedding.enabled);
+        next.embedding.baseUrl = String(next.embedding.baseUrl || '').trim();
+        next.embedding.apiKey = String(next.embedding.apiKey || '').trim();
+        next.embedding.model = String(next.embedding.model || '').trim();
+
         return next;
       }
     }
