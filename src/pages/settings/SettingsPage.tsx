@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { fetchAiModels } from '../../features/assistant/api/openaiCompatibleClient';
+import { fetchEmbeddings } from '../../features/assistant/api/openaiEmbeddingClient';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useAppPreferences } from '../../shared/store/useAppPreferences';
 import { AppAccentTheme } from '../../shared/types/app';
@@ -173,6 +174,11 @@ export function SettingsPage() {
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [modelLoading, setModelLoading] = useState(false);
   const [modelLoadError, setModelLoadError] = useState('');
+  const [embeddingTestStatus, setEmbeddingTestStatus] = useState<{
+    loading: boolean;
+    ok: boolean;
+    message: string;
+  }>({ loading: false, ok: false, message: '' });
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showSaveToast = useCallback(() => {
@@ -213,6 +219,72 @@ export function SettingsPage() {
     }
   }, [apiKey, baseUrl, t]);
 
+
+  const handleTestEmbeddingChannel = useCallback(async () => {
+    const overrideActive =
+      Boolean(embeddingChannel.enabled) &&
+      Boolean(
+        embeddingChannel.baseUrl.trim() ||
+          embeddingChannel.apiKey.trim() ||
+          embeddingChannel.model.trim()
+      );
+
+    const effectiveBaseUrl = overrideActive
+      ? (embeddingChannel.baseUrl.trim() || baseUrl)
+      : baseUrl;
+    const effectiveApiKey = overrideActive
+      ? (embeddingChannel.apiKey.trim() || apiKey)
+      : apiKey;
+    const effectiveModel = overrideActive
+      ? (embeddingChannel.model.trim() || embeddingModel.trim())
+      : embeddingModel.trim();
+
+    if (!effectiveBaseUrl.trim()) {
+      setEmbeddingTestStatus({ loading: false, ok: false, message: '请先配置 AI 服务地址（baseUrl）。' });
+      return;
+    }
+    if (!effectiveModel.trim()) {
+      setEmbeddingTestStatus({ loading: false, ok: false, message: '请先填写嵌入模型（model）。' });
+      return;
+    }
+    if (!effectiveApiKey.trim()) {
+      setEmbeddingTestStatus({ loading: false, ok: false, message: '请先配置 API Key。' });
+      return;
+    }
+
+    const startedAt = performance.now();
+    setEmbeddingTestStatus({ loading: true, ok: false, message: '正在测试嵌入配置…' });
+    try {
+      const vectors = await fetchEmbeddings({
+        baseUrl: effectiveBaseUrl,
+        apiKey: effectiveApiKey,
+        model: effectiveModel,
+        inputs: ['ledgerflow embedding test']
+      });
+      const latencyMs = Math.round(performance.now() - startedAt);
+      const dim = Array.isArray(vectors?.[0]) ? vectors[0].length : 0;
+      if (dim <= 0) {
+        setEmbeddingTestStatus({
+          loading: false,
+          ok: false,
+          message: `测试失败：嵌入服务返回空向量（baseUrl=${effectiveBaseUrl}；model=${effectiveModel}）。`
+        });
+        return;
+      }
+      setEmbeddingTestStatus({
+        loading: false,
+        ok: true,
+        message: `测试成功：向量维度 ${dim}，耗时 ${latencyMs}ms（baseUrl=${effectiveBaseUrl}；model=${effectiveModel}）。`
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : '未知错误';
+      setEmbeddingTestStatus({
+        loading: false,
+        ok: false,
+        message: `测试失败：${detail}`
+      });
+    }
+  }, [apiKey, baseUrl, embeddingChannel, embeddingModel]);
   const handleSelectModel = (setter: (value: string) => void, value: string) => {
     setter(value.trim());
     showSaveToast();
@@ -431,6 +503,21 @@ export function SettingsPage() {
 
           <small className="muted">{t('settings.embeddingChannel.fallbackHint')}</small>
         </div>
+
+          <div className="settings-model-input-row" style={{ marginTop: 10, display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => void handleTestEmbeddingChannel()}
+              disabled={embeddingTestStatus.loading}
+            >
+              {embeddingTestStatus.loading ? t('settings.model.refreshing') : t('settings.embeddingChannel.testButton')}
+            </button>
+            {embeddingTestStatus.message ? (
+              <small style={{ color: embeddingTestStatus.ok ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                {embeddingTestStatus.message}
+              </small>
+            ) : null}
+          </div>
 
         <div className="settings-model-grid">
           <ModelSelector
