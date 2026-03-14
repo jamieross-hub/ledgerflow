@@ -555,16 +555,6 @@ export function SettingsPage() {
         </div>
       </section>
 
-      <section className="panel">
-        <h2>{t('settings.privacy.title')}</h2>
-        <ul>
-          <li>{t('settings.privacy.l1')}</li>
-          <li>{t('settings.privacy.l2')}</li>
-          <li>{t('settings.privacy.l3')}</li>
-          <li>{t('settings.privacy.l4')}</li>
-        </ul>
-      </section>
-
       <Toast
         visible={toastVisible}
         variant="success"
