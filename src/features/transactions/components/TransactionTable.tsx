@@ -214,6 +214,11 @@ interface TransactionTableProps {
   hasFilters: boolean;
   highlightId?: string;
   privacyMode?: boolean;
+  /**
+   * 是否在表格上方展示“交易任务概览”（待处理/退款/失败/已完成）。
+   * 为了首屏聚焦流水，默认由外层决定是否展示。
+   */
+  showTaskSummary?: boolean;
   selectedIds: string[];
   bulkSelectionEnabled: boolean;
   canSelectAllOnPage: boolean;
@@ -269,6 +274,7 @@ export function TransactionTable({
   hasFilters,
   highlightId,
   privacyMode = false,
+  showTaskSummary = false,
   selectedIds,
   bulkSelectionEnabled,
   canSelectAllOnPage,
@@ -605,7 +611,7 @@ export function TransactionTable({
             </div>
           ) : null}
 
-          {rows.length > 0 ? (
+          {rows.length > 0 && showTaskSummary ? (
             <section className="transaction-task-strip" aria-label="交易任务概览">
               <article className="transaction-task-item is-pending">
                 <strong>{taskSummary.pending.count}</strong>
