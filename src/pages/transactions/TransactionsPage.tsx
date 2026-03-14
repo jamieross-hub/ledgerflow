@@ -2554,6 +2554,7 @@ export function TransactionsPage() {
                     <strong>{currentBillSummary.count}</strong>
                   </div>
                 </div>
+
                 <div className="transactions-current-bill-actions">
                   <button type="button" className="primary" onClick={openQuickAddDrawer}>
                     {t('transactions.ui.addTransaction')}
@@ -2565,6 +2566,63 @@ export function TransactionsPage() {
                     {t('transactions.ui.clearFilters')}
                   </button>
                 </div>
+
+                <div className="transactions-side-quick-filters" aria-label="洞察侧栏快速筛选">
+                  <div className="transactions-side-quick-filter-row">
+                    <small className="muted">快速日期</small>
+                    <div className="transactions-side-quick-filter-buttons">
+                      <button
+                        type="button"
+                        className={filters.datePreset === 'all' ? 'active' : ''}
+                        onClick={() => setDatePreset('all')}
+                      >
+                        全部
+                      </button>
+                      <button
+                        type="button"
+                        className={filters.datePreset === 'thisMonth' ? 'active' : ''}
+                        onClick={() => setDatePreset('thisMonth')}
+                      >
+                        本月
+                      </button>
+                      <button
+                        type="button"
+                        className={filters.datePreset === 'last30' ? 'active' : ''}
+                        onClick={() => setDatePreset('last30')}
+                      >
+                        近30天
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="transactions-side-quick-filter-row">
+                    <small className="muted">快速类型</small>
+                    <div className="transactions-side-quick-filter-buttons">
+                      <button
+                        type="button"
+                        className={filters.type === 'all' ? 'active' : ''}
+                        onClick={() => setType('all')}
+                      >
+                        全部
+                      </button>
+                      <button
+                        type="button"
+                        className={filters.type === 'expense' ? 'active' : ''}
+                        onClick={() => setType('expense')}
+                      >
+                        支出
+                      </button>
+                      <button
+                        type="button"
+                        className={filters.type === 'income' ? 'active' : ''}
+                        onClick={() => setType('income')}
+                      >
+                        收入
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 {currentBillSummary.maxExpense ? (
                   <button
                     type="button"
