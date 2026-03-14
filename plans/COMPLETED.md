@@ -27,3 +27,13 @@
 - 验收方式：
   - NODE_OPTIONS=--max-old-space-size=4096 npx vitest run --config vitest.config.ts src/features/transactions/components/TransactionFilters.test.tsx src/features/transactions/components/TransactionTable.test.tsx src/features/transactions/hooks/useTransactionFilters.test.ts --poolOptions.threads.singleThread=true（通过）
   - npm run build（通过）
+
+- 日期：2026-03-14
+- 来源计划文件：plans/v0.4.x-transactions-focus.md
+- 完成任务：- [ ] 批量选择与批量 AI 重分类流程正常
+- 关联提交/PR：待提交
+- 变更摘要：
+  - 回归确认 TransactionTable 批量操作相关用例可运行（维持既有测试覆盖，不改业务逻辑）
+  - 确认 TransactionsPage 内批量 AI 重分类实现路径：选中集合→并发 worker→进度条→可取消
+- 验收方式：
+  - NODE_OPTIONS=--max-old-space-size=4096 npx vitest run --config vitest.config.ts src/features/transactions/components/TransactionTable.test.tsx -t 批量 --poolOptions.threads.singleThread=true（通过）
