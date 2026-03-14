@@ -142,6 +142,7 @@ export function SettingsPage() {
   const accentTheme = useAppPreferences((s) => s.accentTheme);
   const embeddingModel = useAiSettings((s) => s.embeddingModel);
   const enableEmbeddingModel = useAiSettings((s) => s.enableEmbeddingModel);
+  const embeddingChannel = useAiSettings((s) => s.embedding);
   const rerankModel = useAiSettings((s) => s.rerankModel);
   const enableRerankModel = useAiSettings((s) => s.enableRerankModel);
   const rememberApiKey = useAiSettings((s) => s.rememberApiKey);
@@ -152,6 +153,7 @@ export function SettingsPage() {
   const setAccentTheme = useAppPreferences((s) => s.setAccentTheme);
   const setEmbeddingModel = useAiSettings((s) => s.setEmbeddingModel);
   const setEnableEmbeddingModel = useAiSettings((s) => s.setEnableEmbeddingModel);
+  const setEmbeddingChannel = useAiSettings((s) => s.setEmbedding);
   const setRerankModel = useAiSettings((s) => s.setRerankModel);
   const setEnableRerankModel = useAiSettings((s) => s.setEnableRerankModel);
   const memoryDays = useAiSettings((s) => s.memoryDays);
@@ -358,6 +360,76 @@ export function SettingsPage() {
             ))}
           </div>
           <small>{t('settings.accent.hint')}</small>
+        </div>
+
+
+
+        <div className="settings-divider" />
+
+        <div className="settings-subpanel">
+          <h3 style={{ marginTop: 0 }}>{t('settings.embeddingChannel.title')}</h3>
+          <p className="muted" style={{ marginTop: 8 }}>
+            {t('settings.embeddingChannel.desc')}
+          </p>
+
+          <div className="settings-inline-grid settings-inline-grid--double">
+            <div className="field">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={embeddingChannel.enabled}
+                  onChange={(e) => {
+                    setEmbeddingChannel({ enabled: e.target.checked });
+                    showSaveToast();
+                  }}
+                />
+                {t('settings.embeddingChannel.enabledLabel')}
+              </label>
+              <small>{t('settings.embeddingChannel.enabledHint')}</small>
+            </div>
+
+            <div className="field">
+              <label>{t('settings.embeddingChannel.modelLabel')}</label>
+              <small>{t('settings.embeddingChannel.modelHint')}</small>
+              <input
+                value={embeddingChannel.model}
+                placeholder="例如：jina-embeddings-v3"
+                onChange={(e) => {
+                  setEmbeddingChannel({ model: e.target.value });
+                  showSaveToast();
+                }}
+              />
+            </div>
+
+            <div className="field">
+              <label>{t('settings.embeddingChannel.baseUrlLabel')}</label>
+              <small>{t('settings.embeddingChannel.baseUrlHint')}</small>
+              <input
+                value={embeddingChannel.baseUrl}
+                placeholder="https://api.example.com/v1"
+                onChange={(e) => {
+                  setEmbeddingChannel({ baseUrl: e.target.value });
+                  showSaveToast();
+                }}
+              />
+            </div>
+
+            <div className="field">
+              <label>{t('settings.embeddingChannel.apiKeyLabel')}</label>
+              <small>{t('settings.embeddingChannel.apiKeyHint')}</small>
+              <input
+                value={embeddingChannel.apiKey}
+                type={masked ? 'password' : 'text'}
+                placeholder="sk-..."
+                onChange={(e) => {
+                  setEmbeddingChannel({ apiKey: e.target.value });
+                  showSaveToast();
+                }}
+              />
+            </div>
+          </div>
+
+          <small className="muted">{t('settings.embeddingChannel.fallbackHint')}</small>
         </div>
 
         <div className="settings-model-grid">
