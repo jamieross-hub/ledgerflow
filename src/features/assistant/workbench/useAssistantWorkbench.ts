@@ -53,6 +53,8 @@ const MAX_PDF_SIZE_BYTES = 20 * 1024 * 1024;
 const PDF_SPLIT_TRIGGER_BYTES = 6 * 1024 * 1024;
 const PDF_SPLIT_PAGES_PER_CHUNK = 8;
 const PDF_SPLIT_MAX_CHUNKS = 12;
+const EMBEDDING_COOLDOWN_MS = 10 * 60 * 1000;
+const EMBEDDING_COOLDOWN_NOTICE_MS = 30 * 1000;
 
 function normalizeEntryDate(inputDate?: string) {
   const fallback = new Date().toISOString();
@@ -118,6 +120,8 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const recognizeAbortRef = useRef<AbortController | null>(null);
+  const embeddingCooldownUntilRef = useRef(0);
+  const embeddingCooldownNoticeRef = useRef(0);
   const [status, setStatus] = useState<WorkbenchStatus>('idle');
   const [textInput, setTextInput] = useState('');
   const [imageDataUrls, setImageDataUrls] = useState<string[]>([]);
@@ -422,11 +426,32 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
           ? CREDIT_ANALYSIS_AGENT_PROMPT
           : ANALYSIS_AGENT_PROMPT;
 
+      const now = Date.now();
+      const embeddingCooldownActive = now > 0 && now < embeddingCooldownUntilRef.current;
+      const effectiveEnableEmbeddingModel = enableEmbeddingModel && !embeddingCooldownActive;
+
       setEmbeddingDebug(
         createIdleEmbeddingDebug(
-          isConversationalMode && enableEmbeddingModel ? effectiveEmbeddingModel.trim() : ''
+          isConversationalMode && effectiveEnableEmbeddingModel ? effectiveEmbeddingModel.trim() : ''
         )
       );
+
+      if (
+        embeddingCooldownActive &&
+        now - embeddingCooldownNoticeRef.current > EMBEDDING_COOLDOWN_NOTICE_MS
+      ) {
+        embeddingCooldownNoticeRef.current = now;
+        setToast({
+          visible: true,
+          variant: 'warning',
+          message: '语义召回服务暂不可用，已临时降级为普通分析（10 分钟）。可稍后重试或前往设置页测试嵌入配置。'
+        });
+        addLog({
+          action: 'assistant.embedding',
+          status: 'info',
+          message: '语义召回处于降级冷却期（10 分钟），本次跳过嵌入召回。'
+        });
+      }
 
       const semanticRecallTask = isConversationalMode
         ? runBlockingSemanticRecall({
@@ -434,7 +459,7 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
             apiKey: effectiveEmbeddingApiKey,
             embeddingModel: effectiveEmbeddingModel,
             rerankModel,
-            enableEmbeddingModel,
+            enableEmbeddingModel: effectiveEnableEmbeddingModel,
             enableRerankModel,
             question: cleanPrompt,
             transactions: input.transactions,
@@ -445,6 +470,16 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
           })
             .then((semanticRecallDebug) => {
               setEmbeddingDebug(semanticRecallDebug);
+
+              if (semanticRecallDebug.downgraded) {
+                embeddingCooldownUntilRef.current = Date.now() + EMBEDDING_COOLDOWN_MS;
+                embeddingCooldownNoticeRef.current = Date.now();
+                setToast({
+                  visible: true,
+                  variant: 'warning',
+                  message: '语义召回失败，已自动降级为普通分析，并临时停用 10 分钟。'
+                });
+              }
 
               if (semanticRecallDebug.enabled) {
                 if (semanticRecallDebug.used) {
