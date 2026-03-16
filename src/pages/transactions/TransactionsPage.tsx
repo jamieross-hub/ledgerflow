@@ -318,6 +318,7 @@ function buildBulkPrintStyles() {
       line-height: 1.5;
       vertical-align: top;
       word-break: break-word;
+      overflow-wrap: anywhere;
     }
     th {
       background: #f3f4f6;
@@ -325,6 +326,13 @@ function buildBulkPrintStyles() {
       text-align: left;
       font-weight: 700;
     }
+    .col-date { width: 86px; white-space: nowrap; }
+    .col-type { width: 56px; text-align: center; }
+    .col-category { width: 88px; }
+    .col-account { width: 96px; }
+    .col-amount { width: 92px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .col-status { width: 72px; text-align: center; }
+    .col-note { width: auto; }
     .amount-income { color: #059669; font-weight: 700; }
     .amount-expense { color: #dc2626; font-weight: 700; }
     .footer {
@@ -1605,15 +1613,18 @@ export function TransactionsPage() {
     const tableRows = selectedRows
       .map(({ item, categoryName, accountName }) => {
         const amountText = `${item.type === 'income' ? '+' : '-'}${formatCurrency(item.amount)}`;
+        const safeCategory = categoryName || '未分类';
+        const safeAccount = accountName || '未指定账户';
+        const safeNote = item.note || '—';
         return `
           <tr>
-            <td>${escapeHtml(formatDate(item.date))}</td>
-            <td>${escapeHtml(txTypeLabel(item.type))}</td>
-            <td>${escapeHtml(categoryName || '未分类')}</td>
-            <td>${escapeHtml(accountName || '未指定账户')}</td>
-            <td class="${item.type === 'income' ? 'amount-income' : 'amount-expense'}">${escapeHtml(amountText)}</td>
-            <td>${escapeHtml(txStatusLabel(item.status))}</td>
-            <td>${escapeHtml(item.note || '—')}</td>
+            <td class="col-date">${escapeHtml(formatDate(item.date))}</td>
+            <td class="col-type">${escapeHtml(txTypeLabel(item.type))}</td>
+            <td class="col-category">${escapeHtml(safeCategory)}</td>
+            <td class="col-account">${escapeHtml(safeAccount)}</td>
+            <td class="col-amount ${item.type === 'income' ? 'amount-income' : 'amount-expense'}">${escapeHtml(amountText)}</td>
+            <td class="col-status">${escapeHtml(txStatusLabel(item.status))}</td>
+            <td class="col-note">${escapeHtml(safeNote)}</td>
           </tr>
         `;
       })
