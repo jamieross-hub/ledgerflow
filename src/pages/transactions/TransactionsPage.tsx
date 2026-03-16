@@ -24,7 +24,6 @@ import {
   TransactionDetailSectionKey
 } from '../../features/transactions/components/TransactionDetailDrawer';
 import { TransactionFilters } from '../../features/transactions/components/TransactionFilters';
-import notoSansScFontUrl from '../../assets/NotoSansSC-Regular.otf?url';
 import {
   TransactionColumnKey,
   TransactionQuickFilters,
@@ -1697,7 +1696,8 @@ export function TransactionsPage() {
     try {
       const pdfDoc = await PDFDocument.create();
       pdfDoc.registerFontkit(fontkit);
-      const fontBytes = await fetch(notoSansScFontUrl).then((res) => res.arrayBuffer());
+      const fontModule = await import('../../assets/NotoSansSC-Regular.otf?url');
+      const fontBytes = await fetch(fontModule.default).then((res) => res.arrayBuffer());
       const font = await pdfDoc.embedFont(fontBytes, { subset: true });
       const fontSize = 10;
       const titleSize = 16;
