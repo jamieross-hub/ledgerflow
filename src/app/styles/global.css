@@ -922,6 +922,30 @@ button.danger:hover:not(:disabled) {
   flex-wrap: wrap;
 }
 
+/* ============================================================
+   Overflow Guard (generic)
+   - flex/grid children shrink properly (min-width:0)
+   - long texts inside common inline elements can break
+   ============================================================ */
+:where(.row, .grid) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+:where(.row, .grid) > * {
+  min-width: 0;
+}
+
+:where(.row) :where(button, a, span, strong, small, label) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+:where(.row) :where(button, a) {
+  white-space: normal;
+}
+
 .transaction-filters-grid {
   display: grid;
   gap: var(--space-3);
