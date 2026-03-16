@@ -311,6 +311,16 @@ function buildBulkPrintStyles() {
       table-layout: fixed;
       background: #ffffff;
     }
+    thead {
+      display: table-header-group;
+    }
+    tfoot {
+      display: table-footer-group;
+    }
+    tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
     th, td {
       border: 1px solid #d1d5db;
       padding: 8px 6px;
@@ -350,6 +360,19 @@ function buildBulkPrintStyles() {
         border-radius: 0;
         box-shadow: none;
         padding: 0;
+      }
+      table {
+        page-break-inside: auto;
+      }
+      thead {
+        display: table-header-group;
+      }
+      tfoot {
+        display: table-footer-group;
+      }
+      tr, td, th {
+        break-inside: avoid;
+        page-break-inside: avoid;
       }
     }
   `;
