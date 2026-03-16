@@ -1,4 +1,5 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import * as fontkit from 'fontkit';
+import { PDFDocument, rgb } from 'pdf-lib';
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -22,6 +23,7 @@ import {
   TransactionDetailSectionKey
 } from '../../features/transactions/components/TransactionDetailDrawer';
 import { TransactionFilters } from '../../features/transactions/components/TransactionFilters';
+import notoSansScFontUrl from '../../assets/NotoSansSC-Regular.otf?url';
 import {
   TransactionColumnKey,
   TransactionQuickFilters,
@@ -1706,7 +1708,9 @@ export function TransactionsPage() {
 
     try {
       const pdfDoc = await PDFDocument.create();
-      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      pdfDoc.registerFontkit(fontkit);
+      const fontBytes = await fetch(notoSansScFontUrl).then((res) => res.arrayBuffer());
+      const font = await pdfDoc.embedFont(fontBytes, { subset: true });
       const fontSize = 10;
       const titleSize = 16;
       const lineHeight = 16;
