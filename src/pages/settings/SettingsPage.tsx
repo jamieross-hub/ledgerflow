@@ -51,6 +51,39 @@ const RERANK_MODEL_PRESETS = [
   'cohere-rerank-3.5'
 ];
 
+
+const EMBEDDING_MODEL_KEYWORDS = [
+  'embedding',
+  'embeddings',
+  'bge',
+  'gte',
+  'jina',
+  'e5',
+  'm3'
+] as const;
+
+function isLikelyEmbeddingModelName(modelId: string): boolean {
+  const value = modelId.trim().toLowerCase();
+  if (!value) return false;
+  return EMBEDDING_MODEL_KEYWORDS.some((keyword) => value.includes(keyword));
+}
+
+function buildEmbeddingModelCandidates(remoteModels: string[]): string[] {
+  return mergeModelOptions('', EMBEDDING_MODEL_PRESETS, remoteModels.filter(isLikelyEmbeddingModelName));
+}
+
+function getEmbeddingModelValidationMessage(modelId: string, candidates: string[]): string {
+  const value = modelId.trim();
+  if (!value) return '请填写嵌入模型名称。';
+  if (/\s{2,}/.test(value)) return '模型名包含连续空格，建议检查是否误粘贴。';
+  if (/[^\w./:-]/.test(value)) return '模型名包含非常见字符，请确认是否拼写有误。';
+  if (candidates.includes(value)) return '';
+  if (!isLikelyEmbeddingModelName(value)) {
+    return '该模型名不像常见 embedding 模型，建议优先选择下拉候选或检查拼写。';
+  }
+  return '该模型不在当前候选列表中，请确认服务端已支持此 embedding 模型。';
+}
+
 const ACCENT_THEME_OPTIONS: Array<{ value: AppAccentTheme; labelKey: string; preview: string }> = [
   { value: 'blue', labelKey: 'settings.accent.options.blue', preview: '#4f6ef7' },
   { value: 'emerald', labelKey: 'settings.accent.options.emerald', preview: '#10b981' },
@@ -179,6 +212,15 @@ export function SettingsPage() {
     ok: boolean;
     message: string;
   }>({ loading: false, ok: false, message: '' });
+  const embeddingModelCandidates = useMemo(
+    () => buildEmbeddingModelCandidates(modelOptions),
+    [modelOptions]
+  );
+  const embeddingChannelModelValidation = useMemo(
+    () => getEmbeddingModelValidationMessage(embeddingChannel.model, embeddingModelCandidates),
+    [embeddingChannel.model, embeddingModelCandidates]
+  );
+
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showSaveToast = useCallback(() => {
@@ -245,6 +287,14 @@ export function SettingsPage() {
     }
     if (!effectiveModel.trim()) {
       setEmbeddingTestStatus({ loading: false, ok: false, message: '请先填写嵌入模型（model）。' });
+      return;
+    }
+    const modelValidationMessage = getEmbeddingModelValidationMessage(
+      effectiveModel,
+      embeddingModelCandidates
+    );
+    if (modelValidationMessage) {
+      setEmbeddingTestStatus({ loading: false, ok: false, message: `测试前校验未通过：${modelValidationMessage}` });
       return;
     }
     if (!effectiveApiKey.trim()) {
@@ -465,12 +515,25 @@ export function SettingsPage() {
               <small>{t('settings.embeddingChannel.modelHint')}</small>
               <input
                 value={embeddingChannel.model}
+                list="embedding-model-candidates"
                 placeholder="例如：jina-embeddings-v3"
                 onChange={(e) => {
                   setEmbeddingChannel({ model: e.target.value });
                   showSaveToast();
                 }}
               />
+              <datalist id="embedding-model-candidates">
+                {embeddingModelCandidates.map((item) => (
+                  <option key={item} value={item} />
+                ))}
+              </datalist>
+              {embeddingChannel.model.trim() ? (
+                <small style={{ color: embeddingChannelModelValidation ? 'var(--color-warning, #b45309)' : 'var(--color-success, #15803d)' }}>
+                  {embeddingChannelModelValidation || '模型名校验通过，可直接测试嵌入配置。'}
+                </small>
+              ) : (
+                <small>常见模型：{embeddingModelCandidates.slice(0, 4).join(' / ')}</small>
+              )}
             </div>
 
             <div className="field">
