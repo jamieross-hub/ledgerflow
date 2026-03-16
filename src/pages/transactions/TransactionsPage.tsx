@@ -1688,7 +1688,7 @@ export function TransactionsPage() {
     applyBulkUpdate({ accountId });
   };
 
-  const handleBulkPrintA4 = () => {
+  const handleBulkPrintA4 = (options?: { preferPdf?: boolean }) => {
     const selectedRows = viewRows.filter((row) => selectedIds.includes(row.item.id));
     if (selectedRows.length === 0) {
       showToast('请先勾选要打印的交易。', 'warning');
@@ -1793,7 +1793,12 @@ export function TransactionsPage() {
     `;
 
     if (popupBlocked) {
-      showToast('浏览器拦截了弹窗，将使用内嵌打印模式。', 'warning');
+      showToast(
+        options?.preferPdf
+          ? '浏览器拦截了弹窗，将使用内嵌打印模式。请在系统打印框里选择“保存为 PDF”。'
+          : '浏览器拦截了弹窗，将使用内嵌打印模式。',
+        'warning'
+      );
       try {
         printHtmlWithIframe(html);
       } catch (error) {
@@ -1809,9 +1814,16 @@ export function TransactionsPage() {
     printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
+    if (options?.preferPdf) {
+      showToast('请在系统打印框里选择“保存为 PDF”完成导出。', 'success');
+    }
     window.setTimeout(() => {
       printWindow.print();
     }, 120);
+  };
+
+  const handleBulkExportPdf = () => {
+    handleBulkPrintA4({ preferPdf: true });
   };
 
   const recategorizeByAi = async (
@@ -2723,6 +2735,7 @@ export function TransactionsPage() {
             bulkAiRecategorizing={bulkAiRecategorizing}
             onBulkEditAccount={handleBulkEditAccount}
             onBulkPrintA4={handleBulkPrintA4}
+            onBulkExportPdf={handleBulkExportPdf}
             categoryOptions={categories.map((item) => ({ id: item.id, name: item.name }))}
             accountOptions={accounts.map((item) => ({ id: item.id, name: item.name }))}
             onClearSelection={() => setSelectedIds([])}

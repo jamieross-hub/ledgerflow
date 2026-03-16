@@ -242,6 +242,7 @@ interface TransactionTableProps {
   bulkAiRecategorizing: boolean;
   onBulkEditAccount: (accountId: string) => void;
   onBulkPrintA4?: () => void;
+  onBulkExportPdf?: () => void;
   categoryOptions: Array<{ id: string; name: string }>;
   accountOptions: Array<{ id: string; name: string }>;
   onClearSelection: () => void;
@@ -298,6 +299,7 @@ export function TransactionTable({
   bulkAiRecategorizing,
   onBulkEditAccount,
   onBulkPrintA4,
+  onBulkExportPdf,
   categoryOptions,
   accountOptions,
   onClearSelection,
@@ -600,6 +602,9 @@ export function TransactionTable({
                 </label>
                 <button type="button" onClick={() => onBulkPrintA4?.()}>
                   🖨️ 打印 A4
+                </button>
+                <button type="button" onClick={() => onBulkExportPdf?.()}>
+                  📄 导出 PDF
                 </button>
                 <button type="button" onClick={onDeleteSelected} className="danger">
                   批量删除
