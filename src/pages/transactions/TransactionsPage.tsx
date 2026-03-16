@@ -355,6 +355,48 @@ function buildBulkPrintStyles() {
   `;
 }
 
+
+function printHtmlWithIframe(html: string) {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.style.opacity = '0';
+  iframe.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument;
+  const win = iframe.contentWindow;
+  if (!doc || !win) {
+    document.body.removeChild(iframe);
+    throw new Error('无法创建打印 iframe');
+  }
+
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const cleanup = () => {
+    window.setTimeout(() => {
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    }, 0);
+  };
+
+  const onAfterPrint = () => {
+    win.removeEventListener('afterprint', onAfterPrint);
+    cleanup();
+  };
+  win.addEventListener('afterprint', onAfterPrint);
+
+  window.setTimeout(() => {
+    win.focus();
+    win.print();
+  }, 80);
+}
+
 function extractLocation(note: string): string {
   const match = note.match(/(?:@|在|于|地点[:：])\s*([\u4e00-\u9fa5A-Za-z0-9·\-\s]{2,20})/);
   return match?.[1]?.trim() || '';
@@ -1603,10 +1645,7 @@ export function TransactionsPage() {
     }
 
     const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=1120,height=860');
-    if (!printWindow) {
-      showToast('未能打开打印窗口，请检查浏览器弹窗权限。', 'warning');
-      return;
-    }
+    const popupBlocked = !printWindow;
 
     const totalAmount = selectedRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
 
@@ -1665,6 +1704,19 @@ export function TransactionsPage() {
         </body>
       </html>
     `;
+
+    if (popupBlocked) {
+      showToast('浏览器拦截了弹窗，将使用内嵌打印模式。', 'warning');
+      try {
+        printHtmlWithIframe(html);
+      } catch (error) {
+        showToast(
+          error instanceof Error ? error.message : '打印失败，请检查浏览器权限。',
+          'error'
+        );
+      }
+      return;
+    }
 
     printWindow.document.open();
     printWindow.document.write(html);
