@@ -1696,8 +1696,12 @@ export function TransactionsPage() {
     try {
       const pdfDoc = await PDFDocument.create();
       pdfDoc.registerFontkit(fontkit);
-      const fontModule = await import('../../assets/NotoSansSC-Regular.otf?url');
-      const fontBytes = await fetch(fontModule.default).then((res) => res.arrayBuffer());
+      const fontModule = await import('../../assets/NotoSansSC-Regular.ttf?url');
+      const fontResponse = await fetch(fontModule.default);
+      if (!fontResponse.ok) {
+        throw new Error('中文字体加载失败，请稍后重试并检查网络。');
+      }
+      const fontBytes = await fontResponse.arrayBuffer();
       const font = await pdfDoc.embedFont(fontBytes, { subset: true });
       const fontSize = 10;
       const titleSize = 16;
