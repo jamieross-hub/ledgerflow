@@ -201,6 +201,7 @@ function txStatusLabel(status?: TransactionItem['status']) {
 }
 
 type BillShareTemplate = 'full' | 'masked' | 'summary';
+type BulkPrintTemplate = 'full' | 'summary';
 
 function maskShareText(value: string): string {
   const trimmed = value.trim();
@@ -767,6 +768,7 @@ export function TransactionsPage() {
   const [bulkSelectionEnabled, setBulkSelectionEnabled] = useState(false);
   const [highlightId, setHighlightId] = useState<string>('');
   const [privacyMode, setPrivacyMode] = useState(false);
+  const [bulkPrintTemplate, setBulkPrintTemplate] = useState<BulkPrintTemplate>('full');
   const [importNotice, setImportNotice] = useState<{
     visible: boolean;
     message: string;
@@ -1758,15 +1760,20 @@ export function TransactionsPage() {
       drawLine(`生成时间：${generatedAtText}`);
       drawLine(`交易条数：${selectedRows.length} 条`);
       drawLine(`金额合计：${maskAmountText(totalAmount)} ｜ 收入合计：${maskAmountText(incomeTotal)} ｜ 支出合计：${maskAmountText(expenseTotal)}`);
-      drawLine(`导出模式：${privacyMode ? '隐私模式（已脱敏）' : '完整模式'}`);
+      drawLine(`导出模式：${privacyMode ? '隐私模式（已脱敏）' : '完整模式'} ｜ 模板：${bulkPrintTemplate === 'summary' ? '摘要' : '完整'}`);
       cursorY -= 6;
 
       selectedRows.forEach(({ item, categoryName, accountName }, index) => {
-        const lines = [
-          `${index + 1}. ${formatDate(item.date)}  ${txTypeLabel(item.type)}  ${item.type === 'income' ? '+' : '-'}${maskAmountText(item.amount)}`,
-          `分类：${maskPrintText(categoryName || '未分类')} ｜ 账户：${maskPrintText(accountName || '未指定账户')} ｜ 状态：${txStatusLabel(item.status)}`,
-          `备注：${maskPrintText(item.note || '—')}`
-        ];
+        const lines = bulkPrintTemplate === 'summary'
+          ? [
+              `${index + 1}. ${formatDate(item.date)}  ${txTypeLabel(item.type)}  ${item.type === 'income' ? '+' : '-'}${maskAmountText(item.amount)}`,
+              `分类：${maskPrintText(categoryName || '未分类')} ｜ 状态：${txStatusLabel(item.status)}`
+            ]
+          : [
+              `${index + 1}. ${formatDate(item.date)}  ${txTypeLabel(item.type)}  ${item.type === 'income' ? '+' : '-'}${maskAmountText(item.amount)}`,
+              `分类：${maskPrintText(categoryName || '未分类')} ｜ 账户：${maskPrintText(accountName || '未指定账户')} ｜ 状态：${txStatusLabel(item.status)}`,
+              `备注：${maskPrintText(item.note || '—')}`
+            ];
         const requiredHeight = lines.length * lineHeight + 10;
         ensureSpace(requiredHeight);
         lines.forEach((line) => {
@@ -1846,7 +1853,17 @@ export function TransactionsPage() {
         const safeCategory = maskPrintText(categoryName || '未分类');
         const safeAccount = maskPrintText(accountName || '未指定账户');
         const safeNote = maskPrintText(item.note || '—');
-        return `
+        return bulkPrintTemplate === 'summary'
+          ? `
+          <tr>
+            <td class="col-date">${escapeHtml(formatDate(item.date))}</td>
+            <td class="col-type">${escapeHtml(txTypeLabel(item.type))}</td>
+            <td class="col-category">${escapeHtml(safeCategory)}</td>
+            <td class="col-amount ${item.type === 'income' ? 'amount-income' : 'amount-expense'}">${escapeHtml(amountText)}</td>
+            <td class="col-status">${escapeHtml(txStatusLabel(item.status))}</td>
+          </tr>
+        `
+          : `
           <tr>
             <td class="col-date">${escapeHtml(formatDate(item.date))}</td>
             <td class="col-type">${escapeHtml(txTypeLabel(item.type))}</td>
@@ -1898,10 +1915,10 @@ export function TransactionsPage() {
                   <th>日期</th>
                   <th>类型</th>
                   <th>分类</th>
-                  <th>账户</th>
+                  ${bulkPrintTemplate === 'summary' ? '' : '<th>账户</th>'}
                   <th>金额</th>
                   <th>状态</th>
-                  <th>备注</th>
+                  ${bulkPrintTemplate === 'summary' ? '' : '<th>备注</th>'}
                 </tr>
               </thead>
               <tbody>${tableRows}</tbody>
@@ -2856,6 +2873,8 @@ export function TransactionsPage() {
             onBulkEditAccount={handleBulkEditAccount}
             onBulkPrintA4={handleBulkPrintA4}
             onBulkExportPdf={handleBulkExportPdf}
+            bulkPrintTemplate={bulkPrintTemplate}
+            onBulkPrintTemplateChange={setBulkPrintTemplate}
             categoryOptions={categories.map((item) => ({ id: item.id, name: item.name }))}
             accountOptions={accounts.map((item) => ({ id: item.id, name: item.name }))}
             onClearSelection={() => setSelectedIds([])}

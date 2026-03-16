@@ -200,7 +200,6 @@ function maskMerchant(value: string): string {
   if (value.length <= 6) return `${value.slice(0, 1)}•••${value.slice(-1)}`;
   return `${value.slice(0, 2)}***${value.slice(-2)}`;
 }
-
 interface TransactionTableProps {
   rows: TransactionRowView[];
   total: number;
@@ -243,6 +242,8 @@ interface TransactionTableProps {
   onBulkEditAccount: (accountId: string) => void;
   onBulkPrintA4?: () => void;
   onBulkExportPdf?: () => void;
+  bulkPrintTemplate?: 'full' | 'summary';
+  onBulkPrintTemplateChange?: (value: 'full' | 'summary') => void;
   categoryOptions: Array<{ id: string; name: string }>;
   accountOptions: Array<{ id: string; name: string }>;
   onClearSelection: () => void;
@@ -300,6 +301,8 @@ export function TransactionTable({
   onBulkEditAccount,
   onBulkPrintA4,
   onBulkExportPdf,
+  bulkPrintTemplate = 'full',
+  onBulkPrintTemplateChange,
   categoryOptions,
   accountOptions,
   onClearSelection,
@@ -598,6 +601,18 @@ export function TransactionTable({
                         {option.name}
                       </option>
                     ))}
+                  </select>
+                </label>
+                <label className="transaction-bulk-select">
+                  <span>模板</span>
+                  <select
+                    value={bulkPrintTemplate}
+                    onChange={(event) =>
+                      onBulkPrintTemplateChange?.(event.target.value === 'summary' ? 'summary' : 'full')
+                    }
+                  >
+                    <option value="full">完整</option>
+                    <option value="summary">摘要</option>
                   </select>
                 </label>
                 <button type="button" onClick={() => onBulkPrintA4?.()}>
