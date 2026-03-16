@@ -120,7 +120,21 @@
       "l3": "最小化原则：仅在你主动触发 AI 功能时发送必要上下文，避免冗余数据外发。",
       "l4": "隐私保护：可在导出前检查并删除备注中的敏感信息，降低共享风险。"
     },
-    "toastSaved": "设置已自动保存"
+    "toastSaved": "设置已自动保存",
+    "embeddingChannel": {
+      "title": "嵌入渠道（Embedding）",
+      "desc": "可选：为嵌入向量化/语义召回单独配置一套服务。",
+      "enabledLabel": "启用嵌入渠道覆盖",
+      "enabledHint": "开启后，只要填写了任意一项（baseUrl/apiKey/model），就会优先使用嵌入渠道配置。",
+      "modelLabel": "嵌入模型（覆盖）",
+      "modelHint": "留空则回退到下方“嵌入模型”的全局默认值。",
+      "baseUrlLabel": "Base URL（覆盖）",
+      "baseUrlHint": "留空则回退到上方主渠道 Base URL。",
+      "apiKeyLabel": "API Key（覆盖）",
+      "apiKeyHint": "留空则回退到上方主渠道 API Key。",
+      "fallbackHint": "提示：嵌入渠道未启用或未填写任何覆盖项时，将完全使用全局默认配置。",
+      "testButton": "测试嵌入配置"
+    }
   },
   "assistant": {
     "placeholders": {

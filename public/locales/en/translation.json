@@ -120,7 +120,21 @@
       "l3": "Minimal context: only necessary context is sent when you trigger AI features, avoiding redundant data exposure.",
       "l4": "Privacy protection: review and remove sensitive notes before export/sharing."
     },
-    "toastSaved": "Settings saved automatically"
+    "toastSaved": "Settings saved automatically",
+    "embeddingChannel": {
+      "title": "Embedding channel (advanced)",
+      "desc": "Optional: configure a dedicated service for embedding / semantic recall.",
+      "enabledLabel": "Enable embedding override",
+      "enabledHint": "When enabled, if any of baseUrl/apiKey/model is provided, the embedding channel config will take precedence.",
+      "modelLabel": "Embedding model (override)",
+      "modelHint": "Leave empty to fall back to the global Embedding model below.",
+      "baseUrlLabel": "Base URL (override)",
+      "baseUrlHint": "Leave empty to fall back to the main Base URL above.",
+      "apiKeyLabel": "API key (override)",
+      "apiKeyHint": "Leave empty to fall back to the main API key above.",
+      "fallbackHint": "Note: if embedding channel is disabled or all override fields are empty, the global defaults are used.",
+      "testButton": "Test embedding config"
+    }
   },
   "assistant": {
     "placeholders": {
