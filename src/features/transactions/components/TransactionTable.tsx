@@ -244,6 +244,18 @@ interface TransactionTableProps {
   onBulkExportPdf?: () => void;
   bulkPrintTemplate?: 'full' | 'summary';
   onBulkPrintTemplateChange?: (value: 'full' | 'summary') => void;
+  bulkPrintFields?: {
+    includeAccount: boolean;
+    includeNote: boolean;
+    includeOrderNo: boolean;
+    includeTags: boolean;
+  };
+  onBulkPrintFieldsChange?: (value: {
+    includeAccount: boolean;
+    includeNote: boolean;
+    includeOrderNo: boolean;
+    includeTags: boolean;
+  }) => void;
   categoryOptions: Array<{ id: string; name: string }>;
   accountOptions: Array<{ id: string; name: string }>;
   onClearSelection: () => void;
@@ -303,6 +315,8 @@ export function TransactionTable({
   onBulkExportPdf,
   bulkPrintTemplate = 'full',
   onBulkPrintTemplateChange,
+  bulkPrintFields = { includeAccount: true, includeNote: true, includeOrderNo: false, includeTags: false },
+  onBulkPrintFieldsChange,
   categoryOptions,
   accountOptions,
   onClearSelection,
@@ -614,6 +628,41 @@ export function TransactionTable({
                     <option value="full">完整</option>
                     <option value="summary">摘要</option>
                   </select>
+                </label>
+                <label className="transaction-bulk-select">
+                  <span>字段</span>
+                  <select
+                    value="custom"
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      if (next === 'full') {
+                        onBulkPrintFieldsChange?.({ includeAccount: true, includeNote: true, includeOrderNo: true, includeTags: true });
+                      } else if (next === 'compact') {
+                        onBulkPrintFieldsChange?.({ includeAccount: false, includeNote: false, includeOrderNo: false, includeTags: false });
+                      }
+                      event.target.value = 'custom';
+                    }}
+                  >
+                    <option value="custom">自定义字段</option>
+                    <option value="full">全字段</option>
+                    <option value="compact">最简字段</option>
+                  </select>
+                </label>
+                <label className="transaction-bulk-select" style={{ gap: 6 }}>
+                  <span>账户</span>
+                  <input type="checkbox" checked={bulkPrintFields.includeAccount} onChange={(e) => onBulkPrintFieldsChange?.({ ...bulkPrintFields, includeAccount: e.target.checked })} />
+                </label>
+                <label className="transaction-bulk-select" style={{ gap: 6 }}>
+                  <span>备注</span>
+                  <input type="checkbox" checked={bulkPrintFields.includeNote} onChange={(e) => onBulkPrintFieldsChange?.({ ...bulkPrintFields, includeNote: e.target.checked })} />
+                </label>
+                <label className="transaction-bulk-select" style={{ gap: 6 }}>
+                  <span>订单号</span>
+                  <input type="checkbox" checked={bulkPrintFields.includeOrderNo} onChange={(e) => onBulkPrintFieldsChange?.({ ...bulkPrintFields, includeOrderNo: e.target.checked })} />
+                </label>
+                <label className="transaction-bulk-select" style={{ gap: 6 }}>
+                  <span>标签</span>
+                  <input type="checkbox" checked={bulkPrintFields.includeTags} onChange={(e) => onBulkPrintFieldsChange?.({ ...bulkPrintFields, includeTags: e.target.checked })} />
                 </label>
                 <button type="button" onClick={() => onBulkPrintA4?.()}>
                   🖨️ 打印 A4

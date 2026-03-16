@@ -769,6 +769,12 @@ export function TransactionsPage() {
   const [highlightId, setHighlightId] = useState<string>('');
   const [privacyMode, setPrivacyMode] = useState(false);
   const [bulkPrintTemplate, setBulkPrintTemplate] = useState<BulkPrintTemplate>('full');
+  const [bulkPrintFields, setBulkPrintFields] = useState({
+    includeAccount: true,
+    includeNote: true,
+    includeOrderNo: false,
+    includeTags: false
+  });
   const [importNotice, setImportNotice] = useState<{
     visible: boolean;
     message: string;
@@ -1764,15 +1770,26 @@ export function TransactionsPage() {
       cursorY -= 6;
 
       selectedRows.forEach(({ item, categoryName, accountName }, index) => {
+        const detailLineParts = [
+          `分类：${maskPrintText(categoryName || '未分类')}`,
+          bulkPrintFields.includeAccount ? `账户：${maskPrintText(accountName || '未指定账户')}` : '',
+          `状态：${txStatusLabel(item.status)}`,
+          bulkPrintFields.includeOrderNo && item.orderNo ? `订单号：${maskPrintText(item.orderNo)}` : '',
+          bulkPrintFields.includeOrderNo && item.merchantOrderNo ? `商户单号：${maskPrintText(item.merchantOrderNo)}` : ''
+        ].filter(Boolean);
+        const extraLines = [
+          bulkPrintFields.includeNote && bulkPrintTemplate !== 'summary' ? `备注：${maskPrintText(item.note || '—')}` : '',
+          bulkPrintFields.includeTags && item.tags?.length ? `标签：${maskPrintText(item.tags.join(' / '))}` : ''
+        ].filter(Boolean);
         const lines = bulkPrintTemplate === 'summary'
           ? [
               `${index + 1}. ${formatDate(item.date)}  ${txTypeLabel(item.type)}  ${item.type === 'income' ? '+' : '-'}${maskAmountText(item.amount)}`,
-              `分类：${maskPrintText(categoryName || '未分类')} ｜ 状态：${txStatusLabel(item.status)}`
+              detailLineParts.filter((part) => !part.startsWith('账户：') && !part.startsWith('订单号：') && !part.startsWith('商户单号：')).join(' ｜ ')
             ]
           : [
               `${index + 1}. ${formatDate(item.date)}  ${txTypeLabel(item.type)}  ${item.type === 'income' ? '+' : '-'}${maskAmountText(item.amount)}`,
-              `分类：${maskPrintText(categoryName || '未分类')} ｜ 账户：${maskPrintText(accountName || '未指定账户')} ｜ 状态：${txStatusLabel(item.status)}`,
-              `备注：${maskPrintText(item.note || '—')}`
+              detailLineParts.join(' ｜ '),
+              ...extraLines
             ];
         const requiredHeight = lines.length * lineHeight + 10;
         ensureSpace(requiredHeight);
@@ -1853,6 +1870,9 @@ export function TransactionsPage() {
         const safeCategory = maskPrintText(categoryName || '未分类');
         const safeAccount = maskPrintText(accountName || '未指定账户');
         const safeNote = maskPrintText(item.note || '—');
+        const safeOrderNo = maskPrintText(item.orderNo || '—');
+        const safeMerchantOrderNo = maskPrintText(item.merchantOrderNo || '—');
+        const safeTags = maskPrintText((item.tags || []).join(' / ') || '—');
         return bulkPrintTemplate === 'summary'
           ? `
           <tr>
@@ -1868,10 +1888,12 @@ export function TransactionsPage() {
             <td class="col-date">${escapeHtml(formatDate(item.date))}</td>
             <td class="col-type">${escapeHtml(txTypeLabel(item.type))}</td>
             <td class="col-category">${escapeHtml(safeCategory)}</td>
-            <td class="col-account">${escapeHtml(safeAccount)}</td>
+            ${bulkPrintFields.includeAccount ? `<td class="col-account">${escapeHtml(safeAccount)}</td>` : ''}
             <td class="col-amount ${item.type === 'income' ? 'amount-income' : 'amount-expense'}">${escapeHtml(amountText)}</td>
             <td class="col-status">${escapeHtml(txStatusLabel(item.status))}</td>
-            <td class="col-note">${escapeHtml(safeNote)}</td>
+            ${bulkPrintFields.includeNote ? `<td class="col-note">${escapeHtml(safeNote)}</td>` : ''}
+            ${bulkPrintFields.includeOrderNo ? `<td class="col-order">${escapeHtml(safeOrderNo)} / ${escapeHtml(safeMerchantOrderNo)}</td>` : ''}
+            ${bulkPrintFields.includeTags ? `<td class="col-tags">${escapeHtml(safeTags)}</td>` : ''}
           </tr>
         `;
       })
@@ -1915,10 +1937,12 @@ export function TransactionsPage() {
                   <th>日期</th>
                   <th>类型</th>
                   <th>分类</th>
-                  ${bulkPrintTemplate === 'summary' ? '' : '<th>账户</th>'}
+                  ${bulkPrintTemplate === 'summary' ? '' : bulkPrintFields.includeAccount ? '<th>账户</th>' : ''}
                   <th>金额</th>
                   <th>状态</th>
-                  ${bulkPrintTemplate === 'summary' ? '' : '<th>备注</th>'}
+                  ${bulkPrintTemplate === 'summary' ? '' : bulkPrintFields.includeNote ? '<th>备注</th>' : ''}
+                  ${bulkPrintTemplate === 'summary' ? '' : bulkPrintFields.includeOrderNo ? '<th>订单号</th>' : ''}
+                  ${bulkPrintTemplate === 'summary' ? '' : bulkPrintFields.includeTags ? '<th>标签</th>' : ''}
                 </tr>
               </thead>
               <tbody>${tableRows}</tbody>
@@ -2875,6 +2899,8 @@ export function TransactionsPage() {
             onBulkExportPdf={handleBulkExportPdf}
             bulkPrintTemplate={bulkPrintTemplate}
             onBulkPrintTemplateChange={setBulkPrintTemplate}
+            bulkPrintFields={bulkPrintFields}
+            onBulkPrintFieldsChange={setBulkPrintFields}
             categoryOptions={categories.map((item) => ({ id: item.id, name: item.name }))}
             accountOptions={accounts.map((item) => ({ id: item.id, name: item.name }))}
             onClearSelection={() => setSelectedIds([])}
