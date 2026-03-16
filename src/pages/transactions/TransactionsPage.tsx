@@ -305,6 +305,29 @@ function buildBulkPrintStyles() {
       font-size: 12px;
       line-height: 1.6;
     }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 0 0 16px 0;
+    }
+    .summary-card {
+      border: 1px solid #dbe3f0;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #f8fafc;
+    }
+    .summary-label {
+      color: #6b7280;
+      font-size: 11px;
+      margin-bottom: 6px;
+    }
+    .summary-value {
+      color: #111827;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -346,10 +369,15 @@ function buildBulkPrintStyles() {
     .amount-income { color: #059669; font-weight: 700; }
     .amount-expense { color: #dc2626; font-weight: 700; }
     .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
       margin-top: 12px;
       color: #6b7280;
       font-size: 11px;
       line-height: 1.5;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 10px;
     }
     @media print {
       html, body {
@@ -1671,6 +1699,23 @@ export function TransactionsPage() {
     const popupBlocked = !printWindow;
 
     const totalAmount = selectedRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
+    const incomeTotal = selectedRows.reduce(
+      (sum, row) => sum + (row.item.type === 'income' ? Number(row.item.amount || 0) : 0),
+      0
+    );
+    const expenseTotal = selectedRows.reduce(
+      (sum, row) => sum + (row.item.type !== 'income' ? Number(row.item.amount || 0) : 0),
+      0
+    );
+    const dateTimestamps = selectedRows
+      .map((row) => new Date(row.item.date).getTime())
+      .filter((value) => Number.isFinite(value));
+    const dateRangeText = dateTimestamps.length
+      ? `${formatDate(new Date(Math.min(...dateTimestamps)).toISOString())} ～ ${formatDate(
+          new Date(Math.max(...dateTimestamps)).toISOString()
+        )}`
+      : '—';
+    const generatedAtText = new Date().toLocaleString('zh-CN', { hour12: false });
 
     const tableRows = selectedRows
       .map(({ item, categoryName, accountName }) => {
@@ -1704,10 +1749,26 @@ export function TransactionsPage() {
           <main class="sheet">
             <h1 class="title">批量交易清单</h1>
             <p class="meta">
-              共 ${selectedRows.length} 条 ｜ 金额合计 ${escapeHtml(formatCurrency(totalAmount))} ｜ 生成时间 ${escapeHtml(
-                new Date().toLocaleString('zh-CN', { hour12: false })
-              )}
+              时间范围 ${escapeHtml(dateRangeText)} ｜ 生成时间 ${escapeHtml(generatedAtText)}
             </p>
+            <section class="summary-grid" aria-label="打印统计摘要">
+              <div class="summary-card">
+                <div class="summary-label">交易条数</div>
+                <div class="summary-value">${selectedRows.length} 条</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label">金额合计</div>
+                <div class="summary-value">${escapeHtml(formatCurrency(totalAmount))}</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label">收入合计</div>
+                <div class="summary-value">${escapeHtml(formatCurrency(incomeTotal))}</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label">支出合计</div>
+                <div class="summary-value">${escapeHtml(formatCurrency(expenseTotal))}</div>
+              </div>
+            </section>
             <table>
               <thead>
                 <tr>
@@ -1722,7 +1783,10 @@ export function TransactionsPage() {
               </thead>
               <tbody>${tableRows}</tbody>
             </table>
-            <footer class="footer">提示：若未弹出系统打印框，请检查浏览器是否拦截弹窗或静默打印策略。</footer>
+            <footer class="footer">
+              <span>提示：若未弹出系统打印框，请检查浏览器是否拦截弹窗或静默打印策略。</span>
+              <span>LedgerFlow · 批量打印</span>
+            </footer>
           </main>
         </body>
       </html>
