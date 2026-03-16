@@ -1,3 +1,4 @@
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -1688,6 +1689,123 @@ export function TransactionsPage() {
     applyBulkUpdate({ accountId });
   };
 
+  const handleBulkExportPdf = async () => {
+    const selectedRows = viewRows.filter((row) => selectedIds.includes(row.item.id));
+    if (selectedRows.length === 0) {
+      showToast('请先勾选要导出 PDF 的交易。', 'warning');
+      return;
+    }
+
+    try {
+      const pdfDoc = await PDFDocument.create();
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const fontSize = 10;
+      const titleSize = 16;
+      const lineHeight = 16;
+      const margin = 40;
+      const pageWidth = 595.28;
+      const pageHeight = 841.89;
+      const maxTextWidth = pageWidth - margin * 2;
+
+      const totalAmount = selectedRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
+      const incomeTotal = selectedRows.reduce(
+        (sum, row) => sum + (row.item.type === 'income' ? Number(row.item.amount || 0) : 0),
+        0
+      );
+      const expenseTotal = selectedRows.reduce(
+        (sum, row) => sum + (row.item.type !== 'income' ? Number(row.item.amount || 0) : 0),
+        0
+      );
+      const maskAmountText = (value: number) => (privacyMode ? '¥••••' : formatCurrency(value));
+      const maskPrintText = (value?: string) => {
+        if (!value?.trim()) return '—';
+        return privacyMode ? maskShareText(value) : value;
+      };
+      const dateTimestamps = selectedRows
+        .map((row) => new Date(row.item.date).getTime())
+        .filter((value) => Number.isFinite(value));
+      const dateRangeText = dateTimestamps.length
+        ? `${formatDate(new Date(Math.min(...dateTimestamps)).toISOString())} ～ ${formatDate(
+            new Date(Math.max(...dateTimestamps)).toISOString()
+          )}`
+        : '—';
+      const generatedAtText = new Date().toLocaleString('zh-CN', { hour12: false });
+
+      let page = pdfDoc.addPage([pageWidth, pageHeight]);
+      let cursorY = pageHeight - margin;
+
+      const ensureSpace = (requiredHeight: number) => {
+        if (cursorY - requiredHeight < margin) {
+          page = pdfDoc.addPage([pageWidth, pageHeight]);
+          cursorY = pageHeight - margin;
+        }
+      };
+
+      const drawLine = (textLine: string, x = margin, color = rgb(0.07, 0.09, 0.15), size = fontSize) => {
+        page.drawText(textLine, { x, y: cursorY, size, font, color });
+        cursorY -= lineHeight;
+      };
+
+      page.drawText('LedgerFlow 批量交易导出', {
+        x: margin,
+        y: cursorY,
+        size: titleSize,
+        font,
+        color: rgb(0.07, 0.09, 0.15)
+      });
+      cursorY -= 26;
+      drawLine(`时间范围：${dateRangeText}`);
+      drawLine(`生成时间：${generatedAtText}`);
+      drawLine(`交易条数：${selectedRows.length} 条`);
+      drawLine(`金额合计：${maskAmountText(totalAmount)} ｜ 收入合计：${maskAmountText(incomeTotal)} ｜ 支出合计：${maskAmountText(expenseTotal)}`);
+      drawLine(`导出模式：${privacyMode ? '隐私模式（已脱敏）' : '完整模式'}`);
+      cursorY -= 6;
+
+      selectedRows.forEach(({ item, categoryName, accountName }, index) => {
+        const lines = [
+          `${index + 1}. ${formatDate(item.date)}  ${txTypeLabel(item.type)}  ${item.type === 'income' ? '+' : '-'}${maskAmountText(item.amount)}`,
+          `分类：${maskPrintText(categoryName || '未分类')} ｜ 账户：${maskPrintText(accountName || '未指定账户')} ｜ 状态：${txStatusLabel(item.status)}`,
+          `备注：${maskPrintText(item.note || '—')}`
+        ];
+        const requiredHeight = lines.length * lineHeight + 10;
+        ensureSpace(requiredHeight);
+        lines.forEach((line) => {
+          const normalized = String(line);
+          if (font.widthOfTextAtSize(normalized, fontSize) <= maxTextWidth) {
+            drawLine(normalized);
+            return;
+          }
+          let buffer = '';
+          for (const ch of normalized) {
+            const next = buffer + ch;
+            if (font.widthOfTextAtSize(next, fontSize) > maxTextWidth && buffer) {
+              drawLine(buffer);
+              buffer = ch;
+            } else {
+              buffer = next;
+            }
+          }
+          if (buffer) drawLine(buffer);
+        });
+        cursorY -= 8;
+      });
+
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ledgerflow-transactions-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast('PDF 已开始下载。', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '导出 PDF 失败。', 'error');
+    }
+  };
+
   const handleBulkPrintA4 = (options?: { preferPdf?: boolean }) => {
     const selectedRows = viewRows.filter((row) => selectedIds.includes(row.item.id));
     if (selectedRows.length === 0) {
@@ -1827,9 +1945,6 @@ export function TransactionsPage() {
     }, 120);
   };
 
-  const handleBulkExportPdf = () => {
-    handleBulkPrintA4({ preferPdf: true });
-  };
 
   const recategorizeByAi = async (
     tx: TransactionItem,
