@@ -692,7 +692,50 @@ body {
   line-height: var(--leading-relaxed);
 }
 
+.panel,
+.card,
+.dialog,
+.field,
+.finance-ai-insight-card,
+.finance-risk-tag-card,
+.finance-prepay-focus-card,
+.chat-msg,
+.chat-msg-content,
+.chat-msg-content-rich {
+  min-width: 0;
+}
+
+.panel p,
+.card p,
+.dialog p,
+.field small,
+.muted,
+.chat-msg-content p,
+.chat-md-paragraph,
+.chat-md-heading,
+.finance-ai-rich-paragraph,
+.finance-ai-rich-title,
+.finance-risk-tag-card p,
+.finance-prepay-focus-card p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.panel strong,
+.card strong,
+.dialog strong,
+.finance-risk-tag-head strong,
+.finance-prepay-focus-card strong,
+.chat-msg-header,
+.chat-md-table th,
+.chat-md-table td {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .table-wrap {
+  max-width: 100%;
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -4078,6 +4121,7 @@ small.mono {
 }
 
 .chat-md-table-wrap {
+  max-width: 100%;
   overflow-x: auto;
 }
 
