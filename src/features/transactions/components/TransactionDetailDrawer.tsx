@@ -7,6 +7,7 @@ import {
   TransactionStatus
 } from '../../../entities/transaction/types';
 import { formatCurrency, formatDateTime } from '../../../shared/lib/format';
+import { buildA4PrintBaseStyles } from '../../../shared/lib/printStyles';
 import {
   loadWebdavConfig,
   sanitizeWebdavConfig,
@@ -135,22 +136,16 @@ function buildAttachmentRemotePath(transaction: TransactionItem, file: File): st
 
 function buildPrintStyles(): string {
   return `
-    @page {
-      size: A4;
-      margin: 12mm;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
+    ${buildA4PrintBaseStyles({
+      margin: '12mm',
+      bodyBackground: '#ffffff',
+      bodyColor: '#0f172a',
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif"
+    })}
 
     body {
-      margin: 0;
-      color: #0f172a;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
       font-size: 12px;
       line-height: 1.6;
-      background: #fff;
     }
 
     .sheet {

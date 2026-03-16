@@ -7,6 +7,7 @@ import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient'
 import { extractJsonString } from '../../features/assistant/workbench/workbenchUtils';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { exportTransactionsCsv } from '../../shared/lib/csv';
+import { buildA4PrintBaseStyles } from '../../shared/lib/printStyles';
 import {
   applyBillImportMode,
   ApplyBillImportModeResult,
@@ -272,21 +273,11 @@ function buildTransactionShareText(input: {
 
 function buildBulkPrintStyles() {
   return `
-    @page {
-      size: A4;
-      margin: 12mm 10mm 14mm;
-    }
-    html {
-      background: #f3f4f6;
-    }
-    body {
-      margin: 0;
-      background: #f3f4f6;
-      color: #111827;
-      font-family: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
+    ${buildA4PrintBaseStyles({
+      margin: '12mm 10mm 14mm',
+      bodyBackground: '#f3f4f6',
+      bodyColor: '#111827'
+    })}
     .sheet {
       width: 100%;
       box-sizing: border-box;
@@ -384,9 +375,6 @@ function buildBulkPrintStyles() {
       padding-top: 10px;
     }
     @media print {
-      html, body {
-        background: #ffffff;
-      }
       .sheet {
         border: none;
         border-radius: 0;
