@@ -493,6 +493,20 @@ export function SettingsPage() {
           <p className="muted" style={{ marginTop: 8 }}>
             {t('settings.embeddingChannel.desc')}
           </p>
+          <div
+            style={{
+              marginTop: 12,
+              padding: '10px 12px',
+              borderRadius: 10,
+              background: 'rgba(245, 158, 11, 0.10)',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
+              color: 'var(--color-text, #1f2937)'
+            }}
+          >
+            <strong>隐私提示：</strong>
+            如果你为嵌入渠道单独配置了 baseUrl / apiKey / model，发送给助手的部分文本可能会被提交到这条嵌入渠道做向量化，
+            它和聊天模型使用的服务不一定是同一家。涉及敏感内容时，建议先确认该服务的存储与日志策略。
+          </div>
 
           <div className="settings-inline-grid settings-inline-grid--double">
             <div className="field">
