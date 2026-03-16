@@ -268,17 +268,82 @@ function buildTransactionShareText(input: {
 
 function buildBulkPrintStyles() {
   return `
-    @page { size: A4; margin: 10mm; }
-    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #111827; }
-    .sheet { width: 100%; }
-    .title { margin: 0 0 8px 0; font-size: 18px; }
-    .meta { margin: 0 0 14px 0; color: #6b7280; font-size: 12px; }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    th, td { border: 1px solid #d1d5db; padding: 8px 6px; font-size: 12px; vertical-align: top; word-break: break-word; }
-    th { background: #f3f4f6; text-align: left; }
-    .amount-income { color: #059669; font-weight: 600; }
-    .amount-expense { color: #dc2626; font-weight: 600; }
-    .footer { margin-top: 12px; color: #6b7280; font-size: 11px; }
+    @page {
+      size: A4;
+      margin: 12mm 10mm 14mm;
+    }
+    html {
+      background: #f3f4f6;
+    }
+    body {
+      margin: 0;
+      background: #f3f4f6;
+      color: #111827;
+      font-family: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .sheet {
+      width: 100%;
+      box-sizing: border-box;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 14px 16px 12px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    }
+    .title {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.3;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .meta {
+      margin: 10px 0 16px 0;
+      color: #6b7280;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      background: #ffffff;
+    }
+    th, td {
+      border: 1px solid #d1d5db;
+      padding: 8px 6px;
+      font-size: 12px;
+      line-height: 1.5;
+      vertical-align: top;
+      word-break: break-word;
+    }
+    th {
+      background: #f3f4f6;
+      color: #111827;
+      text-align: left;
+      font-weight: 700;
+    }
+    .amount-income { color: #059669; font-weight: 700; }
+    .amount-expense { color: #dc2626; font-weight: 700; }
+    .footer {
+      margin-top: 12px;
+      color: #6b7280;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    @media print {
+      html, body {
+        background: #ffffff;
+      }
+      .sheet {
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        padding: 0;
+      }
+    }
   `;
 }
 
