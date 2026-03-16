@@ -1603,9 +1603,11 @@ tr:hover td {
 
 .transaction-bulk-bar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
+  flex-wrap: wrap;
+  min-width: 0;
   margin-bottom: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
@@ -1613,25 +1615,78 @@ tr:hover td {
   background: var(--color-bg-subtle);
 }
 
+.transaction-bulk-bar > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .transaction-bulk-actions {
+  display: flex;
+  flex: 1 1 520px;
+  min-width: 0;
+  justify-content: flex-end;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+.transaction-bulk-actions > button,
+.transaction-bulk-actions > .transaction-bulk-select {
+  max-width: 100%;
+}
+
+.transaction-bulk-actions > button {
+  white-space: normal;
 }
 
 .transaction-bulk-select {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
   gap: 6px;
   font-size: var(--font-xs);
   color: var(--color-text-secondary);
 }
 
 .transaction-bulk-select span {
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .transaction-bulk-select select {
   min-width: 120px;
+  max-width: 100%;
+}
+
+@media (max-width: 900px) {
+  .transaction-bulk-bar {
+    align-items: stretch;
+  }
+
+  .transaction-bulk-actions {
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .transaction-bulk-bar {
+    padding-inline: var(--space-2);
+  }
+
+  .transaction-bulk-actions {
+    gap: 10px;
+  }
+
+  .transaction-bulk-actions > button,
+  .transaction-bulk-actions > .transaction-bulk-select {
+    flex: 1 1 100%;
+  }
+
+  .transaction-bulk-select select {
+    min-width: 0;
+    width: 100%;
+  }
 }
 .transaction-columns-panel {
   margin-bottom: var(--space-3);
