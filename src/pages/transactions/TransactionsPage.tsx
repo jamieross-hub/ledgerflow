@@ -1707,6 +1707,11 @@ export function TransactionsPage() {
       (sum, row) => sum + (row.item.type !== 'income' ? Number(row.item.amount || 0) : 0),
       0
     );
+    const maskAmountText = (value: number) => (privacyMode ? '¥••••' : formatCurrency(value));
+    const maskPrintText = (value?: string) => {
+      if (!value?.trim()) return '—';
+      return privacyMode ? maskShareText(value) : value;
+    };
     const dateTimestamps = selectedRows
       .map((row) => new Date(row.item.date).getTime())
       .filter((value) => Number.isFinite(value));
@@ -1719,10 +1724,10 @@ export function TransactionsPage() {
 
     const tableRows = selectedRows
       .map(({ item, categoryName, accountName }) => {
-        const amountText = `${item.type === 'income' ? '+' : '-'}${formatCurrency(item.amount)}`;
-        const safeCategory = categoryName || '未分类';
-        const safeAccount = accountName || '未指定账户';
-        const safeNote = item.note || '—';
+        const amountText = `${item.type === 'income' ? '+' : '-'}${maskAmountText(item.amount)}`;
+        const safeCategory = maskPrintText(categoryName || '未分类');
+        const safeAccount = maskPrintText(accountName || '未指定账户');
+        const safeNote = maskPrintText(item.note || '—');
         return `
           <tr>
             <td class="col-date">${escapeHtml(formatDate(item.date))}</td>
@@ -1758,15 +1763,15 @@ export function TransactionsPage() {
               </div>
               <div class="summary-card">
                 <div class="summary-label">金额合计</div>
-                <div class="summary-value">${escapeHtml(formatCurrency(totalAmount))}</div>
+                <div class="summary-value">${escapeHtml(maskAmountText(totalAmount))}</div>
               </div>
               <div class="summary-card">
                 <div class="summary-label">收入合计</div>
-                <div class="summary-value">${escapeHtml(formatCurrency(incomeTotal))}</div>
+                <div class="summary-value">${escapeHtml(maskAmountText(incomeTotal))}</div>
               </div>
               <div class="summary-card">
                 <div class="summary-label">支出合计</div>
-                <div class="summary-value">${escapeHtml(formatCurrency(expenseTotal))}</div>
+                <div class="summary-value">${escapeHtml(maskAmountText(expenseTotal))}</div>
               </div>
             </section>
             <table>
@@ -1784,8 +1789,8 @@ export function TransactionsPage() {
               <tbody>${tableRows}</tbody>
             </table>
             <footer class="footer">
-              <span>提示：若未弹出系统打印框，请检查浏览器是否拦截弹窗或静默打印策略。</span>
-              <span>LedgerFlow · 批量打印</span>
+              <span>${privacyMode ? '当前为隐私模式打印，金额/账户/备注等内容已脱敏。' : '提示：若未弹出系统打印框，请检查浏览器是否拦截弹窗或静默打印策略。'}</span>
+              <span>LedgerFlow · 批量打印${privacyMode ? '（隐私模式）' : ''}</span>
             </footer>
           </main>
         </body>
