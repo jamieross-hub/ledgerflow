@@ -221,6 +221,20 @@ export function SettingsPage() {
     [embeddingChannel.model, embeddingModelCandidates]
   );
 
+  const embeddingOverrideActive =
+    Boolean(embeddingChannel.enabled) &&
+    Boolean(
+      embeddingChannel.baseUrl.trim() ||
+        embeddingChannel.apiKey.trim() ||
+        embeddingChannel.model.trim()
+    );
+  const embeddingEffectiveBaseUrl = embeddingOverrideActive
+    ? (embeddingChannel.baseUrl.trim() || baseUrl)
+    : baseUrl;
+  const embeddingEffectiveModel = embeddingOverrideActive
+    ? (embeddingChannel.model.trim() || embeddingModel.trim())
+    : embeddingModel.trim();
+
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showSaveToast = useCallback(() => {
@@ -575,6 +589,27 @@ export function SettingsPage() {
                   showSaveToast();
                 }}
               />
+            </div>
+          </div>
+
+          <div
+            style={{
+              marginTop: 12,
+              padding: '10px 12px',
+              borderRadius: 10,
+              background: 'rgba(79, 110, 247, 0.08)',
+              border: '1px solid rgba(79, 110, 247, 0.18)'
+            }}
+          >
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>当前生效规则</div>
+            <div style={{ fontSize: 14, lineHeight: 1.6 }}>
+              1. 默认使用下方“嵌入模型（Embedding）”里的全局 model：
+              <strong>{embeddingModel.trim() || '未设置'}</strong>
+              。<br />
+              2. 如果开启了“嵌入渠道”，并填写了专用 baseUrl / apiKey / model 中的任意一项，就优先使用这套渠道配置。<br />
+              3. 当前实际生效的 embedding model：<strong>{embeddingEffectiveModel || '未设置'}</strong>；
+              baseUrl：<strong>{embeddingEffectiveBaseUrl || '未设置'}</strong>。
+              {embeddingOverrideActive ? '（当前为嵌入渠道覆盖中）' : '（当前为全局默认配置）'}
             </div>
           </div>
 
