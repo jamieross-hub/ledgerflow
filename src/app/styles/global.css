@@ -738,12 +738,15 @@ body {
   max-width: 100%;
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
   background: var(--color-bg-elevated);
 }
 
 .table {
   width: 100%;
+  min-width: max-content;
   border-collapse: collapse;
   font-size: var(--font-sm);
 }
@@ -1731,6 +1734,25 @@ tr:hover td {
     width: 100%;
   }
 }
+
+
+@media (max-width: 640px) {
+  .table-wrap,
+  .transaction-table-wrap,
+  .chat-md-table-wrap {
+    border-radius: calc(var(--radius-md) - 2px);
+    margin-inline: 0;
+  }
+
+  .table th,
+  .table td,
+  .transaction-table-wrap thead th,
+  .transaction-table-wrap tbody td,
+  .chat-md-table th,
+  .chat-md-table td {
+    padding-inline: 10px;
+  }
+}
 .transaction-columns-panel {
   margin-bottom: var(--space-3);
   padding: var(--space-3);
@@ -1793,6 +1815,8 @@ tr:hover td {
   z-index: 1;
   max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
 }
@@ -4123,6 +4147,8 @@ small.mono {
 .chat-md-table-wrap {
   max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .chat-md-table {
