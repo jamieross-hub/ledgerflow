@@ -7,7 +7,7 @@ import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient'
 import { extractJsonString } from '../../features/assistant/workbench/workbenchUtils';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { exportTransactionsCsv } from '../../shared/lib/csv';
-import { buildA4PrintBaseStyles } from '../../shared/lib/printStyles';
+import { buildA4PrintBaseStyles, buildA4PrintSheetStyles } from '../../shared/lib/printStyles';
 import {
   applyBillImportMode,
   ApplyBillImportModeResult,
@@ -277,15 +277,16 @@ function buildBulkPrintStyles() {
       bodyBackground: '#f3f4f6',
       bodyColor: '#111827'
     })}
-    .sheet {
-      width: 100%;
-      box-sizing: border-box;
-      background: #ffffff;
-      border: 1px solid #e5e7eb;
-      border-radius: 14px;
-      padding: 14px 16px 12px;
-      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-    }
+    ${buildA4PrintSheetStyles({
+      bodyFontSize: '12px',
+      bodyLineHeight: '1.6',
+      sheetBackground: '#ffffff',
+      sheetBorder: '1px solid #e5e7eb',
+      sheetRadius: '14px',
+      sheetPadding: '14px 16px 12px',
+      sheetShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
+      printSheetPadding: '0'
+    })}
     .title {
       margin: 0;
       font-size: 22px;
@@ -373,26 +374,6 @@ function buildBulkPrintStyles() {
       border-top: 1px solid #e5e7eb;
       padding-top: 10px;
     }
-    @media print {
-      .sheet {
-        border: none;
-        border-radius: 0;
-        box-shadow: none;
-        padding: 0;
-      }
-      table {
-        page-break-inside: auto;
-      }
-      thead {
-        display: table-header-group;
-      }
-      tfoot {
-        display: table-footer-group;
-      }
-      tr, td, th {
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
     }
   `;
 }

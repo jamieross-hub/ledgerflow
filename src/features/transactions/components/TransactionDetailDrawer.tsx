@@ -7,7 +7,7 @@ import {
   TransactionStatus
 } from '../../../entities/transaction/types';
 import { formatCurrency, formatDateTime } from '../../../shared/lib/format';
-import { buildA4PrintBaseStyles } from '../../../shared/lib/printStyles';
+import { buildA4PrintBaseStyles, buildA4PrintSheetStyles } from '../../../shared/lib/printStyles';
 import {
   loadWebdavConfig,
   sanitizeWebdavConfig,
@@ -143,18 +143,16 @@ function buildPrintStyles(): string {
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif"
     })}
 
-    body {
-      font-size: 12px;
-      line-height: 1.6;
-    }
-
-    .sheet {
-      width: 100%;
-      min-height: calc(297mm - 24mm);
-      border: 1px solid #dbe3f0;
-      border-radius: 10px;
-      padding: 14mm;
-    }
+    ${buildA4PrintSheetStyles({
+      bodyFontSize: '12px',
+      bodyLineHeight: '1.6',
+      sheetBackground: '#ffffff',
+      sheetBorder: '1px solid #dbe3f0',
+      sheetRadius: '10px',
+      sheetPadding: '14mm',
+      sheetShadow: 'none',
+      printSheetPadding: '0'
+    })}
 
     .header {
       display: flex;
@@ -259,14 +257,6 @@ function buildPrintStyles(): string {
       color: #94a3b8;
       font-size: 10px;
       text-align: right;
-    }
-
-    @media print {
-      .sheet {
-        border: none;
-        border-radius: 0;
-        padding: 0;
-      }
     }
   `;
 }
