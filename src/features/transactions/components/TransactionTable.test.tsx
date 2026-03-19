@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { TransactionTable, type TransactionColumnKey } from './TransactionTable';
 
@@ -68,6 +69,78 @@ const baseProps = {
 };
 
 describe('TransactionTable', () => {
+  it('批量操作区应展示打印/PDF入口并支持模板与字段切换', async () => {
+    const user = userEvent.setup();
+    const onBulkPrintA4 = vi.fn();
+    const onBulkExportPdf = vi.fn();
+    const onBulkPrintTemplateChange = vi.fn();
+    const onBulkPrintFieldsChange = vi.fn();
+
+    render(
+      <TransactionTable
+        rows={[
+          {
+            item: {
+              id: 'tx-1',
+              date: '2026-03-10',
+              type: 'expense',
+              categoryId: 'cat-1',
+              accountId: 'acc-1',
+              amount: 88,
+              note: '测试打印',
+              tags: ['餐饮']
+            },
+            categoryName: '餐饮',
+            accountName: '现金'
+          }
+        ]}
+        total={1}
+        filteredTotal={1}
+        page={1}
+        pages={1}
+        pageSize={8}
+        pageSizeOptions={[8, 20]}
+        loading={false}
+        hasFilters
+        selectedIds={['tx-1']}
+        bulkSelectionEnabled
+        canSelectAllOnPage
+        allPageSelected
+        sortKey="date"
+        sortDirection="desc"
+        onBulkPrintA4={onBulkPrintA4}
+        onBulkExportPdf={onBulkExportPdf}
+        bulkPrintTemplate="full"
+        onBulkPrintTemplateChange={onBulkPrintTemplateChange}
+        bulkPrintFields={{
+          includeAccount: true,
+          includeNote: true,
+          includeOrderNo: false,
+          includeTags: false
+        }}
+        onBulkPrintFieldsChange={onBulkPrintFieldsChange}
+        {...baseProps}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: '🖨️ 打印 A4' }));
+    expect(onBulkPrintA4).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: '📄 导出 PDF' }));
+    expect(onBulkExportPdf).toHaveBeenCalledTimes(1);
+
+    await user.selectOptions(screen.getByDisplayValue('完整'), 'summary');
+    expect(onBulkPrintTemplateChange).toHaveBeenCalledWith('summary');
+
+    await user.click(screen.getByLabelText('订单号'));
+    expect(onBulkPrintFieldsChange).toHaveBeenCalledWith({
+      includeAccount: true,
+      includeNote: true,
+      includeOrderNo: true,
+      includeTags: false
+    });
+  });
+
   it('日期快捷筛选输入应用可用日期范围', () => {
     render(
       <TransactionTable
