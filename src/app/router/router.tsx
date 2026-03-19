@@ -1,19 +1,21 @@
 import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from '../../widgets/layout/AppLayout';
-import { DashboardPage } from '../../pages/dashboard/DashboardPage';
-import { TransactionsPage } from '../../pages/transactions/TransactionsPage';
-import { TransactionEditPage } from '../../pages/transaction-edit/TransactionEditPage';
-import { CategoriesAccountsPage } from '../../pages/categories-accounts/CategoriesAccountsPage';
-import { SettingsPage } from '../../pages/settings/SettingsPage';
-import { AboutPage } from '../../pages/about/AboutPage';
-import { AssistantPage } from '../../pages/assistant/AssistantPage';
-import { DatabaseSettingsPage } from '../../pages/database-settings/DatabaseSettingsPage';
-import { ExchangePage } from '../../features/exchange/ui/ExchangePage';
-import { FinancePage } from '../../pages/finance/FinancePage';
-import { RepaymentManagementPage } from '../../pages/repayment-management/RepaymentManagementPage';
-import { SmartBudgetPage } from '../../pages/smart-budget/SmartBudgetPage';
-import { HelpPage } from '../../pages/help/HelpPage';
-import { GlobalMemoryPage } from '../../pages/global-memory/GlobalMemoryPage';
+import {
+  AboutPage,
+  AssistantPage,
+  CategoriesAccountsPage,
+  DashboardPage,
+  DatabaseSettingsPage,
+  ExchangePage,
+  FinancePage,
+  GlobalMemoryPage,
+  HelpPage,
+  RepaymentManagementPage,
+  SettingsPage,
+  SmartBudgetPage,
+  TransactionEditPage,
+  TransactionsPage
+} from './lazyPages';
 
 export const router = createBrowserRouter([
   {

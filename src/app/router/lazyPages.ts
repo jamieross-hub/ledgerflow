@@ -1,0 +1,16 @@
+import { lazy } from 'react';
+
+export const DashboardPage = lazy(() => import('../../pages/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+export const TransactionsPage = lazy(() => import('../../pages/transactions/TransactionsPage').then((m) => ({ default: m.TransactionsPage })));
+export const TransactionEditPage = lazy(() => import('../../pages/transaction-edit/TransactionEditPage').then((m) => ({ default: m.TransactionEditPage })));
+export const CategoriesAccountsPage = lazy(() => import('../../pages/categories-accounts/CategoriesAccountsPage').then((m) => ({ default: m.CategoriesAccountsPage })));
+export const SettingsPage = lazy(() => import('../../pages/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+export const AboutPage = lazy(() => import('../../pages/about/AboutPage').then((m) => ({ default: m.AboutPage })));
+export const AssistantPage = lazy(() => import('../../pages/assistant/AssistantPage').then((m) => ({ default: m.AssistantPage })));
+export const DatabaseSettingsPage = lazy(() => import('../../pages/database-settings/DatabaseSettingsPage').then((m) => ({ default: m.DatabaseSettingsPage })));
+export const ExchangePage = lazy(() => import('../../features/exchange/ui/ExchangePage').then((m) => ({ default: m.ExchangePage })));
+export const FinancePage = lazy(() => import('../../pages/finance/FinancePage').then((m) => ({ default: m.FinancePage })));
+export const RepaymentManagementPage = lazy(() => import('../../pages/repayment-management/RepaymentManagementPage').then((m) => ({ default: m.RepaymentManagementPage })));
+export const SmartBudgetPage = lazy(() => import('../../pages/smart-budget/SmartBudgetPage').then((m) => ({ default: m.SmartBudgetPage })));
+export const HelpPage = lazy(() => import('../../pages/help/HelpPage').then((m) => ({ default: m.HelpPage })));
+export const GlobalMemoryPage = lazy(() => import('../../pages/global-memory/GlobalMemoryPage').then((m) => ({ default: m.GlobalMemoryPage })));

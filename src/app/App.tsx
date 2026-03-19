@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './router/router';
 import { useAppPreferences } from '../shared/store/useAppPreferences';
@@ -31,7 +31,15 @@ export function App() {
   return (
     <div className="app-shell">
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <Suspense
+          fallback={
+            <div className="page-skeleton" role="status" aria-live="polite" style={{ padding: 24 }}>
+              页面加载中…
+            </div>
+          }
+        >
+          <RouterProvider router={router} />
+        </Suspense>
       </QueryClientProvider>
     </div>
   );
