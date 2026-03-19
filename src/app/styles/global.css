@@ -7858,6 +7858,16 @@ body.categories-accounts-resizing {
     align-items: stretch;
   }
 
+  .sync-actions > button,
+  .sync-actions > a,
+  .chat-preview-toolbar > button,
+  .assistant-wb-json-actions > button,
+  .global-memory-actions button,
+  .dashboard-inline-help-actions button,
+  .chat-message-actions > button {
+    width: 100%;
+  }
+
   .sync-target-switch {
     align-items: stretch;
   }
@@ -7865,6 +7875,26 @@ body.categories-accounts-resizing {
   .sync-target-chip {
     width: 100%;
     justify-content: center;
+  }
+
+  .chat-preview-toolbar,
+  .assistant-wb-json-actions,
+  .chat-message-actions,
+  .dashboard-inline-help-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .assistant-wb-inline-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .global-memory-actions {
+    justify-content: stretch;
+  }
+
+  .global-memory-actions button {
+    flex: 1 1 100%;
   }
 
   .debug-log-fab-wrap {
