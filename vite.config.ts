@@ -7,7 +7,16 @@ function manualChunks(id: string) {
     return undefined;
   }
 
-  if (id.includes('pdf-lib') || id.includes('fontkit')) return 'vendor-pdf';
+  if (
+    id.includes('/node_modules/react/') ||
+    id.includes('/node_modules/react-dom/') ||
+    id.includes('/node_modules/scheduler/') ||
+    id.includes('/node_modules/use-sync-external-store/')
+  ) {
+    return 'vendor-react';
+  }
+
+  if (id.includes('/node_modules/zustand/')) return 'vendor-state';
   if (id.includes('i18next') || id.includes('react-i18next')) return 'vendor-i18n';
   if (id.includes('react-hook-form') || id.includes('@hookform/resolvers') || id.includes('zod')) {
     return 'vendor-form';
