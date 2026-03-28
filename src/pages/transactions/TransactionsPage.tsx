@@ -1,5 +1,3 @@
-import * as fontkit from 'fontkit';
-import { PDFDocument, rgb } from 'pdf-lib';
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -1675,7 +1673,12 @@ export function TransactionsPage() {
     }
 
     try {
+      const [{ PDFDocument, rgb }, fontkitModule] = await Promise.all([
+        import('pdf-lib'),
+        import('fontkit')
+      ]);
       const pdfDoc = await PDFDocument.create();
+      const fontkit = 'default' in fontkitModule ? fontkitModule.default : fontkitModule;
       pdfDoc.registerFontkit(fontkit);
       const fontModule = await import('../../assets/NotoSansSC-Regular.ttf?url');
       const fontResponse = await fetch(fontModule.default);

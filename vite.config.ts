@@ -7,6 +7,10 @@ function manualChunks(id: string) {
     return undefined;
   }
 
+  if (id.includes('/node_modules/pdf-lib/') || id.includes('/node_modules/fontkit/')) {
+    return 'vendor-pdf';
+  }
+
   if (
     id.includes('/node_modules/react/') ||
     id.includes('/node_modules/react-dom/') ||
