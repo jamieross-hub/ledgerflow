@@ -12573,6 +12573,30 @@ body.categories-accounts-resizing {
   transition: transform 150ms ease;
 }
 
+@media (max-width: 768px) {
+  .finance-salary-card {
+    overflow-x: hidden;
+  }
+
+  .finance-salary-grid,
+  .finance-salary-result-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-salary-metric {
+    min-width: 0;
+  }
+
+  .finance-overtime-header {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .finance-overtime-input {
+    width: 100%;
+  }
+}
+
 .chat-semantic-drawer-card[open] summary strong::before {
   transform: rotate(90deg);
 }
