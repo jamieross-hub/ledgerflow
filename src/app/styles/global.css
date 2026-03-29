@@ -10814,10 +10814,626 @@ body.categories-accounts-resizing {
 .finance-income-inline-action {
   white-space: nowrap;
 }
+.surface-pill.danger {
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 30%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger-soft) 56%, var(--color-bg-elevated));
+}
+
+.surface-pill.primary {
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 30%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary-soft) 58%, var(--color-bg-elevated));
+}
+
+.finance-page {
+  align-content: start;
+}
+
+.finance-primary-panel {
+  border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border));
+  box-shadow: 0 10px 20px color-mix(in srgb, var(--color-primary) 16%, transparent);
+}
+
+.finance-secondary-panel {
+  background: color-mix(in srgb, var(--color-bg-elevated) 88%, var(--color-bg-subtle));
+}
+
+.finance-debt-entry-card {
+  background: color-mix(in srgb, var(--color-bg-elevated) 72%, var(--color-bg-subtle));
+  border-radius: 14px;
+  border-color: color-mix(in srgb, var(--color-border) 85%, var(--color-primary-soft));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+
+.finance-debt-entry-header {
+  margin-bottom: 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.finance-debt-entry-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-primary-soft) 72%, var(--color-bg-elevated));
+  font-size: 1rem;
+}
+
+.finance-overview-panel {
+  background: color-mix(in srgb, var(--color-bg-elevated) 78%, var(--color-primary-soft));
+}
+
+.finance-empty-guide {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-primary-soft) 35%, var(--color-bg-elevated));
+}
+
+.finance-empty-guide-title {
+  margin: 0 0 6px;
+  font-weight: 700;
+}
+
+.finance-empty-guide-steps {
+  margin: 0 0 8px;
+  padding-inline-start: 18px;
+}
+
+.finance-overview-hero {
+  display: grid;
+  grid-template-columns: minmax(140px, 180px) minmax(0, 1fr);
+  gap: 14px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.finance-pressure-ring {
+  width: 128px;
+  height: 128px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  margin-inline: auto;
+  position: relative;
+}
+
+.finance-pressure-ring::before {
+  content: '';
+  width: 88px;
+  height: 88px;
+  border-radius: 999px;
+  background: var(--color-bg-elevated);
+  position: absolute;
+}
+
+.finance-pressure-ring span {
+  position: relative;
+  z-index: 1;
+  font-weight: 700;
+}
+
+.finance-overview-bars {
+  display: grid;
+  gap: 10px;
+}
+
+.finance-overview-bar-row {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.finance-overview-bar-row div {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-bg-subtle);
+  overflow: hidden;
+}
+
+.finance-overview-bar-row i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-danger));
+}
+
+.finance-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.finance-overview-metric-card {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  background: var(--color-bg-elevated);
+}
+
+.finance-overview-label {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.finance-metric-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1;
+  cursor: help;
+}
+
+.finance-overview-value {
+  margin: 6px 0 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.finance-overview-number {
+  font-size: clamp(1.45rem, 2.4vw, 2rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.finance-overview-unit {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.finance-overview-pressure-card {
+  border-width: 2px;
+}
+
+.finance-overview-pressure-safe {
+  border-color: color-mix(in srgb, var(--color-success) 70%, var(--color-border));
+  background: color-mix(in srgb, var(--color-success-soft) 55%, var(--color-bg-elevated));
+}
+
+.finance-overview-pressure-warning {
+  border-color: color-mix(in srgb, var(--color-warning) 72%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning-soft) 58%, var(--color-bg-elevated));
+}
+
+.finance-overview-pressure-danger {
+  border-color: color-mix(in srgb, var(--color-danger) 70%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger-soft) 58%, var(--color-bg-elevated));
+}
+
+.finance-debt-form-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.finance-debt-form-row {
+  display: grid;
+  gap: 10px;
+  align-items: center;
+}
+
+.finance-debt-form-row-primary {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+.finance-debt-form-row-detail {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.finance-ai-action-row {
+  margin-top: 14px;
+  margin-bottom: 8px;
+}
+
+.finance-ai-rich-title {
+  margin: 10px 0 6px;
+  font-size: var(--font-base);
+  color: var(--color-text);
+}
+
+.finance-ai-rich-paragraph {
+  margin: 8px 0;
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+}
+
+.finance-ai-rich-list {
+  margin: 6px 0 10px;
+  padding-inline-start: 20px;
+  color: var(--color-text-secondary);
+  display: grid;
+  gap: 4px;
+}
+
+.finance-debt-form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.finance-debt-form-error {
+  margin: -8px 0 0;
+}
+
+.finance-debt-list {
+  display: grid;
+  gap: 8px;
+}
+
+.finance-debt-item-enter {
+  animation: finance-debt-item-enter 0.2s ease both;
+}
+
+@keyframes finance-debt-item-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.finance-debt-form-control {
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.finance-debt-form-control:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
+  outline: none;
+}
+
+.finance-unit-input {
+  position: relative;
+  display: block;
+}
+
+.finance-unit-input .finance-debt-form-control {
+  padding-right: 44px;
+  background: color-mix(in srgb, var(--color-bg-elevated) 88%, var(--color-primary-soft));
+}
+
+.finance-unit-input.is-filled .finance-debt-form-control {
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary-soft) 55%, var(--color-bg-elevated));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.finance-unit-input > span {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg-elevated));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, transparent);
+  pointer-events: none;
+}
+
+.finance-unit-input.is-filled > span {
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 70%, #7c4dff));
+  border-color: transparent;
+  box-shadow: 0 6px 12px color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+
+.finance-unit-input.is-disabled > span {
+  opacity: 0.55;
+}
+
+.finance-debt-submit {
+  min-height: 46px;
+  padding-inline: 20px;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.finance-debt-submit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+.finance-feed-form-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  align-items: center;
+}
+
+.finance-overview-grid-strong .finance-overview-metric-card {
+  border: 1px solid var(--color-border-light);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.finance-overview-health-card {
+  background: color-mix(in srgb, var(--color-primary-soft) 45%, var(--color-bg-elevated));
+}
+
+.finance-overview-income-actions {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.finance-overview-income-actions .finance-income-inline-manual {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.finance-debt-dual-entry {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.finance-debt-entry-action {
+  border: 1px solid var(--color-border-light);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+.finance-collapsible {
+  margin-top: 12px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.finance-collapsible-summary {
+  list-style: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+
+.finance-collapsible-summary::-webkit-details-marker {
+  display: none;
+}
+
+.finance-collapsible-summary-text {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.finance-collapsible-summary-text h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.finance-collapsible-summary-text p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.finance-collapsible-summary-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.finance-collapsible-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.finance-collapsible-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-bg-subtle) 80%, var(--color-bg-elevated));
+  color: var(--color-text-secondary);
+  transition: transform 0.2s ease;
+}
+
+.finance-collapsible[open] .finance-collapsible-chevron {
+  transform: rotate(180deg);
+}
+
+.finance-collapsible-body {
+  padding: 0 16px 16px;
+}
+
+.finance-debt-form-helper {
+  margin: -8px 0 0;
+}
+
+.finance-income-inline {
+  margin: 10px 0 12px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 12px;
+  background: var(--color-bg-elevated);
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.finance-income-inline-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.finance-income-inline-value {
+  margin: 4px 0 0;
+  color: var(--color-text-muted);
+}
+
+.finance-income-inline-badge {
+  margin: 6px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-subtle);
+}
+
+.finance-income-inline-faq {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+}
+
+.finance-income-inline-faq details {
+  border: 1px dashed var(--color-border-light);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.finance-income-inline-faq summary {
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+
+.finance-news-compact-list {
+  display: grid;
+  gap: 8px;
+}
+
+.finance-news-compact-item {
+  padding: 9px 10px;
+  text-align: left;
+  border: 1px solid var(--color-border-light);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-bg-elevated) 96%, transparent);
+  display: grid;
+  gap: 4px;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.finance-news-compact-item strong {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.finance-news-compact-item .muted {
+  margin: 0;
+  font-size: 11px;
+}
+
+.finance-news-compact-item:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-primary-border);
+}
+
+.finance-news-compact-item.is-active {
+  border-color: var(--color-primary-border);
+  background: color-mix(in srgb, var(--color-primary-bg) 36%, var(--color-bg-elevated));
+}
+
+.finance-income-inline-manual {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.finance-income-inline-action {
+  white-space: nowrap;
+}
 
 .finance-income-inline-hint {
   grid-column: 1 / -1;
   margin: 0;
+}
+
+.finance-salary-card {
+  border-color: color-mix(in srgb, var(--color-primary) 32%, var(--color-border));
+  background: color-mix(in srgb, var(--color-bg-elevated) 88%, var(--color-primary-soft));
+}
+
+.finance-salary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.finance-salary-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.finance-salary-field > span {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.finance-salary-result-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.finance-salary-metric {
+  border: 1px solid var(--color-border-light);
+  background: color-mix(in srgb, var(--color-bg-elevated) 94%, transparent);
+}
+
+.finance-salary-hint {
+  margin: 12px 0 0;
 }
 
 .finance-debt-recent {

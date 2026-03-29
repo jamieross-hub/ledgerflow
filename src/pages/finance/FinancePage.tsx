@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppPreferences } from '../../shared/store/useAppPreferences';
+import { calculateSalaryMetrics, sanitizePositiveNumberInput } from './salaryCalculator';
 
 type FinanceNewsItem = {
   id: string;
@@ -91,6 +92,15 @@ async function fetchRssFeed(feedUrl: string, signal: AbortSignal, t: (k:string)=
   return parseRssItems(xmlText, feedUrl, t, language);
 }
 
+function formatMoney(value: number): string {
+  return new Intl.NumberFormat('zh-CN', {
+    style: 'currency',
+    currency: 'CNY',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value);
+}
+
 export function FinancePage() {
   const { t, i18n } = useTranslation();
   const { rssSubscriptions, addRssSubscription, removeRssSubscription, toggleRssSubscription } =
@@ -112,6 +122,9 @@ export function FinancePage() {
   const [feedTitle, setFeedTitle] = useState('');
   const [feedUrl, setFeedUrl] = useState('');
   const [activeNewsId, setActiveNewsId] = useState('');
+  const [monthlySalary, setMonthlySalary] = useState('12000');
+  const [workingDays, setWorkingDays] = useState('21.75');
+  const [dailyHours, setDailyHours] = useState('8');
 
   const enabledFeeds = useMemo(
     () => rssSubscriptions.filter((item) => item.enabled),
@@ -186,6 +199,21 @@ export function FinancePage() {
     [activeNewsId, news]
   );
 
+  const salaryMetrics = useMemo(
+    () => calculateSalaryMetrics({ monthlySalary, workingDays, dailyHours }),
+    [dailyHours, monthlySalary, workingDays]
+  );
+
+  const salaryInputError = useMemo(() => {
+    if (!monthlySalary.trim() || !workingDays.trim() || !dailyHours.trim()) {
+      return '请先填写月薪、计薪天数和每日工时';
+    }
+    if (!salaryMetrics) {
+      return '请输入大于 0 的合法数字，避免空值或无效格式';
+    }
+    return '';
+  }, [dailyHours, monthlySalary, salaryMetrics, workingDays]);
+
   function onAddFeed(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const result = addRssSubscription({ title: feedTitle, url: feedUrl });
@@ -199,6 +227,82 @@ export function FinancePage() {
 
   return (
     <div className="page-stack finance-page">
+      <section className="card finance-salary-card">
+        <h2 style={{ marginTop: 0 }}>💼 工资计算工具</h2>
+        <p className="muted">先做基础版：输入月薪、计薪天数、每日工时，实时估算日薪、时薪和周薪参考值。</p>
+
+        <div className="finance-salary-grid">
+          <label className="finance-salary-field">
+            <span>月薪</span>
+            <div className={`finance-unit-input ${monthlySalary ? 'is-filled' : ''}`}>
+              <input
+                className="finance-debt-form-control"
+                inputMode="decimal"
+                value={monthlySalary}
+                onChange={(event) => setMonthlySalary(sanitizePositiveNumberInput(event.target.value))}
+                placeholder="例如 12000"
+              />
+              <span>元</span>
+            </div>
+          </label>
+
+          <label className="finance-salary-field">
+            <span>计薪天数</span>
+            <div className={`finance-unit-input ${workingDays ? 'is-filled' : ''}`}>
+              <input
+                className="finance-debt-form-control"
+                inputMode="decimal"
+                value={workingDays}
+                onChange={(event) => setWorkingDays(sanitizePositiveNumberInput(event.target.value))}
+                placeholder="例如 21.75"
+              />
+              <span>天</span>
+            </div>
+          </label>
+
+          <label className="finance-salary-field">
+            <span>每日工时</span>
+            <div className={`finance-unit-input ${dailyHours ? 'is-filled' : ''}`}>
+              <input
+                className="finance-debt-form-control"
+                inputMode="decimal"
+                value={dailyHours}
+                onChange={(event) => setDailyHours(sanitizePositiveNumberInput(event.target.value))}
+                placeholder="例如 8"
+              />
+              <span>小时</span>
+            </div>
+          </label>
+        </div>
+
+        {salaryInputError ? <p className="finance-debt-form-error muted">{salaryInputError}</p> : null}
+
+        <div className="finance-salary-result-grid">
+          <article className="finance-salary-metric card">
+            <p className="finance-overview-label">日薪参考</p>
+            <p className="finance-overview-value">
+              <span className="finance-overview-number">{salaryMetrics ? formatMoney(salaryMetrics.dailySalary) : '—'}</span>
+            </p>
+          </article>
+          <article className="finance-salary-metric card">
+            <p className="finance-overview-label">时薪参考</p>
+            <p className="finance-overview-value">
+              <span className="finance-overview-number">{salaryMetrics ? formatMoney(salaryMetrics.hourlySalary) : '—'}</span>
+            </p>
+          </article>
+          <article className="finance-salary-metric card">
+            <p className="finance-overview-label">周薪参考（按 5 天）</p>
+            <p className="finance-overview-value">
+              <span className="finance-overview-number">{salaryMetrics ? formatMoney(salaryMetrics.weeklySalary) : '—'}</span>
+            </p>
+          </article>
+        </div>
+
+        <p className="finance-salary-hint muted">
+          说明：这里是估算工具，默认不含社保、个税、补贴、提成与特殊排班。
+        </p>
+      </section>
+
       <section className="card">
         <h2 style={{ marginTop: 0 }}>📰 {t('finance.ui.title')}</h2>
         <p className="muted">{t('finance.ui.subtitle')}</p>
