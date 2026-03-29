@@ -24,7 +24,7 @@ export type ExportTransactionsPdfInput = {
   maskShareText: (value: string) => string;
 };
 
-const pdfRuntimePromise = Promise.all([import('pdf-lib'), import('fontkit')]);
+let pdfRuntimePromise: Promise<[typeof import('pdf-lib'), typeof import('fontkit')]> | null = null;
 let cachedFontBytesPromise: Promise<ArrayBuffer> | null = null;
 
 function txTypeLabel(type: TransactionType) {
@@ -42,6 +42,17 @@ function txStatusLabel(status?: TransactionItem['status']) {
       failed: '失败'
     }[status] || status
   );
+}
+
+async function getPdfRuntime() {
+  if (!pdfRuntimePromise) {
+    pdfRuntimePromise = Promise.all([import('pdf-lib'), import('fontkit')]).catch((error) => {
+      pdfRuntimePromise = null;
+      throw error;
+    });
+  }
+
+  return pdfRuntimePromise;
 }
 
 async function getCachedChineseFontBytes() {
@@ -65,7 +76,7 @@ async function getCachedChineseFontBytes() {
 export async function exportTransactionsPdf(input: ExportTransactionsPdfInput) {
   const { rows, privacyMode, bulkPrintTemplate, bulkPrintFields, maskShareText } = input;
 
-  const [{ PDFDocument, rgb }, fontkitModule] = await pdfRuntimePromise;
+  const [{ PDFDocument, rgb }, fontkitModule] = await getPdfRuntime();
 
   const pdfDoc = await PDFDocument.create();
   const fontkit = 'default' in fontkitModule ? fontkitModule.default : fontkitModule;
