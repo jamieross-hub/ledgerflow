@@ -4,6 +4,8 @@ import { useAppPreferences } from '../../shared/store/useAppPreferences';
 import {
   calculateOvertimePay,
   calculateSalaryMetrics,
+  getOvertimeInputError,
+  getSalaryInputError,
   sanitizePositiveNumberInput
 } from './salaryCalculator';
 
@@ -209,33 +211,20 @@ export function FinancePage() {
     [dailyHours, monthlySalary, workingDays]
   );
 
-  const salaryInputError = useMemo(() => {
-    if (!monthlySalary.trim() || !workingDays.trim() || !dailyHours.trim()) {
-      return '请先填写月薪、计薪天数和每日工时';
-    }
-    if (!salaryMetrics) {
-      return '请输入大于 0 的合法数字，避免空值或无效格式';
-    }
-    return '';
-  }, [dailyHours, monthlySalary, salaryMetrics, workingDays]);
+  const salaryInputError = useMemo(
+    () => getSalaryInputError({ monthlySalary, workingDays, dailyHours }),
+    [dailyHours, monthlySalary, workingDays]
+  );
 
   const overtimeResult = useMemo(
     () => calculateOvertimePay(salaryMetrics?.hourlySalary || 0, overtimeHours),
     [overtimeHours, salaryMetrics]
   );
 
-  const overtimeInputError = useMemo(() => {
-    if (!salaryMetrics) {
-      return '请先完成上方工资基础输入，才能计算加班工资';
-    }
-    if (!overtimeHours.trim()) {
-      return '请输入加班时长';
-    }
-    if (!overtimeResult) {
-      return '加班时长需为大于 0 的合法数字';
-    }
-    return '';
-  }, [overtimeHours, overtimeResult, salaryMetrics]);
+  const overtimeInputError = useMemo(
+    () => getOvertimeInputError(salaryMetrics?.hourlySalary || 0, overtimeHours, Boolean(salaryMetrics)),
+    [overtimeHours, salaryMetrics]
+  );
 
   function onAddFeed(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
