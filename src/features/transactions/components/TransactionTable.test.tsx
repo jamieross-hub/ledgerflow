@@ -141,6 +141,49 @@ describe('TransactionTable', () => {
     });
   });
 
+  it('批量导出 PDF 处理中应显示加载文案并禁用按钮', () => {
+    render(
+      <TransactionTable
+        rows={[
+          {
+            item: {
+              id: 'tx-1',
+              date: '2026-03-10',
+              type: 'expense',
+              categoryId: 'cat-1',
+              accountId: 'acc-1',
+              amount: 88,
+              note: '测试导出',
+              tags: ['餐饮']
+            },
+            categoryName: '餐饮',
+            accountName: '现金'
+          }
+        ]}
+        total={1}
+        filteredTotal={1}
+        page={1}
+        pages={1}
+        pageSize={8}
+        pageSizeOptions={[8, 20]}
+        loading={false}
+        hasFilters
+        selectedIds={['tx-1']}
+        bulkSelectionEnabled
+        canSelectAllOnPage
+        allPageSelected
+        sortKey="date"
+        sortDirection="desc"
+        onBulkExportPdf={vi.fn()}
+        bulkExportingPdf
+        {...baseProps}
+      />
+    );
+
+    const exportButton = screen.getByRole('button', { name: '⏳ 正在导出 PDF…' });
+    expect(exportButton).toBeDisabled();
+  });
+
   it('日期快捷筛选输入应用可用日期范围', () => {
     render(
       <TransactionTable
