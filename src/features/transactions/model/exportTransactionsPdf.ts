@@ -24,6 +24,9 @@ export type ExportTransactionsPdfInput = {
   maskShareText: (value: string) => string;
 };
 
+const pdfRuntimePromise = Promise.all([import('pdf-lib'), import('fontkit')]);
+let cachedFontBytesPromise: Promise<ArrayBuffer> | null = null;
+
 function txTypeLabel(type: TransactionType) {
   return type === 'income' ? '收入' : type === 'budget' ? '预算' : type === 'repayment' ? '还款' : '支出';
 }
@@ -41,25 +44,34 @@ function txStatusLabel(status?: TransactionItem['status']) {
   );
 }
 
+async function getCachedChineseFontBytes() {
+  if (!cachedFontBytesPromise) {
+    cachedFontBytesPromise = (async () => {
+      const fontModule = await import('../../../assets/NotoSansSC-Regular.ttf?url');
+      const fontResponse = await fetch(fontModule.default);
+      if (!fontResponse.ok) {
+        throw new Error('中文字体加载失败，请联网后重试。');
+      }
+      return fontResponse.arrayBuffer();
+    })().catch((error) => {
+      cachedFontBytesPromise = null;
+      throw error;
+    });
+  }
+
+  return cachedFontBytesPromise;
+}
+
 export async function exportTransactionsPdf(input: ExportTransactionsPdfInput) {
   const { rows, privacyMode, bulkPrintTemplate, bulkPrintFields, maskShareText } = input;
 
-  const [{ PDFDocument, rgb }, fontkitModule] = await Promise.all([
-    import('pdf-lib'),
-    import('fontkit')
-  ]);
+  const [{ PDFDocument, rgb }, fontkitModule] = await pdfRuntimePromise;
 
   const pdfDoc = await PDFDocument.create();
   const fontkit = 'default' in fontkitModule ? fontkitModule.default : fontkitModule;
   pdfDoc.registerFontkit(fontkit);
 
-  const fontModule = await import('../../../assets/NotoSansSC-Regular.ttf?url');
-  const fontResponse = await fetch(fontModule.default);
-  if (!fontResponse.ok) {
-    throw new Error('中文字体加载失败，请联网后重试。');
-  }
-
-  const fontBytes = await fontResponse.arrayBuffer();
+  const fontBytes = await getCachedChineseFontBytes();
   const font = await pdfDoc.embedFont(fontBytes, { subset: true });
   const fontSize = 10;
   const titleSize = 16;
