@@ -1931,13 +1931,13 @@ tr:hover td {
 
 .transaction-mobile-swipe {
   display: flex;
-  width: calc(100% + 88px);
+  width: calc(100% + 176px);
   transform: translateX(0);
   transition: transform var(--transition-fast);
 }
 
 .transaction-mobile-item.is-swiped .transaction-mobile-swipe {
-  transform: translateX(-88px);
+  transform: translateX(-176px);
 }
 
 .transaction-mobile-main {
