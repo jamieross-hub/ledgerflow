@@ -1,4 +1,4 @@
-import { PDFDocument, PDFPage } from 'pdf-lib';
+import type { PDFPage } from 'pdf-lib';
 import type { Account } from '../../../entities/account/types';
 import type { Category } from '../../../entities/category/types';
 import type { TransactionItem, TransactionType } from '../../../entities/transaction/types';
@@ -429,6 +429,7 @@ export async function splitPdfFileByPages(
     maxChunks?: number;
   }
 ): Promise<string[]> {
+  const [{ PDFDocument }] = await Promise.all([import('pdf-lib')]);
   const sourceBytes = await file.arrayBuffer();
   const sourcePdf = await PDFDocument.load(sourceBytes);
   const totalPages = sourcePdf.getPageCount();
