@@ -11436,6 +11436,25 @@ body.categories-accounts-resizing {
   margin: 12px 0 0;
 }
 
+.finance-overtime-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--color-border-light);
+  display: grid;
+  gap: 12px;
+}
+
+.finance-overtime-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 12px;
+  align-items: end;
+}
+
+.finance-overtime-input {
+  min-width: 0;
+}
+
 .finance-debt-recent {
   margin-top: 10px;
   border-top: 1px dashed var(--color-border-light);

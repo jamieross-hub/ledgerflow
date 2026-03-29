@@ -1,7 +1,11 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppPreferences } from '../../shared/store/useAppPreferences';
-import { calculateSalaryMetrics, sanitizePositiveNumberInput } from './salaryCalculator';
+import {
+  calculateOvertimePay,
+  calculateSalaryMetrics,
+  sanitizePositiveNumberInput
+} from './salaryCalculator';
 
 type FinanceNewsItem = {
   id: string;
@@ -125,6 +129,7 @@ export function FinancePage() {
   const [monthlySalary, setMonthlySalary] = useState('12000');
   const [workingDays, setWorkingDays] = useState('21.75');
   const [dailyHours, setDailyHours] = useState('8');
+  const [overtimeHours, setOvertimeHours] = useState('2');
 
   const enabledFeeds = useMemo(
     () => rssSubscriptions.filter((item) => item.enabled),
@@ -214,6 +219,24 @@ export function FinancePage() {
     return '';
   }, [dailyHours, monthlySalary, salaryMetrics, workingDays]);
 
+  const overtimeResult = useMemo(
+    () => calculateOvertimePay(salaryMetrics?.hourlySalary || 0, overtimeHours),
+    [overtimeHours, salaryMetrics]
+  );
+
+  const overtimeInputError = useMemo(() => {
+    if (!salaryMetrics) {
+      return '请先完成上方工资基础输入，才能计算加班工资';
+    }
+    if (!overtimeHours.trim()) {
+      return '请输入加班时长';
+    }
+    if (!overtimeResult) {
+      return '加班时长需为大于 0 的合法数字';
+    }
+    return '';
+  }, [overtimeHours, overtimeResult, salaryMetrics]);
+
   function onAddFeed(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const result = addRssSubscription({ title: feedTitle, url: feedUrl });
@@ -296,6 +319,51 @@ export function FinancePage() {
               <span className="finance-overview-number">{salaryMetrics ? formatMoney(salaryMetrics.weeklySalary) : '—'}</span>
             </p>
           </article>
+        </div>
+
+        <div className="finance-overtime-section">
+          <div className="finance-overtime-header">
+            <div>
+              <h3 style={{ margin: 0 }}>⏱️ 加班工资估算</h3>
+              <p className="muted finance-salary-hint">按当前时薪估算工作日 1.5 倍、休息日 2 倍、法定节假日 3 倍。</p>
+            </div>
+            <label className="finance-salary-field finance-overtime-input">
+              <span>加班时长</span>
+              <div className={`finance-unit-input ${overtimeHours ? 'is-filled' : ''}`}>
+                <input
+                  className="finance-debt-form-control"
+                  inputMode="decimal"
+                  value={overtimeHours}
+                  onChange={(event) => setOvertimeHours(sanitizePositiveNumberInput(event.target.value))}
+                  placeholder="例如 2"
+                />
+                <span>小时</span>
+              </div>
+            </label>
+          </div>
+
+          {overtimeInputError ? <p className="finance-debt-form-error muted">{overtimeInputError}</p> : null}
+
+          <div className="finance-salary-result-grid">
+            <article className="finance-salary-metric card">
+              <p className="finance-overview-label">工作日加班费（1.5x）</p>
+              <p className="finance-overview-value">
+                <span className="finance-overview-number">{overtimeResult ? formatMoney(overtimeResult.workdayOvertimePay) : '—'}</span>
+              </p>
+            </article>
+            <article className="finance-salary-metric card">
+              <p className="finance-overview-label">休息日加班费（2x）</p>
+              <p className="finance-overview-value">
+                <span className="finance-overview-number">{overtimeResult ? formatMoney(overtimeResult.restDayOvertimePay) : '—'}</span>
+              </p>
+            </article>
+            <article className="finance-salary-metric card">
+              <p className="finance-overview-label">法定节假日加班费（3x）</p>
+              <p className="finance-overview-value">
+                <span className="finance-overview-number">{overtimeResult ? formatMoney(overtimeResult.holidayOvertimePay) : '—'}</span>
+              </p>
+            </article>
+          </div>
         </div>
 
         <p className="finance-salary-hint muted">

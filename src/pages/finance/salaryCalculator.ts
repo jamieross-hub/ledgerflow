@@ -13,8 +13,20 @@ export type SalaryCalculatorResult = {
   weeklySalary: number;
 };
 
+export type OvertimeCalculatorResult = {
+  overtimeHours: number;
+  workdayOvertimePay: number;
+  restDayOvertimePay: number;
+  holidayOvertimePay: number;
+};
+
 export function sanitizePositiveNumberInput(value: string): string {
-  return value.replace(/[^\d.]/g, '');
+  const sanitized = value.replace(/[^\d.]/g, '');
+  const firstDotIndex = sanitized.indexOf('.');
+  if (firstDotIndex === -1) return sanitized;
+  return `${sanitized.slice(0, firstDotIndex + 1)}${sanitized
+    .slice(firstDotIndex + 1)
+    .replace(/\./g, '')}`;
 }
 
 function parsePositiveNumber(value: string): number | null {
@@ -46,5 +58,23 @@ export function calculateSalaryMetrics(input: SalaryCalculatorInput): SalaryCalc
     dailySalary,
     hourlySalary,
     weeklySalary
+  };
+}
+
+export function calculateOvertimePay(hourlySalary: number, overtimeHoursInput: string): OvertimeCalculatorResult | null {
+  if (!Number.isFinite(hourlySalary) || hourlySalary <= 0) {
+    return null;
+  }
+
+  const overtimeHours = parsePositiveNumber(overtimeHoursInput);
+  if (!overtimeHours) {
+    return null;
+  }
+
+  return {
+    overtimeHours,
+    workdayOvertimePay: hourlySalary * overtimeHours * 1.5,
+    restDayOvertimePay: hourlySalary * overtimeHours * 2,
+    holidayOvertimePay: hourlySalary * overtimeHours * 3
   };
 }
