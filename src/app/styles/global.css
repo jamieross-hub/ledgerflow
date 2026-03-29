@@ -11432,16 +11432,35 @@ body.categories-accounts-resizing {
   background: color-mix(in srgb, var(--color-bg-elevated) 94%, transparent);
 }
 
-.finance-salary-hint {
-  margin: 12px 0 0;
+.finance-salary-metric-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
-.finance-overtime-section {
-  margin-top: 16px;
-  padding-top: 16px;
+.finance-salary-inline-tip {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-bg-elevated) 92%, var(--color-primary-bg));
+}
+
+.finance-salary-inline-tip strong {
+  color: var(--color-text);
+}
+
+.finance-salary-disclaimer-list {
+  margin-top: 12px;
+  padding: 10px 12px;
   border-top: 1px dashed var(--color-border-light);
   display: grid;
-  gap: 12px;
+  gap: 6px;
+}
+
+.finance-salary-disclaimer-list p {
+  margin: 0;
+  line-height: 1.6;
 }
 
 .finance-overtime-header {

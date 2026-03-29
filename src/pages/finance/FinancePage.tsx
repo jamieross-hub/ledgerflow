@@ -241,7 +241,7 @@ export function FinancePage() {
     <div className="page-stack finance-page">
       <section className="card finance-salary-card">
         <h2 style={{ marginTop: 0 }}>💼 工资计算工具</h2>
-        <p className="muted">先做基础版：输入月薪、计薪天数、每日工时，实时估算日薪、时薪和周薪参考值。</p>
+        <p className="muted">用于税前口径的快速估算：输入月薪、计薪天数、每日工时后，实时查看日薪、时薪、周薪和加班费参考值。</p>
 
         <div className="finance-salary-grid">
           <label className="finance-salary-field">
@@ -295,18 +295,21 @@ export function FinancePage() {
             <p className="finance-overview-value">
               <span className="finance-overview-number">{salaryMetrics ? formatMoney(salaryMetrics.dailySalary) : '—'}</span>
             </p>
+            <p className="finance-salary-metric-note muted">按月薪 ÷ 计薪天数估算</p>
           </article>
           <article className="finance-salary-metric card">
             <p className="finance-overview-label">时薪参考</p>
             <p className="finance-overview-value">
               <span className="finance-overview-number">{salaryMetrics ? formatMoney(salaryMetrics.hourlySalary) : '—'}</span>
             </p>
+            <p className="finance-salary-metric-note muted">按日薪 ÷ 每日工时估算</p>
           </article>
           <article className="finance-salary-metric card">
             <p className="finance-overview-label">周薪参考（按 5 天）</p>
             <p className="finance-overview-value">
               <span className="finance-overview-number">{salaryMetrics ? formatMoney(salaryMetrics.weeklySalary) : '—'}</span>
             </p>
+            <p className="finance-salary-metric-note muted">默认按 5 个工作日折算</p>
           </article>
         </div>
 
@@ -333,31 +336,41 @@ export function FinancePage() {
 
           {overtimeInputError ? <p className="finance-debt-form-error muted">{overtimeInputError}</p> : null}
 
+          {salaryMetrics ? (
+            <p className="finance-salary-inline-tip muted">
+              当前时薪基准：<strong>{formatMoney(salaryMetrics.hourlySalary)}</strong> / 小时，加班费按这个时薪做倍数估算。
+            </p>
+          ) : null}
+
           <div className="finance-salary-result-grid">
             <article className="finance-salary-metric card">
               <p className="finance-overview-label">工作日加班费（1.5x）</p>
               <p className="finance-overview-value">
                 <span className="finance-overview-number">{overtimeResult ? formatMoney(overtimeResult.workdayOvertimePay) : '—'}</span>
               </p>
+              <p className="finance-salary-metric-note muted">适用于工作日延时加班估算</p>
             </article>
             <article className="finance-salary-metric card">
               <p className="finance-overview-label">休息日加班费（2x）</p>
               <p className="finance-overview-value">
                 <span className="finance-overview-number">{overtimeResult ? formatMoney(overtimeResult.restDayOvertimePay) : '—'}</span>
               </p>
+              <p className="finance-salary-metric-note muted">适用于休息日加班估算</p>
             </article>
             <article className="finance-salary-metric card">
               <p className="finance-overview-label">法定节假日加班费（3x）</p>
               <p className="finance-overview-value">
                 <span className="finance-overview-number">{overtimeResult ? formatMoney(overtimeResult.holidayOvertimePay) : '—'}</span>
               </p>
+              <p className="finance-salary-metric-note muted">适用于法定节假日加班估算</p>
             </article>
           </div>
         </div>
 
-        <p className="finance-salary-hint muted">
-          说明：这里是估算工具，默认不含社保、个税、补贴、提成与特殊排班。
-        </p>
+        <div className="finance-salary-disclaimer-list muted">
+          <p>说明 1：结果仅供税前估算参考，默认不含社保、个税、公积金、补贴、提成与特殊排班。</p>
+          <p>说明 2：周薪默认按 5 个工作日折算；加班费按当前时薪做倍数估算，不代表公司最终核算口径。</p>
+        </div>
       </section>
 
       <section className="card">
