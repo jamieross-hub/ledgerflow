@@ -11504,7 +11504,7 @@ body.categories-accounts-resizing {
   background: color-mix(in srgb, var(--color-bg-subtle) 94%, var(--color-bg-elevated));
   padding: 10px 12px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) minmax(92px, auto);
+  grid-template-columns: auto minmax(0, 1fr) minmax(120px, 148px);
   gap: 10px;
   align-items: center;
   text-align: left;
@@ -11582,10 +11582,12 @@ body.categories-accounts-resizing {
   display: grid;
   gap: 4px;
   justify-items: end;
+  align-content: center;
 }
 
 .dashboard-donut-list-side strong,
 .dashboard-donut-list-side small {
+  width: 100%;
   text-align: right;
 }
 
