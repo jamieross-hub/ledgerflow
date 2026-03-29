@@ -737,6 +737,7 @@ export function TransactionsPage() {
   const [highlightId, setHighlightId] = useState<string>('');
   const [privacyMode, setPrivacyMode] = useState(false);
   const [bulkPrintTemplate, setBulkPrintTemplate] = useState<BulkPrintTemplate>('full');
+  const [bulkExportingPdf, setBulkExportingPdf] = useState(false);
   const [bulkPrintFields, setBulkPrintFields] = useState({
     includeAccount: true,
     includeNote: true,
@@ -1666,11 +1667,19 @@ export function TransactionsPage() {
   };
 
   const handleBulkExportPdf = async () => {
+    if (bulkExportingPdf) {
+      showToast('PDF 正在导出中，请稍候。', 'warning');
+      return;
+    }
+
     const selectedRows = viewRows.filter((row) => selectedIds.includes(row.item.id));
     if (selectedRows.length === 0) {
       showToast('请先勾选要导出 PDF 的交易。', 'warning');
       return;
     }
+
+    setBulkExportingPdf(true);
+    showToast('正在生成 PDF，请稍候…', 'warning');
 
     try {
       const [{ PDFDocument, rgb }, fontkitModule] = await Promise.all([
@@ -1683,7 +1692,7 @@ export function TransactionsPage() {
       const fontModule = await import('../../assets/NotoSansSC-Regular.ttf?url');
       const fontResponse = await fetch(fontModule.default);
       if (!fontResponse.ok) {
-        throw new Error('中文字体加载失败，请稍后重试并检查网络。');
+        throw new Error('中文字体加载失败，请联网后重试。');
       }
       const fontBytes = await fontResponse.arrayBuffer();
       const font = await pdfDoc.embedFont(fontBytes, { subset: true });
@@ -1807,6 +1816,8 @@ export function TransactionsPage() {
       showToast('PDF 已开始下载。', 'success');
     } catch (error) {
       showToast(error instanceof Error ? error.message : '导出 PDF 失败。', 'error');
+    } finally {
+      setBulkExportingPdf(false);
     }
   };
 
@@ -2877,6 +2888,7 @@ export function TransactionsPage() {
             onBulkEditAccount={handleBulkEditAccount}
             onBulkPrintA4={handleBulkPrintA4}
             onBulkExportPdf={handleBulkExportPdf}
+            bulkExportingPdf={bulkExportingPdf}
             bulkPrintTemplate={bulkPrintTemplate}
             onBulkPrintTemplateChange={setBulkPrintTemplate}
             bulkPrintFields={bulkPrintFields}

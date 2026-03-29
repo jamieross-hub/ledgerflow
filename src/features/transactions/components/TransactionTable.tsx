@@ -242,6 +242,7 @@ interface TransactionTableProps {
   onBulkEditAccount: (accountId: string) => void;
   onBulkPrintA4?: () => void;
   onBulkExportPdf?: () => void;
+  bulkExportingPdf?: boolean;
   bulkPrintTemplate?: 'full' | 'summary';
   onBulkPrintTemplateChange?: (value: 'full' | 'summary') => void;
   bulkPrintFields?: {
@@ -313,6 +314,7 @@ export function TransactionTable({
   onBulkEditAccount,
   onBulkPrintA4,
   onBulkExportPdf,
+  bulkExportingPdf = false,
   bulkPrintTemplate = 'full',
   onBulkPrintTemplateChange,
   bulkPrintFields = { includeAccount: true, includeNote: true, includeOrderNo: false, includeTags: false },
@@ -667,8 +669,12 @@ export function TransactionTable({
                 <button type="button" onClick={() => onBulkPrintA4?.()}>
                   🖨️ 打印 A4
                 </button>
-                <button type="button" onClick={() => onBulkExportPdf?.()}>
-                  📄 导出 PDF
+                <button
+                  type="button"
+                  onClick={() => onBulkExportPdf?.()}
+                  disabled={bulkExportingPdf}
+                >
+                  {bulkExportingPdf ? '⏳ 正在导出 PDF…' : '📄 导出 PDF'}
                 </button>
                 <button type="button" onClick={onDeleteSelected} className="danger">
                   批量删除
