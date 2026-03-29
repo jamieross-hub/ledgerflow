@@ -3153,6 +3153,7 @@ small.mono {
     right: 10px;
   }
   .welcome-content {
+    flex: none;
     width: 100%;
     justify-items: stretch;
     gap: 8px;
