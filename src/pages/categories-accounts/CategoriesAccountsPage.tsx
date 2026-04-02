@@ -853,13 +853,13 @@ export function CategoriesAccountsPage() {
 
       <ConfirmDialog
         open={Boolean(pendingDeleteCategoryId)}
-        title="确认删除分类"
+        title="确认移入回收站"
         description={
           pendingDeleteCategoryUsageCount > 0
-            ? `该分类下存在 ${pendingDeleteCategoryUsageCount} 条交易记录，删除后交易会归入“未分类”。是否继续？`
-            : '删除分类后将无法恢复，是否继续？'
+            ? `该分类下存在 ${pendingDeleteCategoryUsageCount} 条交易记录，移入回收站后这些交易会继续保留并归入“未分类”。是否继续？`
+            : '该分类将先移入回收站，你之后仍可恢复或彻底删除。是否继续？'
         }
-        confirmText="确认删除"
+        confirmText="移入回收站"
         cancelText="取消"
         danger
         onConfirm={() => {
@@ -891,13 +891,13 @@ export function CategoriesAccountsPage() {
 
       <ConfirmDialog
         open={Boolean(pendingDeleteAccountId)}
-        title="确认删除账户"
+        title="确认移入回收站"
         description={
           pendingDeleteLinkedCount > 0
-            ? `该账户下存在 ${pendingDeleteLinkedCount} 条交易记录，删除后仅移除账户本身。是否继续？`
-            : '删除账户后将无法恢复，是否继续？'
+            ? `该账户下存在 ${pendingDeleteLinkedCount} 条交易记录，移入回收站后仅移除账户本身，交易仍会保留。是否继续？`
+            : '该账户将先移入回收站，你之后仍可恢复或彻底删除。是否继续？'
         }
-        confirmText="确认删除"
+        confirmText="移入回收站"
         cancelText="取消"
         danger
         onConfirm={() => {

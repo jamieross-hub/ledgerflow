@@ -40,6 +40,7 @@ export interface TransactionItem {
   refundOfTransactionId?: string;
   attachments?: TransactionAttachmentItem[];
   updatedAt?: string;
+  trashedAt?: string;
 }
 
 export interface BalanceChangeEntry {

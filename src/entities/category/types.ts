@@ -5,4 +5,5 @@ export interface Category {
   color?: string;
   icon?: string;
   sortOrder?: number;
+  trashedAt?: string;
 }

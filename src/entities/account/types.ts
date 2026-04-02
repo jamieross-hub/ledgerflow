@@ -11,4 +11,5 @@ export interface Account {
   balance?: number;
   /** 展示排序，数值越小越靠前 */
   sortOrder?: number;
+  trashedAt?: string;
 }

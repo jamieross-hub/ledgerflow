@@ -1,0 +1,49 @@
+
+.recycle-bin-page {
+  display: grid;
+  gap: 16px;
+}
+
+.recycle-bin-header,
+.recycle-bin-block-header,
+.recycle-bin-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.recycle-bin-sections {
+  display: grid;
+  gap: 16px;
+}
+
+.recycle-bin-block {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-bg-elevated);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.recycle-bin-list {
+  display: grid;
+  gap: 12px;
+}
+
+.recycle-bin-item {
+  border: 1px solid var(--color-border-light);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--color-bg-panel);
+}
+
+.recycle-bin-meta {
+  margin-top: 6px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}

@@ -57,6 +57,7 @@ export function AppLayout() {
         items: [
           { to: '/categories-accounts', label: t('nav.categoriesAccounts'), icon: '🗂️' },
           { to: '/balance-changes', label: '余额明细', icon: '📚' },
+          { to: '/recycle-bin', label: '回收站', icon: '🗑️' },
           { to: '/repayment-management', label: t('nav.repayment'), icon: '💳' }
         ]
       },
@@ -88,6 +89,7 @@ export function AppLayout() {
           { label: t('nav.dashboard'), icon: '📊', to: '/', end: true },
           { label: t('nav.categoriesAccounts'), icon: '🗂️', to: '/categories-accounts' },
           { label: '余额明细', icon: '📚', to: '/balance-changes' },
+          { label: '回收站', icon: '🗑️', to: '/recycle-bin' },
           { label: t('nav.repayment'), icon: '💳', to: '/repayment-management' },
           { label: '工资工具', icon: '💼', to: '/salary-tools' },
           { label: t('nav.finance'), icon: '📰', to: '/finance' },

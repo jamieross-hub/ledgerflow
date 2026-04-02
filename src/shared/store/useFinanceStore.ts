@@ -58,12 +58,17 @@ interface FinanceState {
   transactions: TransactionItem[];
   categories: Category[];
   accounts: Account[];
+  trashedTransactions: TransactionItem[];
+  trashedCategories: Category[];
+  trashedAccounts: Account[];
   balanceChangeEntries: BalanceChangeEntry[];
   categoryLearningRules: CategoryLearningRule[];
   categoryLearningEvents: CategoryLearningEvent[];
   addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
   updateTransaction: (id: string, payload: Omit<TransactionItem, 'id'>) => void;
   removeTransaction: (id: string) => void;
+  restoreTransaction: (id: string) => void;
+  permanentlyDeleteTransaction: (id: string) => void;
   refundTransaction: (input: RefundTransactionInput) => RefundTransactionResult;
   addCategory: (
     name: string,
@@ -72,10 +77,14 @@ interface FinanceState {
   updateCategory: (id: string, payload: Partial<Omit<Category, 'id'>>) => void;
   reorderCategories: (orderedIds: string[]) => void;
   removeCategory: (id: string) => void;
+  restoreCategory: (id: string) => void;
+  permanentlyDeleteCategory: (id: string) => void;
   addAccount: (name: string, type?: Account['type'], initialBalance?: number) => string;
   updateAccountBalance: (id: string, balance: number) => void;
   reorderAccounts: (orderedIds: string[]) => void;
   removeAccount: (id: string) => void;
+  restoreAccount: (id: string) => void;
+  permanentlyDeleteAccount: (id: string) => void;
   clearAllAccountBills: () => void;
   suggestCategoryByLearning: (input: CategoryLearningInput) => {
     categoryId: string;
@@ -207,9 +216,12 @@ const defaultAccounts: Account[] = [
 ];
 
 const defaultTransactions: TransactionItem[] = [];
+const defaultTrashedTransactions: TransactionItem[] = [];
 const defaultBalanceChangeEntries: BalanceChangeEntry[] = [];
 const defaultCategoryLearningRules: CategoryLearningRule[] = [];
 const defaultCategoryLearningEvents: CategoryLearningEvent[] = [];
+const defaultTrashedCategories: Category[] = [];
+const defaultTrashedAccounts: Account[] = [];
 
 const REFUND_HINT_PATTERN = /(退款|退回|退货|冲正)/i;
 const TX_BALANCE_CHANGE_TYPES = new Set<BalanceChangeType>([
@@ -504,6 +516,46 @@ function getRefundedAmount(transactions: TransactionItem[], transactionId: strin
   );
 }
 
+function markTrashedAt<T extends { trashedAt?: string }>(item: T): T {
+  return {
+    ...item,
+    trashedAt: new Date().toISOString()
+  };
+}
+
+function clearTrashedAt<T extends { trashedAt?: string }>(item: T): T {
+  const { trashedAt, ...rest } = item;
+  return rest as T;
+}
+
+function ensureUniqueById<T extends { id: string }>(rows: T[]): T[] {
+  const seen = new Set<string>();
+  return rows.filter((item) => {
+    if (!item?.id || seen.has(item.id)) {
+      return false;
+    }
+    seen.add(item.id);
+    return true;
+  });
+}
+
+function restoreFromTrash<T extends { id: string; trashedAt?: string }>(
+  active: T[],
+  trashed: T[],
+  id: string
+): { active: T[]; trashed: T[]; restored: T | null } {
+  const target = trashed.find((item) => item.id === id) || null;
+  if (!target) {
+    return { active, trashed, restored: null };
+  }
+
+  return {
+    active: [...active, clearTrashedAt(target)],
+    trashed: trashed.filter((item) => item.id !== id),
+    restored: clearTrashedAt(target)
+  };
+}
+
 function createManualAdjustmentEntry(params: {
   accountId: string;
   beforeBalance: number;
@@ -531,6 +583,9 @@ export const useFinanceStore = create<FinanceState>()(
       transactions: defaultTransactions,
       categories: defaultCategories,
       accounts: defaultAccounts,
+      trashedTransactions: defaultTrashedTransactions,
+      trashedCategories: defaultTrashedCategories,
+      trashedAccounts: defaultTrashedAccounts,
       balanceChangeEntries: defaultBalanceChangeEntries,
       categoryLearningRules: defaultCategoryLearningRules,
       categoryLearningEvents: defaultCategoryLearningEvents,
@@ -571,14 +626,40 @@ export const useFinanceStore = create<FinanceState>()(
         void syncChangeIfNeeded({ entity: 'transactions', action: 'update', row, id });
       },
       removeTransaction: (id) => {
+        let trashedRow: TransactionItem | null = null;
         set((s) => {
+          const target = s.transactions.find((item) => item.id === id);
+          if (!target) {
+            return s;
+          }
+          trashedRow = markTrashedAt(target);
           const transactions = s.transactions.filter((item) => item.id !== id);
           return {
             transactions,
+            trashedTransactions: ensureUniqueById([...s.trashedTransactions, trashedRow]),
             ...rebuildStateSlices(s.accounts, transactions, s.balanceChangeEntries)
           };
         });
         void syncChangeIfNeeded({ entity: 'transactions', action: 'delete', id });
+      },
+      restoreTransaction: (id) => {
+        set((s) => {
+          const restored = restoreFromTrash(s.transactions, s.trashedTransactions, id);
+          if (!restored.restored) {
+            return s;
+          }
+          const transactions = ensureUniqueById(restored.active);
+          return {
+            transactions,
+            trashedTransactions: restored.trashed,
+            ...rebuildStateSlices(s.accounts, transactions, s.balanceChangeEntries)
+          };
+        });
+      },
+      permanentlyDeleteTransaction: (id) => {
+        set((s) => ({
+          trashedTransactions: s.trashedTransactions.filter((item) => item.id !== id)
+        }));
       },
       refundTransaction: (input) => {
         const refundAmount = roundCurrency(input.amount);
@@ -744,8 +825,34 @@ export const useFinanceStore = create<FinanceState>()(
         });
       },
       removeCategory: (id) => {
-        set((s) => ({ categories: s.categories.filter((item) => item.id !== id) }));
+        set((s) => {
+          const target = s.categories.find((item) => item.id === id);
+          if (!target) {
+            return s;
+          }
+          return {
+            categories: s.categories.filter((item) => item.id !== id),
+            trashedCategories: ensureUniqueById([...s.trashedCategories, markTrashedAt(target)])
+          };
+        });
         void syncChangeIfNeeded({ entity: 'categories', action: 'delete', id });
+      },
+      restoreCategory: (id) => {
+        set((s) => {
+          const restored = restoreFromTrash(s.categories, s.trashedCategories, id);
+          if (!restored.restored) {
+            return s;
+          }
+          return {
+            categories: restored.active,
+            trashedCategories: restored.trashed
+          };
+        });
+      },
+      permanentlyDeleteCategory: (id) => {
+        set((s) => ({
+          trashedCategories: s.trashedCategories.filter((item) => item.id !== id)
+        }));
       },
       addAccount: (name, type, initialBalance = 0) => {
         const row: Account = {
@@ -847,11 +954,47 @@ export const useFinanceStore = create<FinanceState>()(
         });
       },
       removeAccount: (id) => {
-        set((s) => ({ accounts: normalizeAccountOrder(s.accounts.filter((item) => item.id !== id)) }));
+        set((s) => {
+          const target = s.accounts.find((item) => item.id === id);
+          if (!target) {
+            return s;
+          }
+          const accounts = normalizeAccountOrder(s.accounts.filter((item) => item.id !== id));
+          const rebuilt = rebuildStateSlices(accounts, s.transactions, s.balanceChangeEntries);
+          return {
+            accounts: rebuilt.accounts,
+            balanceChangeEntries: rebuilt.balanceChangeEntries,
+            trashedAccounts: ensureUniqueById([...s.trashedAccounts, markTrashedAt(target)])
+          };
+        });
         void syncChangeIfNeeded({ entity: 'accounts', action: 'delete', id });
+      },
+      restoreAccount: (id) => {
+        set((s) => {
+          const restored = restoreFromTrash(s.accounts, s.trashedAccounts, id);
+          if (!restored.restored) {
+            return s;
+          }
+          const accounts = normalizeAccountOrder(restored.active);
+          const rebuilt = rebuildStateSlices(accounts, s.transactions, s.balanceChangeEntries);
+          return {
+            accounts: rebuilt.accounts,
+            balanceChangeEntries: rebuilt.balanceChangeEntries,
+            trashedAccounts: restored.trashed
+          };
+        });
+      },
+      permanentlyDeleteAccount: (id) => {
+        set((s) => ({
+          trashedAccounts: s.trashedAccounts.filter((item) => item.id !== id)
+        }));
       },
       clearAllAccountBills: () => {
         set((s) => ({
+          trashedTransactions: ensureUniqueById([
+            ...s.trashedTransactions,
+            ...s.transactions.map((item) => markTrashedAt(item))
+          ]),
           transactions: [],
           ...rebuildStateSlices(s.accounts, [], [])
         }));
@@ -882,7 +1025,11 @@ export const useFinanceStore = create<FinanceState>()(
         set(() => ({
           categories: compacted.categories,
           transactions: compacted.transactions,
-          ...rebuildStateSlices(incomingAccounts, compacted.transactions, [])
+          accounts: rebuildStateSlices(incomingAccounts, compacted.transactions, []).accounts,
+          balanceChangeEntries: rebuildStateSlices(incomingAccounts, compacted.transactions, []).balanceChangeEntries,
+          trashedTransactions: [],
+          trashedCategories: [],
+          trashedAccounts: []
         }));
       }
     }),
@@ -907,6 +1054,15 @@ export const useFinanceStore = create<FinanceState>()(
           ? ((incoming as Partial<FinanceState>).balanceChangeEntries || [])
           : [];
         const rebuilt = rebuildStateSlices(normalizedAccounts, compacted.transactions, incomingBalanceEntries);
+        const trashedTransactions = Array.isArray((incoming as Partial<FinanceState>).trashedTransactions)
+          ? ensureUniqueById((incoming as Partial<FinanceState>).trashedTransactions || [])
+          : [];
+        const trashedCategories = Array.isArray((incoming as Partial<FinanceState>).trashedCategories)
+          ? ensureUniqueById((incoming as Partial<FinanceState>).trashedCategories || [])
+          : [];
+        const trashedAccounts = Array.isArray((incoming as Partial<FinanceState>).trashedAccounts)
+          ? ensureUniqueById((incoming as Partial<FinanceState>).trashedAccounts || [])
+          : [];
 
         return {
           ...currentState,
@@ -915,6 +1071,9 @@ export const useFinanceStore = create<FinanceState>()(
           categories: compacted.categories,
           transactions: compacted.transactions,
           accounts: rebuilt.accounts,
+          trashedTransactions,
+          trashedCategories,
+          trashedAccounts,
           balanceChangeEntries: rebuilt.balanceChangeEntries,
           categoryLearningRules: Array.isArray(
             (incoming as Partial<FinanceState>).categoryLearningRules

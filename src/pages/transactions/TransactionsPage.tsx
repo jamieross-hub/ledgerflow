@@ -1580,7 +1580,7 @@ export function TransactionsPage() {
 
     setSelectedIds((prev) => prev.filter((id) => !pendingDeleteIds.includes(id)));
     showToast(
-      pendingDeleteIds.length > 1 ? `已删除 ${pendingDeleteIds.length} 条交易。` : '交易已删除。',
+      pendingDeleteIds.length > 1 ? `已将 ${pendingDeleteIds.length} 条交易移入回收站。` : '交易已移入回收站。',
       'success'
     );
     setPendingDeleteIds([]);
@@ -3343,13 +3343,13 @@ export function TransactionsPage() {
 
       <ConfirmDialog
         open={pendingDeleteIds.length > 0}
-        title={pendingDeleteIds.length > 1 ? '确认批量删除交易' : '确认删除交易'}
+        title={pendingDeleteIds.length > 1 ? '确认批量移入回收站' : '确认移入回收站'}
         description={
           pendingDeleteIds.length > 1
-            ? `即将删除 ${pendingDeleteIds.length} 条交易，删除后将无法恢复。是否继续？`
-            : '删除后将无法恢复。是否继续？'
+            ? `即将把 ${pendingDeleteIds.length} 条交易移入回收站。你之后仍可在回收站恢复或彻底删除。是否继续？`
+            : '该交易将先移入回收站。你之后仍可在回收站恢复或彻底删除。是否继续？'
         }
-        confirmText={pendingDeleteIds.length > 1 ? '确认批量删除' : '确认删除'}
+        confirmText={pendingDeleteIds.length > 1 ? '确认移入回收站' : '移入回收站'}
         cancelText="取消"
         danger
         onConfirm={handleDeleteConfirm}
