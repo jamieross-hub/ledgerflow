@@ -94,6 +94,7 @@ export function CategoriesAccountsPage() {
   const addTransaction = useFinanceStore((s) => s.addTransaction);
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
   const updateAccountBalance = useFinanceStore((s) => s.updateAccountBalance);
+  const reorderAccounts = useFinanceStore((s) => s.reorderAccounts);
   const removeAccount = useFinanceStore((s) => s.removeAccount);
 
   const [categoryName, setCategoryName] = useState('');
@@ -211,7 +212,15 @@ export function CategoriesAccountsPage() {
   }
 
   const managedAccounts = useMemo(
-    () => accounts.filter((item) => !item.type || GENERAL_ACCOUNT_TYPES.includes(item.type)),
+    () =>
+      accounts
+        .filter((item) => !item.type || GENERAL_ACCOUNT_TYPES.includes(item.type))
+        .sort(
+          (a, b) =>
+            Number(a.sortOrder ?? Number.MAX_SAFE_INTEGER) -
+              Number(b.sortOrder ?? Number.MAX_SAFE_INTEGER) ||
+            a.name.localeCompare(b.name, 'zh-CN')
+        ),
     [accounts]
   );
 
@@ -392,6 +401,18 @@ export function CategoriesAccountsPage() {
     const next = [...orderedIds];
     [next[currentIndex], next[targetIndex]] = [next[targetIndex], next[currentIndex]];
     reorderCategories(next);
+  };
+
+  const moveAccount = (accountId: string, direction: -1 | 1) => {
+    const orderedIds = managedAccounts.map((item) => item.id);
+    const currentIndex = orderedIds.indexOf(accountId);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= orderedIds.length) {
+      return;
+    }
+    const next = [...orderedIds];
+    [next[currentIndex], next[targetIndex]] = [next[targetIndex], next[currentIndex]];
+    reorderAccounts(next);
   };
 
   const accountCards = useMemo(
@@ -798,6 +819,12 @@ export function CategoriesAccountsPage() {
                           setAdjustAmounts((prev) => ({ ...prev, [item.id]: e.target.value }))
                         }
                       />
+                      <button type="button" onClick={() => moveAccount(item.id, -1)}>
+                        ↑ 上移
+                      </button>
+                      <button type="button" onClick={() => moveAccount(item.id, 1)}>
+                        ↓ 下移
+                      </button>
                       <button type="button" onClick={() => applySingleAdjustment(item.id)}>
                         添加单笔调整
                       </button>
