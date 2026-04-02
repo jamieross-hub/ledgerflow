@@ -56,6 +56,7 @@ export function AppLayout() {
         title: t('nav.assetsDebt'),
         items: [
           { to: '/categories-accounts', label: t('nav.categoriesAccounts'), icon: '🗂️' },
+          { to: '/balance-changes', label: '余额明细', icon: '📚' },
           { to: '/repayment-management', label: t('nav.repayment'), icon: '💳' }
         ]
       },
@@ -66,6 +67,7 @@ export function AppLayout() {
           { to: '/settings', label: t('nav.settings'), icon: '⚙️' },
           { to: '/database-settings', label: t('nav.dbSettings'), icon: '🗄️' },
           { to: '/exchange', label: t('nav.exchange'), icon: '💱' },
+          { to: '/salary-tools', label: '工资工具', icon: '💼' },
           { to: '/finance', label: t('nav.finance'), icon: '📰' },
           { to: '/about', label: t('nav.about'), icon: 'ℹ️' }
         ]
@@ -85,7 +87,9 @@ export function AppLayout() {
           { label: t('nav.transactions'), icon: '📋', to: '/transactions' },
           { label: t('nav.dashboard'), icon: '📊', to: '/', end: true },
           { label: t('nav.categoriesAccounts'), icon: '🗂️', to: '/categories-accounts' },
+          { label: '余额明细', icon: '📚', to: '/balance-changes' },
           { label: t('nav.repayment'), icon: '💳', to: '/repayment-management' },
+          { label: '工资工具', icon: '💼', to: '/salary-tools' },
           { label: t('nav.finance'), icon: '📰', to: '/finance' },
           { label: t('nav.exchange'), icon: '💱', to: '/exchange' }
         ]
