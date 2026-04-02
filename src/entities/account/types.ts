@@ -9,4 +9,6 @@ export interface Account {
   initialBalance?: number;
   /** 当前余额（由交易自动计算或手动设定） */
   balance?: number;
+  /** 展示排序，数值越小越靠前 */
+  sortOrder?: number;
 }

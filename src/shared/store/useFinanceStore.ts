@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware';
 import { Account } from '../../entities/account/types';
 import { Category } from '../../entities/category/types';
 import {
+  BalanceChangeEntry,
+  BalanceChangeType,
   TransactionAdjustmentKind,
   TransactionItem,
   TransactionType
@@ -38,16 +40,31 @@ interface CategoryLearningInput {
   orderNo?: string;
 }
 
+interface RefundTransactionInput {
+  transactionId: string;
+  amount: number;
+  note?: string;
+}
+
+interface RefundTransactionResult {
+  refundTransactionId: string;
+  refundedAmount: number;
+  fullyRefunded: boolean;
+  remainingRefundableAmount: number;
+}
+
 interface FinanceState {
   hasHydrated: boolean;
   transactions: TransactionItem[];
   categories: Category[];
   accounts: Account[];
+  balanceChangeEntries: BalanceChangeEntry[];
   categoryLearningRules: CategoryLearningRule[];
   categoryLearningEvents: CategoryLearningEvent[];
   addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
   updateTransaction: (id: string, payload: Omit<TransactionItem, 'id'>) => void;
   removeTransaction: (id: string) => void;
+  refundTransaction: (input: RefundTransactionInput) => RefundTransactionResult;
   addCategory: (
     name: string,
     options?: { kind?: Category['kind']; color?: string; icon?: string }
@@ -57,6 +74,7 @@ interface FinanceState {
   removeCategory: (id: string) => void;
   addAccount: (name: string, type?: Account['type'], initialBalance?: number) => string;
   updateAccountBalance: (id: string, balance: number) => void;
+  reorderAccounts: (orderedIds: string[]) => void;
   removeAccount: (id: string) => void;
   clearAllAccountBills: () => void;
   suggestCategoryByLearning: (input: CategoryLearningInput) => {
@@ -77,7 +95,6 @@ interface FinanceState {
 }
 
 const defaultCategories: Category[] = [
-  // 生活大类（衣食住行）
   { id: 'cat-food', name: '餐饮', kind: 'expense', icon: '🍜', color: '#f97316', sortOrder: 1 },
   {
     id: 'cat-clothing',
@@ -104,8 +121,6 @@ const defaultCategories: Category[] = [
     color: '#06b6d4',
     sortOrder: 5
   },
-
-  // 高频日常
   {
     id: 'cat-shopping',
     name: '购物日用',
@@ -155,8 +170,6 @@ const defaultCategories: Category[] = [
     color: '#e11d48',
     sortOrder: 12
   },
-
-  // 金融/收入
   { id: 'cat-salary', name: '工资', kind: 'income', icon: '💰', color: '#16a34a', sortOrder: 13 },
   { id: 'cat-bonus', name: '奖金', kind: 'income', icon: '🎉', color: '#22c55e', sortOrder: 14 },
   {
@@ -185,21 +198,35 @@ const defaultCategories: Category[] = [
   },
   { id: 'cat-tax', name: '税费', kind: 'expense', icon: '🧾', color: '#7c3aed', sortOrder: 18 },
   { id: 'cat-loan', name: '还款', kind: 'expense', icon: '🏦', color: '#475569', sortOrder: 19 },
-
-  // 兜底
   { id: 'cat-other', name: '其他', kind: 'expense', icon: '📦', color: '#6b7280', sortOrder: 20 }
 ];
 
 const defaultAccounts: Account[] = [
-  { id: 'acc-cash', name: '现金', initialBalance: 0, balance: 0 },
-  { id: 'acc-card', name: '银行卡', initialBalance: 0, balance: 0 }
+  { id: 'acc-cash', name: '现金', initialBalance: 0, balance: 0, sortOrder: 1 },
+  { id: 'acc-card', name: '银行卡', initialBalance: 0, balance: 0, sortOrder: 2 }
 ];
 
 const defaultTransactions: TransactionItem[] = [];
+const defaultBalanceChangeEntries: BalanceChangeEntry[] = [];
 const defaultCategoryLearningRules: CategoryLearningRule[] = [];
 const defaultCategoryLearningEvents: CategoryLearningEvent[] = [];
 
 const REFUND_HINT_PATTERN = /(退款|退回|退货|冲正)/i;
+const TX_BALANCE_CHANGE_TYPES = new Set<BalanceChangeType>([
+  'transaction-income',
+  'transaction-expense',
+  'transaction-budget',
+  'transaction-repayment',
+  'transaction-refund'
+]);
+
+function roundCurrency(raw: number): number {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.round(value * 100) / 100;
+}
 
 function normalizeCategoryName(raw: string): string {
   return String(raw || '')
@@ -244,6 +271,7 @@ function normalizeTransactionSemantic(
 
   return {
     ...tx,
+    amount: roundCurrency(tx.amount),
     type: nextType,
     categoryId: nextCategoryId,
     adjustmentKind,
@@ -253,6 +281,37 @@ function normalizeTransactionSemantic(
 
 function categoryNameKey(raw: string): string {
   return normalizeCategoryName(raw).toLocaleLowerCase('zh-CN');
+}
+
+function normalizeAccountOrder(accounts: Account[]): Account[] {
+  const uniqueIds = new Set<string>();
+  const ordered = [...accounts].map((item, index) => {
+    const safeId = String(item.id || '').trim();
+    if (!safeId || uniqueIds.has(safeId)) {
+      return null;
+    }
+    uniqueIds.add(safeId);
+    const sortOrder = Number(item.sortOrder);
+    return {
+      ...item,
+      initialBalance: roundCurrency(Number(item.initialBalance ?? 0)),
+      balance: roundCurrency(Number(item.balance ?? item.initialBalance ?? 0)),
+      sortOrder: Number.isFinite(sortOrder) && sortOrder > 0 ? sortOrder : index + 1
+    } as Account;
+  }).filter(Boolean) as Account[];
+
+  return ordered
+    .sort((a, b) => {
+      const orderDiff = Number(a.sortOrder ?? Number.MAX_SAFE_INTEGER) - Number(b.sortOrder ?? Number.MAX_SAFE_INTEGER);
+      if (orderDiff !== 0) {
+        return orderDiff;
+      }
+      return a.name.localeCompare(b.name, 'zh-CN');
+    })
+    .map((item, index) => ({
+      ...item,
+      sortOrder: index + 1
+    }));
 }
 
 function sanitizeCategoriesAndTransactions(
@@ -308,9 +367,9 @@ function sanitizeCategoriesAndTransactions(
 }
 
 function computeAccountBalances(accounts: Account[], transactions: TransactionItem[]): Account[] {
-  return accounts.map((account) => {
-    const base = Number(account.initialBalance ?? 0);
-    const safeBase = Number.isFinite(base) ? base : 0;
+  const normalizedAccounts = normalizeAccountOrder(accounts);
+  return normalizedAccounts.map((account) => {
+    const base = roundCurrency(Number(account.initialBalance ?? 0));
     const delta = transactions.reduce((sum, item) => {
       if (item.accountId !== account.id) {
         return sum;
@@ -320,24 +379,166 @@ function computeAccountBalances(accounts: Account[], transactions: TransactionIt
 
     return {
       ...account,
-      balance: safeBase + delta
+      initialBalance: base,
+      balance: roundCurrency(base + delta)
     };
   });
 }
 
+function getBalanceChangeType(tx: TransactionItem): BalanceChangeType {
+  if (tx.adjustmentKind === 'refund' || tx.adjustmentKind === 'reversal') {
+    return 'transaction-refund';
+  }
+  if (tx.type === 'income') {
+    return 'transaction-income';
+  }
+  if (tx.type === 'budget') {
+    return 'transaction-budget';
+  }
+  if (tx.type === 'repayment') {
+    return 'transaction-repayment';
+  }
+  return 'transaction-expense';
+}
+
+function buildTransactionBalanceChangeEntries(
+  accounts: Account[],
+  transactions: TransactionItem[]
+): BalanceChangeEntry[] {
+  const balanceMap = new Map<string, number>(
+    normalizeAccountOrder(accounts).map((item) => [item.id, roundCurrency(Number(item.initialBalance ?? 0))])
+  );
+
+  const sortedTransactions = [...transactions].sort((a, b) => {
+    const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+    if (dateDiff !== 0) {
+      return dateDiff;
+    }
+    const updatedDiff =
+      new Date(a.updatedAt || a.date).getTime() - new Date(b.updatedAt || b.date).getTime();
+    if (updatedDiff !== 0) {
+      return updatedDiff;
+    }
+    return a.id.localeCompare(b.id, 'zh-CN');
+  });
+
+  return sortedTransactions.reduce<BalanceChangeEntry[]>((entries, tx) => {
+    if (!balanceMap.has(tx.accountId)) {
+      return entries;
+    }
+    const beforeBalance = roundCurrency(balanceMap.get(tx.accountId) || 0);
+    const signedAmount = roundCurrency(getSignedAmount(tx));
+    const afterBalance = roundCurrency(beforeBalance + signedAmount);
+    balanceMap.set(tx.accountId, afterBalance);
+    entries.push({
+      id: `balchg-tx-${tx.id}`,
+      accountId: tx.accountId,
+      transactionId: tx.id,
+      relatedTransactionId: tx.refundOfTransactionId,
+      type: getBalanceChangeType(tx),
+      amount: Math.abs(roundCurrency(tx.amount)),
+      beforeBalance,
+      afterBalance,
+      createdAt: tx.updatedAt || tx.date,
+      note: tx.note,
+      remark:
+        tx.adjustmentKind === 'refund' || tx.adjustmentKind === 'reversal'
+          ? tx.refundOfTransactionId
+            ? '退款已关联原交易'
+            : '退款记录缺少原交易关联'
+          : undefined
+    });
+    return entries;
+  }, []);
+}
+
+function mergeBalanceChangeEntries(
+  accounts: Account[],
+  transactions: TransactionItem[],
+  existingEntries: BalanceChangeEntry[] = []
+): BalanceChangeEntry[] {
+  const accountIds = new Set(normalizeAccountOrder(accounts).map((item) => item.id));
+  const preservedManualEntries = existingEntries.filter(
+    (item) => !TX_BALANCE_CHANGE_TYPES.has(item.type) && accountIds.has(item.accountId)
+  );
+
+  return [...buildTransactionBalanceChangeEntries(accounts, transactions), ...preservedManualEntries]
+    .sort((a, b) => {
+      const dateDiff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (dateDiff !== 0) {
+        return dateDiff;
+      }
+      return a.id.localeCompare(b.id, 'zh-CN');
+    })
+    .map((item) => ({
+      ...item,
+      amount: roundCurrency(item.amount),
+      beforeBalance: roundCurrency(item.beforeBalance),
+      afterBalance: roundCurrency(item.afterBalance)
+    }));
+}
+
+function rebuildStateSlices(
+  accounts: Account[],
+  transactions: TransactionItem[],
+  existingEntries: BalanceChangeEntry[] = []
+) {
+  const nextAccounts = computeAccountBalances(accounts, transactions);
+  return {
+    accounts: nextAccounts,
+    balanceChangeEntries: mergeBalanceChangeEntries(nextAccounts, transactions, existingEntries)
+  };
+}
+
+function getRefundedAmount(transactions: TransactionItem[], transactionId: string): number {
+  return roundCurrency(
+    transactions.reduce((sum, item) => {
+      if (
+        item.refundOfTransactionId !== transactionId ||
+        (item.adjustmentKind !== 'refund' && item.adjustmentKind !== 'reversal')
+      ) {
+        return sum;
+      }
+      return sum + Math.abs(roundCurrency(item.amount));
+    }, 0)
+  );
+}
+
+function createManualAdjustmentEntry(params: {
+  accountId: string;
+  beforeBalance: number;
+  afterBalance: number;
+  note?: string;
+}): BalanceChangeEntry {
+  const amount = roundCurrency(Math.abs(params.afterBalance - params.beforeBalance));
+  return {
+    id: generateId(),
+    accountId: params.accountId,
+    type: 'manual-adjustment',
+    amount,
+    beforeBalance: roundCurrency(params.beforeBalance),
+    afterBalance: roundCurrency(params.afterBalance),
+    createdAt: new Date().toISOString(),
+    note: params.note || '手动调整账户余额',
+    remark: params.afterBalance >= params.beforeBalance ? '手动调增余额' : '手动调减余额'
+  };
+}
+
 export const useFinanceStore = create<FinanceState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       hasHydrated: false,
       transactions: defaultTransactions,
       categories: defaultCategories,
       accounts: defaultAccounts,
+      balanceChangeEntries: defaultBalanceChangeEntries,
       categoryLearningRules: defaultCategoryLearningRules,
       categoryLearningEvents: defaultCategoryLearningEvents,
       addTransaction: (payload) => {
         const id = generateId();
-        const row = {
+        const row: TransactionItem = {
           ...payload,
+          amount: roundCurrency(payload.amount),
           adjustmentKind: payload.adjustmentKind || 'normal',
           updatedAt: payload.updatedAt || new Date().toISOString(),
           id
@@ -346,15 +547,16 @@ export const useFinanceStore = create<FinanceState>()(
           const transactions = [...s.transactions, row];
           return {
             transactions,
-            accounts: computeAccountBalances(s.accounts, transactions)
+            ...rebuildStateSlices(s.accounts, transactions, s.balanceChangeEntries)
           };
         });
         void syncChangeIfNeeded({ entity: 'transactions', action: 'insert', row });
         return id;
       },
       updateTransaction: (id, payload) => {
-        const row = {
+        const row: TransactionItem = {
           ...payload,
+          amount: roundCurrency(payload.amount),
           adjustmentKind: payload.adjustmentKind || 'normal',
           updatedAt: new Date().toISOString(),
           id
@@ -363,7 +565,7 @@ export const useFinanceStore = create<FinanceState>()(
           const transactions = s.transactions.map((item) => (item.id === id ? row : item));
           return {
             transactions,
-            accounts: computeAccountBalances(s.accounts, transactions)
+            ...rebuildStateSlices(s.accounts, transactions, s.balanceChangeEntries)
           };
         });
         void syncChangeIfNeeded({ entity: 'transactions', action: 'update', row, id });
@@ -373,10 +575,104 @@ export const useFinanceStore = create<FinanceState>()(
           const transactions = s.transactions.filter((item) => item.id !== id);
           return {
             transactions,
-            accounts: computeAccountBalances(s.accounts, transactions)
+            ...rebuildStateSlices(s.accounts, transactions, s.balanceChangeEntries)
           };
         });
         void syncChangeIfNeeded({ entity: 'transactions', action: 'delete', id });
+      },
+      refundTransaction: (input) => {
+        const refundAmount = roundCurrency(input.amount);
+        let result: RefundTransactionResult | null = null;
+        let thrownError: Error | null = null;
+
+        set((s) => {
+          const original = s.transactions.find((item) => item.id === input.transactionId);
+          if (!original) {
+            thrownError = new Error('未找到要退款的原始记录。');
+            return s;
+          }
+          if (original.adjustmentKind === 'refund' || original.adjustmentKind === 'reversal') {
+            thrownError = new Error('退款单或冲正单不能再次发起退款。');
+            return s;
+          }
+          if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
+            thrownError = new Error('退款金额必须大于 0。');
+            return s;
+          }
+
+          const refundedAmount = getRefundedAmount(s.transactions, original.id);
+          const remainingRefundableAmount = roundCurrency(original.amount - refundedAmount);
+          if (remainingRefundableAmount <= 0) {
+            thrownError = new Error('该记录可退款金额已用尽，不能重复退款。');
+            return s;
+          }
+          if (refundAmount > remainingRefundableAmount) {
+            thrownError = new Error(`退款金额不能超过剩余可退金额 ${remainingRefundableAmount.toFixed(2)}。`);
+            return s;
+          }
+
+          const refundRow: TransactionItem = {
+            id: generateId(),
+            type: original.type === 'income' ? 'expense' : original.type,
+            categoryId: original.categoryId,
+            accountId: original.accountId,
+            amount: refundAmount,
+            date: new Date().toISOString(),
+            note: (input.note || `退款：${original.note || '原始记录'}`).trim(),
+            tags: Array.from(new Set([...(original.tags || []), '退款'])),
+            source: 'manual',
+            orderNo: original.orderNo,
+            merchantOrderNo: original.merchantOrderNo,
+            status: 'completed',
+            adjustmentKind: 'refund',
+            refundOfTransactionId: original.id,
+            updatedAt: new Date().toISOString()
+          };
+
+          const nextRefundedAmount = roundCurrency(refundedAmount + refundAmount);
+          const fullyRefunded = nextRefundedAmount >= roundCurrency(original.amount);
+          const nextOriginal: TransactionItem = {
+            ...original,
+            status: fullyRefunded ? 'refunded' : original.status || 'completed',
+            updatedAt: new Date().toISOString()
+          };
+
+          const transactions = s.transactions.map((item) =>
+            item.id === original.id ? nextOriginal : item
+          );
+          transactions.push(refundRow);
+
+          result = {
+            refundTransactionId: refundRow.id,
+            refundedAmount: refundAmount,
+            fullyRefunded,
+            remainingRefundableAmount: roundCurrency(original.amount - nextRefundedAmount)
+          };
+
+          return {
+            transactions,
+            ...rebuildStateSlices(s.accounts, transactions, s.balanceChangeEntries)
+          };
+        });
+
+        if (thrownError) {
+          throw thrownError;
+        }
+        if (!result) {
+          throw new Error('退款失败，请稍后重试。');
+        }
+
+        const state = get();
+        const refundRow = state.transactions.find((item) => item.id === result?.refundTransactionId);
+        const originalRow = state.transactions.find((item) => item.id === input.transactionId);
+        if (refundRow) {
+          void syncChangeIfNeeded({ entity: 'transactions', action: 'insert', row: refundRow });
+        }
+        if (originalRow) {
+          void syncChangeIfNeeded({ entity: 'transactions', action: 'update', row: originalRow, id: originalRow.id });
+        }
+
+        return result;
       },
       addCategory: (name, options) => {
         const normalizedName = normalizeCategoryName(name);
@@ -410,7 +706,8 @@ export const useFinanceStore = create<FinanceState>()(
           );
           return {
             categories: compacted.categories,
-            transactions: compacted.transactions
+            transactions: compacted.transactions,
+            ...rebuildStateSlices(s.accounts, compacted.transactions, s.balanceChangeEntries)
           };
         });
 
@@ -451,16 +748,19 @@ export const useFinanceStore = create<FinanceState>()(
         void syncChangeIfNeeded({ entity: 'categories', action: 'delete', id });
       },
       addAccount: (name, type, initialBalance = 0) => {
-        const row = {
+        const row: Account = {
           id: generateId(),
           name: name.trim(),
           type,
-          initialBalance,
-          balance: initialBalance
+          initialBalance: roundCurrency(initialBalance),
+          balance: roundCurrency(initialBalance),
+          sortOrder: normalizeAccountOrder(get().accounts).length + 1
         };
         set((s) => {
-          const accounts = computeAccountBalances([...s.accounts, row], s.transactions);
-          return { accounts };
+          const accounts = [...s.accounts, row];
+          return {
+            ...rebuildStateSlices(accounts, s.transactions, s.balanceChangeEntries)
+          };
         });
         void syncChangeIfNeeded({ entity: 'accounts', action: 'insert', row });
         return row.id;
@@ -468,56 +768,101 @@ export const useFinanceStore = create<FinanceState>()(
       updateAccountBalance: (id, balance) => {
         let updatedRow: Account | null = null;
         set((s) => {
+          const target = s.accounts.find((item) => item.id === id);
+          if (!target) {
+            return s;
+          }
+
+          const normalizedBalance = roundCurrency(balance);
+          const beforeBalance = roundCurrency(Number(target.balance ?? target.initialBalance ?? 0));
           const transactions = s.transactions;
+          const txDelta = transactions.reduce((sum, tx) => {
+            if (tx.accountId !== id) {
+              return sum;
+            }
+            return sum + getSignedAmount(tx);
+          }, 0);
+
+          const nextInitial = roundCurrency(normalizedBalance - txDelta);
           const accounts = s.accounts.map((item) => {
             if (item.id !== id) {
               return item;
             }
 
-            const txDelta = transactions.reduce((sum, tx) => {
-              if (tx.accountId !== id) {
-                return sum;
-              }
-              return sum + getSignedAmount(tx);
-            }, 0);
-
-            const nextInitial = balance - txDelta;
             updatedRow = {
               ...item,
               initialBalance: nextInitial,
-              balance
+              balance: normalizedBalance
             };
             return updatedRow;
           });
 
+          const rebuilt = rebuildStateSlices(accounts, transactions, s.balanceChangeEntries);
+          const manualEntry =
+            beforeBalance === normalizedBalance
+              ? null
+              : createManualAdjustmentEntry({
+                  accountId: id,
+                  beforeBalance,
+                  afterBalance: normalizedBalance,
+                  note: '手动调整账户余额'
+                });
+
           return {
-            accounts: computeAccountBalances(accounts, transactions)
+            accounts: rebuilt.accounts,
+            balanceChangeEntries: manualEntry
+              ? [...rebuilt.balanceChangeEntries, manualEntry].sort((a, b) =>
+                  new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                )
+              : rebuilt.balanceChangeEntries
           };
         });
         if (updatedRow) {
           void syncChangeIfNeeded({ entity: 'accounts', action: 'update', row: updatedRow, id });
         }
       },
+      reorderAccounts: (orderedIds) => {
+        set((s) => {
+          const normalizedAccounts = normalizeAccountOrder(s.accounts);
+          const seen = new Set<string>();
+          const safeOrderedIds = orderedIds.filter((id) => {
+            if (!normalizedAccounts.some((item) => item.id === id) || seen.has(id)) {
+              return false;
+            }
+            seen.add(id);
+            return true;
+          });
+          const remainingIds = normalizedAccounts
+            .map((item) => item.id)
+            .filter((id) => !seen.has(id));
+          const finalIds = [...safeOrderedIds, ...remainingIds];
+          const orderMap = new Map(finalIds.map((accountId, index) => [accountId, index + 1]));
+          const accounts = normalizedAccounts.map((item) => ({
+            ...item,
+            sortOrder: orderMap.get(item.id) ?? item.sortOrder ?? normalizedAccounts.length + 1
+          }));
+          return {
+            accounts: normalizeAccountOrder(accounts)
+          };
+        });
+      },
       removeAccount: (id) => {
-        set((s) => ({ accounts: s.accounts.filter((item) => item.id !== id) }));
+        set((s) => ({ accounts: normalizeAccountOrder(s.accounts.filter((item) => item.id !== id)) }));
         void syncChangeIfNeeded({ entity: 'accounts', action: 'delete', id });
       },
       clearAllAccountBills: () => {
         set((s) => ({
           transactions: [],
-          accounts: computeAccountBalances(s.accounts, [])
+          ...rebuildStateSlices(s.accounts, [], [])
         }));
       },
       suggestCategoryByLearning: () => {
-        // 分类学习推荐先停用（止血），后续再按新策略重启。
         return null;
       },
       recordCategoryCorrection: () => {
-        // 分类学习记录先停用（止血），保留接口避免调用方报错。
+        // noop
       },
-      undoLatestCategoryLearning: () => {
-        return false;
-      },
+      undoLatestCategoryLearning: () => false,
       clearCategoryLearning: () => {
         set({
           categoryLearningRules: [],
@@ -537,13 +882,13 @@ export const useFinanceStore = create<FinanceState>()(
         set(() => ({
           categories: compacted.categories,
           transactions: compacted.transactions,
-          accounts: computeAccountBalances(incomingAccounts, compacted.transactions)
+          ...rebuildStateSlices(incomingAccounts, compacted.transactions, [])
         }));
       }
     }),
     {
       name: 'ledgerflow-finance',
-      version: 3,
+      version: 4,
       onRehydrateStorage: () => () => {
         useFinanceStore.setState({ hasHydrated: true });
       },
@@ -556,6 +901,12 @@ export const useFinanceStore = create<FinanceState>()(
           ? incoming.transactions
           : currentState.transactions;
         const compacted = sanitizeCategoriesAndTransactions(categories, transactions);
+        const incomingAccounts = Array.isArray(incoming.accounts) ? incoming.accounts : currentState.accounts;
+        const normalizedAccounts = normalizeAccountOrder(incomingAccounts);
+        const incomingBalanceEntries = Array.isArray((incoming as Partial<FinanceState>).balanceChangeEntries)
+          ? ((incoming as Partial<FinanceState>).balanceChangeEntries || [])
+          : [];
+        const rebuilt = rebuildStateSlices(normalizedAccounts, compacted.transactions, incomingBalanceEntries);
 
         return {
           ...currentState,
@@ -563,10 +914,8 @@ export const useFinanceStore = create<FinanceState>()(
           hasHydrated: true,
           categories: compacted.categories,
           transactions: compacted.transactions,
-          accounts: computeAccountBalances(
-            Array.isArray(incoming.accounts) ? incoming.accounts : currentState.accounts,
-            compacted.transactions
-          ),
+          accounts: rebuilt.accounts,
+          balanceChangeEntries: rebuilt.balanceChangeEntries,
           categoryLearningRules: Array.isArray(
             (incoming as Partial<FinanceState>).categoryLearningRules
           )

@@ -274,6 +274,7 @@ interface TransactionDetailDrawerProps {
   onCopyJson: () => void;
   onShareBill: () => void;
   onDelete: () => void;
+  onRefund?: () => void;
   onAiRecategorize: () => void;
   onAttachmentUploaded?: (attachment: TransactionAttachmentItem) => void;
   onAttachmentUploadStatus?: (message: string, tone: 'success' | 'error' | 'warning') => void;
@@ -297,6 +298,7 @@ export function TransactionDetailDrawer({
   onCopyJson,
   onShareBill,
   onDelete,
+  onRefund,
   onAiRecategorize,
   onAttachmentUploaded,
   onAttachmentUploadStatus,
@@ -908,6 +910,14 @@ export function TransactionDetailDrawer({
           <button type="button" onClick={handlePrint}>
             🖨️ 打印 A4
           </button>
+          {onRefund &&
+          transaction &&
+          transaction.adjustmentKind !== 'refund' &&
+          transaction.adjustmentKind !== 'reversal' ? (
+            <button type="button" onClick={onRefund}>
+              ↩️ 发起退款
+            </button>
+          ) : null}
           <Link to={`/transactions/${transaction.id}`} style={{ textDecoration: 'none' }}>
             <button type="button">✏️ 编辑</button>
           </Link>

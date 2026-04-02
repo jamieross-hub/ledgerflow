@@ -691,6 +691,7 @@ export function TransactionsPage() {
   const addTransaction = useFinanceStore((s) => s.addTransaction);
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
   const removeTransaction = useFinanceStore((s) => s.removeTransaction);
+  const refundTransaction = useFinanceStore((s) => s.refundTransaction);
   const clearAllAccountBills = useFinanceStore((s) => s.clearAllAccountBills);
 
   const aiBaseUrl = useAiSettings((s) => s.baseUrl);
@@ -718,6 +719,7 @@ export function TransactionsPage() {
   const [importMode, setImportMode] = useState<BillImportMode>('incremental');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
+  const [pendingRefundTransactionId, setPendingRefundTransactionId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [aiRecategorizingId, setAiRecategorizingId] = useState<string | null>(null);
   const [bulkAiRecategorizing, setBulkAiRecategorizing] = useState(false);
@@ -1165,6 +1167,38 @@ export function TransactionsPage() {
     return transactions.find((item) => item.id === selected.refundOfTransactionId) ?? null;
   }, [selected, transactions]);
 
+  const pendingRefundTransaction = useMemo(() => {
+    if (!pendingRefundTransactionId) {
+      return null;
+    }
+    return transactions.find((item) => item.id === pendingRefundTransactionId) ?? null;
+  }, [pendingRefundTransactionId, transactions]);
+
+  const pendingRefundedAmount = useMemo(() => {
+    if (!pendingRefundTransaction) {
+      return 0;
+    }
+    return transactions.reduce((sum, item) => {
+      if (
+        item.refundOfTransactionId !== pendingRefundTransaction.id ||
+        (item.adjustmentKind !== 'refund' && item.adjustmentKind !== 'reversal')
+      ) {
+        return sum;
+      }
+      return sum + (Number(item.amount) || 0);
+    }, 0);
+  }, [pendingRefundTransaction, transactions]);
+
+  const pendingRefundRemainingAmount = useMemo(() => {
+    if (!pendingRefundTransaction) {
+      return 0;
+    }
+    return Math.max(
+      0,
+      Number((Number(pendingRefundTransaction.amount || 0) - pendingRefundedAmount).toFixed(2))
+    );
+  }, [pendingRefundTransaction, pendingRefundedAmount]);
+
   const selectedRefundChildren = useMemo(() => {
     if (!selected) {
       return [];
@@ -1550,6 +1584,31 @@ export function TransactionsPage() {
       'success'
     );
     setPendingDeleteIds([]);
+  };
+
+  const handleRefundConfirm = () => {
+    if (!pendingRefundTransaction) {
+      return;
+    }
+
+    try {
+      const refundResult = refundTransaction({
+        transactionId: pendingRefundTransaction.id,
+        amount: pendingRefundRemainingAmount,
+        note: `退款：${pendingRefundTransaction.note || '原始交易'}`
+      });
+
+      showToast(
+        refundResult.fullyRefunded
+          ? '退款已创建，原单已标记为已退款。'
+          : `退款已创建，剩余可退 ¥${refundResult.remainingRefundableAmount.toFixed(2)}。`,
+        'success'
+      );
+      setSelectedId(refundResult.refundTransactionId);
+      setPendingRefundTransactionId(null);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '退款失败，请稍后重试。', 'error');
+    }
   };
 
   const fallbackCopyText = (text: string) => {
@@ -2966,6 +3025,12 @@ export function TransactionsPage() {
           }
           setPendingDeleteIds([selected.id]);
         }}
+        onRefund={() => {
+          if (!selected) {
+            return;
+          }
+          setPendingRefundTransactionId(selected.id);
+        }}
         onAiRecategorize={() => {
           if (!selected) return;
 
@@ -3260,6 +3325,21 @@ export function TransactionsPage() {
           </section>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={Boolean(pendingRefundTransaction)}
+        title="确认发起退款"
+        description={
+          pendingRefundTransaction
+            ? `将为“${pendingRefundTransaction.note || '该交易'}”创建一笔退款记录，退款金额为剩余可退 ¥${pendingRefundRemainingAmount.toFixed(2)}。退款后账户余额会自动回补，并写入余额变动明细。`
+            : ''
+        }
+        confirmText="确认退款"
+        cancelText="取消"
+        danger
+        onConfirm={handleRefundConfirm}
+        onCancel={() => setPendingRefundTransactionId(null)}
+      />
 
       <ConfirmDialog
         open={pendingDeleteIds.length > 0}

@@ -6,6 +6,14 @@ export type TransactionStatus = 'pending' | 'completed' | 'refunded' | 'closed' 
 
 export type TransactionAdjustmentKind = 'normal' | 'refund' | 'reversal';
 
+export type BalanceChangeType =
+  | 'transaction-income'
+  | 'transaction-expense'
+  | 'transaction-budget'
+  | 'transaction-repayment'
+  | 'transaction-refund'
+  | 'manual-adjustment';
+
 export interface TransactionAttachmentItem {
   id: string;
   name: string;
@@ -32,4 +40,18 @@ export interface TransactionItem {
   refundOfTransactionId?: string;
   attachments?: TransactionAttachmentItem[];
   updatedAt?: string;
+}
+
+export interface BalanceChangeEntry {
+  id: string;
+  accountId: string;
+  transactionId?: string;
+  relatedTransactionId?: string;
+  type: BalanceChangeType;
+  amount: number;
+  beforeBalance: number;
+  afterBalance: number;
+  createdAt: string;
+  note?: string;
+  remark?: string;
 }
