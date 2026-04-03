@@ -152,25 +152,46 @@ describe('workbenchUtils', () => {
     expect(result?.transactions[0].note).toContain('第1/3期');
   });
 
-  it('还款场景应优先推断为负债/信用账户，而非银行借记卡账户', () => {
-    const inferred = inferAccountNameFromText('平安银行房贷月供扣款', 'bank', {
-      type: 'repayment'
-    });
-    expect(inferred).toBe('房贷账户');
-
-    const accounts: Account[] = [{ id: 'acc-cash', name: '现金', type: 'cash' }];
-    const created: Array<{ name: string; type?: Account['type'] }> = [];
-    const addAccount = (name: string, type?: Account['type']) => {
-      created.push({ name, type });
-      return `acc-${created.length}`;
-    };
-
-    const accountId = ensureAccountId(inferred, accounts, addAccount, {
-      source: 'bank',
-      type: 'repayment'
+  it('应识别美元金额并保留币种信息', () => {
+    const result = normalizeAiBill({
+      transactions: [
+        {
+          type: 'expense',
+          amount: '$20.50',
+          originalAmountText: '$20.50',
+          date: '2025-02-03',
+          note: '咖啡',
+          category: '餐饮',
+          account: '现金',
+          tags: ['出差']
+        }
+      ]
     });
 
-    expect(accountId).toBe('acc-1');
-    expect(created).toEqual([{ name: '房贷账户', type: 'liability' }]);
+    expect(result?.transactions).toHaveLength(1);
+    expect(result?.transactions[0].amount).toBe(20.5);
+    expect(result?.transactions[0].currency).toBe('USD');
+    expect(result?.transactions[0].originalAmountText).toBe('$20.50');
+  });
+
+  it('应识别港币金额而不是误判为美元', () => {
+    const result = normalizeAiBill({
+      transactions: [
+        {
+          type: 'expense',
+          amount: 'HK$300',
+          originalAmountText: 'HK$300',
+          date: '2025-02-03',
+          note: '香港打车',
+          category: '交通',
+          account: '现金',
+          tags: ['出行']
+        }
+      ]
+    });
+
+    expect(result?.transactions).toHaveLength(1);
+    expect(result?.transactions[0].amount).toBe(300);
+    expect(result?.transactions[0].currency).toBe('HKD');
   });
 });

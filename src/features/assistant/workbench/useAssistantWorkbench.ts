@@ -767,8 +767,15 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
           type,
           amount: normalizeMoney(item.amount),
           date: normalizeEntryDate(item.date),
-          note: item.note || 'AI 导入账单',
-          tags: inferTags(type, item.note, category, item.tags || ['AI识别']),
+          note:
+            item.currency && item.currency !== 'unknown' && item.currency !== 'CNY'
+              ? `${item.note || 'AI 导入账单'}（${item.currency}${item.originalAmountText ? ` / 原始:${item.originalAmountText}` : ''}）`
+              : item.note || 'AI 导入账单',
+          tags: inferTags(type, item.note, category, item.tags || ['AI识别']).concat(
+            item.currency && item.currency !== 'unknown' && item.currency !== 'CNY'
+              ? [`币种:${item.currency}`]
+              : []
+          ),
           categoryId,
           accountId,
           orderNo: item.orderNo?.trim() || undefined,

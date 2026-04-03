@@ -20,6 +20,8 @@ export interface AiBillItem {
   sourceHint?: 'wechat' | 'alipay' | 'bank' | 'cash' | 'unknown';
   orderNo?: string;
   merchantOrderNo?: string;
+  currency?: string;
+  originalAmountText?: string;
 }
 
 export interface AiBillResult {
@@ -27,7 +29,7 @@ export interface AiBillResult {
 }
 
 export interface ValidationIssue {
-  field: 'amount' | 'date' | 'type';
+  field: 'amount' | 'date' | 'type' | 'currency';
   message: string;
 }
 
@@ -44,6 +46,8 @@ export interface DraftBillEntry {
   sourceHint?: 'wechat' | 'alipay' | 'bank' | 'cash' | 'unknown';
   orderNo?: string;
   merchantOrderNo?: string;
+  currency?: string;
+  originalAmountText?: string;
   duplicateTxId?: string;
   duplicateReason?: 'orderNo' | 'merchantOrderNo' | 'content';
   issues: ValidationIssue[];

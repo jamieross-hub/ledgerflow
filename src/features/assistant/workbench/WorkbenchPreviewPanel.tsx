@@ -74,6 +74,13 @@ export function WorkbenchPreviewPanel({ entries, onUpdate, onRemove }: Workbench
                 />
               </label>
               <label>
+                币种
+                <input
+                  value={item.currency || 'unknown'}
+                  onChange={(e) => onUpdate(item.id, { currency: e.target.value.trim().toUpperCase() || 'unknown' })}
+                />
+              </label>
+              <label>
                 日期
                 <input
                   type="date"
@@ -118,6 +125,7 @@ export function WorkbenchPreviewPanel({ entries, onUpdate, onRemove }: Workbench
                 onChange={(e) => onUpdate(item.id, { note: e.target.value })}
               />
             </label>
+            {item.originalAmountText ? <small className="assistant-wb-issue">原始金额：{item.originalAmountText}</small> : null}
             <p className={item.issues.length ? 'assistant-wb-issue error' : 'assistant-wb-issue'}>
               {issueText(item)}
             </p>
