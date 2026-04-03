@@ -962,6 +962,7 @@ export function AssistantPage() {
   const categories = useFinanceStore((s) => s.categories);
   const accounts = useFinanceStore((s) => s.accounts);
   const transactions = useFinanceStore((s) => s.transactions);
+  const subscriptions = useFinanceStore((s) => s.subscriptions);
   const addCategory = useFinanceStore((s) => s.addCategory);
   const addAccount = useFinanceStore((s) => s.addAccount);
   const addTransaction = useFinanceStore((s) => s.addTransaction);
@@ -1155,11 +1156,26 @@ export function AssistantPage() {
     const entry = wb.entries.find((item) => item.id === entryId);
     if (!entry || !entry.subscriptionSuggestion) return;
 
+    const candidateName = entry.note?.trim() || 'AI识别订阅';
+    const candidateCurrency = (entry.currency || 'CNY').toUpperCase();
+    const candidateAmount = Number((Number(entry.amount || 0)).toFixed(2));
+    const duplicated = subscriptions.find((item) => {
+      const nameMatched = item.name.trim() === candidateName;
+      const currencyMatched = (item.currency || 'CNY').toUpperCase() === candidateCurrency;
+      const amountMatched = Number((Number(item.amount || 0)).toFixed(2)) === candidateAmount;
+      return nameMatched && currencyMatched && amountMatched;
+    });
+
+    if (duplicated) {
+      wb.setToastState('已存在疑似重复订阅，未重复创建', 'warning');
+      return;
+    }
+
     addSubscription({
-      name: entry.note?.trim() || 'AI识别订阅',
+      name: candidateName,
       kind: entry.subscriptionSuggestion.kind,
-      amount: Number(entry.amount || 0),
-      currency: (entry.currency || 'CNY').toUpperCase(),
+      amount: candidateAmount,
+      currency: candidateCurrency,
       billingCycle: 'monthly',
       accountId: undefined,
       provider: undefined,
