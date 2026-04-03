@@ -5,6 +5,7 @@ interface BillPreviewCardProps {
   duplicateCount: number;
   onCheckDuplicates: () => number;
   onSave: (options?: { overwriteDuplicateEntryIds?: string[] }) => boolean;
+  onCreateSubscription?: (entryId: string) => void;
   onSaved?: () => void;
 }
 
@@ -13,6 +14,7 @@ export function BillPreviewCard({
   duplicateCount,
   onCheckDuplicates,
   onSave,
+  onCreateSubscription,
   onSaved
 }: BillPreviewCardProps) {
   const handleSave = () => {
@@ -48,6 +50,13 @@ export function BillPreviewCard({
               {item.subscriptionSuggestion ? ` / 建议纳入订阅管理` : ''}
             </small>
             {item.duplicateTxId ? <span className="chat-dup-badge">疑似重复</span> : null}
+            {item.subscriptionSuggestion ? (
+              <div className="chat-preview-toolbar">
+                <button type="button" onClick={() => onCreateSubscription?.(item.id)}>
+                  加入订阅管理
+                </button>
+              </div>
+            ) : null}
           </article>
         ))}
       </div>

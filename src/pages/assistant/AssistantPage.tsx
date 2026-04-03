@@ -966,6 +966,7 @@ export function AssistantPage() {
   const addAccount = useFinanceStore((s) => s.addAccount);
   const addTransaction = useFinanceStore((s) => s.addTransaction);
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
+  const addSubscription = useFinanceStore((s) => s.addSubscription);
   const addDebt = useAppPreferences((s) => s.addDebt);
 
   const wb = useAssistantWorkbench({
@@ -1148,6 +1149,27 @@ export function AssistantPage() {
     setDuplicateReviewIndex(0);
     setOverwriteEntryIds([]);
     wb.setToastState('已取消重复账单处理，本次未保存', 'warning');
+  };
+
+  const handleCreateSubscriptionFromEntry = (entryId: string) => {
+    const entry = wb.entries.find((item) => item.id === entryId);
+    if (!entry || !entry.subscriptionSuggestion) return;
+
+    addSubscription({
+      name: entry.note?.trim() || 'AI识别订阅',
+      kind: entry.subscriptionSuggestion.kind,
+      amount: Number(entry.amount || 0),
+      currency: (entry.currency || 'CNY').toUpperCase(),
+      billingCycle: 'monthly',
+      accountId: undefined,
+      provider: undefined,
+      note: `来自 AI 识别：${entry.subscriptionSuggestion.reason}`,
+      renewalDate: undefined,
+      expireDate: undefined,
+      autoRenew: true
+    });
+
+    wb.setToastState('已加入订阅管理', 'success');
   };
 
   const assistantOverview = useMemo(() => {
@@ -2762,6 +2784,7 @@ export function AssistantPage() {
                   duplicateCount={duplicateEntriesCount}
                   onCheckDuplicates={wb.checkDuplicates}
                   onSave={startDuplicateReview}
+                  onCreateSubscription={handleCreateSubscriptionFromEntry}
                 />
               </div>
             </article>
