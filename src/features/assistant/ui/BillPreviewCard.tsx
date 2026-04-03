@@ -45,6 +45,7 @@ export function BillPreviewCard({
             <small>
               {item.category || '未分类'} / {item.account || '未指定账户'}
               {item.originalAmountText ? ` / 原始：${item.originalAmountText}` : ''}
+              {item.subscriptionSuggestion ? ` / 建议纳入订阅管理` : ''}
             </small>
             {item.duplicateTxId ? <span className="chat-dup-badge">疑似重复</span> : null}
           </article>

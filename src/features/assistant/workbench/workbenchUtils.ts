@@ -325,6 +325,28 @@ function isFutureDate(dateText: string): boolean {
   return targetKey > todayKey;
 }
 
+function detectSubscriptionSuggestion(input: {
+  type: TransactionType;
+  note?: string;
+  category?: string;
+  tags?: string[];
+}): AiBillItem['subscriptionSuggestion'] | undefined {
+  if (input.type !== 'expense' && input.type !== 'budget') return undefined;
+  const haystack = [input.note || '', input.category || '', ...(input.tags || [])].join(' ');
+  if (!haystack.trim()) return undefined;
+
+  if (/(话费|通信费|流量包|手机套餐|宽带|月租|移动|联通|电信)/i.test(haystack)) {
+    return { kind: 'mobile', reason: '识别到话费/通信/套餐类关键词，像是周期性通信支出。' };
+  }
+  if (/(会员|月卡|年卡|续费|自动续费|订阅|subscription|premium|plus|pro)/i.test(haystack)) {
+    return { kind: 'membership', reason: '识别到会员/续费/订阅类关键词，像是周期性会员支出。' };
+  }
+  if (/(spotify|netflix|youtube|icloud|google one|chatgpt|claude|midjourney|notion|figma|cursor)/i.test(haystack)) {
+    return { kind: 'digital', reason: '识别到常见数字服务名，像是周期性数字订阅。' };
+  }
+  return undefined;
+}
+
 export function normalizeAiBill(raw: unknown): AiBillResult | null {
   if (
     !raw ||
@@ -366,7 +388,13 @@ export function normalizeAiBill(raw: unknown): AiBillResult | null {
       currency: normalizeCurrency((row as { currency?: unknown }).currency) !== 'unknown'
         ? normalizeCurrency((row as { currency?: unknown }).currency)
         : detectCurrency((row as { originalAmountText?: unknown }).originalAmountText ?? row.amount, `${row.note || ''} ${row.category || ''}`),
-      originalAmountText: String((row as { originalAmountText?: unknown }).originalAmountText || row.amount || '').trim() || undefined
+      originalAmountText: String((row as { originalAmountText?: unknown }).originalAmountText || row.amount || '').trim() || undefined,
+      subscriptionSuggestion: detectSubscriptionSuggestion({
+        type: normalizedType,
+        note: String(row.note || 'AI 识别账单'),
+        category: String(row.category || ''),
+        tags: Array.isArray(row.tags) ? row.tags.map((item) => String(item)).filter(Boolean) : []
+      })
     };
 
     const remainingPeriods = normalizePositiveInteger(

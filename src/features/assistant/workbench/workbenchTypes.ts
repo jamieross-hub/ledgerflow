@@ -1,4 +1,5 @@
 import type { TransactionType } from '../../../entities/transaction/types';
+import type { SubscriptionKind } from '../../../entities/subscription/types';
 
 export type WorkbenchStatus =
   | 'idle'
@@ -22,6 +23,10 @@ export interface AiBillItem {
   merchantOrderNo?: string;
   currency?: string;
   originalAmountText?: string;
+  subscriptionSuggestion?: {
+    kind: SubscriptionKind;
+    reason: string;
+  };
 }
 
 export interface AiBillResult {
@@ -48,6 +53,10 @@ export interface DraftBillEntry {
   merchantOrderNo?: string;
   currency?: string;
   originalAmountText?: string;
+  subscriptionSuggestion?: {
+    kind: SubscriptionKind;
+    reason: string;
+  };
   duplicateTxId?: string;
   duplicateReason?: 'orderNo' | 'merchantOrderNo' | 'content';
   issues: ValidationIssue[];

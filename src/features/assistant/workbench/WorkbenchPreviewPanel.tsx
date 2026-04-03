@@ -126,6 +126,11 @@ export function WorkbenchPreviewPanel({ entries, onUpdate, onRemove }: Workbench
               />
             </label>
             {item.originalAmountText ? <small className="assistant-wb-issue">原始金额：{item.originalAmountText}</small> : null}
+            {item.subscriptionSuggestion ? (
+              <small className="assistant-wb-issue">
+                订阅提示：这笔像“{item.subscriptionSuggestion.kind === 'mobile' ? '话费/通信' : item.subscriptionSuggestion.kind === 'membership' ? '会员' : '数字订阅'}”，建议后续加入订阅管理。{item.subscriptionSuggestion.reason}
+              </small>
+            ) : null}
             <p className={item.issues.length ? 'assistant-wb-issue error' : 'assistant-wb-issue'}>
               {issueText(item)}
             </p>
