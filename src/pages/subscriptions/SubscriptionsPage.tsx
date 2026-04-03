@@ -40,6 +40,19 @@ const STATUS_CLASS: Record<SubscriptionStatus, string> = {
   paused: 'badge'
 };
 
+function toMonthlyAmount(item: Pick<SubscriptionItem, 'amount' | 'billingCycle' | 'customCycleDays'>) {
+  const amount = Number(item.amount || 0);
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+  if (item.billingCycle === 'monthly') return amount;
+  if (item.billingCycle === 'quarterly') return amount / 3;
+  if (item.billingCycle === 'semiannual') return amount / 6;
+  if (item.billingCycle === 'yearly') return amount / 12;
+  if (item.billingCycle === 'custom' && item.customCycleDays && item.customCycleDays > 0) {
+    return (amount / item.customCycleDays) * 30;
+  }
+  return amount;
+}
+
 const DEFAULT_FORM = {
   name: '',
   kind: 'digital' as SubscriptionKind,
@@ -81,6 +94,20 @@ export function SubscriptionsPage() {
       dueSoon: subscriptions.filter((item) => item.status === 'due-soon').length,
       expired: subscriptions.filter((item) => item.status === 'expired').length
     };
+  }, [subscriptions]);
+
+  const monthlySummaryByCurrency = useMemo(() => {
+    const grouped = new Map<string, number>();
+    subscriptions
+      .filter((item) => item.status !== 'paused')
+      .forEach((item) => {
+        const currency = item.currency || 'CNY';
+        grouped.set(currency, (grouped.get(currency) || 0) + toMonthlyAmount(item));
+      });
+
+    return Array.from(grouped.entries())
+      .map(([currency, amount]) => ({ currency, amount }))
+      .sort((a, b) => a.currency.localeCompare(b.currency));
   }, [subscriptions]);
 
   const rows = useMemo(
@@ -208,6 +235,24 @@ export function SubscriptionsPage() {
                 <em>
                   {STATUS_LABELS[item.status]} · {formatMoneyByCurrency(item.amount, item.currency)}
                 </em>
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {monthlySummaryByCurrency.length > 0 ? (
+        <div className="subscriptions-monthly-summary">
+          <div className="dashboard-section-header">
+            <h4>预计月度固定成本</h4>
+            <span>按币种分组展示，避免错误合并</span>
+          </div>
+          <div className="subscriptions-monthly-summary-list">
+            {monthlySummaryByCurrency.map((item) => (
+              <article key={item.currency} className="subscriptions-monthly-summary-card">
+                <strong>{item.currency}</strong>
+                <span>{formatMoneyByCurrency(item.amount, item.currency)}</span>
+                <em>按当前订阅周期折算到每月</em>
               </article>
             ))}
           </div>
