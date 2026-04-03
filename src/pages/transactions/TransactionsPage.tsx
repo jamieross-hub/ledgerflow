@@ -779,6 +779,28 @@ export function TransactionsPage() {
   const [shareIncludeAccount, setShareIncludeAccount] = useState(true);
 
   const [quickFilters, setQuickFilters] = useState<TransactionQuickFilters>(DEFAULT_QUICK_FILTERS);
+
+  useEffect(() => {
+    const note = searchParams.get('note') ?? '';
+    const tags = searchParams.get('tags') ?? '';
+    if (!note && !tags) {
+      return;
+    }
+
+    setQuickFilters((prev) => {
+      const nextNote = note || prev.note;
+      const nextTags = tags || prev.tags;
+      if (prev.note === nextNote && prev.tags === nextTags) {
+        return prev;
+      }
+      return {
+        ...prev,
+        note: nextNote,
+        tags: nextTags
+      };
+    });
+    setPage(1);
+  }, [searchParams, setPage]);
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
     try {
       const raw = window.localStorage.getItem(TX_SEARCH_HISTORY_KEY);

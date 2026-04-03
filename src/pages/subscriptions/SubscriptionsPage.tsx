@@ -386,6 +386,14 @@ export function SubscriptionsPage() {
                         <button type="button" className="primary" onClick={() => handleGenerateTransaction(item)}>
                           生成支出
                         </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(`/transactions?tags=${encodeURIComponent('订阅')}&note=${encodeURIComponent(item.name)}`)
+                          }
+                        >
+                          查看支出
+                        </button>
                         <button type="button" onClick={() => startEdit(item)}>编辑</button>
                         <button type="button" className="danger" onClick={() => setPendingDeleteId(item.id)}>删除</button>
                       </div>
