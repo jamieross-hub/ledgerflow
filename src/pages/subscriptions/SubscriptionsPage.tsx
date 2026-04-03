@@ -90,6 +90,11 @@ export function SubscriptionsPage() {
     [subscriptions]
   );
 
+  const attentionItems = useMemo(
+    () => rows.filter((item) => item.status === 'due-soon' || item.status === 'expired').slice(0, 6),
+    [rows]
+  );
+
   const resetForm = () => {
     setForm(DEFAULT_FORM);
     setEditingId(null);
@@ -170,6 +175,32 @@ export function SubscriptionsPage() {
           <span className="metric-chip">已到期 <strong>{summary.expired}</strong></span>
         </div>
       </div>
+
+      {attentionItems.length > 0 ? (
+        <div className="subscriptions-alerts">
+          <div className="dashboard-section-header">
+            <h4>待处理提醒</h4>
+            <span>优先处理即将到期与已到期项目</span>
+          </div>
+          <div className="subscriptions-alert-list">
+            {attentionItems.map((item) => (
+              <article key={`alert-${item.id}`} className="subscriptions-alert-card">
+                <strong>{item.name}</strong>
+                <span>
+                  {item.expireDate
+                    ? `到期：${formatDate(item.expireDate)}`
+                    : item.renewalDate
+                      ? `续费：${formatDate(item.renewalDate)}`
+                      : '日期未设置'}
+                </span>
+                <em>
+                  {STATUS_LABELS[item.status]} · {formatMoneyByCurrency(item.amount, item.currency)}
+                </em>
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <form className="subscriptions-form" onSubmit={handleSubmit}>
         <label>

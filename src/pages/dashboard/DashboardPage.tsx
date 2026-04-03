@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { DebugLogPanel } from '../../features/debug-log/ui/DebugLogPanel';
 import { APP_VERSION } from '../../shared/config/app';
-import { formatCurrency } from '../../shared/lib/format';
+import { formatCurrency, formatMoneyByCurrency } from '../../shared/lib/format';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { EmptyState } from '../../shared/ui/EmptyState';
@@ -179,6 +179,7 @@ export function DashboardPage() {
   const transactions = useFinanceStore((s) => s.transactions);
   const accounts = useFinanceStore((s) => s.accounts);
   const categories = useFinanceStore((s) => s.categories);
+  const subscriptions = useFinanceStore((s) => s.subscriptions);
 
   const baseUrl = useAiSettings((s) => s.baseUrl);
   const apiKey = useAiSettings((s) => s.apiKey);
@@ -258,6 +259,11 @@ export function DashboardPage() {
     }
     return sum + (balance < 0 ? Math.abs(balance) : balance);
   }, 0);
+
+  const subscriptionAlerts = useMemo(
+    () => subscriptions.filter((item) => item.status === 'due-soon' || item.status === 'expired').slice(0, 3),
+    [subscriptions]
+  );
 
   const assetBalance = accounts
     .filter((account) => !isLiabilityAccount(account))
@@ -1607,6 +1613,33 @@ export function DashboardPage() {
                     <em>手动可复核</em>
                   </button>
                 </div>
+
+                {subscriptionAlerts.length > 0 ? (
+                  <div className="dashboard-subscription-alerts">
+                    <div className="dashboard-section-header">
+                      <h4>订阅到期提醒</h4>
+                      <span>{subscriptionAlerts.length} 项待处理</span>
+                    </div>
+                    <div className="dashboard-anomaly-carousel" role="list" aria-label="订阅到期提醒">
+                      {subscriptionAlerts.map((item) => (
+                        <article key={item.id} role="listitem" className="dashboard-anomaly-card">
+                          <p className="dashboard-anomaly-card-title">🧾 订阅提醒</p>
+                          <p className="dashboard-anomaly-card-text">
+                            {item.name} · {item.expireDate || item.renewalDate ? `日期：${item.expireDate || item.renewalDate}` : '未设置日期'}
+                          </p>
+                          <p className="dashboard-anomaly-card-text">
+                            {item.status === 'expired' ? '已到期' : '即将到期'} · {formatMoneyByCurrency(item.amount, item.currency)}
+                          </p>
+                          <div className="dashboard-anomaly-card-actions">
+                            <button type="button" onClick={() => navigate('/subscriptions')}>
+                              去处理
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </section>
             );
           }

@@ -3,6 +3,36 @@
   gap: 16px;
 }
 
+.subscriptions-alerts {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-bg-elevated);
+}
+
+.subscriptions-alert-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.subscriptions-alert-card {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-panel);
+}
+
+.subscriptions-alert-card span,
+.subscriptions-alert-card em {
+  color: var(--color-text-secondary);
+  font-style: normal;
+}
+
 .subscriptions-header {
   display: flex;
   align-items: flex-start;
