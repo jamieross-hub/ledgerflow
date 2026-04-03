@@ -16,6 +16,7 @@ import {
   SalaryToolsPage,
   SettingsPage,
   SmartBudgetPage,
+  SubscriptionsPage,
   TransactionEditPage,
   TransactionsPage
 } from './lazyPages';
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
       { path: 'categories-accounts', element: <CategoriesAccountsPage /> },
       { path: 'balance-changes', element: <BalanceChangesPage /> },
       { path: 'recycle-bin', element: <RecycleBinPage /> },
+      { path: 'subscriptions', element: <SubscriptionsPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'about', element: <AboutPage /> },
       { path: 'assistant', element: <AssistantPage /> },

@@ -44,6 +44,20 @@ export function formatCurrencyFixed2(value: number) {
   }).format(normalized);
 }
 
+export function formatMoneyByCurrency(value: number, currency = 'CNY') {
+  const normalized = normalizeCurrencyInput(value, 2);
+  try {
+    return new Intl.NumberFormat('zh-CN', {
+      style: 'currency',
+      currency: currency || 'CNY',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(normalized);
+  } catch {
+    return `${currency || 'CNY'} ${normalized.toFixed(2)}`;
+  }
+}
+
 /** 格式化日期（仅日期） */
 export function formatDate(value: string) {
   return new Intl.DateTimeFormat('zh-CN').format(new Date(value));

@@ -6,6 +6,7 @@ export const TransactionEditPage = lazy(() => import('../../pages/transaction-ed
 export const CategoriesAccountsPage = lazy(() => import('../../pages/categories-accounts/CategoriesAccountsPage').then((m) => ({ default: m.CategoriesAccountsPage })));
 export const BalanceChangesPage = lazy(() => import('../../pages/balance-changes/BalanceChangesPage').then((m) => ({ default: m.BalanceChangesPage })));
 export const RecycleBinPage = lazy(() => import('../../pages/recycle-bin/RecycleBinPage').then((m) => ({ default: m.RecycleBinPage })));
+export const SubscriptionsPage = lazy(() => import('../../pages/subscriptions/SubscriptionsPage').then((m) => ({ default: m.SubscriptionsPage })));
 export const SettingsPage = lazy(() => import('../../pages/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 export const AboutPage = lazy(() => import('../../pages/about/AboutPage').then((m) => ({ default: m.AboutPage })));
 export const AssistantPage = lazy(() => import('../../pages/assistant/AssistantPage').then((m) => ({ default: m.AssistantPage })));

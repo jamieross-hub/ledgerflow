@@ -9,6 +9,7 @@ import {
   TransactionItem,
   TransactionType
 } from '../../entities/transaction/types';
+import { SubscriptionItem } from '../../entities/subscription/types';
 import { syncChangeIfNeeded } from '../lib/dataSync';
 import { generateId } from '../lib/id';
 import { getSignedAmount } from '../lib/transactionMetrics';
@@ -62,6 +63,7 @@ interface FinanceState {
   trashedCategories: Category[];
   trashedAccounts: Account[];
   balanceChangeEntries: BalanceChangeEntry[];
+  subscriptions: SubscriptionItem[];
   categoryLearningRules: CategoryLearningRule[];
   categoryLearningEvents: CategoryLearningEvent[];
   addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
@@ -85,6 +87,9 @@ interface FinanceState {
   removeAccount: (id: string) => void;
   restoreAccount: (id: string) => void;
   permanentlyDeleteAccount: (id: string) => void;
+  addSubscription: (payload: Omit<SubscriptionItem, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => string;
+  updateSubscription: (id: string, payload: Omit<SubscriptionItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  removeSubscription: (id: string) => void;
   clearAllAccountBills: () => void;
   suggestCategoryByLearning: (input: CategoryLearningInput) => {
     categoryId: string;
@@ -218,6 +223,7 @@ const defaultAccounts: Account[] = [
 const defaultTransactions: TransactionItem[] = [];
 const defaultTrashedTransactions: TransactionItem[] = [];
 const defaultBalanceChangeEntries: BalanceChangeEntry[] = [];
+const defaultSubscriptions: SubscriptionItem[] = [];
 const defaultCategoryLearningRules: CategoryLearningRule[] = [];
 const defaultCategoryLearningEvents: CategoryLearningEvent[] = [];
 const defaultTrashedCategories: Category[] = [];
@@ -238,6 +244,19 @@ function roundCurrency(raw: number): number {
     return 0;
   }
   return Math.round(value * 100) / 100;
+}
+
+function normalizeSubscriptionStatus(item: Pick<SubscriptionItem, 'expireDate' | 'renewalDate' | 'status'>): SubscriptionItem['status'] {
+  if (item.status === 'paused') return 'paused';
+  const now = new Date();
+  const target = item.expireDate || item.renewalDate;
+  if (!target) return 'active';
+  const time = new Date(target).getTime();
+  if (Number.isNaN(time)) return 'active';
+  const diffDays = Math.ceil((time - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return 'expired';
+  if (diffDays <= 7) return 'due-soon';
+  return 'active';
 }
 
 function normalizeCategoryName(raw: string): string {
@@ -587,6 +606,7 @@ export const useFinanceStore = create<FinanceState>()(
       trashedCategories: defaultTrashedCategories,
       trashedAccounts: defaultTrashedAccounts,
       balanceChangeEntries: defaultBalanceChangeEntries,
+      subscriptions: defaultSubscriptions,
       categoryLearningRules: defaultCategoryLearningRules,
       categoryLearningEvents: defaultCategoryLearningEvents,
       addTransaction: (payload) => {
@@ -989,6 +1009,49 @@ export const useFinanceStore = create<FinanceState>()(
           trashedAccounts: s.trashedAccounts.filter((item) => item.id !== id)
         }));
       },
+      addSubscription: (payload) => {
+        const id = generateId();
+        const now = new Date().toISOString();
+        const row: SubscriptionItem = {
+          ...payload,
+          id,
+          amount: roundCurrency(payload.amount),
+          currency: String(payload.currency || 'CNY').toUpperCase(),
+          status: normalizeSubscriptionStatus({
+            expireDate: payload.expireDate,
+            renewalDate: payload.renewalDate,
+            status: 'active'
+          }),
+          createdAt: now,
+          updatedAt: now
+        };
+        set((s) => ({ subscriptions: [row, ...s.subscriptions] }));
+        return id;
+      },
+      updateSubscription: (id, payload) => {
+        set((s) => ({
+          subscriptions: s.subscriptions.map((item) =>
+            item.id === id
+              ? {
+                  ...payload,
+                  id,
+                  amount: roundCurrency(payload.amount),
+                  currency: String(payload.currency || 'CNY').toUpperCase(),
+                  status: normalizeSubscriptionStatus({
+                    expireDate: payload.expireDate,
+                    renewalDate: payload.renewalDate,
+                    status: payload.status
+                  }),
+                  createdAt: item.createdAt,
+                  updatedAt: new Date().toISOString()
+                }
+              : item
+          )
+        }));
+      },
+      removeSubscription: (id) => {
+        set((s) => ({ subscriptions: s.subscriptions.filter((item) => item.id !== id) }));
+      },
       clearAllAccountBills: () => {
         set((s) => ({
           trashedTransactions: ensureUniqueById([
@@ -1027,6 +1090,7 @@ export const useFinanceStore = create<FinanceState>()(
           transactions: compacted.transactions,
           accounts: rebuildStateSlices(incomingAccounts, compacted.transactions, []).accounts,
           balanceChangeEntries: rebuildStateSlices(incomingAccounts, compacted.transactions, []).balanceChangeEntries,
+          subscriptions: [],
           trashedTransactions: [],
           trashedCategories: [],
           trashedAccounts: []
@@ -1035,7 +1099,7 @@ export const useFinanceStore = create<FinanceState>()(
     }),
     {
       name: 'ledgerflow-finance',
-      version: 4,
+      version: 5,
       onRehydrateStorage: () => () => {
         useFinanceStore.setState({ hasHydrated: true });
       },
@@ -1063,6 +1127,12 @@ export const useFinanceStore = create<FinanceState>()(
         const trashedAccounts = Array.isArray((incoming as Partial<FinanceState>).trashedAccounts)
           ? ensureUniqueById((incoming as Partial<FinanceState>).trashedAccounts || [])
           : [];
+        const subscriptions = Array.isArray((incoming as Partial<FinanceState>).subscriptions)
+          ? ((incoming as Partial<FinanceState>).subscriptions || []).map((item) => ({
+              ...item,
+              status: normalizeSubscriptionStatus(item)
+            }))
+          : [];
 
         return {
           ...currentState,
@@ -1075,6 +1145,7 @@ export const useFinanceStore = create<FinanceState>()(
           trashedCategories,
           trashedAccounts,
           balanceChangeEntries: rebuilt.balanceChangeEntries,
+          subscriptions,
           categoryLearningRules: Array.isArray(
             (incoming as Partial<FinanceState>).categoryLearningRules
           )
