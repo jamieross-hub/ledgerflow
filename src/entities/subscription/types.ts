@@ -17,6 +17,8 @@ export interface SubscriptionItem {
   expireDate?: string;
   autoRenew?: boolean;
   status: SubscriptionStatus;
+  lastGeneratedAt?: string;
+  lastGeneratedTransactionId?: string;
   createdAt: string;
   updatedAt: string;
 }

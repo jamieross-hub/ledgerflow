@@ -1,4 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type {
   SubscriptionBillingCycle,
   SubscriptionItem,
@@ -56,11 +57,13 @@ const DEFAULT_FORM = {
 };
 
 export function SubscriptionsPage() {
+  const navigate = useNavigate();
   const subscriptions = useFinanceStore((s) => s.subscriptions);
   const accounts = useFinanceStore((s) => s.accounts);
   const addSubscription = useFinanceStore((s) => s.addSubscription);
   const updateSubscription = useFinanceStore((s) => s.updateSubscription);
   const removeSubscription = useFinanceStore((s) => s.removeSubscription);
+  const generateSubscriptionTransaction = useFinanceStore((s) => s.generateSubscriptionTransaction);
 
   const [form, setForm] = useState(DEFAULT_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -160,6 +163,15 @@ export function SubscriptionsPage() {
       status: item.status
     });
     setError('');
+  };
+
+  const handleGenerateTransaction = (item: SubscriptionItem) => {
+    try {
+      const result = generateSubscriptionTransaction(item.id);
+      navigate(`/transactions/${result.transactionId}`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '生成订阅支出失败，请稍后重试。');
+    }
   };
 
   return (
@@ -326,6 +338,9 @@ export function SubscriptionsPage() {
                     <td>{item.note || '—'}</td>
                     <td>
                       <div className="subscriptions-actions-inline">
+                        <button type="button" className="primary" onClick={() => handleGenerateTransaction(item)}>
+                          生成支出
+                        </button>
                         <button type="button" onClick={() => startEdit(item)}>编辑</button>
                         <button type="button" className="danger" onClick={() => setPendingDeleteId(item.id)}>删除</button>
                       </div>

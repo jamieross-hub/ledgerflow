@@ -54,6 +54,11 @@ interface RefundTransactionResult {
   remainingRefundableAmount: number;
 }
 
+interface GenerateSubscriptionTransactionResult {
+  transactionId: string;
+  duplicated: boolean;
+}
+
 interface FinanceState {
   hasHydrated: boolean;
   transactions: TransactionItem[];
@@ -90,6 +95,7 @@ interface FinanceState {
   addSubscription: (payload: Omit<SubscriptionItem, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => string;
   updateSubscription: (id: string, payload: Omit<SubscriptionItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
   removeSubscription: (id: string) => void;
+  generateSubscriptionTransaction: (id: string) => GenerateSubscriptionTransactionResult;
   clearAllAccountBills: () => void;
   suggestCategoryByLearning: (input: CategoryLearningInput) => {
     categoryId: string;
@@ -257,6 +263,17 @@ function normalizeSubscriptionStatus(item: Pick<SubscriptionItem, 'expireDate' |
   if (diffDays < 0) return 'expired';
   if (diffDays <= 7) return 'due-soon';
   return 'active';
+}
+
+function inferSubscriptionCategoryId(item: SubscriptionItem): string {
+  if (item.kind === 'mobile') return 'cat-communication';
+  if (item.kind === 'membership' || item.kind === 'digital') return 'cat-entertainment';
+  return 'cat-other';
+}
+
+function isSameDay(left?: string, right?: string): boolean {
+  if (!left || !right) return false;
+  return left.slice(0, 10) === right.slice(0, 10);
 }
 
 function normalizeCategoryName(raw: string): string {
@@ -1051,6 +1068,93 @@ export const useFinanceStore = create<FinanceState>()(
       },
       removeSubscription: (id) => {
         set((s) => ({ subscriptions: s.subscriptions.filter((item) => item.id !== id) }));
+      },
+      generateSubscriptionTransaction: (id) => {
+        let result: GenerateSubscriptionTransactionResult | null = null;
+        let thrownError: Error | null = null;
+
+        set((s) => {
+          const subscription = s.subscriptions.find((item) => item.id === id);
+          if (!subscription) {
+            thrownError = new Error('未找到订阅项目。');
+            return s;
+          }
+          const accountId = subscription.accountId || s.accounts[0]?.id;
+          if (!accountId) {
+            thrownError = new Error('当前没有可用账户，无法生成支出记录。');
+            return s;
+          }
+
+          const today = new Date().toISOString();
+          const existing = s.transactions.find(
+            (item) =>
+              item.accountId === accountId &&
+              item.amount === roundCurrency(subscription.amount) &&
+              isSameDay(item.date, today) &&
+              item.tags?.includes('订阅') &&
+              item.note.includes(subscription.name)
+          );
+
+          if (existing) {
+            result = { transactionId: existing.id, duplicated: true };
+            return s;
+          }
+
+          const currencyTag = subscription.currency && subscription.currency !== 'CNY'
+            ? [`币种:${subscription.currency}`]
+            : [];
+          const noteParts = [
+            `订阅支出：${subscription.name}`,
+            subscription.provider ? `服务商:${subscription.provider}` : '',
+            subscription.currency && subscription.currency !== 'CNY' ? `原币种:${subscription.currency}` : '',
+            subscription.note || ''
+          ].filter(Boolean);
+
+          const transaction: TransactionItem = {
+            id: generateId(),
+            type: 'expense',
+            categoryId: inferSubscriptionCategoryId(subscription),
+            accountId,
+            amount: roundCurrency(subscription.amount),
+            date: today,
+            note: noteParts.join('｜'),
+            tags: Array.from(new Set(['订阅', subscription.name, ...currencyTag])),
+            source: 'manual',
+            status: 'completed',
+            updatedAt: today
+          };
+
+          const transactions = [...s.transactions, transaction];
+          const subscriptions = s.subscriptions.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  lastGeneratedAt: today,
+                  lastGeneratedTransactionId: transaction.id,
+                  updatedAt: today,
+                  status: normalizeSubscriptionStatus(item)
+                }
+              : item
+          );
+
+          result = { transactionId: transaction.id, duplicated: false };
+          return {
+            subscriptions,
+            transactions,
+            ...rebuildStateSlices(s.accounts, transactions, s.balanceChangeEntries)
+          };
+        });
+
+        if (thrownError) throw thrownError;
+        if (!result) throw new Error('生成订阅支出失败，请稍后重试。');
+
+        const finalResult = result as GenerateSubscriptionTransactionResult;
+        const state = get();
+        const row = state.transactions.find((item) => item.id === finalResult.transactionId);
+        if (row && !finalResult.duplicated) {
+          void syncChangeIfNeeded({ entity: 'transactions', action: 'insert', row });
+        }
+        return finalResult;
       },
       clearAllAccountBills: () => {
         set((s) => ({
