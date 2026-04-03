@@ -1,13 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppPreferences } from '../../shared/store/useAppPreferences';
-import {
-  calculateOvertimePay,
-  calculateSalaryMetrics,
-  getOvertimeInputError,
-  getSalaryInputError,
-  sanitizePositiveNumberInput
-} from './salaryCalculator';
 
 type FinanceNewsItem = {
   id: string;
@@ -20,7 +13,7 @@ type FinanceNewsItem = {
 
 const FINANCE_NEWS_CACHE_KEY = 'ledgerflow.finance.news-cache.v1';
 
-function formatTimeLabel(value: string | undefined, t: (k:string)=>string, language: string): string {
+function formatTimeLabel(value: string | undefined, t: (k: string) => string, language: string): string {
   if (!value) return t('finance.ui.justNow');
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -42,7 +35,7 @@ function cleanHtml(raw?: string | null): string {
     .trim();
 }
 
-function parseRssItems(xmlText: string, fallbackSource: string, t: (k:string)=>string, language: string): FinanceNewsItem[] {
+function parseRssItems(xmlText: string, fallbackSource: string, t: (k: string) => string, language: string): FinanceNewsItem[] {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xmlText, 'text/xml');
   const parserError = doc.querySelector('parsererror');
@@ -90,21 +83,17 @@ function parseRssItems(xmlText: string, fallbackSource: string, t: (k:string)=>s
     .slice(0, 8);
 }
 
-async function fetchRssFeed(feedUrl: string, signal: AbortSignal, t: (k:string)=>string, language: string): Promise<FinanceNewsItem[]> {
+async function fetchRssFeed(
+  feedUrl: string,
+  signal: AbortSignal,
+  t: (k: string) => string,
+  language: string
+): Promise<FinanceNewsItem[]> {
   const encodedUrl = encodeURIComponent(feedUrl);
   const response = await fetch(`https://api.allorigins.win/raw?url=${encodedUrl}`, { signal });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const xmlText = await response.text();
   return parseRssItems(xmlText, feedUrl, t, language);
-}
-
-function formatMoney(value: number): string {
-  return new Intl.NumberFormat('zh-CN', {
-    style: 'currency',
-    currency: 'CNY',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(value);
 }
 
 export function FinancePage() {
@@ -128,10 +117,6 @@ export function FinancePage() {
   const [feedTitle, setFeedTitle] = useState('');
   const [feedUrl, setFeedUrl] = useState('');
   const [activeNewsId, setActiveNewsId] = useState('');
-  const [monthlySalary, setMonthlySalary] = useState('12000');
-  const [workingDays, setWorkingDays] = useState('21.75');
-  const [dailyHours, setDailyHours] = useState('8');
-  const [overtimeHours, setOvertimeHours] = useState('2');
 
   const enabledFeeds = useMemo(
     () => rssSubscriptions.filter((item) => item.enabled),
@@ -206,26 +191,6 @@ export function FinancePage() {
     [activeNewsId, news]
   );
 
-  const salaryMetrics = useMemo(
-    () => calculateSalaryMetrics({ monthlySalary, workingDays, dailyHours }),
-    [dailyHours, monthlySalary, workingDays]
-  );
-
-  const salaryInputError = useMemo(
-    () => getSalaryInputError({ monthlySalary, workingDays, dailyHours }),
-    [dailyHours, monthlySalary, workingDays]
-  );
-
-  const overtimeResult = useMemo(
-    () => calculateOvertimePay(salaryMetrics?.hourlySalary || 0, overtimeHours),
-    [overtimeHours, salaryMetrics]
-  );
-
-  const overtimeInputError = useMemo(
-    () => getOvertimeInputError(salaryMetrics?.hourlySalary || 0, overtimeHours, Boolean(salaryMetrics)),
-    [overtimeHours, salaryMetrics]
-  );
-
   function onAddFeed(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const result = addRssSubscription({ title: feedTitle, url: feedUrl });
@@ -239,143 +204,13 @@ export function FinancePage() {
 
   return (
     <div className="page-stack finance-page">
-      <section className="card finance-salary-card">
-        <h2 style={{ marginTop: 0 }}>💼 工资计算工具</h2>
-        <p className="muted">用于税前口径的快速估算：输入月薪、计薪天数、每日工时后，实时查看日薪、时薪、周薪和加班费参考值。</p>
-
-        <div className="finance-salary-grid">
-          <label className="finance-salary-field">
-            <span>月薪</span>
-            <div className={`finance-unit-input ${monthlySalary ? 'is-filled' : ''}`}>
-              <input
-                className="finance-debt-form-control"
-                inputMode="decimal"
-                value={monthlySalary}
-                onChange={(event) => setMonthlySalary(sanitizePositiveNumberInput(event.target.value))}
-                placeholder="例如 12000"
-              />
-              <span>元</span>
-            </div>
-          </label>
-
-          <label className="finance-salary-field">
-            <span>计薪天数</span>
-            <div className={`finance-unit-input ${workingDays ? 'is-filled' : ''}`}>
-              <input
-                className="finance-debt-form-control"
-                inputMode="decimal"
-                value={workingDays}
-                onChange={(event) => setWorkingDays(sanitizePositiveNumberInput(event.target.value))}
-                placeholder="例如 21.75"
-              />
-              <span>天</span>
-            </div>
-          </label>
-
-          <label className="finance-salary-field">
-            <span>每日工时</span>
-            <div className={`finance-unit-input ${dailyHours ? 'is-filled' : ''}`}>
-              <input
-                className="finance-debt-form-control"
-                inputMode="decimal"
-                value={dailyHours}
-                onChange={(event) => setDailyHours(sanitizePositiveNumberInput(event.target.value))}
-                placeholder="例如 8"
-              />
-              <span>小时</span>
-            </div>
-          </label>
-        </div>
-
-        {salaryInputError ? <p className="finance-debt-form-error muted">{salaryInputError}</p> : null}
-
-        <div className="finance-salary-result-grid">
-          <article className="finance-salary-metric card">
-            <p className="finance-overview-label">日薪参考</p>
-            <p className="finance-overview-value">
-              <span className="finance-overview-number">{salaryMetrics ? formatMoney(salaryMetrics.dailySalary) : '—'}</span>
-            </p>
-            <p className="finance-salary-metric-note muted">按月薪 ÷ 计薪天数估算</p>
-          </article>
-          <article className="finance-salary-metric card">
-            <p className="finance-overview-label">时薪参考</p>
-            <p className="finance-overview-value">
-              <span className="finance-overview-number">{salaryMetrics ? formatMoney(salaryMetrics.hourlySalary) : '—'}</span>
-            </p>
-            <p className="finance-salary-metric-note muted">按日薪 ÷ 每日工时估算</p>
-          </article>
-          <article className="finance-salary-metric card">
-            <p className="finance-overview-label">周薪参考（按 5 天）</p>
-            <p className="finance-overview-value">
-              <span className="finance-overview-number">{salaryMetrics ? formatMoney(salaryMetrics.weeklySalary) : '—'}</span>
-            </p>
-            <p className="finance-salary-metric-note muted">默认按 5 个工作日折算</p>
-          </article>
-        </div>
-
-        <div className="finance-overtime-section">
-          <div className="finance-overtime-header">
-            <div>
-              <h3 style={{ margin: 0 }}>⏱️ 加班工资估算</h3>
-              <p className="muted finance-salary-hint">按当前时薪估算工作日 1.5 倍、休息日 2 倍、法定节假日 3 倍。</p>
-            </div>
-            <label className="finance-salary-field finance-overtime-input">
-              <span>加班时长</span>
-              <div className={`finance-unit-input ${overtimeHours ? 'is-filled' : ''}`}>
-                <input
-                  className="finance-debt-form-control"
-                  inputMode="decimal"
-                  value={overtimeHours}
-                  onChange={(event) => setOvertimeHours(sanitizePositiveNumberInput(event.target.value))}
-                  placeholder="例如 2"
-                />
-                <span>小时</span>
-              </div>
-            </label>
-          </div>
-
-          {overtimeInputError ? <p className="finance-debt-form-error muted">{overtimeInputError}</p> : null}
-
-          {salaryMetrics ? (
-            <p className="finance-salary-inline-tip muted">
-              当前时薪基准：<strong>{formatMoney(salaryMetrics.hourlySalary)}</strong> / 小时，加班费按这个时薪做倍数估算。
-            </p>
-          ) : null}
-
-          <div className="finance-salary-result-grid">
-            <article className="finance-salary-metric card">
-              <p className="finance-overview-label">工作日加班费（1.5x）</p>
-              <p className="finance-overview-value">
-                <span className="finance-overview-number">{overtimeResult ? formatMoney(overtimeResult.workdayOvertimePay) : '—'}</span>
-              </p>
-              <p className="finance-salary-metric-note muted">适用于工作日延时加班估算</p>
-            </article>
-            <article className="finance-salary-metric card">
-              <p className="finance-overview-label">休息日加班费（2x）</p>
-              <p className="finance-overview-value">
-                <span className="finance-overview-number">{overtimeResult ? formatMoney(overtimeResult.restDayOvertimePay) : '—'}</span>
-              </p>
-              <p className="finance-salary-metric-note muted">适用于休息日加班估算</p>
-            </article>
-            <article className="finance-salary-metric card">
-              <p className="finance-overview-label">法定节假日加班费（3x）</p>
-              <p className="finance-overview-value">
-                <span className="finance-overview-number">{overtimeResult ? formatMoney(overtimeResult.holidayOvertimePay) : '—'}</span>
-              </p>
-              <p className="finance-salary-metric-note muted">适用于法定节假日加班估算</p>
-            </article>
-          </div>
-        </div>
-
-        <div className="finance-salary-disclaimer-list muted">
-          <p>说明 1：结果仅供税前估算参考，默认不含社保、个税、公积金、补贴、提成与特殊排班。</p>
-          <p>说明 2：周薪默认按 5 个工作日折算；加班费按当前时薪做倍数估算，不代表公司最终核算口径。</p>
-        </div>
-      </section>
-
       <section className="card">
         <h2 style={{ marginTop: 0 }}>📰 {t('finance.ui.title')}</h2>
         <p className="muted">{t('finance.ui.subtitle')}</p>
+        <div className="finance-page-tip" role="note">
+          <strong>这里是市场资讯页</strong>
+          <p>只保留 RSS / 财经资讯阅读与订阅管理；如果你要使用工资计算、个税测算等工具，请前往左侧「工资工具」。</p>
+        </div>
 
         <details className="card" style={{ padding: 12, marginBottom: 12 }}>
           <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
