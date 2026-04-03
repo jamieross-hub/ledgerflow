@@ -400,9 +400,9 @@ export function SubscriptionsPage() {
 
       <ConfirmDialog
         open={Boolean(pendingDeleteItem)}
-        title="删除订阅项目"
-        description={pendingDeleteItem ? `确认删除“${pendingDeleteItem.name}”吗？删除后不会自动保留历史提醒。` : ''}
-        confirmText="确认删除"
+        title="移入回收站"
+        description={pendingDeleteItem ? `确认将“${pendingDeleteItem.name}”移入回收站吗？后续仍可在回收站恢复或彻底删除。` : ''}
+        confirmText="移入回收站"
         cancelText="取消"
         onCancel={() => setPendingDeleteId(null)}
         onConfirm={() => {

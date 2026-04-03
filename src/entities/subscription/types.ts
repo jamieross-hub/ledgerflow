@@ -19,6 +19,7 @@ export interface SubscriptionItem {
   status: SubscriptionStatus;
   lastGeneratedAt?: string;
   lastGeneratedTransactionId?: string;
+  trashedAt?: string;
   createdAt: string;
   updatedAt: string;
 }

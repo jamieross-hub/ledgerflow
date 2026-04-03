@@ -69,6 +69,7 @@ interface FinanceState {
   trashedAccounts: Account[];
   balanceChangeEntries: BalanceChangeEntry[];
   subscriptions: SubscriptionItem[];
+  trashedSubscriptions: SubscriptionItem[];
   categoryLearningRules: CategoryLearningRule[];
   categoryLearningEvents: CategoryLearningEvent[];
   addTransaction: (payload: Omit<TransactionItem, 'id'>) => string;
@@ -95,6 +96,8 @@ interface FinanceState {
   addSubscription: (payload: Omit<SubscriptionItem, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => string;
   updateSubscription: (id: string, payload: Omit<SubscriptionItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
   removeSubscription: (id: string) => void;
+  restoreSubscription: (id: string) => void;
+  permanentlyDeleteSubscription: (id: string) => void;
   generateSubscriptionTransaction: (id: string) => GenerateSubscriptionTransactionResult;
   clearAllAccountBills: () => void;
   suggestCategoryByLearning: (input: CategoryLearningInput) => {
@@ -230,6 +233,7 @@ const defaultTransactions: TransactionItem[] = [];
 const defaultTrashedTransactions: TransactionItem[] = [];
 const defaultBalanceChangeEntries: BalanceChangeEntry[] = [];
 const defaultSubscriptions: SubscriptionItem[] = [];
+const defaultTrashedSubscriptions: SubscriptionItem[] = [];
 const defaultCategoryLearningRules: CategoryLearningRule[] = [];
 const defaultCategoryLearningEvents: CategoryLearningEvent[] = [];
 const defaultTrashedCategories: Category[] = [];
@@ -624,6 +628,7 @@ export const useFinanceStore = create<FinanceState>()(
       trashedAccounts: defaultTrashedAccounts,
       balanceChangeEntries: defaultBalanceChangeEntries,
       subscriptions: defaultSubscriptions,
+      trashedSubscriptions: defaultTrashedSubscriptions,
       categoryLearningRules: defaultCategoryLearningRules,
       categoryLearningEvents: defaultCategoryLearningEvents,
       addTransaction: (payload) => {
@@ -1067,7 +1072,33 @@ export const useFinanceStore = create<FinanceState>()(
         }));
       },
       removeSubscription: (id) => {
-        set((s) => ({ subscriptions: s.subscriptions.filter((item) => item.id !== id) }));
+        set((s) => {
+          const target = s.subscriptions.find((item) => item.id === id);
+          if (!target) {
+            return s;
+          }
+          return {
+            subscriptions: s.subscriptions.filter((item) => item.id !== id),
+            trashedSubscriptions: ensureUniqueById([...s.trashedSubscriptions, markTrashedAt(target)])
+          };
+        });
+      },
+      restoreSubscription: (id) => {
+        set((s) => {
+          const restored = restoreFromTrash(s.subscriptions, s.trashedSubscriptions, id);
+          if (!restored.restored) {
+            return s;
+          }
+          return {
+            subscriptions: restored.active,
+            trashedSubscriptions: restored.trashed
+          };
+        });
+      },
+      permanentlyDeleteSubscription: (id) => {
+        set((s) => ({
+          trashedSubscriptions: s.trashedSubscriptions.filter((item) => item.id !== id)
+        }));
       },
       generateSubscriptionTransaction: (id) => {
         let result: GenerateSubscriptionTransactionResult | null = null;
@@ -1195,6 +1226,7 @@ export const useFinanceStore = create<FinanceState>()(
           accounts: rebuildStateSlices(incomingAccounts, compacted.transactions, []).accounts,
           balanceChangeEntries: rebuildStateSlices(incomingAccounts, compacted.transactions, []).balanceChangeEntries,
           subscriptions: [],
+          trashedSubscriptions: [],
           trashedTransactions: [],
           trashedCategories: [],
           trashedAccounts: []
@@ -1237,6 +1269,14 @@ export const useFinanceStore = create<FinanceState>()(
               status: normalizeSubscriptionStatus(item)
             }))
           : [];
+        const trashedSubscriptions = Array.isArray((incoming as Partial<FinanceState>).trashedSubscriptions)
+          ? ensureUniqueById(
+              ((incoming as Partial<FinanceState>).trashedSubscriptions || []).map((item) => ({
+                ...item,
+                status: normalizeSubscriptionStatus(item)
+              }))
+            )
+          : [];
 
         return {
           ...currentState,
@@ -1250,6 +1290,7 @@ export const useFinanceStore = create<FinanceState>()(
           trashedAccounts,
           balanceChangeEntries: rebuilt.balanceChangeEntries,
           subscriptions,
+          trashedSubscriptions,
           categoryLearningRules: Array.isArray(
             (incoming as Partial<FinanceState>).categoryLearningRules
           )

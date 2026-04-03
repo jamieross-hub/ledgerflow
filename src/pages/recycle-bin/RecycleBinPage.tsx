@@ -7,15 +7,18 @@ export function RecycleBinPage() {
   const trashedTransactions = useFinanceStore((s) => s.trashedTransactions);
   const trashedCategories = useFinanceStore((s) => s.trashedCategories);
   const trashedAccounts = useFinanceStore((s) => s.trashedAccounts);
+  const trashedSubscriptions = useFinanceStore((s) => s.trashedSubscriptions);
   const restoreTransaction = useFinanceStore((s) => s.restoreTransaction);
   const permanentlyDeleteTransaction = useFinanceStore((s) => s.permanentlyDeleteTransaction);
   const restoreCategory = useFinanceStore((s) => s.restoreCategory);
   const permanentlyDeleteCategory = useFinanceStore((s) => s.permanentlyDeleteCategory);
   const restoreAccount = useFinanceStore((s) => s.restoreAccount);
   const permanentlyDeleteAccount = useFinanceStore((s) => s.permanentlyDeleteAccount);
+  const restoreSubscription = useFinanceStore((s) => s.restoreSubscription);
+  const permanentlyDeleteSubscription = useFinanceStore((s) => s.permanentlyDeleteSubscription);
 
   const totalCount =
-    trashedTransactions.length + trashedCategories.length + trashedAccounts.length;
+    trashedTransactions.length + trashedCategories.length + trashedAccounts.length + trashedSubscriptions.length;
 
   const sortedTransactions = useMemo(
     () =>
@@ -33,6 +36,11 @@ export function RecycleBinPage() {
   const sortedAccounts = useMemo(
     () => [...trashedAccounts].sort((a, b) => new Date(b.trashedAt || 0).getTime() - new Date(a.trashedAt || 0).getTime()),
     [trashedAccounts]
+  );
+
+  const sortedSubscriptions = useMemo(
+    () => [...trashedSubscriptions].sort((a, b) => new Date(b.trashedAt || 0).getTime() - new Date(a.trashedAt || 0).getTime()),
+    [trashedSubscriptions]
   );
 
   return (
@@ -133,6 +141,37 @@ export function RecycleBinPage() {
                     <div className="row">
                       <button type="button" onClick={() => restoreAccount(item.id)}>恢复</button>
                       <button type="button" className="danger" onClick={() => permanentlyDeleteAccount(item.id)}>
+                        彻底删除
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="recycle-bin-block">
+            <div className="recycle-bin-block-header">
+              <h3>订阅</h3>
+              <span>{sortedSubscriptions.length} 个</span>
+            </div>
+            {sortedSubscriptions.length === 0 ? (
+              <p className="muted">暂无已删除订阅</p>
+            ) : (
+              <div className="recycle-bin-list">
+                {sortedSubscriptions.map((item) => (
+                  <article key={item.id} className="recycle-bin-item">
+                    <div>
+                      <strong>{item.name}</strong>
+                      <div className="recycle-bin-meta">
+                        <span>{formatCurrencyFixed2(Number(item.amount ?? 0))} {item.currency || 'CNY'}</span>
+                        <span>{item.provider || '未设置服务商'}</span>
+                        <span>删除于 {formatDateTime(item.trashedAt || item.updatedAt || new Date().toISOString())}</span>
+                      </div>
+                    </div>
+                    <div className="row">
+                      <button type="button" onClick={() => restoreSubscription(item.id)}>恢复</button>
+                      <button type="button" className="danger" onClick={() => permanentlyDeleteSubscription(item.id)}>
                         彻底删除
                       </button>
                     </div>
