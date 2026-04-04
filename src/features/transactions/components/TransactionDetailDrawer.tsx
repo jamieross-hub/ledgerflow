@@ -914,7 +914,12 @@ export function TransactionDetailDrawer({
           transaction &&
           transaction.adjustmentKind !== 'refund' &&
           transaction.adjustmentKind !== 'reversal' ? (
-            <button type="button" onClick={onRefund}>
+            <button
+              type="button"
+              className="drawer-refund-btn"
+              onClick={onRefund}
+              title="为这笔支出发起退款，并自动回补账户余额"
+            >
               ↩️ 发起退款
             </button>
           ) : null}

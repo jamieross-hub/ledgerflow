@@ -819,10 +819,22 @@ export function CategoriesAccountsPage() {
                           setAdjustAmounts((prev) => ({ ...prev, [item.id]: e.target.value }))
                         }
                       />
-                      <button type="button" onClick={() => moveAccount(item.id, -1)}>
+                      <button
+                        type="button"
+                        className="account-sort-btn"
+                        title="把这个账户往前排"
+                        aria-label={`上移账户 ${item.name}`}
+                        onClick={() => moveAccount(item.id, -1)}
+                      >
                         ↑ 上移
                       </button>
-                      <button type="button" onClick={() => moveAccount(item.id, 1)}>
+                      <button
+                        type="button"
+                        className="account-sort-btn"
+                        title="把这个账户往后排"
+                        aria-label={`下移账户 ${item.name}`}
+                        onClick={() => moveAccount(item.id, 1)}
+                      >
                         ↓ 下移
                       </button>
                       <button type="button" onClick={() => applySingleAdjustment(item.id)}>

@@ -2141,9 +2141,75 @@ tr:hover td {
     width: 100%;
   }
 
+  .transaction-pagination {
+    align-items: flex-start;
+  }
+
   .transaction-pagination-controls {
     justify-content: space-between;
     flex-wrap: wrap;
+  }
+
+  .transactions-current-bill-strip {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .transactions-current-bill-strip span {
+    width: 100%;
+    min-width: 0;
+    justify-content: space-between;
+    border-radius: 10px;
+  }
+
+  .transaction-pagination-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .transaction-page-size {
+    grid-column: 1 / -1;
+    justify-content: space-between;
+  }
+
+  .transaction-pagination-controls small {
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+
+  .transaction-pagination-controls button,
+  .transaction-page-size select {
+    width: 100%;
+  }
+
+  .transaction-mobile-main {
+    gap: 6px;
+  }
+
+  .transaction-mobile-main header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .transaction-amount-cell {
+    text-align: left;
+  }
+
+  .transaction-mobile-badges {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .transaction-mobile-main small {
+    line-height: 1.5;
+  }
+
+  .transaction-account-with-icon {
+    align-items: flex-start;
+    line-height: 1.4;
   }
 }
 
@@ -12618,4 +12684,31 @@ body.categories-accounts-resizing {
 
 .chat-semantic-drawer-card[open] summary strong::before {
   transform: rotate(90deg);
+}
+
+.drawer-refund-btn {
+  border: 1px solid color-mix(in srgb, var(--color-primary) 32%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary-bg) 72%, white 28%);
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.drawer-refund-btn:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 48%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary-bg) 84%, white 16%);
+}
+
+.account-sort-btn {
+  min-width: 88px;
+  min-height: 40px;
+  padding: 10px 14px;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .account-sort-btn {
+    min-width: 96px;
+    min-height: 44px;
+    padding: 12px 14px;
+  }
 }
