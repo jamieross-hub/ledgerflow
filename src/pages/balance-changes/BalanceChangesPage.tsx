@@ -16,6 +16,37 @@ function getTypeLabel(type: string) {
   return TYPE_LABELS[type] || type;
 }
 
+function getDirectionText(beforeBalance: number, afterBalance: number) {
+  if (afterBalance > beforeBalance) {
+    return '余额增加';
+  }
+  if (afterBalance < beforeBalance) {
+    return '余额减少';
+  }
+  return '余额无变化';
+}
+
+function getRelatedDescription(entry: {
+  type: string;
+  transactionSummary: string;
+  relatedTransactionId?: string;
+  relatedSummary: string;
+}) {
+  if (entry.type === 'transaction-refund' && entry.relatedTransactionId) {
+    return `退款回补，原单：${entry.relatedSummary}`;
+  }
+  if (entry.type === 'transaction-expense') {
+    return `支出记录：${entry.transactionSummary}`;
+  }
+  if (entry.type === 'transaction-income') {
+    return `收入记录：${entry.transactionSummary}`;
+  }
+  if (entry.type === 'manual-adjustment') {
+    return `手动调整：${entry.transactionSummary}`;
+  }
+  return entry.transactionSummary;
+}
+
 export function BalanceChangesPage() {
   const entries = useFinanceStore((s) => s.balanceChangeEntries);
   const accounts = useFinanceStore((s) => s.accounts);
@@ -93,7 +124,12 @@ export function BalanceChangesPage() {
                 <tr key={entry.id}>
                   <td>{formatDateTime(entry.createdAt)}</td>
                   <td>{entry.accountName}</td>
-                  <td>{getTypeLabel(entry.type)}</td>
+                  <td>
+                    <div className="balance-change-related">
+                      <span>{getTypeLabel(entry.type)}</span>
+                      <small>{getDirectionText(entry.beforeBalance, entry.afterBalance)}</small>
+                    </div>
+                  </td>
                   <td
                     className={
                       entry.afterBalance >= entry.beforeBalance
@@ -107,10 +143,8 @@ export function BalanceChangesPage() {
                   <td>{formatCurrencyFixed2(entry.afterBalance)}</td>
                   <td>
                     <div className="balance-change-related">
-                      <span>{entry.transactionSummary}</span>
-                      {entry.relatedTransactionId ? (
-                        <small>关联原单：{entry.relatedSummary}</small>
-                      ) : null}
+                      <span>{getRelatedDescription(entry)}</span>
+                      {entry.relatedTransactionId ? <small>关联原单：{entry.relatedSummary}</small> : null}
                     </div>
                   </td>
                   <td>

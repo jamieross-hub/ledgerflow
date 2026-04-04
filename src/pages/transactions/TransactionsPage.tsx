@@ -1622,8 +1622,8 @@ export function TransactionsPage() {
 
       showToast(
         refundResult.fullyRefunded
-          ? '退款已创建，原单已标记为已退款。'
-          : `退款已创建，剩余可退 ¥${refundResult.remainingRefundableAmount.toFixed(2)}。`,
+          ? `退款已成功创建，${pendingRefundRemainingAmount.toFixed(2)} 元已回补到原账户，原单已标记为已退款。`
+          : `退款已成功创建，${pendingRefundRemainingAmount.toFixed(2)} 元已回补到原账户，剩余可退 ¥${refundResult.remainingRefundableAmount.toFixed(2)}。`,
         'success'
       );
       setSelectedId(refundResult.refundTransactionId);
