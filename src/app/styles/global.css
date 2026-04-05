@@ -12304,7 +12304,7 @@ body.categories-accounts-resizing {
   justify-items: end;
   align-content: center;
   /* 确保右侧有足够宽度，避免金额和环比文案被裁切 */
-  width: 120px;
+  width: 150px;
   flex-shrink: 0;
 }
 
