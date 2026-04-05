@@ -1787,6 +1787,28 @@ export function AssistantPage() {
     submitPrompt(latestUser.text === '（仅发送附件）' ? '' : latestUser.text);
   };
 
+  const copyMessage = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      wb.setToastState('已复制到剪贴板', 'success');
+    } catch {
+      // 降级方案
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        wb.setToastState('已复制到剪贴板', 'success');
+      } catch {
+        wb.setToastState('复制失败，请手动复制', 'error');
+      }
+      document.body.removeChild(textarea);
+    }
+  };
+
   const todayLabel = new Intl.DateTimeFormat('zh-CN', {
     month: 'numeric',
     day: 'numeric',
@@ -2760,6 +2782,15 @@ export function AssistantPage() {
                     title="删除消息"
                   >
                     🗑️
+                  </button>
+                  <button
+                    type="button"
+                    className="chat-icon-action-btn"
+                    onClick={() => copyMessage(item.text)}
+                    aria-label="复制消息"
+                    title="复制消息"
+                  >
+                    📋
                   </button>
                   {item.role === 'user' ? (
                     <button
