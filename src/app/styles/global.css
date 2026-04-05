@@ -12303,8 +12303,8 @@ body.categories-accounts-resizing {
   gap: 4px;
   justify-items: end;
   align-content: center;
-  /* 确保右侧有足够宽度，避免金额和环比文案被裁切 */
-  width: 150px;
+  /* 确保右侧有足够宽度，避免金额和环比文案被裁切，同时保持灵活性 */
+  min-width: 120px;
   flex-shrink: 0;
 }
 
