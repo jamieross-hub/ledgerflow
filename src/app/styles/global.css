@@ -12303,12 +12303,18 @@ body.categories-accounts-resizing {
   gap: 4px;
   justify-items: end;
   align-content: center;
+  /* 确保右侧有足够宽度，避免金额和环比文案被裁切 */
+  width: 120px;
+  flex-shrink: 0;
 }
 
 .dashboard-donut-list-side strong,
 .dashboard-donut-list-side small {
   width: 100%;
   text-align: right;
+  /* 确保文字不换行，稳定右对齐 */
+  white-space: nowrap;
+  overflow: visible;
 }
 
 .dashboard-net-curve {
