@@ -1176,7 +1176,7 @@ button.danger:hover:not(:disabled) {
 .transactions-curve-row > div i {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #4f8cff, #6ad7b9);
+  background: linear-gradient(90deg, var(--color-primary), var(--color-success));
 }
 
 .transactions-split-resizing,
@@ -3019,9 +3019,9 @@ small.mono {
 }
 
 .dashboard-forecast-axis-x span.forecast {
-  color: #b26a00;
-  background: color-mix(in srgb, #ffcc66 18%, transparent);
-  border: 1px solid #f1c052;
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);
 }
 
 .dashboard-forecast-axis-x span.history {
@@ -3055,9 +3055,9 @@ small.mono {
 }
 
 .dashboard-forecast-key span.forecast {
-  color: #b26a00;
-  border-color: #f1c052;
-  background: color-mix(in srgb, #ffcc66 18%, transparent);
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+  background: var(--color-warning-bg);
 }
 
 .dashboard-forecast-legend {
@@ -3079,17 +3079,17 @@ small.mono {
 }
 
 .dashboard-forecast-legend span.forecast {
-  color: #b26a00;
-  border-color: #f1c052;
-  background: color-mix(in srgb, #ffcc66 18%, transparent);
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+  background: var(--color-warning-bg);
 }
 
 .dashboard-forecast-chart .history-line {
-  stroke: #b4b7bd;
+  stroke: var(--color-text-tertiary);
 }
 
 .dashboard-forecast-chart .forecast-line {
-  stroke: #f1b739;
+  stroke: var(--color-warning);
   stroke-dasharray: 6 6;
 }
 
@@ -10139,9 +10139,12 @@ body.categories-accounts-resizing {
 
 .smart-budget-trend-bars span {
   width: 100%;
-  min-height: 2px;
-  border-radius: 8px 8px 4px 4px;
+  min-height: 4px;
+  border-radius: 999px 999px 6px 6px;
   background: color-mix(in srgb, var(--color-primary) 70%, var(--color-bg-elevated));
+  transition:
+    height 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 180ms ease;
 }
 
 .smart-budget-anomaly-card ul {
@@ -12109,8 +12112,8 @@ body.categories-accounts-resizing {
 
 .dashboard-expense-trend-bar.is-peak .dashboard-expense-trend-track i,
 .dashboard-expense-trend-bar.is-active .dashboard-expense-trend-track i {
-  background: linear-gradient(180deg, #4f8cff 0%, #2563eb 100%);
-  box-shadow: 0 8px 18px color-mix(in srgb, #2563eb 22%, transparent);
+  background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--color-primary) 22%, transparent);
 }
 
 .dashboard-expense-trend-bar.is-active strong {
@@ -12343,7 +12346,7 @@ body.categories-accounts-resizing {
   display: inline-block;
   height: 10px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #6ad7b9, #4f8cff);
+  background: linear-gradient(90deg, var(--color-success), var(--color-primary));
   min-width: 8px;
   max-width: 100%;
   transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1), filter var(--transition-fast);
