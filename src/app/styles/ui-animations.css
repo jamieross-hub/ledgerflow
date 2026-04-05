@@ -1,0 +1,447 @@
+/* ============================================================
+   LedgerFlow — UI&动画优化规则实现
+   设计目标：稳重、清晰、低干扰
+   优先级：P0 - 核心操作反馈、金额展示规范、列表动效
+   ============================================================ */
+
+/* ============================================================
+   P0 - 核心操作反馈
+   交互反馈优先：按钮、删除、恢复、还款等操作都要有即时反馈
+   ============================================================ */
+
+/* 按钮交互优化 */
+button,
+.icon-btn {
+  position: relative;
+  overflow: visible;
+}
+
+/* 按钮点击涟漪效果 */
+button::after,
+.icon-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+button:active::after,
+.icon-btn:active::after {
+  animation: ripple 0.4s ease-out;
+}
+
+@keyframes ripple {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 0.5;
+  }
+  100% {
+    width: 200px;
+    height: 200px;
+    opacity: 0;
+  }
+}
+
+/* 按钮按压缩放反馈 */
+button:active:not(:disabled),
+.icon-btn:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 0.08s ease-out;
+}
+
+/* 危险操作特殊反馈 */
+button.danger:active:not(:disabled) {
+  animation: danger-pulse 0.3s ease-out;
+}
+
+@keyframes danger-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(234, 67, 53, 0);
+  }
+}
+
+/* 成功操作反馈 */
+.success-action {
+  animation: success-flash 0.5s ease-out;
+}
+
+@keyframes success-flash {
+  0%, 100% {
+    background: inherit;
+  }
+  50% {
+    background: color-mix(in srgb, var(--color-success-bg) 60%, var(--color-bg-elevated));
+  }
+}
+
+/* ============================================================
+   P0 - 金额展示规范
+   金额动效规范：统一正/负金额颜色，确保对比度
+   ============================================================ */
+
+/* 统一金额颜色样式 */
+.amount-income {
+  color: var(--color-income);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.amount-expense {
+  color: var(--color-expense);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.amount-neutral {
+  color: var(--color-text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 金额变更动效 - 稳重、低干扰 */
+.amount-change {
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+}
+
+.amount-change-up {
+  animation: amount-up 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.amount-change-down {
+  animation: amount-down 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes amount-up {
+  0% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-4px);
+    color: var(--color-success);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes amount-down {
+  0% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(4px);
+    color: var(--color-danger);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* 大金额数字强调（如余额卡片） */
+.balance-amount {
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.2s ease;
+}
+
+/* 确保金额在暗色模式下的对比度 */
+[data-theme='dark'] .amount-income {
+  color: var(--color-income);
+  text-shadow: 0 0 1px rgba(74, 222, 128, 0.2);
+}
+
+[data-theme='dark'] .amount-expense {
+  color: var(--color-expense);
+  text-shadow: 0 0 1px rgba(248, 113, 113, 0.2);
+}
+
+/* ============================================================
+   P0 - 列表类动效
+   列表类动效：新增、删除、拖拽重排都要有过渡
+   ============================================================ */
+
+/* 列表容器 */
+.list-container {
+  position: relative;
+}
+
+/* 新增记录淡入 */
+.list-item-enter {
+  animation: list-item-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: top center;
+}
+
+@keyframes list-item-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 删除记录淡出 */
+.list-item-exit {
+  animation: list-item-out 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform-origin: top center;
+}
+
+@keyframes list-item-out {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(20px) scale(0.96);
+  }
+}
+
+/* 拖拽时的样式 */
+.list-item-dragging {
+  opacity: 0.8;
+  transform: scale(1.02);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  cursor: grabbing;
+}
+
+/* 拖拽放置区域提示 */
+.drag-drop-indicator {
+  height: 4px;
+  background: linear-gradient(90deg, var(--color-primary), transparent);
+  border-radius: 2px;
+  margin: 4px 0;
+  animation: drag-indicator-pulse 1s ease-in-out infinite;
+}
+
+@keyframes drag-indicator-pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 列表项hover效果 - 稳重不夸张 */
+.list-item {
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.list-item:hover {
+  background: var(--color-bg-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ============================================================
+   P1 - 页面切换
+   页面切换：保持低干扰，只在切换时提供动效
+   ============================================================ */
+
+.page-enter {
+  animation: page-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.page-exit {
+  animation: page-out 0.25s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+
+@keyframes page-in {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes page-out {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+/* ============================================================
+   P1 -  Toast/提示
+   Toast提示：低干扰，不打断用户
+   ============================================================ */
+
+.toast-enter {
+  animation: toast-in 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.toast-exit {
+  animation: toast-out 0.3s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+
+@keyframes toast-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-out {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.95);
+  }
+}
+
+/* ============================================================
+   P2 - 响应式适配
+   响应式适配：移动端友好的交互
+   ============================================================ */
+
+@media (max-width: 640px) {
+  /* 移动端触摸反馈优化 */
+  button,
+  .list-item {
+    min-height: 44px; /* 确保触摸区域足够大 */
+  }
+  
+  /* 移动端列表动效更快速 */
+  .list-item-enter {
+    animation-duration: 0.28s;
+  }
+  
+  .list-item-exit {
+    animation-duration: 0.22s;
+  }
+  
+  /* 移动端金额显示稍小一点 */
+  .balance-amount {
+    font-size: var(--font-xl);
+  }
+}
+
+/* ============================================================
+   P2 - 深浅模式切换
+   深浅模式：平滑过渡
+   ============================================================ */
+
+/* 主题切换时的平滑过渡 */
+.theme-transition * {
+  transition:
+    background-color 0.4s ease,
+    color 0.4s ease,
+    border-color 0.4s ease,
+    box-shadow 0.4s ease;
+}
+
+/* 主题切换时禁用动画，避免双重动效 */
+.theme-transition-no-animation * {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* ============================================================
+   通用实用类
+   ============================================================ */
+
+/* 禁用所有动效（用于辅助功能） */
+.no-animations *,
+.no-animations *::before,
+.no-animations *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* 仅启用必要的动效（低配置设备） */
+.low-motion * {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* 尊重用户的减少动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   表面动效 - 卡片进入
+   ============================================================ */
+
+@keyframes surface-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+    box-shadow: none;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 覆盖原有的surface-rise，使其更稳重 */
+.panel {
+  animation: surface-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ============================================================
+   数字滚动效果（可选，用于金额变更）
+   ============================================================ */
+
+.number-scroll {
+  display: inline-flex;
+  overflow: hidden;
+  height: 1.2em;
+  line-height: 1.2;
+}
+
+.number-scroll-digit {
+  animation: digit-scroll 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes digit-scroll {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}

@@ -1,8 +1,9 @@
 /* LedgerFlow styles entry
-   Order matters: tokens -> global foundations -> page/domain styles */
+   Order matters: tokens -> global foundations -> page/domain styles -> animations */
 @import './tokens.css';
 @import './global.css';
 @import './pages.css';
 @import './balance-changes.css';
 @import './recycle-bin.css';
 @import './subscriptions.css';
+@import './ui-animations.css';

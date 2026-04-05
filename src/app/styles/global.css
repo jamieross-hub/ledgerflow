@@ -1766,15 +1766,15 @@ tr:hover td {
 }
 
 .transaction-type-badge-income {
-  color: #1f7a3f;
-  background: rgba(31, 122, 63, 0.12);
-  border-color: rgba(31, 122, 63, 0.32);
+  color: var(--color-income);
+  background: color-mix(in srgb, var(--color-income) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-income) 32%, transparent);
 }
 
 .transaction-type-badge-expense {
-  color: #9f2b2b;
-  background: rgba(159, 43, 43, 0.12);
-  border-color: rgba(159, 43, 43, 0.32);
+  color: var(--color-expense);
+  background: color-mix(in srgb, var(--color-expense) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-expense) 32%, transparent);
 }
 
 .transaction-type-badge-budget {
@@ -1821,11 +1821,11 @@ tr:hover td {
 }
 
 .transaction-amount-income {
-  color: #1f7a3f;
+  color: var(--color-income);
 }
 
 .transaction-amount-expense {
-  color: #9f2b2b;
+  color: var(--color-expense);
 }
 
 .transaction-empty-cell {
