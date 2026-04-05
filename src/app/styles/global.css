@@ -12224,7 +12224,7 @@ body.categories-accounts-resizing {
   background: var(--color-bg-elevated);
   padding: 12px 14px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) min-content;
   gap: 12px;
   align-items: center;
   text-align: left;
