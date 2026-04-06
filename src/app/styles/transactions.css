@@ -1,0 +1,909 @@
+/*
+ * Transactions 页面专属样式
+ * 从 global.css 迁移而来
+ */
+
+/* 交易页面基础布局 */
+.transactions-page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.transactions-header {
+  padding: 16px 16px 0;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.transactions-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.transactions-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.transactions-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.transactions-action-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--hover-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  font-size: 18px;
+}
+
+.transactions-action-btn:hover {
+  background: var(--border-color);
+}
+
+/* 筛选栏 */
+.transactions-filter-sticky-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 12px 16px;
+}
+
+/* 交易表格容器 */
+.transactions-table-wrap {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+/* 批量操作栏 */
+.transactions-bulk-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--primary-color-opacity-10);
+  border-bottom: 1px solid var(--primary-color-opacity-20);
+  flex-shrink: 0;
+}
+
+.transactions-bulk-info {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.transactions-bulk-info strong {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.transactions-bulk-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.transactions-bulk-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+}
+
+.transactions-bulk-btn.primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.transactions-bulk-btn.primary:hover {
+  background: var(--primary-color-dark);
+}
+
+.transactions-bulk-btn.secondary {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.transactions-bulk-btn.secondary:hover {
+  background: var(--border-color);
+}
+
+.transactions-bulk-btn.danger {
+  background: var(--danger-color-opacity-10);
+  color: var(--danger-color);
+}
+
+.transactions-bulk-btn.danger:hover {
+  background: var(--danger-color-opacity-20);
+}
+
+/* 交易表格 */
+.transactions-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--bg-primary);
+}
+
+.transactions-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg-primary);
+}
+
+.transactions-table th {
+  padding: 12px 8px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--border-color);
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.transactions-table th:hover {
+  background: var(--hover-bg);
+}
+
+.transactions-table th.sortable {
+  padding-right: 24px;
+  position: relative;
+}
+
+.transactions-table th.sortable::after {
+  content: '⇅';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.transactions-table th.sortable.asc::after {
+  content: '↑';
+  color: var(--primary-color);
+}
+
+.transactions-table th.sortable.desc::after {
+  content: '↓';
+  color: var(--primary-color);
+}
+
+.transactions-table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 14px;
+  color: var(--text-primary);
+  transition: background 0.2s ease;
+}
+
+.transactions-table tr:hover td {
+  background: var(--hover-bg);
+}
+
+.transactions-table tr.selected td {
+  background: var(--primary-color-opacity-10);
+}
+
+.transactions-table tr.highlighted td {
+  animation: transaction-highlight 1.5s ease;
+}
+
+/* 交易行样式 */
+.transaction-date {
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.transaction-type {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.transaction-type.income {
+  background: var(--success-color-opacity-10);
+  color: var(--success-color);
+}
+
+.transaction-type.expense {
+  background: var(--danger-color-opacity-10);
+  color: var(--danger-color);
+}
+
+.transaction-type.budget {
+  background: var(--warning-color-opacity-10);
+  color: var(--warning-color);
+}
+
+.transaction-type.repayment {
+  background: var(--info-color-opacity-10);
+  color: var(--info-color);
+}
+
+.transaction-status {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.transaction-status.pending {
+  background: var(--warning-color-opacity-10);
+  color: var(--warning-color);
+}
+
+.transaction-status.completed {
+  background: var(--success-color-opacity-10);
+  color: var(--success-color);
+}
+
+.transaction-status.refunded {
+  background: var(--info-color-opacity-10);
+  color: var(--info-color);
+}
+
+.transaction-status.closed {
+  background: var(--text-tertiary);
+  color: white;
+}
+
+.transaction-status.failed {
+  background: var(--danger-color-opacity-10);
+  color: var(--danger-color);
+}
+
+.transaction-category {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.transaction-category-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.transaction-category-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+
+.transaction-amount {
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.transaction-amount.income {
+  color: var(--success-color);
+}
+
+.transaction-amount.expense {
+  color: var(--danger-color);
+}
+
+.transaction-amount.budget {
+  color: var(--warning-color);
+}
+
+.transaction-amount.repayment {
+  color: var(--info-color);
+}
+
+.transaction-amount.positive {
+  color: var(--success-color);
+}
+
+.transaction-amount.negative {
+  color: var(--danger-color);
+}
+
+.transaction-merchant {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transaction-note {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.transaction-order-no {
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transaction-account {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 120px;
+  overflow: hidden;
+}
+
+.transaction-account-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.transaction-account-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transaction-attachment-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: var(--info-color-opacity-10);
+  color: var(--info-color);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.transaction-attachment-indicator:hover {
+  background: var(--info-color-opacity-20);
+}
+
+.transaction-attachment-indicator.is-compact {
+  padding: 0;
+  background: transparent;
+  font-size: 16px;
+}
+
+.transaction-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.transactions-table tr:hover .transaction-actions {
+  opacity: 1;
+}
+
+.transaction-action-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: var(--hover-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  font-size: 14px;
+}
+
+.transaction-action-btn:hover {
+  background: var(--border-color);
+}
+
+/* 选择框 */
+.transaction-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--primary-color);
+}
+
+/* 分页 */
+.transactions-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.transactions-pagination-info {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.transactions-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.transactions-pagination-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--hover-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border: none;
+  outline: none;
+}
+
+.transactions-pagination-btn:hover:not(:disabled) {
+  background: var(--border-color);
+}
+
+.transactions-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.transactions-pagination-btn.active {
+  background: var(--primary-color);
+  color: white;
+}
+
+.transactions-pagination-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.transactions-pagination-size select {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+/* 侧边面板 */
+.transactions-split-side {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 400px;
+  height: 100vh;
+  background: var(--bg-primary);
+  border-left: 1px solid var(--border-color);
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  animation: slide-in-right 0.3s ease;
+}
+
+.transactions-split-side-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.transactions-split-side-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.transactions-split-side-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--hover-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  font-size: 18px;
+}
+
+.transactions-split-side-close:hover {
+  background: var(--border-color);
+}
+
+.transactions-split-side-content {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+}
+
+/* 快速添加抽屉 */
+.quick-add-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fade-in 0.2s ease;
+}
+
+.quick-add-drawer {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: slide-up 0.3s ease;
+}
+
+.quick-add-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.quick-add-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.quick-add-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--hover-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  font-size: 18px;
+}
+
+.quick-add-close:hover {
+  background: var(--border-color);
+}
+
+.quick-add-content {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+}
+
+.quick-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.quick-add-footer {
+  padding: 20px;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+/* 分享对话框 */
+.share-dialog {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: slide-up 0.3s ease;
+}
+
+.share-dialog-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.share-dialog-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.share-dialog-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.share-dialog-content {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+}
+
+.share-template-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.share-template-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 2px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.share-template-option:hover {
+  border-color: var(--primary-color-opacity-50);
+  background: var(--hover-bg);
+}
+
+.share-template-option.selected {
+  border-color: var(--primary-color);
+  background: var(--primary-color-opacity-10);
+}
+
+.share-template-radio {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.share-template-option.selected .share-template-radio {
+  border-color: var(--primary-color);
+  background: var(--primary-color);
+}
+
+.share-template-option.selected .share-template-radio::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+}
+
+.share-template-info {
+  flex: 1;
+}
+
+.share-template-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.share-template-description {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.share-field-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.share-field-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  cursor: pointer;
+}
+
+.share-field-checkbox {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--primary-color);
+  cursor: pointer;
+}
+
+.share-field-label {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.share-preview {
+  background: var(--hover-bg);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.share-preview-title {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.share-preview-content {
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow: auto;
+}
+
+.share-dialog-footer {
+  padding: 20px;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+/* 动画 */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes transaction-highlight {
+  0% {
+    background: var(--primary-color-opacity-20);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* 响应式适配 */
+@media (max-width: 768px) {
+  .transactions-page {
+    height: calc(100vh - var(--mobile-nav-height));
+  }
+  
+  .transactions-header {
+    padding: 12px 12px 0;
+  }
+  
+  .transactions-filter-sticky-wrap {
+    padding: 12px;
+  }
+  
+  .transactions-bulk-actions {
+    padding: 12px;
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .transactions-bulk-buttons {
+    justify-content: space-between;
+  }
+  
+  .transactions-split-side {
+    width: 100%;
+    height: calc(100vh - var(--mobile-nav-height));
+  }
+  
+  .quick-add-drawer,
+  .share-dialog {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+  }
+  
+  .transactions-pagination {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .transactions-pagination-controls {
+    justify-content: center;
+  }
+  
+  .transactions-pagination-size {
+    justify-content: center;
+  }
+  
+  .transaction-actions {
+    opacity: 1;
+  }
+}
