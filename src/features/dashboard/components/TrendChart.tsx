@@ -15,7 +15,7 @@ export interface TrendChartProps {
   onTrendMonthOffsetChange: (offset: number) => void;
   onSelectedTrendIndexChange: (index: number | null) => void;
   onNavigateToTransactions: (dateFrom: string, dateTo: string) => void;
-  trendBarHeight: (value: number) => number;
+  trendBarHeight: (value: number) => string;
 }
 
 export function TrendChart({
