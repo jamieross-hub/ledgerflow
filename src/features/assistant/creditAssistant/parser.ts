@@ -314,9 +314,9 @@ export function renderFieldMetaTag(meta?: CreditFieldMeta): ReactNode {
 /* ------------------------------------------------------------------ */
 
 export function renderCreditField(
-  label: string,
-  value: string | undefined,
-  meta?: CreditFieldMeta
+  _label: string,
+  _value: string | undefined,
+  _meta?: CreditFieldMeta
 ): ReactNode {
-  return { label, value, meta };
+  return null;
 }

@@ -98,3 +98,11 @@ export function getConstellationLabel(month: number, day: number): string {
   ];
   return day < edgeDays[month] ? names[month] : names[month + 1];
 }
+
+export interface TrendSeriesItem {
+  label: string;
+  shortLabel: string;
+  value: number;
+  dateFrom: string;
+  dateTo: string;
+}

@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next';
-import type { TransactionQuickFilters } from './TransactionTable';
 
 export interface BulkActionsBarProps {
   selectedCount: number;

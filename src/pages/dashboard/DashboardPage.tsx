@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { TrendChart } from '../features/dashboard/components/TrendChart';
-import { CategoryBreakdownChart } from '../features/dashboard/components/CategoryBreakdownChart';
+import { TrendChart } from '../../features/dashboard/components/TrendChart';
+import { CategoryBreakdownChart } from '../../features/dashboard/components/CategoryBreakdownChart';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
@@ -858,8 +858,6 @@ export function DashboardPage() {
         ? trendPeakIndex
         : 0;
 
-  const activeTrendItem = trendSeries[activeTrendIndex] || null;
-
   const trendMaxValue = useMemo(
     () => Math.max(...trendSeries.map((item) => item.value), 1),
     [trendSeries]
@@ -876,8 +874,6 @@ export function DashboardPage() {
     if (!trendSeries.length) return 0;
     return trendSeries.reduce((sum, item) => sum + item.value, 0) / trendSeries.length;
   }, [trendSeries]);
-
-  const budgetWarningLine = expenseTrendAverage * 1.12;
 
   const netAssetCurve = useMemo(() => {
     const balances = recentMonths.map((item) => item.balance);
@@ -1262,7 +1258,7 @@ export function DashboardPage() {
                   onTrendGranularityChange={setTrendGranularity}
                   onTrendMonthOffsetChange={setTrendMonthOffset}
                   onSelectedTrendIndexChange={setSelectedTrendIndex}
-                  onNavigateToTransactions={(dateFrom, dateTo) =>
+                  onNavigateToTransactions={(dateFrom: string, dateTo: string) =>
                     navigate(`/transactions?datePreset=custom&dateFrom=${dateFrom}&dateTo=${dateTo}`)
                   }
                   trendBarHeight={trendBarHeight}
