@@ -2353,6 +2353,60 @@ small.mono {
   filter: drop-shadow(0 10px 24px color-mix(in srgb, var(--color-primary) 18%, transparent));
 }
 
+/* ── Welcome banner collapsed / expanded states ── */
+.welcome-banner.is-collapsed {
+  padding: clamp(12px, 2vw, 18px) var(--space-5);
+}
+
+.welcome-banner.is-collapsed .welcome-content--compact {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.welcome-banner.is-collapsed .welcome-highlight-grid {
+  width: auto;
+  grid-template-columns: repeat(2, auto);
+  gap: 6px 16px;
+}
+
+.welcome-banner.is-collapsed .welcome-highlight-grid article {
+  padding: 6px 10px;
+}
+
+.welcome-banner.is-collapsed .welcome-highlight-grid strong {
+  font-size: clamp(14px, 1.6vw, 18px);
+}
+
+.welcome-banner.is-collapsed .welcome-actions button {
+  min-width: auto;
+  padding: 6px 14px;
+  font-size: var(--font-sm);
+}
+
+.welcome-toggle-btn {
+  position: absolute;
+  bottom: 4px;
+  right: var(--space-3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  opacity: 0.5;
+  padding: 2px 6px;
+  line-height: 1;
+  transition: opacity var(--transition-fast);
+}
+
+.welcome-toggle-btn:hover {
+  opacity: 1;
+}
+
 .dashboard-getting-started {
   border-color: var(--color-primary-border);
 }
