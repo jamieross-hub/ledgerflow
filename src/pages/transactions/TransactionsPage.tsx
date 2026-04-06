@@ -35,6 +35,8 @@ import {
   exportTransactionsPdf,
   type BulkPrintTemplate
 } from '../../features/transactions/model/exportTransactionsPdf';
+import { evaluateCalculatorExpression } from '../../features/transactions/model/calculator';
+import { buildPieGradient } from '../../features/transactions/model/chartUtils';
 import {
   resolveDateRange,
   useTransactionFilters
@@ -77,106 +79,6 @@ function easeOutCubic(t: number) {
   return 1 - (1 - p) ** 3;
 }
 
-function buildPieGradient(
-  segments: Array<{ color: string; percent: number }>,
-  minPercent = 0
-): string {
-  const normalized = segments
-    .map((item) => ({
-      color: item.color,
-      percent: Number.isFinite(item.percent) ? Math.max(0, item.percent) : 0
-    }))
-    .filter((item) => item.percent > minPercent);
-
-  const total = normalized.reduce((sum, item) => sum + item.percent, 0);
-  if (!Number.isFinite(total) || total <= 0) {
-    return 'none';
-  }
-
-  let cursor = 0;
-  const gradientSegments = normalized.map((item) => {
-    const normalizedPercent = (item.percent / total) * 100;
-    const start = cursor;
-    cursor += normalizedPercent;
-    return `${item.color} ${start}% ${Math.min(100, cursor)}%`;
-  });
-
-  return gradientSegments.length ? `conic-gradient(${gradientSegments.join(',')})` : 'none';
-}
-
-const CALCULATOR_ALLOWED_FUNCS = new Set([
-  'sin',
-  'cos',
-  'tan',
-  'asin',
-  'acos',
-  'atan',
-  'sqrt',
-  'log',
-  'ln',
-  'abs',
-  'floor',
-  'ceil',
-  'round',
-  'pow',
-  'PI',
-  'E'
-]);
-
-function evaluateCalculatorExpression(rawExpression: string): number | null {
-  const normalized = rawExpression.trim();
-  if (!normalized) {
-    return null;
-  }
-
-  const canonical = normalized
-    .replace(/[×xX]/g, '*')
-    .replace(/÷/g, '/')
-    .replace(/，/g, ',')
-    .replace(/π/gi, 'PI')
-    .replace(/\bpi\b/gi, 'PI')
-    .replace(/\blog\(/gi, 'Math.log10(')
-    .replace(/\bln\(/gi, 'Math.log(')
-    .replace(/\bsin\(/gi, 'Math.sin(')
-    .replace(/\bcos\(/gi, 'Math.cos(')
-    .replace(/\btan\(/gi, 'Math.tan(')
-    .replace(/\basin\(/gi, 'Math.asin(')
-    .replace(/\bacos\(/gi, 'Math.acos(')
-    .replace(/\batan\(/gi, 'Math.atan(')
-    .replace(/\bsqrt\(/gi, 'Math.sqrt(')
-    .replace(/\babs\(/gi, 'Math.abs(')
-    .replace(/\bfloor\(/gi, 'Math.floor(')
-    .replace(/\bceil\(/gi, 'Math.ceil(')
-    .replace(/\bround\(/gi, 'Math.round(')
-    .replace(/\bpow\(/gi, 'Math.pow(')
-    .replace(/\bE\b/g, 'Math.E')
-    .replace(/\bPI\b/g, 'Math.PI')
-    .replace(/\^/g, '**');
-
-  if (!/^[0-9+\-*/%().,\sA-Za-z]*$/.test(canonical)) {
-    return null;
-  }
-
-  const words = canonical.match(/[A-Za-z_]+/g) || [];
-  const isSafe = words.every((word) =>
-    ['Math', ...Array.from(CALCULATOR_ALLOWED_FUNCS)].some(
-      (allowed) => allowed.toLowerCase() === word.toLowerCase()
-    )
-  );
-  if (!isSafe) {
-    return null;
-  }
-
-  try {
-    const result = Function(`"use strict"; return (${canonical});`)() as number;
-    if (!Number.isFinite(result)) {
-      return null;
-    }
-    return Math.round(result * 1000000) / 1000000;
-  } catch {
-    return null;
-  }
-}
 
 function escapeHtml(value: string) {
   return value
