@@ -1,0 +1,521 @@
+/*
+ * Finance 页面专属样式
+ * 从 global.css 迁移而来
+ */
+
+/* Finance 页面基础布局 */
+.finance-page {
+  padding: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.finance-page-header {
+  margin-bottom: 24px;
+}
+
+.finance-page-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.finance-page-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.finance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* 卡片通用样式 */
+.finance-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.finance-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--card-hover-shadow);
+}
+
+.finance-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.finance-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.finance-card-action {
+  font-size: 14px;
+  color: var(--primary-color);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+
+.finance-card-action:hover {
+  background: var(--primary-color-opacity-10);
+}
+
+/* 概览统计卡片 */
+.finance-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.finance-overview-metric-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--card-shadow);
+}
+
+.finance-overview-metric-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  line-height: 1;
+}
+
+.finance-overview-metric-value.positive {
+  color: var(--success-color);
+}
+
+.finance-overview-metric-value.negative {
+  color: var(--danger-color);
+}
+
+.finance-overview-metric-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.finance-overview-metric-trend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.finance-overview-metric-trend.positive {
+  color: var(--success-color);
+}
+
+.finance-overview-metric-trend.negative {
+  color: var(--danger-color);
+}
+
+/* 健康度卡片 */
+.finance-overview-health-card {
+  background: linear-gradient(135deg, var(--primary-color-opacity-10) 0%, var(--primary-color-opacity-20) 100%);
+  border: 1px solid var(--primary-color-opacity-30);
+}
+
+.finance-health-score {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.finance-health-score-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: conic-gradient(var(--primary-color) var(--score, 0%), var(--border-color) var(--score, 0%));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.finance-health-score-circle::after {
+  content: '';
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--card-bg);
+}
+
+.finance-health-score-value {
+  position: relative;
+  z-index: 1;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.finance-health-info {
+  flex: 1;
+}
+
+.finance-health-level {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.finance-health-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.finance-health-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.finance-health-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.finance-health-detail-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.finance-health-detail-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* 债务管理 */
+.finance-debt-form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.finance-debt-form-row-primary {
+  grid-template-columns: 2fr 1fr 1fr;
+}
+
+@media (max-width: 768px) {
+  .finance-debt-form-row-primary {
+    grid-template-columns: 1fr;
+  }
+}
+
+.finance-unit-input {
+  position: relative;
+}
+
+.finance-unit-input input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.finance-unit-input input:focus {
+  border-color: var(--primary-color);
+}
+
+.finance-unit-input.is-disabled input {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.finance-unit-input.is-filled input {
+  border-color: var(--success-color);
+}
+
+.finance-unit-input label {
+  position: absolute;
+  top: -6px;
+  left: 10px;
+  background: var(--bg-primary);
+  padding: 0 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* 债务卡片 */
+.finance-ledger-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--card-shadow);
+  border-left: 4px solid var(--primary-color);
+  transition: transform 0.2s ease;
+}
+
+.finance-ledger-card:hover {
+  transform: translateX(4px);
+}
+
+.finance-ledger-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.finance-ledger-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.finance-ledger-card-status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.finance-ledger-card-status.active {
+  background: var(--success-color-opacity-10);
+  color: var(--success-color);
+}
+
+.finance-ledger-card-status.paid {
+  background: var(--info-color-opacity-10);
+  color: var(--info-color);
+}
+
+.finance-ledger-card-status.overdue {
+  background: var(--danger-color-opacity-10);
+  color: var(--danger-color);
+}
+
+.finance-ledger-card-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.finance-ledger-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.finance-ledger-meta-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.finance-ledger-meta-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.finance-ledger-meta-value.positive {
+  color: var(--success-color);
+}
+
+.finance-ledger-meta-value.negative {
+  color: var(--danger-color);
+}
+
+.finance-ledger-card-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* 策略卡片 */
+.finance-strategy-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--card-shadow);
+  border-left: 4px solid var(--warning-color);
+}
+
+.finance-strategy-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.finance-strategy-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.finance-strategy-card-saving {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--success-color);
+}
+
+.finance-strategy-card-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.finance-strategy-card-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.finance-strategy-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.finance-strategy-detail-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.finance-strategy-detail-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 风险标签卡片 */
+.finance-risk-tag-card {
+  background: var(--card-bg);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  border-left: 3px solid transparent;
+}
+
+.finance-risk-tag-card.finance-risk-tag-warning {
+  border-left-color: var(--warning-color);
+  background: var(--warning-color-opacity-10);
+}
+
+.finance-risk-tag-card.finance-risk-tag-danger {
+  border-left-color: var(--danger-color);
+  background: var(--danger-color-opacity-10);
+}
+
+.finance-risk-tag-card.finance-risk-tag-info {
+  border-left-color: var(--info-color);
+  background: var(--info-color-opacity-10);
+}
+
+.finance-risk-tag-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.finance-risk-tag-description {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* 表单输入样式 */
+.finance-form-inline-manual {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: var(--hover-bg);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.finance-form-inline-manual input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.finance-form-inline-manual input:focus {
+  border-color: var(--primary-color);
+}
+
+.finance-form-inline-manual button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.finance-form-inline-manual button:hover {
+  background: var(--primary-color-dark);
+}
+
+/* 折叠面板 */
+.finance-collapsible {
+  background: var(--card-bg);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.finance-collapsible-summary {
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 500;
+  color: var(--text-primary);
+  user-select: none;
+  transition: background 0.2s ease;
+}

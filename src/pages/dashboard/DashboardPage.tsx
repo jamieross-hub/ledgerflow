@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { TrendChart } from '../features/dashboard/components/TrendChart';
+import { CategoryBreakdownChart } from '../features/dashboard/components/CategoryBreakdownChart';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
@@ -1248,195 +1250,31 @@ export function DashboardPage() {
           if (moduleId === 'dynamic-charts') {
             return (
               <section key={moduleId} className="dashboard-dynamic-grid">
-                <article className="panel dashboard-unified-card" style={{ margin: 0 }}>
-                  <div className="dashboard-section-header">
-                    <h4>支出趋势（单轴柱状图）</h4>
-                    <div className="dashboard-trend-header-actions">
-                      {trendGranularity === 'week' ? (
-                        <div className="dashboard-trend-month-switcher">
-                          <button type="button" onClick={() => setTrendMonthOffset((prev) => prev - 1)}>
-                            上月
-                          </button>
-                          <strong>{trendBaseYear}年{trendBaseMonth + 1}月</strong>
-                          <button
-                            type="button"
-                            onClick={() => setTrendMonthOffset((prev) => Math.min(prev + 1, 0))}
-                            disabled={trendMonthOffset >= 0}
-                          >
-                            下月
-                          </button>
-                        </div>
-                      ) : null}
-                    <div className="dashboard-segment-control">
-                      <button
-                        type="button"
-                        className={trendGranularity === 'week' ? 'active' : ''}
-                        onClick={() => setTrendGranularity('week')}
-                      >
-                        日
-                      </button>
-                      <button
-                        type="button"
-                        className={trendGranularity === 'month' ? 'active' : ''}
-                        onClick={() => setTrendGranularity('month')}
-                      >
-                        月
-                      </button>
-                      <button
-                        type="button"
-                        className={trendGranularity === 'year' ? 'active' : ''}
-                        onClick={() => setTrendGranularity('year')}
-                      >
-                        年
-                      </button>
-                    </div>
-                    </div>
-                  </div>
-                  {activeTrendItem ? (
-                    <div className="dashboard-expense-trend-card">
-                      <div className="dashboard-expense-trend-tooltip">
-                        <span>{activeTrendItem.label}</span>
-                        <strong>{formatCurrency(activeTrendItem.value)}</strong>
-                        <em>
-                          {activeTrendIndex === trendPeakIndex
-                            ? '峰值支出'
-                            : activeTrendItem.value > budgetWarningLine
-                              ? '高于均值预警'
-                              : '日常区间'}
-                        </em>
-                      </div>
-                      <div className="dashboard-expense-trend-chart" role="list" aria-label="支出趋势柱状图">
-                        {trendSeries.map((item, index) => {
-                          const isActive = index === activeTrendIndex;
-                          const isPeak = index === trendPeakIndex;
-                          return (
-                            <button
-                              key={`${item.label}-${index}`}
-                              type="button"
-                              role="listitem"
-                              className={`dashboard-expense-trend-bar ${isActive ? 'is-active' : ''} ${
-                                isPeak ? 'is-peak' : ''
-                              }`.trim()}
-                              onMouseEnter={() => setSelectedTrendIndex(index)}
-                              onFocus={() => setSelectedTrendIndex(index)}
-                              onClick={() =>
-                                navigate(
-                                  `/transactions?datePreset=custom&dateFrom=${item.dateFrom}&dateTo=${item.dateTo}`
-                                )
-                              }
-                              title={`${item.label} 支出 ${formatCurrency(item.value)}`}
-                            >
-                              <span className="dashboard-expense-trend-track" aria-hidden="true">
-                                <i style={{ height: trendBarHeight(item.value) }} />
-                              </span>
-                              <strong>{item.shortLabel}</strong>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="dashboard-expense-trend-footnote">
-                        <span>均值 {formatCurrency(expenseTrendAverage)}</span>
-                        <span>点击柱子可查看对应流水</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="muted">暂无可视化数据</p>
-                  )}
-                </article>
-                <article className="panel dashboard-unified-card" style={{ margin: 0 }}>
-                  <div className="dashboard-section-header dashboard-section-header-tight">
-                    <h4>分类结构</h4>
-                    <div className="dashboard-segment-control">
-                      <button
-                        type="button"
-                        className={cashflowView === 'expense' ? 'active' : ''}
-                        onClick={() => setCashflowView('expense')}
-                      >
-                        支出结构
-                      </button>
-                      <button
-                        type="button"
-                        className={cashflowView === 'income' ? 'active' : ''}
-                        onClick={() => setCashflowView('income')}
-                      >
-                        收入结构
-                      </button>
-                      <button
-                        type="button"
-                        className={cashflowView === 'net' ? 'active' : ''}
-                        onClick={() => setCashflowView('net')}
-                      >
-                        收支结构
-                      </button>
-                    </div>
-                  </div>
-                  {activeCategoryItem ? (
-                    <div className="dashboard-donut-layout">
-                      <div className="dashboard-donut-wrap" aria-label="分类占比环形图">
-                        <svg viewBox="0 0 220 220" className="dashboard-donut-chart" role="img">
-                          <circle cx="110" cy="110" r="76" className="dashboard-donut-base" />
-                          {donutChart.map((segment) => (
-                            <circle
-                              key={segment.name}
-                              cx="110"
-                              cy="110"
-                              r={segment.radius}
-                              className={`dashboard-donut-segment ${
-                                activeCategoryItem.name === segment.name ? 'is-active' : ''
-                              }`.trim()}
-                              stroke={segment.ringColor}
-                              strokeDasharray={segment.dasharray}
-                              strokeDashoffset={segment.dashoffset}
-                              onMouseEnter={() => setSelectedCategoryName(segment.name)}
-                            />
-                          ))}
-                        </svg>
-                        <div className="dashboard-donut-center" title={activeCategoryItem.name}>
-                          <span>{activeCategoryItem.icon} {activeCategoryItem.name}</span>
-                          <strong>{formatCurrency(activeCategoryItem.amount)}</strong>
-                          <em>{activeCategoryItem.percent.toFixed(1)}%</em>
-                        </div>
-                      </div>
-                      <div className="dashboard-donut-list" role="list" aria-label="分类联动列表">
-                        {cashflowCategoryRows.map((item) => {
-                          const isActive = activeCategoryItem.name === item.name;
-                          return (
-                            <button
-                              key={item.name}
-                              type="button"
-                              role="listitem"
-                              className={`dashboard-donut-list-item ${isActive ? 'is-active' : ''}`}
-                              onMouseEnter={() => setSelectedCategoryName(item.name)}
-                              onFocus={() => setSelectedCategoryName(item.name)}
-                              onClick={() => setSelectedCategoryName(item.name)}
-                            >
-                              <span className="dashboard-donut-list-icon">{item.icon}</span>
-                              <div className="dashboard-donut-list-main">
-                                <header>
-                                  <strong title={item.name}>{item.name}</strong>
-                                  <span>{item.percent.toFixed(1)}%</span>
-                                </header>
-                                <div className="dashboard-donut-list-track">
-                                  <i style={{ width: `${item.percent}%`, background: item.ringColor }} />
-                                </div>
-                              </div>
-                              <div className="dashboard-donut-list-side">
-                                <strong>{formatCurrency(item.amount)}</strong>
-                                <small>
-                                  {item.diffRate === null
-                                    ? '环比 —'
-                                    : `环比 ${item.diffRate >= 0 ? '↑' : '↓'}${Math.abs(item.diffRate).toFixed(1)}%`}
-                                </small>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="muted">暂无可视化数据</p>
-                  )}
-                </article>
+                <TrendChart
+                  trendSeries={trendSeries}
+                  activeTrendIndex={activeTrendIndex}
+                  trendPeakIndex={trendPeakIndex}
+                  trendGranularity={trendGranularity}
+                  trendBaseYear={trendBaseYear}
+                  trendBaseMonth={trendBaseMonth}
+                  expenseTrendAverage={expenseTrendAverage}
+                  trendMonthOffset={trendMonthOffset}
+                  onTrendGranularityChange={setTrendGranularity}
+                  onTrendMonthOffsetChange={setTrendMonthOffset}
+                  onSelectedTrendIndexChange={setSelectedTrendIndex}
+                  onNavigateToTransactions={(dateFrom, dateTo) =>
+                    navigate(`/transactions?datePreset=custom&dateFrom=${dateFrom}&dateTo=${dateTo}`)
+                  }
+                  trendBarHeight={trendBarHeight}
+                />
+                <CategoryBreakdownChart
+                  cashflowView={cashflowView}
+                  activeCategoryItem={activeCategoryItem}
+                  donutChart={donutChart}
+                  cashflowCategoryRows={cashflowCategoryRows}
+                  onCashflowViewChange={setCashflowView}
+                  onSelectedCategoryNameChange={setSelectedCategoryName}
+                />
                 <article className="panel dashboard-unified-card" style={{ margin: 0 }}>
                   <div className="dashboard-section-header dashboard-section-header-tight">
                     <h4>累计净资产曲线（含每月Δ）</h4>

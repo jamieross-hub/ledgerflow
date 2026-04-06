@@ -276,6 +276,8 @@ interface TransactionTableProps {
   maxAvailableDate?: string;
 }
 
+import { BulkActionsBar } from './BulkActionsBar';
+
 export function TransactionTable({
   rows,
   total,
@@ -577,113 +579,24 @@ export function TransactionTable({
       ) : (
         <>
           {bulkSelectionEnabled && selectedIds.length > 0 ? (
-            <div className="transaction-bulk-bar">
-              <strong>已选中 {selectedIds.length} 条</strong>
-              <div className="row transaction-bulk-actions">
-                <label className="transaction-bulk-select">
-                  <span>批量分类</span>
-                  <select
-                    defaultValue=""
-                    onChange={(event) => {
-                      if (!event.target.value) return;
-                      onBulkEditCategory(event.target.value);
-                      event.target.value = '';
-                    }}
-                  >
-                    <option value="">选择分类</option>
-                    {categoryOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button type="button" onClick={onBulkAiRecategorize}>
-                  {bulkAiRecategorizing ? '⏹ 停止 AI 重分类' : '🤖 AI 重分类'}
-                </button>
-                <label className="transaction-bulk-select">
-                  <span>批量账户</span>
-                  <select
-                    defaultValue=""
-                    onChange={(event) => {
-                      if (!event.target.value) return;
-                      onBulkEditAccount(event.target.value);
-                      event.target.value = '';
-                    }}
-                  >
-                    <option value="">选择账户</option>
-                    {accountOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="transaction-bulk-select">
-                  <span>模板</span>
-                  <select
-                    value={bulkPrintTemplate}
-                    onChange={(event) =>
-                      onBulkPrintTemplateChange?.(event.target.value === 'summary' ? 'summary' : 'full')
-                    }
-                  >
-                    <option value="full">完整</option>
-                    <option value="summary">摘要</option>
-                  </select>
-                </label>
-                <label className="transaction-bulk-select">
-                  <span>字段</span>
-                  <select
-                    value="custom"
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      if (next === 'full') {
-                        onBulkPrintFieldsChange?.({ includeAccount: true, includeNote: true, includeOrderNo: true, includeTags: true });
-                      } else if (next === 'compact') {
-                        onBulkPrintFieldsChange?.({ includeAccount: false, includeNote: false, includeOrderNo: false, includeTags: false });
-                      }
-                      event.target.value = 'custom';
-                    }}
-                  >
-                    <option value="custom">自定义字段</option>
-                    <option value="full">全字段</option>
-                    <option value="compact">最简字段</option>
-                  </select>
-                </label>
-                <label className="transaction-bulk-select" style={{ gap: 6 }}>
-                  <span>账户</span>
-                  <input type="checkbox" checked={bulkPrintFields.includeAccount} onChange={(e) => onBulkPrintFieldsChange?.({ ...bulkPrintFields, includeAccount: e.target.checked })} />
-                </label>
-                <label className="transaction-bulk-select" style={{ gap: 6 }}>
-                  <span>备注</span>
-                  <input type="checkbox" checked={bulkPrintFields.includeNote} onChange={(e) => onBulkPrintFieldsChange?.({ ...bulkPrintFields, includeNote: e.target.checked })} />
-                </label>
-                <label className="transaction-bulk-select" style={{ gap: 6 }}>
-                  <span>订单号</span>
-                  <input type="checkbox" checked={bulkPrintFields.includeOrderNo} onChange={(e) => onBulkPrintFieldsChange?.({ ...bulkPrintFields, includeOrderNo: e.target.checked })} />
-                </label>
-                <label className="transaction-bulk-select" style={{ gap: 6 }}>
-                  <span>标签</span>
-                  <input type="checkbox" checked={bulkPrintFields.includeTags} onChange={(e) => onBulkPrintFieldsChange?.({ ...bulkPrintFields, includeTags: e.target.checked })} />
-                </label>
-                <button type="button" onClick={() => onBulkPrintA4?.()}>
-                  🖨️ 打印 A4
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onBulkExportPdf?.()}
-                  disabled={bulkExportingPdf}
-                >
-                  {bulkExportingPdf ? '⏳ 正在导出 PDF…' : '📄 导出 PDF'}
-                </button>
-                <button type="button" onClick={onDeleteSelected} className="danger">
-                  批量删除
-                </button>
-                <button type="button" onClick={onClearSelection}>
-                  取消选择
-                </button>
-              </div>
-            </div>
+            <BulkActionsBar
+              selectedCount={selectedIds.length}
+              categoryOptions={categoryOptions}
+              accountOptions={accountOptions}
+              bulkAiRecategorizing={bulkAiRecategorizing}
+              bulkExportingPdf={bulkExportingPdf}
+              bulkPrintTemplate={bulkPrintTemplate}
+              bulkPrintFields={bulkPrintFields}
+              onBulkEditCategory={onBulkEditCategory}
+              onBulkAiRecategorize={onBulkAiRecategorize}
+              onBulkEditAccount={onBulkEditAccount}
+              onBulkPrintA4={onBulkPrintA4}
+              onBulkExportPdf={onBulkExportPdf}
+              onBulkPrintTemplateChange={onBulkPrintTemplateChange}
+              onBulkPrintFieldsChange={onBulkPrintFieldsChange}
+              onDeleteSelected={onDeleteSelected}
+              onClearSelection={onClearSelection}
+            />
           ) : null}
 
           {rows.length > 0 && showTaskSummary ? (
