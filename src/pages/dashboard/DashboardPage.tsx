@@ -88,35 +88,38 @@ function saveForecastCache(payload: ForecastPayload, updatedAt: string) {
 }
 
 export function DashboardPage() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const transactions = useFinanceStore((s) => s.transactions);
-  const accounts = useFinanceStore((s) => s.accounts);
-  const categories = useFinanceStore((s) => s.categories);
-  const subscriptions = useFinanceStore((s) => s.subscriptions);
+ const { t } = useTranslation();
+ const navigate = useNavigate();
+ const transactions = useFinanceStore((s) => s.transactions);
+ const accounts = useFinanceStore((s) => s.accounts);
+ const categories = useFinanceStore((s) => s.categories);
+ const subscriptions = useFinanceStore((s) => s.subscriptions);
 
-  const baseUrl = useAiSettings((s) => s.baseUrl);
-  const apiKey = useAiSettings((s) => s.apiKey);
-  const model = useAiSettings((s) => s.model);
+ const baseUrl = useAiSettings((s) => s.baseUrl);
+ const apiKey = useAiSettings((s) => s.apiKey);
+ const model = useAiSettings((s) => s.model);
 
-  const [forecast, setForecast] = useState<ForecastPayload | null>(null);
-  const [forecastStatus, setForecastStatus] = useState<'idle' | 'loading' | 'done' | 'error'>(
-    'idle'
-  );
-  const [forecastError, setForecastError] = useState('');
-  const [forecastUpdatedAt, setForecastUpdatedAt] = useState<string>('');
-  const [forecastRequestToken, setForecastRequestToken] = useState(0);
+ const [forecast, setForecast] = useState<ForecastPayload | null>(null);
+ const [forecastStatus, setForecastStatus] = useState<'idle' | 'loading' | 'done' | 'error'>(
+ 'idle'
+ );
+ const [forecastError, setForecastError] = useState('');
+ const [forecastUpdatedAt, setForecastUpdatedAt] = useState<string>('');
+ const [forecastRequestToken, setForecastRequestToken] = useState(0);
 
-  const [monthlyInsight, setMonthlyInsight] = useState<MonthlyInsightPayload | null>(null);
-  const [monthlyInsightStatus, setMonthlyInsightStatus] = useState<
-    'idle' | 'loading' | 'streaming' | 'done' | 'error'
-  >('idle');
-  const [monthlyInsightError, setMonthlyInsightError] = useState('');
-  const [monthlyInsightRequestToken, setMonthlyInsightRequestToken] = useState(0);
-  const [hoveredChartPoint, setHoveredChartPoint] = useState<{
-    label: string;
-    value: number;
-  } | null>(null);
+ const [monthlyInsight, setMonthlyInsight] = useState<MonthlyInsightPayload | null>(null);
+ const [monthlyInsightStatus, setMonthlyInsightStatus] = useState<
+ 'idle' | 'loading' | 'streaming' | 'done' | 'error'
+ >('idle');
+ const [monthlyInsightError, setMonthlyInsightError] = useState('');
+ const [monthlyInsightRequestToken, setMonthlyInsightRequestToken] = useState(0);
+ const [hoveredChartPoint, setHoveredChartPoint] = useState<{
+ label: string;
+ value: number;
+ } | null>(null);
+ 
+ // State for welcome banner collapse/expand
+ const [isWelcomeExpanded, setIsWelcomeExpanded] = useState(false);
   const [trendGranularity, setTrendGranularity] = useState<'week' | 'month' | 'year'>('week');
   const [trendMonthOffset, setTrendMonthOffset] = useState(0);
   const [selectedTrendIndex, setSelectedTrendIndex] = useState<number | null>(null);
