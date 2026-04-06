@@ -38,6 +38,7 @@ import {
 import { evaluateCalculatorExpression } from '../../features/transactions/model/calculator';
 import { buildPieGradient } from '../../features/transactions/model/chartUtils';
 import { buildBulkPrintStyles, printHtmlWithIframe } from '../../features/transactions/model/printUtils';
+import { txTypeLabel, txStatusLabel, maskShareText, buildTransactionShareText, type BillShareTemplate } from '../../features/transactions/model/shareUtils';
 import {
   resolveDateRange,
   useTransactionFilters
