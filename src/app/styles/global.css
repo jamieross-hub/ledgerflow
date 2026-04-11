@@ -12022,6 +12022,8 @@ body.categories-accounts-resizing {
   display: grid;
   gap: 12px;
   min-height: 100%;
+  min-width: 0;
+  overflow: hidden;
   padding: 16px;
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
@@ -12268,8 +12270,11 @@ body.categories-accounts-resizing {
 
 .dashboard-donut-list {
   min-width: 0;
+  width: 100%;
+  max-width: 100%;
   display: grid;
   gap: 12px;
+  overflow: hidden;
 }
 
 .dashboard-donut-list-item {
@@ -12358,16 +12363,13 @@ body.categories-accounts-resizing {
   min-width: 8px;
 }
 
-.dashboard-donut-list-main .dashboard-donut-list-side {
-  margin-top: 2px;
-}
-
 .dashboard-donut-list-side {
   min-width: 0;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
+  margin-top: 2px;
 }
 
 .dashboard-donut-list-side strong,

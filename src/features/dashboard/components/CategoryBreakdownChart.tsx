@@ -117,16 +117,16 @@ export function CategoryBreakdownChart({
                     <div className="dashboard-donut-list-track">
                       <i style={{ width: `${item.percent}%`, background: item.ringColor }} />
                     </div>
-                  </div>
-                  <div className="dashboard-donut-list-side">
-                    <strong>{formatCurrency(item.amount)}</strong>
-                    <small>
-                      {item.diffRate === null
-                        ? t('dashboard.ui.环比NoChange')
-                        : `${t('dashboard.ui.环比')} ${item.diffRate >= 0 ? '↑' : '↓'}${Math.abs(
-                            item.diffRate
-                          ).toFixed(1)}%`}
-                    </small>
+                    <div className="dashboard-donut-list-side">
+                      <strong>{formatCurrency(item.amount)}</strong>
+                      <small>
+                        {item.diffRate === null
+                          ? t('dashboard.ui.环比NoChange')
+                          : `${t('dashboard.ui.环比')} ${item.diffRate >= 0 ? '↑' : '↓'}${Math.abs(
+                              item.diffRate
+                            ).toFixed(1)}%`}
+                      </small>
+                    </div>
                   </div>
                 </button>
               );
