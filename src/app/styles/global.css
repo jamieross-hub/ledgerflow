@@ -12186,8 +12186,8 @@ body.categories-accounts-resizing {
 
 .dashboard-donut-layout {
   display: grid;
-  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: minmax(220px, 0.92fr) minmax(260px, 1.08fr);
+  gap: 20px;
   align-items: start;
 }
 
@@ -12197,7 +12197,7 @@ body.categories-accounts-resizing {
 
 .dashboard-donut-wrap {
   position: relative;
-  width: min(100%, 280px);
+  width: min(100%, 250px);
   aspect-ratio: 1;
   margin: 0 auto;
 }
@@ -12279,11 +12279,11 @@ body.categories-accounts-resizing {
   border: 1px solid var(--color-border-light);
   border-radius: 16px;
   background: var(--color-bg-elevated);
-  padding: 12px 14px;
+  padding: 13px 14px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) min-content;
+  grid-template-columns: 28px minmax(0, 1fr);
   gap: 12px;
-  align-items: center;
+  align-items: start;
   text-align: left;
   transition:
     transform 180ms ease,
@@ -12313,14 +12313,19 @@ body.categories-accounts-resizing {
 .dashboard-donut-list-main {
   min-width: 0;
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .dashboard-donut-list-main header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dashboard-donut-list-main header span {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .dashboard-donut-list-main strong,
@@ -12353,25 +12358,32 @@ body.categories-accounts-resizing {
   min-width: 8px;
 }
 
+.dashboard-donut-list-main .dashboard-donut-list-side {
+  margin-top: 2px;
+}
+
 .dashboard-donut-list-side {
   min-width: 0;
-  text-align: right;
-  display: grid;
-  gap: 4px;
-  justify-items: end;
-  align-content: center;
-  /* 确保右侧有足够宽度，避免金额和环比文案被裁切，同时保持灵活性 */
-  min-width: 120px;
-  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .dashboard-donut-list-side strong,
 .dashboard-donut-list-side small {
-  width: 100%;
-  text-align: right;
-  /* 确保文字不换行，稳定右对齐 */
+  min-width: 0;
   white-space: nowrap;
-  overflow: visible;
+}
+
+.dashboard-donut-list-side strong {
+  flex: 0 1 auto;
+  text-align: left;
+}
+
+.dashboard-donut-list-side small {
+  flex: 0 0 auto;
+  text-align: right;
 }
 
 .dashboard-net-curve {
