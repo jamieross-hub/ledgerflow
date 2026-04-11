@@ -751,6 +751,22 @@ function buildWebdavBackupVersionLabel(remotePath: string, baseRemoteFilePath: s
   return `${matched[1]}-${matched[2]}-${matched[3]} ${matched[4]}:${matched[5]}:${matched[6]}`;
 }
 
+function extractWebdavBackupVersionTimeLabel(remotePath: string, baseRemoteFilePath: string): string | null {
+  const normalized = normalizeRemoteFilePath(remotePath);
+  const { file: targetFile } = splitRemoteDirAndFile(baseRemoteFilePath);
+  const fileName = normalized.split('/').pop() || normalized;
+  const dotIndex = targetFile.lastIndexOf('.');
+  const baseName = dotIndex > 0 ? targetFile.slice(0, dotIndex) : targetFile;
+  const stamp = fileName
+    .replace(new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-`), '')
+    .replace(/\.json$/i, '');
+  const matched = stamp.match(/^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})$/);
+  if (!matched) {
+    return null;
+  }
+  return `${matched[1]}-${matched[2]}-${matched[3]} ${matched[4]}:${matched[5]}:${matched[6]}`;
+}
+
 export async function listWebdavBackupVersions(
   config: BackupWebdavConfig
 ): Promise<WebdavBackupVersionItem[]> {
@@ -772,12 +788,25 @@ export async function listWebdavBackupVersions(
       ];
     }
 
-    return matched.map((item, index) => ({
-      remotePath: item,
-      fileName: item.split('/').pop() || item,
-      label: buildWebdavBackupVersionLabel(item, sanitized.remoteFilePath),
-      isLatest: index === 0
-    }));
+    const latestVersioned = matched.find((item) => isVersionedBackupMatch(item, sanitized.remoteFilePath));
+    const latestVersionedLabel = latestVersioned
+      ? extractWebdavBackupVersionTimeLabel(latestVersioned, sanitized.remoteFilePath)
+      : null;
+
+    return matched.map((item, index) => {
+      const fileName = item.split('/').pop() || item;
+      const isFixedEntry = normalizeRemoteFilePath(item) === sanitized.remoteFilePath;
+      return {
+        remotePath: item,
+        fileName,
+        label: isFixedEntry
+          ? latestVersionedLabel
+            ? `${latestVersionedLabel} · 固定入口`
+            : '当前固定备份文件'
+          : buildWebdavBackupVersionLabel(item, sanitized.remoteFilePath),
+        isLatest: index === 0
+      };
+    });
   } catch {
     return [
       {

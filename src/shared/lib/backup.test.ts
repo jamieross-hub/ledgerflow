@@ -210,6 +210,40 @@ describe('webdav backup version listing', () => {
 
     vi.unstubAllGlobals();
   });
+
+  it('固定 backup.json 存在时，应复用最新时间戳版本作为标签说明', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 207,
+      text: () =>
+        Promise.resolve(`<?xml version="1.0"?>
+          <d:multistatus xmlns:d="DAV:">
+            <d:response>
+              <d:href>/remote.php/dav/files/user/%E8%B4%A6%E6%9C%AC%E5%A4%87%E4%BB%BD/backup.json</d:href>
+            </d:response>
+            <d:response>
+              <d:href>/remote.php/dav/files/user/%E8%B4%A6%E6%9C%AC%E5%A4%87%E4%BB%BD/backup-2026-04-10_11-11-20.json</d:href>
+            </d:response>
+            <d:response>
+              <d:href>/remote.php/dav/files/user/%E8%B4%A6%E6%9C%AC%E5%A4%87%E4%BB%BD/backup-2026-03-12_05-18-00.json</d:href>
+            </d:response>
+          </d:multistatus>`)
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const versions = await listWebdavBackupVersions({
+      ...baseConfig,
+      remoteFilePath: '账本备份/backup.json'
+    });
+
+    expect(versions).toHaveLength(3);
+    expect(versions[0].fileName).toBe('backup.json');
+    expect(versions[0].label).toBe('2026-04-10 11:11:20 · 固定入口');
+    expect(versions[0].isLatest).toBe(true);
+    expect(versions[1].label).toBe('2026-04-10 11:11:20');
+
+    vi.unstubAllGlobals();
+  });
 });
 
 describe('webdavUploadFile', () => {
