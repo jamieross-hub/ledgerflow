@@ -38,22 +38,14 @@ function AlipayBrandIcon() {
 
 function WechatBrandIcon() {
   return (
-    <svg
+    <img
       className="wechat-icon"
-      viewBox="0 0 24 24"
+      src="https://brandlogos.net/wp-content/uploads/2018/10/wechat_pay_icon-logo_brandlogos.net_6qpmj.png"
+      alt=""
       width="16"
       height="16"
       aria-hidden="true"
-      focusable="false"
-    >
-      <circle cx="11" cy="11" r="8.8" fill="#07C160" />
-      <circle cx="15.9" cy="15.2" r="5.1" fill="#07C160" />
-      <circle cx="8.3" cy="10.1" r="1" fill="#fff" />
-      <circle cx="12.1" cy="10.1" r="1" fill="#fff" />
-      <circle cx="14.4" cy="14.7" r="0.9" fill="#fff" />
-      <circle cx="17.4" cy="14.7" r="0.9" fill="#fff" />
-      <path d="M5.4 17.3l2.2-1.2" stroke="#07C160" strokeWidth="2" strokeLinecap="round" />
-    </svg>
+    />
   );
 }
 
