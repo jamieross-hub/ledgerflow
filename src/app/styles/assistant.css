@@ -777,14 +777,16 @@
 
 .chat-assistant-layout {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 340px);
   gap: var(--space-4);
+  align-items: start;
 }
 
 .chat-assistant-layout-main,
 .chat-assistant-layout-side {
   display: grid;
   gap: var(--space-3);
+  align-content: start;
 }
 
 .chat-insight-section {
