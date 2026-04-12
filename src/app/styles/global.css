@@ -3158,14 +3158,17 @@ small.mono {
   stroke: var(--color-primary);
   stroke-width: 2;
   transition:
-    transform var(--transition-fast),
     fill var(--transition-fast),
-    r var(--transition-fast);
+    stroke var(--transition-fast),
+    stroke-width var(--transition-fast),
+    filter var(--transition-fast);
 }
 
 .dashboard-forecast-point:hover circle {
-  transform: scale(1.18);
   fill: color-mix(in srgb, var(--color-primary) 22%, var(--color-bg-elevated));
+  stroke: var(--color-primary-hover);
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-primary) 20%, transparent));
 }
 
 .dashboard-forecast-hover {
