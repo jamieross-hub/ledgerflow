@@ -12188,8 +12188,8 @@ body.categories-accounts-resizing {
 
 .dashboard-donut-layout {
   display: grid;
-  grid-template-columns: minmax(220px, 0.92fr) minmax(260px, 1.08fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
 }
 
@@ -12199,7 +12199,7 @@ body.categories-accounts-resizing {
 
 .dashboard-donut-wrap {
   position: relative;
-  width: min(100%, 250px);
+  width: min(100%, 320px);
   aspect-ratio: 1;
   margin: 0 auto;
 }
@@ -12273,6 +12273,7 @@ body.categories-accounts-resizing {
   width: 100%;
   max-width: 100%;
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
   overflow: hidden;
 }
