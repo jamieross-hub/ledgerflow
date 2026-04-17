@@ -291,44 +291,6 @@ export function AppLayout() {
           </button>
         </div>
 
-        {collapsed ? null : (
-          <section className="sidebar-assistant-today-card" aria-label={t('layout.assistantTodayAria')}>
-            <h4>{t('layout.assistantTodayTitle')}</h4>
-            <p>
-              <span>{t('layout.todayIncome')}</span>
-              <strong>{formatCurrency(todaySummary.incomeTotal)}</strong>
-            </p>
-            <p>
-              <span>{t('layout.todayExpense')}</span>
-              <strong>{formatCurrency(todaySummary.expenseTotal)}</strong>
-            </p>
-            <p>
-              <span>{t('layout.todayNet')}</span>
-              <strong className={todaySummary.netTotal >= 0 ? 'text-income' : 'text-expense'}>
-                {formatCurrency(todaySummary.netTotal)}
-              </strong>
-            </p>
-          </section>
-        )}
-
-        {collapsed ? null : (
-          <section className="sidebar-overview-card">
-            <div className="sidebar-overview-actions">
-              <Link to="/assistant" className="sidebar-overview-action motion-pill-btn">
-                {t('layout.actionAi')}
-              </Link>
-              <Link
-                to="/transactions?quickAdd=1&entry=layout"
-                className="sidebar-overview-action motion-pill-btn"
-              >
-                {t('layout.actionQuickAdd')}
-              </Link>
-              <Link to="/transactions" className="sidebar-overview-action motion-pill-btn">
-                {t('layout.actionTaskList')}
-              </Link>
-            </div>
-          </section>
-        )}
 
         <nav className="sidebar-nav">
           {navSections.map((section) => (
