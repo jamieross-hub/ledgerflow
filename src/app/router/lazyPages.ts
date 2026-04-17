@@ -14,6 +14,7 @@ export const DatabaseSettingsPage = lazy(() => import('../../pages/database-sett
 export const ExchangePage = lazy(() => import('../../features/exchange/ui/ExchangePage').then((m) => ({ default: m.ExchangePage })));
 export const FinancePage = lazy(() => import('../../pages/finance/FinancePage').then((m) => ({ default: m.FinancePage })));
 export const SalaryToolsPage = lazy(() => import('../../pages/finance/SalaryToolsPage').then((m) => ({ default: m.SalaryToolsPage })));
+export const FinancialAnalysisPage = lazy(() => import('../../pages/financial-analysis/FinancialAnalysisPage').then((m) => ({ default: m.FinancialAnalysisPage })));
 export const RepaymentManagementPage = lazy(() => import('../../pages/repayment-management/RepaymentManagementPage').then((m) => ({ default: m.RepaymentManagementPage })));
 export const SmartBudgetPage = lazy(() => import('../../pages/smart-budget/SmartBudgetPage').then((m) => ({ default: m.SmartBudgetPage })));
 export const HelpPage = lazy(() => import('../../pages/help/HelpPage').then((m) => ({ default: m.HelpPage })));

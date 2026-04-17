@@ -49,7 +49,8 @@ export function AppLayout() {
         title: t('nav.incomeExpense'),
         items: [
           { to: '/transactions', label: t('nav.transactions'), icon: '📋' },
-          { to: '/', label: t('nav.dashboard'), icon: '📊', end: true }
+          { to: '/', label: t('nav.dashboard'), icon: '📊', end: true },
+          { to: '/financial-analysis', label: '财务分析', icon: '🧠' }
         ]
       },
       {
@@ -84,6 +85,7 @@ export function AppLayout() {
         title: t('nav.commonFeatures'),
         items: [
           { label: t('nav.assistantBookkeeping'), icon: '🤖', to: '/assistant' },
+          { label: '财务分析', icon: '🧠', to: '/financial-analysis' },
           { label: '订阅管理', icon: '🧾', to: '/subscriptions' },
           { label: t('nav.transactions'), icon: '📋', to: '/transactions' },
           { label: t('nav.dashboard'), icon: '📊', to: '/', end: true },
