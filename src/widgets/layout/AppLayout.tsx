@@ -152,16 +152,6 @@ export function AppLayout() {
   const monthExpense = monthSummary.expenseTotal;
   const monthBalance = monthSummary.netTotal;
 
-  const todayTransactions = transactions.filter((item) => {
-    const date = new Date(item.date);
-    const now = new Date();
-    return (
-      date.getDate() === now.getDate() &&
-      date.getMonth() === now.getMonth() &&
-      date.getFullYear() === now.getFullYear()
-    );
-  });
-  const todaySummary = summarizeTransactions(todayTransactions);
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
