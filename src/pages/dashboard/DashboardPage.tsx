@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { TrendChart } from '../../features/dashboard/components/TrendChart';
 import { CategoryBreakdownChart } from '../../features/dashboard/components/CategoryBreakdownChart';
+import { NetAssetCurveCard } from '../../features/dashboard/components/NetAssetCurveCard';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
@@ -1310,42 +1311,18 @@ export function DashboardPage() {
                   onCashflowViewChange={setCashflowView}
                   onSelectedCategoryNameChange={setSelectedCategoryName}
                 />
-                <article className="panel dashboard-unified-card" style={{ margin: 0 }}>
-                  <div className="dashboard-section-header dashboard-section-header-tight">
-                    <h4>累计净资产曲线（含每月Δ）</h4>
-                  </div>
-                  <div className="dashboard-net-curve">
-                    {netAssetRows.map((item) => (
-                      <button
-                        key={item.label}
-                        type="button"
-                        className={`dashboard-net-row ${
-                          netAssetWorstDrop && netAssetWorstDrop.label === item.label ? 'is-worst-drop' : ''
-                        }`}
-                        onClick={() => {
-                          const targetMonth = Number(item.label.replace('月', ''));
-                          if (!Number.isFinite(targetMonth)) return;
-                          const from = `${currentYear}-${String(targetMonth).padStart(2, '0')}-01`;
-                          const to = new Date(currentYear, targetMonth, 0).toISOString().slice(0, 10);
-                          navigate(`/transactions?datePreset=custom&dateFrom=${from}&dateTo=${to}`);
-                        }}
-                      >
-                        <span>{item.label}</span>
-                        <i style={{ width: `${(item.value / Math.max(...netAssetRows.map((x) => x.value), 1)) * 100}%` }} />
-                        <strong>{formatCurrency(item.value)}</strong>
-                        <small className={item.delta >= 0 ? 'up' : 'down'}>
-                          Δ {item.delta >= 0 ? '+' : ''}
-                          {formatCurrency(item.delta)}
-                        </small>
-                      </button>
-                    ))}
-                  </div>
-                  {netAssetWorstDrop ? (
-                    <p className="dashboard-net-worst-hint">
-                      最大回撤：{netAssetWorstDrop.label}（Δ{formatCurrency(netAssetWorstDrop.delta)}），可点击查看该月流水。
-                    </p>
-                  ) : null}
-                </article>
+                <NetAssetCurveCard
+                  rows={netAssetRows}
+                  worstDropLabel={netAssetWorstDrop?.label}
+                  worstDropDelta={netAssetWorstDrop?.delta}
+                  onNavigateToMonth={(label) => {
+                    const targetMonth = Number(label.replace('月', ''));
+                    if (!Number.isFinite(targetMonth)) return;
+                    const from = `${currentYear}-${String(targetMonth).padStart(2, '0')}-01`;
+                    const to = new Date(currentYear, targetMonth, 0).toISOString().slice(0, 10);
+                    navigate(`/transactions?datePreset=custom&dateFrom=${from}&dateTo=${to}`);
+                  }}
+                />
               </section>
             );
           }

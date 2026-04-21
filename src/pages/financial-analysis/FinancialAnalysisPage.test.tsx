@@ -1,0 +1,289 @@
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Account } from '../../entities/account/types';
+import type { Category } from '../../entities/category/types';
+import type { SubscriptionItem } from '../../entities/subscription/types';
+import type { TransactionItem } from '../../entities/transaction/types';
+import type { DebtItem, RepaymentRecord } from '../../features/debt/model/debtMetrics';
+import { FinancialAnalysisPage } from './FinancialAnalysisPage';
+
+const navigateMock = vi.fn();
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => navigateMock
+  };
+});
+
+type FinanceStoreState = {
+  transactions: TransactionItem[];
+  categories: Category[];
+  accounts: Account[];
+  subscriptions: SubscriptionItem[];
+};
+
+type AppPreferencesState = {
+  debts: DebtItem[];
+  repaymentRecords: RepaymentRecord[];
+  monthlyIncome: number;
+};
+
+const financeStoreMock = vi.hoisted(() => ({
+  state: {
+    transactions: [],
+    categories: [],
+    accounts: [],
+    subscriptions: []
+  } as FinanceStoreState
+}));
+
+const appPreferencesMock = vi.hoisted(() => ({
+  state: {
+    debts: [],
+    repaymentRecords: [],
+    monthlyIncome: 0
+  } as AppPreferencesState
+}));
+
+vi.mock('../../shared/store/useFinanceStore', () => ({
+  useFinanceStore: (selector: (state: typeof financeStoreMock.state) => unknown) =>
+    selector(financeStoreMock.state)
+}));
+
+vi.mock('../../shared/store/useAppPreferences', () => ({
+  useAppPreferences: (selector: (state: typeof appPreferencesMock.state) => unknown) =>
+    selector(appPreferencesMock.state)
+}));
+
+vi.mock('../../shared/store/useAiSettings', () => ({
+  useAiSettings: (selector: (state: any) => unknown) =>
+    selector({
+      baseUrl: 'https://example.com/v1',
+      apiKey: 'test-key',
+      model: 'gpt-test'
+    })
+}));
+
+vi.mock('../../features/assistant/api/openaiCompatibleClient', () => ({
+  sendAiChat: vi.fn()
+}));
+
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <FinancialAnalysisPage />
+    </MemoryRouter>
+  );
+}
+
+describe('FinancialAnalysisPage', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-21T08:00:00.000Z'));
+    navigateMock.mockReset();
+
+    financeStoreMock.state = {
+      transactions: [],
+      categories: [],
+      accounts: [],
+      subscriptions: []
+    };
+
+    appPreferencesMock.state = {
+      debts: [],
+      repaymentRecords: [],
+      monthlyIncome: 0
+    };
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('应在无交易数据时展示空状态并支持跳转', () => {
+    renderPage();
+
+    expect(screen.getByText('还没有足够的财务分析数据')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '去记一笔' }));
+    expect(navigateMock).toHaveBeenCalledWith('/transactions/new?quick=1');
+
+    fireEvent.click(screen.getByRole('button', { name: '查看交易记录' }));
+    expect(navigateMock).toHaveBeenCalledWith('/transactions');
+  });
+
+  it('应提供过去/现在/未来的闭环动作入口', () => {
+    financeStoreMock.state = {
+      transactions: [
+        {
+          id: 'tx-abnormal',
+          date: '2026-04-20',
+          type: 'expense',
+          categoryId: 'cat-food',
+          accountId: 'acc-cash',
+          amount: 260,
+          note: '聚餐',
+          tags: []
+        },
+        {
+          id: 'tx-rent',
+          date: '2026-04-18',
+          type: 'expense',
+          categoryId: 'cat-rent',
+          accountId: 'acc-cash',
+          amount: 1200,
+          note: '房租',
+          tags: []
+        },
+        {
+          id: 'tx-salary',
+          date: '2026-04-10',
+          type: 'income',
+          categoryId: 'cat-salary',
+          accountId: 'acc-bank',
+          amount: 3500,
+          note: '工资到账',
+          tags: []
+        },
+        {
+          id: 'tx-coffee',
+          date: '2026-04-03',
+          type: 'expense',
+          categoryId: 'cat-food',
+          accountId: 'acc-cash',
+          amount: 30,
+          note: '咖啡',
+          tags: []
+        }
+      ],
+      categories: [
+        { id: 'cat-food', name: '餐饮', kind: 'expense', color: '#f97316', icon: '🍜', sortOrder: 1 },
+        { id: 'cat-rent', name: '住房', kind: 'expense', color: '#8b5cf6', icon: '🏠', sortOrder: 2 },
+        { id: 'cat-salary', name: '工资', kind: 'income', color: '#16a34a', icon: '💰', sortOrder: 3 }
+      ],
+      accounts: [
+        { id: 'acc-cash', name: '现金', type: 'cash', initialBalance: 500, balance: 200 },
+        { id: 'acc-bank', name: '银行卡', type: 'debit', initialBalance: 1000, balance: 4200 }
+      ],
+      subscriptions: [
+        {
+          id: 'sub-1',
+          name: '音乐会员',
+          kind: 'digital',
+          amount: 25,
+          currency: 'CNY',
+          billingCycle: 'monthly',
+          accountId: 'acc-bank',
+          renewalDate: '2026-04-25',
+          expireDate: '',
+          status: 'active',
+          createdAt: '2026-04-01T00:00:00.000Z',
+          updatedAt: '2026-04-01T00:00:00.000Z'
+        }
+      ]
+    };
+
+    appPreferencesMock.state = {
+      debts: [
+        {
+          id: 'debt-1',
+          name: '花呗',
+          type: 'consumer-loan',
+          balance: 1800,
+          repaymentDay: 25,
+          status: 'active'
+        }
+      ],
+      repaymentRecords: [
+        {
+          id: 'rep-1',
+          debtId: 'debt-1',
+          amount: 300,
+          paidAt: '2026-04-05',
+          recordMode: 'manual',
+          createdAt: '2026-04-05T00:00:00.000Z'
+        }
+      ],
+      monthlyIncome: 500
+    };
+
+    renderPage();
+
+    const abnormalCard = screen.getByText('定位异常流水').closest('article');
+    expect(abnormalCard).not.toBeNull();
+    fireEvent.click(within(abnormalCard as HTMLElement).getByRole('button', { name: '继续处理' }));
+    expect(navigateMock).toHaveBeenCalledWith('/transactions/tx-rent');
+
+    const pressureCard = screen.getByText('查看还款压力').closest('article');
+    expect(pressureCard).not.toBeNull();
+    fireEvent.click(within(pressureCard as HTMLElement).getByRole('button', { name: '立即前往' }));
+    expect(navigateMock).toHaveBeenCalledWith('/repayment-management');
+
+    const subscriptionCard = screen.getByText('检查即将续费订阅').closest('article');
+    expect(subscriptionCard).not.toBeNull();
+    fireEvent.click(within(subscriptionCard as HTMLElement).getByRole('button', { name: '去处理' }));
+    expect(navigateMock).toHaveBeenCalledWith('/subscriptions');
+  });
+
+  it('应按当前分析周期构造交易页跳转参数', () => {
+    financeStoreMock.state = {
+      transactions: [
+        {
+          id: 'tx-1',
+          date: '2026-04-20',
+          type: 'expense',
+          categoryId: 'cat-food',
+          accountId: 'acc-cash',
+          amount: 120,
+          note: '晚餐',
+          tags: []
+        },
+        {
+          id: 'tx-2',
+          date: '2026-04-15',
+          type: 'expense',
+          categoryId: 'cat-food',
+          accountId: 'acc-cash',
+          amount: 80,
+          note: '午餐',
+          tags: []
+        },
+        {
+          id: 'tx-3',
+          date: '2026-04-01',
+          type: 'income',
+          categoryId: 'cat-salary',
+          accountId: 'acc-bank',
+          amount: 3000,
+          note: '工资',
+          tags: []
+        }
+      ],
+      categories: [
+        { id: 'cat-food', name: '餐饮', kind: 'expense', color: '#f97316', icon: '🍜', sortOrder: 1 },
+        { id: 'cat-salary', name: '工资', kind: 'income', color: '#16a34a', icon: '💰', sortOrder: 2 }
+      ],
+      accounts: [{ id: 'acc-cash', name: '现金', type: 'cash', initialBalance: 500, balance: 300 }],
+      subscriptions: []
+    };
+
+    appPreferencesMock.state = {
+      debts: [],
+      repaymentRecords: [],
+      monthlyIncome: 6000
+    };
+
+    renderPage();
+
+    const cycleCard = screen.getByText('查看当前周期流水').closest('article');
+    expect(cycleCard).not.toBeNull();
+    fireEvent.click(within(cycleCard as HTMLElement).getByRole('button', { name: '继续处理' }));
+
+    expect(navigateMock).toHaveBeenCalledWith(
+      '/transactions?datePreset=custom&dateFrom=2026-03-22&dateTo=2026-04-20'
+    );
+  });
+});

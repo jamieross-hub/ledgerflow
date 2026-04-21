@@ -23,6 +23,12 @@ interface AiFinancialAnalysisPayload {
   }>;
 }
 
+interface FinancialAnalysisQuickAction {
+  label: string;
+  hint: string;
+  onClick: () => void;
+}
+
 function formatPercent(value: number): string {
   return `${value.toFixed(1)}%`;
 }
@@ -84,6 +90,42 @@ function normalizeAiPayload(raw: unknown): AiFinancialAnalysisPayload | null {
     present: normalizeList(payload.present),
     future: normalizeList(payload.future),
     actions
+  };
+}
+
+function buildTransactionsLink(params: Record<string, string | number | undefined>) {
+  const search = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === '') {
+      return;
+    }
+    search.set(key, String(value));
+  });
+
+  const query = search.toString();
+  return query ? `/transactions?${query}` : '/transactions';
+}
+
+function getRangeDateBounds(range: { key: FinancialAnalysisRangeKey; days: number | null }) {
+  const today = new Date();
+  const current = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  if (range.key === 'month') {
+    const start = new Date(current.getFullYear(), current.getMonth(), 1);
+    return {
+      from: start.toISOString().slice(0, 10),
+      to: current.toISOString().slice(0, 10)
+    };
+  }
+
+  const days = Math.max(1, range.days || 30);
+  const start = new Date(current);
+  start.setDate(start.getDate() - (days - 1));
+
+  return {
+    from: start.toISOString().slice(0, 10),
+    to: current.toISOString().slice(0, 10)
   };
 }
 
@@ -172,6 +214,104 @@ export function FinancialAnalysisPage() {
     setAiUpdatedAt('');
     setAiStatus('idle');
   }, [rangeKey, analysis.transactionCount]);
+
+  const rangeTransactionDates = useMemo(() => getRangeDateBounds(range), [range]);
+
+  const previousQuickActions = useMemo<FinancialAnalysisQuickAction[]>(() => {
+    const actions: FinancialAnalysisQuickAction[] = [
+      {
+        label: '查看当前周期流水',
+        hint: '带着当前分析周期回到交易页，继续核对账单。',
+        onClick: () =>
+          navigate(
+            buildTransactionsLink({
+              datePreset: 'custom',
+              dateFrom: rangeTransactionDates.from,
+              dateTo: rangeTransactionDates.to
+            })
+          )
+      },
+      {
+        label: '只看支出记录',
+        hint: '聚焦支出项，适合继续排查波动来源。',
+        onClick: () =>
+          navigate(
+            buildTransactionsLink({
+              type: 'expense',
+              datePreset: 'custom',
+              dateFrom: rangeTransactionDates.from,
+              dateTo: rangeTransactionDates.to
+            })
+          )
+      }
+    ];
+
+    if (analysis.previous.abnormalExpense?.id) {
+      actions.unshift({
+        label: '定位异常流水',
+        hint: '优先回到原始记录，确认这笔异常支出是否合理。',
+        onClick: () => navigate(`/transactions/${analysis.previous.abnormalExpense?.id}`)
+      });
+    }
+
+    return actions.slice(0, 3);
+  }, [analysis.previous.abnormalExpense?.id, navigate, rangeTransactionDates.from, rangeTransactionDates.to]);
+
+  const presentQuickActions = useMemo<FinancialAnalysisQuickAction[]>(() => {
+    const actions: FinancialAnalysisQuickAction[] = [];
+
+    if (analysis.present.disposableIncome <= 0 || analysis.present.fixedExpenseRatio >= 0.45) {
+      actions.push({
+        label: '去制定预算',
+        hint: '当前可支配空间偏紧，先回预算页收口固定支出。',
+        onClick: () => navigate('/smart-budget')
+      });
+    }
+
+    if (analysis.present.debtPressureRatio >= 0.25) {
+      actions.push({
+        label: '查看还款压力',
+        hint: '负债压力偏高时，优先检查近期应还与最低还款。',
+        onClick: () => navigate('/repayment-management')
+      });
+    }
+
+    actions.push({
+      label: '检查订阅项',
+      hint: '固定成本里已经计入订阅，顺手检查是否有可停用项目。',
+      onClick: () => navigate('/subscriptions')
+    });
+
+    return actions.slice(0, 3);
+  }, [analysis.present.debtPressureRatio, analysis.present.disposableIncome, analysis.present.fixedExpenseRatio, navigate]);
+
+  const futureQuickActions = useMemo<FinancialAnalysisQuickAction[]>(() => {
+    const actions: FinancialAnalysisQuickAction[] = [];
+
+    if (analysis.future.dueSoonRepaymentCount > 0) {
+      actions.push({
+        label: '处理近期还款',
+        hint: `未来 10 天有 ${analysis.future.dueSoonRepaymentCount} 笔还款提醒，建议先去确认。`,
+        onClick: () => navigate('/repayment-management')
+      });
+    }
+
+    if (analysis.future.dueSoonSubscriptionCount > 0) {
+      actions.push({
+        label: '检查即将续费订阅',
+        hint: `未来 14 天有 ${analysis.future.dueSoonSubscriptionCount} 个订阅到期/续费。`,
+        onClick: () => navigate('/subscriptions')
+      });
+    }
+
+    actions.push({
+      label: '回到交易页继续处理',
+      hint: '需要补流水或核对数据时，直接回交易页继续操作。',
+      onClick: () => navigate('/transactions')
+    });
+
+    return actions.slice(0, 3);
+  }, [analysis.future.dueSoonRepaymentCount, analysis.future.dueSoonSubscriptionCount, navigate]);
 
   const runAiAnalysis = async () => {
     if (!transactions.length || !apiKey.trim()) {
@@ -416,6 +556,19 @@ ${JSON.stringify(aiInput)}`
                 </button>
               ))}
             </div>
+            <div className="financial-analysis-ai-columns">
+              {previousQuickActions.map((action) => (
+                <article key={action.label} className="financial-analysis-subcard">
+                  <h4>{action.label}</h4>
+                  <p className="financial-analysis-paragraph">{action.hint}</p>
+                  <div className="financial-analysis-actions">
+                    <button type="button" onClick={action.onClick}>
+                      继续处理
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
           </article>
         </div>
       </section>
@@ -456,6 +609,19 @@ ${JSON.stringify(aiInput)}`
             <button key={action.label} type="button" onClick={() => navigate(action.to)}>
               {action.label}
             </button>
+          ))}
+        </div>
+        <div className="financial-analysis-ai-columns">
+          {presentQuickActions.map((action) => (
+            <article key={action.label} className="financial-analysis-subcard">
+              <h4>{action.label}</h4>
+              <p className="financial-analysis-paragraph">{action.hint}</p>
+              <div className="financial-analysis-actions">
+                <button type="button" onClick={action.onClick}>
+                  立即前往
+                </button>
+              </div>
+            </article>
           ))}
         </div>
       </section>
@@ -499,6 +665,19 @@ ${JSON.stringify(aiInput)}`
             <button key={action.label} type="button" onClick={() => navigate(action.to)}>
               {action.label}
             </button>
+          ))}
+        </div>
+        <div className="financial-analysis-ai-columns">
+          {futureQuickActions.map((action) => (
+            <article key={action.label} className="financial-analysis-subcard">
+              <h4>{action.label}</h4>
+              <p className="financial-analysis-paragraph">{action.hint}</p>
+              <div className="financial-analysis-actions">
+                <button type="button" onClick={action.onClick}>
+                  去处理
+                </button>
+              </div>
+            </article>
           ))}
         </div>
       </section>
