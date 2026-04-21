@@ -6,6 +6,7 @@ import { DashboardModuleCustomizer } from '../../features/dashboard/components/D
 import { DashboardAnomalyInsights } from '../../features/dashboard/components/DashboardAnomalyInsights';
 import { DashboardHistoryCompareCard } from '../../features/dashboard/components/DashboardHistoryCompareCard';
 import { DashboardTopTransactionsCard } from '../../features/dashboard/components/DashboardTopTransactionsCard';
+import { DashboardMonthlyTrendSummaryCard } from '../../features/dashboard/components/DashboardMonthlyTrendSummaryCard';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
@@ -1387,118 +1388,28 @@ export function DashboardPage() {
         </section>
       ) : (
         <div className="grid grid-2 dashboard-main-grid" style={{ marginTop: 16 }}>
-          <section className="panel">
-            <header className="dashboard-panel-header">
-              <div>
-                <p className="dashboard-panel-kicker">
-                  {t('dashboard.ui.thisMonthTrend')} · {currentMonthLabel}
-                </p>
-                <h3>{t('dashboard.ui.thisMonthTrend')}</h3>
-              </div>
-              <div className="dashboard-panel-actions">
-                <button
-                  type="button"
-                  className="dashboard-forecast-refresh"
-                  onClick={handleRefreshMonthlyInsight}
-                  disabled={
-                    monthlyInsightStatus === 'loading' ||
-                    monthlyInsightStatus === 'streaming' ||
-                    transactions.length === 0
-                  }
-                >
-                  {monthlyInsightActionLabel}
-                </button>
-              </div>
-            </header>
-
-            <div className="dashboard-trend-summary">
-              <div>
-                <p className="dashboard-summary-title">本月收支概览</p>
-                <p className="dashboard-summary-main">
-                  结余
-                  <span
-                    className={
-                      monthlyBalance >= 0
-                        ? 'dashboard-summary-main-amount positive'
-                        : 'dashboard-summary-main-amount negative'
-                    }
-                  >
-                    {formatCurrency(monthlyBalance)}
-                  </span>
-                </p>
-                <p
-                  className={`dashboard-summary-change ${
-                    monthOverMonthDirection === 'up' ? 'positive' : 'negative'
-                  }`}
-                >
-                  <span>{monthOverMonthArrow}</span>
-                  <span>环比 {Math.abs(monthOverMonthRate).toFixed(1)}%</span>
-                  <span>
-                    ({monthOverMonthChange >= 0 ? '+' : ''}
-                    {formatCurrency(monthOverMonthChange)})
-                  </span>
-                </p>
-                <p className="dashboard-summary-sub">
-                  <span className="dashboard-summary-metric income">
-                    收入 {formatCurrency(income)}
-                  </span>
-                  <span className="dashboard-summary-metric expense">
-                    支出 {formatCurrency(expense)}
-                  </span>
-                  <span className="dashboard-summary-metric neutral">交易 {monthly.length} 笔</span>
-                </p>
-              </div>
-              <div className="dashboard-summary-chip">AI 分析聚焦于本月分类结构与异常波动</div>
-            </div>
-
-            <div className="dashboard-ai-actions" style={{ marginBottom: 'var(--space-3)' }}>
-              <p className="dashboard-ai-status-text">
-                {monthlyInsightStatus === 'loading'
-                  ? '正在整理本月账目结构…'
-                  : monthlyInsightStatus === 'streaming'
-                    ? '正在生成重点结论，请稍候。'
-                    : monthlyInsightStatus === 'done'
-                      ? '分析完成，可查看分类与重点账目。'
-                      : '点击右上角“重新分析”开始生成。'}
-              </p>
-              {monthlyInsightError ? (
-                <p className="dashboard-ai-error">{monthlyInsightError}</p>
-              ) : null}
-            </div>
-
-            <div className="dashboard-trend-sections">
-              <section>
-                <div className="dashboard-section-header">
-                  <h4>分类结构</h4>
-                  <span>按金额排序</span>
-                </div>
-                <div className="dashboard-breakdown-grid">
-                  {displayCategoryBreakdown.map((item, index) => {
-                    const percentValue = Math.min(100, Math.max(0, toSafeNumber(item.percent, 0)));
-                    const percentText = `${percentValue.toFixed(1)}%`;
-                    const emoji = item.amount >= 0 ? '📌' : '🔻';
-                    return (
-                      <article key={`${item.name}-${index}`} className="dashboard-breakdown-item">
-                        <div>
-                          <p className="dashboard-breakdown-name">
-                            {emoji} {item.name}
-                          </p>
-                          <p className="dashboard-breakdown-meta">
-                            {item.name} {formatCurrency(item.amount)}，占比 {percentText}
-                          </p>
-                        </div>
-                        <div className="dashboard-breakdown-bar">
-                          <span style={{ width: percentText }} />
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-            </div>
-
-            {/* 已移除：上月/本月/下月三段趋势列表 */}
-          </section>
+          <DashboardMonthlyTrendSummaryCard
+            title={t('dashboard.ui.thisMonthTrend')}
+            currentMonthLabel={currentMonthLabel}
+            monthlyInsightActionLabel={monthlyInsightActionLabel}
+            monthlyInsightStatus={monthlyInsightStatus}
+            monthlyInsightError={monthlyInsightError}
+            monthlyBalance={monthlyBalance}
+            income={income}
+            expense={expense}
+            transactionCount={monthly.length}
+            monthOverMonthChange={monthOverMonthChange}
+            monthOverMonthRate={monthOverMonthRate}
+            monthOverMonthDirection={monthOverMonthDirection}
+            monthOverMonthArrow={monthOverMonthArrow}
+            displayCategoryBreakdown={displayCategoryBreakdown}
+            onRefresh={handleRefreshMonthlyInsight}
+            refreshDisabled={
+              monthlyInsightStatus === 'loading' ||
+              monthlyInsightStatus === 'streaming' ||
+              transactions.length === 0
+            }
+          />
 
           <section className="panel">
             <h3>{t('dashboard.ui.futureTrend')}</h3>
