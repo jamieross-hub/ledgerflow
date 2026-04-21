@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { TrendChart } from '../../features/dashboard/components/TrendChart';
 import { CategoryBreakdownChart } from '../../features/dashboard/components/CategoryBreakdownChart';
 import { NetAssetCurveCard } from '../../features/dashboard/components/NetAssetCurveCard';
+import { DashboardModuleCustomizer } from '../../features/dashboard/components/DashboardModuleCustomizer';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
@@ -1239,47 +1240,34 @@ export function DashboardPage() {
             </div>
           </button>
         </div>
-        <section className="dashboard-module-customizer" aria-label={t('dashboard.ui.moduleCustomize')}>
-          <div className="dashboard-section-header">
-            <h4>{t('dashboard.ui.moduleCustomize')}</h4>
-            <span>{t('dashboard.ui.moduleCustomizeHint')}</span>
-          </div>
-          <div className="dashboard-module-manage-list" aria-label="模块配置列表">
-            {moduleOrder.map((moduleId) => {
+        <DashboardModuleCustomizer
+          title={t('dashboard.ui.moduleCustomize')}
+          hint={t('dashboard.ui.moduleCustomizeHint')}
+          items={moduleOrder
+            .map((moduleId) => {
               const module = DASHBOARD_MODULE_CATALOG.find((item) => item.id === moduleId);
               if (!module) return null;
-              const checked = moduleVisibility[module.id];
-              return (
-                <label
-                  key={module.id}
-                  className={`dashboard-module-manage-item ${checked ? 'is-enabled' : 'is-disabled'}`}
-                  draggable
-                  onDragStart={() => setDraggingModule(module.id)}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={() => {
-                    if (draggingModule) moveModule(draggingModule, module.id);
-                    setDraggingModule(null);
-                  }}
-                  onDragEnd={() => setDraggingModule(null)}
-                  title={module.description}
-                >
-                  <div className="dashboard-module-manage-topline">
-                    <span className="dashboard-module-drag-handle" aria-hidden="true">↕</span>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(event) =>
-                        setModuleVisibility((prev) => ({ ...prev, [module.id]: event.target.checked }))
-                      }
-                    />
-                    <strong>{module.label}</strong>
-                    <span className="dashboard-module-state">{checked ? '显示中' : '已隐藏'}</span>
-                  </div>
-                </label>
-              );
-            })}
-          </div>
-        </section>
+              return {
+                id: module.id,
+                label: module.label,
+                description: module.description,
+                checked: moduleVisibility[module.id]
+              };
+            })
+            .filter((item): item is { id: DashboardModuleId; label: string; description: string; checked: boolean } =>
+              item !== null
+            )}
+          draggingModuleId={draggingModule}
+          onDragStart={(moduleId) => setDraggingModule(moduleId as DashboardModuleId)}
+          onDrop={(moduleId) => {
+            if (draggingModule) moveModule(draggingModule, moduleId as DashboardModuleId);
+            setDraggingModule(null);
+          }}
+          onDragEnd={() => setDraggingModule(null)}
+          onToggle={(moduleId, checked) =>
+            setModuleVisibility((prev) => ({ ...prev, [moduleId as DashboardModuleId]: checked }))
+          }
+        />
 
         {moduleOrder.map((moduleId) => {
           if (!moduleVisibility[moduleId]) return null;
