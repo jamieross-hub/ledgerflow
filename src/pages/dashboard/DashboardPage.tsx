@@ -5,6 +5,7 @@ import { NetAssetCurveCard } from '../../features/dashboard/components/NetAssetC
 import { DashboardModuleCustomizer } from '../../features/dashboard/components/DashboardModuleCustomizer';
 import { DashboardAnomalyInsights } from '../../features/dashboard/components/DashboardAnomalyInsights';
 import { DashboardHistoryCompareCard } from '../../features/dashboard/components/DashboardHistoryCompareCard';
+import { DashboardTopTransactionsCard } from '../../features/dashboard/components/DashboardTopTransactionsCard';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
@@ -1333,27 +1334,7 @@ export function DashboardPage() {
           }
 
           if (moduleId === 'top-transactions') {
-            return (
-              <div key={moduleId} className="dashboard-core-top-list">
-                <div className="dashboard-section-header">
-                  <h4>重点账目</h4>
-                  <span>金额 TOP {displayTopTransactions.length}</span>
-                </div>
-                <div className="dashboard-top-list">
-                  {displayTopTransactions.map((item, index) => (
-                    <article key={`${item.date}-${index}`} className="dashboard-top-item">
-                      <div>
-                        <p className="dashboard-top-title">
-                          {item.category || '未分类'} · {item.date}
-                        </p>
-                        <p className="dashboard-top-note">{item.note || '无备注'}</p>
-                      </div>
-                      <strong>{formatCurrency(item.amount)}</strong>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            );
+            return <DashboardTopTransactionsCard key={moduleId} items={displayTopTransactions} />;
           }
 
           if (moduleId === 'history-compare') {
