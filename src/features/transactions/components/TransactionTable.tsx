@@ -140,6 +140,25 @@ function truncateNote(note: string): string {
   return `${note.slice(0, NOTE_MAX_LENGTH)}…`;
 }
 
+function normalizeRepeatNote(note?: string): string {
+  return (note || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function getRepeatGroupKey(item: Pick<TransactionItem, 'type' | 'note'>): string | null {
+  if (item.type !== 'income' && item.type !== 'expense') {
+    return null;
+  }
+  const normalizedNote = normalizeRepeatNote(item.note);
+  if (!normalizedNote) {
+    return null;
+  }
+  return `${item.type}::${normalizedNote}`;
+}
+
+function getRepeatLabel(type: TransactionItem['type']): string {
+  return type === 'income' ? '收入' : '消费';
+}
+
 function truncateOrderNo(value: string): string {
   if (value.length <= 16) return value;
   return `${value.slice(0, 8)}...${value.slice(-4)}`;
@@ -469,6 +488,50 @@ export function TransactionTable({
       );
     if (sample.length === 0) return 0;
     return sample.reduce((sum, item) => sum + (Number(item.amount) || 0), 0) / sample.length;
+  }, [rows]);
+
+  const repeatedMonthlyMap = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const grouped = new Map<string, { count: number; note: string; type: 'income' | 'expense' }>();
+
+    rows.forEach(({ item }) => {
+      const itemDate = new Date(item.date);
+      if (Number.isNaN(itemDate.getTime())) {
+        return;
+      }
+      if (itemDate.getFullYear() !== currentYear || itemDate.getMonth() !== currentMonth) {
+        return;
+      }
+      if (item.adjustmentKind === 'refund' || item.adjustmentKind === 'reversal') {
+        return;
+      }
+      const key = getRepeatGroupKey(item);
+      if (!key) {
+        return;
+      }
+
+      const current = grouped.get(key);
+      if (current) {
+        current.count += 1;
+        return;
+      }
+
+      grouped.set(key, {
+        count: 1,
+        note: item.note.trim(),
+        type: item.type === 'income' ? 'income' : 'expense'
+      });
+    });
+
+    for (const [key, value] of grouped.entries()) {
+      if (value.count <= 1) {
+        grouped.delete(key);
+      }
+    }
+
+    return grouped;
   }, [rows]);
 
   const highExpenseThreshold = useMemo(
@@ -824,6 +887,12 @@ export function TransactionTable({
                   rows.map(({ item, categoryName, accountName }) => {
                     const note = item.note || '-';
                     const checked = selectedIds.includes(item.id);
+                    const repeatKey = getRepeatGroupKey(item);
+                    const repeatInfo = repeatKey ? repeatedMonthlyMap.get(repeatKey) : undefined;
+                    const repeatLabel = repeatInfo ? getRepeatLabel(repeatInfo.type) : '';
+                    const repeatTitle = repeatInfo
+                      ? `${repeatInfo.note}本月${repeatLabel}${repeatInfo.count}次`
+                      : '';
                     return (
                       <tr
                         key={item.id}
@@ -893,6 +962,11 @@ export function TransactionTable({
                                     </span>
                                     {isAiSource ? (
                                       <span className="transaction-inline-tag transaction-inline-tag-ai">AI</span>
+                                    ) : null}
+                                    {repeatInfo ? (
+                                      <span className="transaction-inline-tag" title={repeatTitle}>
+                                        本月{repeatLabel} {repeatInfo.count} 次
+                                      </span>
                                     ) : null}
                                     {shouldShowAnomaly ? (
                                       <details className="transaction-inline-alert" onClick={(e) => e.stopPropagation()}>
@@ -986,6 +1060,12 @@ export function TransactionTable({
             {rows.map(({ item, categoryName, accountName }) => {
               const note = item.note || '（无备注）';
               const isSwiped = swipedId === item.id;
+              const repeatKey = getRepeatGroupKey(item);
+              const repeatInfo = repeatKey ? repeatedMonthlyMap.get(repeatKey) : undefined;
+              const repeatLabel = repeatInfo ? getRepeatLabel(repeatInfo.type) : '';
+              const repeatTitle = repeatInfo
+                ? `${repeatInfo.note}本月${repeatLabel}${repeatInfo.count}次`
+                : '';
               return (
                 <article
                   key={`mobile-${item.id}`}
@@ -1033,6 +1113,11 @@ export function TransactionTable({
                         <div className="transaction-mobile-badges">
                           {item.source === 'ai' ? (
                             <span className="transaction-inline-tag transaction-inline-tag-ai">AI</span>
+                          ) : null}
+                          {repeatInfo ? (
+                            <span className="transaction-inline-tag" title={repeatTitle}>
+                              本月{repeatLabel} {repeatInfo.count} 次
+                            </span>
                           ) : null}
                           {item.type === 'expense' && Number(item.amount) >= highExpenseThreshold ? (
                             <span className="transaction-inline-tag transaction-inline-tag-warn" title="高于平均，建议检查是否重复记账。">

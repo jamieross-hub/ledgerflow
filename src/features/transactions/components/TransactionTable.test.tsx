@@ -3,6 +3,39 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { TransactionTable, type TransactionColumnKey } from './TransactionTable';
 
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, options?: { count?: number }) => {
+      const dict: Record<string, string> = {
+        'transactions.bulk.selected': `已选 ${options?.count ?? 0} 条`,
+        'transactions.bulk.category': '分类',
+        'transactions.bulk.selectCategory': '选择分类',
+        'transactions.bulk.aiRecategorize': '🤖 AI 重分类',
+        'transactions.bulk.stopAiRecategorize': '⏹ 停止 AI 重分类',
+        'transactions.bulk.account': '账户',
+        'transactions.bulk.selectAccount': '选择账户',
+        'transactions.bulk.template': '打印模板',
+        'transactions.bulk.templateFull': '完整',
+        'transactions.bulk.templateSummary': '摘要',
+        'transactions.bulk.fields': '打印字段',
+        'transactions.bulk.fieldsCustom': '自定义',
+        'transactions.bulk.fieldsFull': '全部字段',
+        'transactions.bulk.fieldsCompact': '精简字段',
+        'transactions.bulk.fieldAccount': '账户',
+        'transactions.bulk.fieldNote': '备注',
+        'transactions.bulk.fieldOrderNo': '订单号',
+        'transactions.bulk.fieldTags': '标签',
+        'transactions.bulk.printA4': '🖨️ 打印 A4',
+        'transactions.bulk.exportPdf': '📄 导出 PDF',
+        'transactions.bulk.exportingPdf': '⏳ 正在导出 PDF…',
+        'transactions.bulk.delete': '删除所选',
+        'transactions.bulk.clearSelection': '清空选择'
+      };
+      return dict[key] || key;
+    }
+  })
+}));
+
 const baseProps = {
   onRetry: vi.fn(),
   onClearFilters: vi.fn(),
@@ -601,6 +634,119 @@ describe('TransactionTable', () => {
     expect(screen.getByLabelText('支出')).toBeInTheDocument();
     expect(document.querySelectorAll('.alipay-icon').length).toBeGreaterThan(0);
     expect(screen.getAllByLabelText('有附件').length).toBeGreaterThan(0);
+  });
+
+  it('应为本月重复出现的收支展示角标，并忽略跨月与非收支类型', () => {
+    render(
+      <TransactionTable
+        rows={[
+          {
+            item: {
+              id: 'tx-repeat-1',
+              date: '2026-04-03',
+              type: 'expense',
+              categoryId: 'cat-1',
+              accountId: 'acc-1',
+              amount: 18,
+              note: '美宜佳',
+              tags: []
+            },
+            categoryName: '餐饮',
+            accountName: '现金'
+          },
+          {
+            item: {
+              id: 'tx-repeat-2',
+              date: '2026-04-11',
+              type: 'expense',
+              categoryId: 'cat-1',
+              accountId: 'acc-1',
+              amount: 26,
+              note: ' 美宜佳 ',
+              tags: []
+            },
+            categoryName: '餐饮',
+            accountName: '现金'
+          },
+          {
+            item: {
+              id: 'tx-repeat-income-1',
+              date: '2026-04-05',
+              type: 'income',
+              categoryId: 'cat-2',
+              accountId: 'acc-1',
+              amount: 1000,
+              note: '奖金',
+              tags: []
+            },
+            categoryName: '收入',
+            accountName: '银行卡'
+          },
+          {
+            item: {
+              id: 'tx-repeat-income-2',
+              date: '2026-04-15',
+              type: 'income',
+              categoryId: 'cat-2',
+              accountId: 'acc-1',
+              amount: 800,
+              note: '奖金',
+              tags: []
+            },
+            categoryName: '收入',
+            accountName: '银行卡'
+          },
+          {
+            item: {
+              id: 'tx-prev-month',
+              date: '2026-03-20',
+              type: 'expense',
+              categoryId: 'cat-1',
+              accountId: 'acc-1',
+              amount: 20,
+              note: '美宜佳',
+              tags: []
+            },
+            categoryName: '餐饮',
+            accountName: '现金'
+          },
+          {
+            item: {
+              id: 'tx-budget',
+              date: '2026-04-08',
+              type: 'budget',
+              categoryId: 'cat-3',
+              accountId: 'acc-1',
+              amount: 300,
+              note: '美宜佳',
+              tags: []
+            },
+            categoryName: '预算',
+            accountName: '现金'
+          }
+        ]}
+        total={6}
+        filteredTotal={6}
+        page={1}
+        pages={1}
+        pageSize={8}
+        pageSizeOptions={[8, 20]}
+        loading={false}
+        hasFilters
+        selectedIds={[]}
+        bulkSelectionEnabled={false}
+        canSelectAllOnPage={false}
+        allPageSelected={false}
+        sortKey="date"
+        sortDirection="desc"
+        {...baseProps}
+      />
+    );
+
+    expect(screen.getAllByText('本月消费 2 次').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('本月收入 2 次').length).toBeGreaterThan(0);
+    expect(screen.getAllByTitle('美宜佳本月消费2次').length).toBeGreaterThan(0);
+    expect(screen.getAllByTitle('奖金本月收入2次').length).toBeGreaterThan(0);
   });
 
   it('应展示任务条统计并高亮退款/冲正行', () => {
