@@ -288,14 +288,9 @@ export function analyzeFinancialOverview(input: {
     input.range.key === 'month'
       ? Math.max(1, new Date().getDate())
       : Math.max(1, input.range.days || 30);
-  const previousSampleDays =
-    input.range.key === 'month'
-      ? Math.max(1, previousRange.end.getDate())
-      : Math.max(1, input.range.days || 30);
-
-  const previousCategoryRows = calculateCategoryRows(previousTransactions, input.categories);
-  const previousTopCategory = previousCategoryRows[0] || { name: '未分类', amount: 0, share: 0 };
-  const previousAbnormalExpense = findAbnormalExpense(previousTransactions);
+  const currentCategoryRows = calculateCategoryRows(rangeTransactions, input.categories);
+  const currentTopCategory = currentCategoryRows[0] || { name: '未分类', amount: 0, share: 0 };
+  const currentAbnormalExpense = findAbnormalExpense(rangeTransactions);
   const subscriptionMonthlyCost = calculateMonthlySubscriptionCost(input.subscriptions);
   const debtSummary = calculateDebtSummary(input.debts, input.monthlyIncome);
   const debtHealthScore = calculateDebtHealthScore(debtSummary, input.monthlyIncome);
@@ -344,20 +339,20 @@ export function analyzeFinancialOverview(input: {
     ],
     trendDeltaPct,
     previous: {
-      topCategoryName: previousTopCategory.name,
-      topCategoryAmount: previousTopCategory.amount,
-      topCategoryShare: previousTopCategory.share,
-      categoryRows: previousCategoryRows,
-      recentAverageDailyExpense: calculateAverageDailyExpense(previousTransactions, previousSampleDays),
-      abnormalExpense: previousAbnormalExpense,
+      topCategoryName: currentTopCategory.name,
+      topCategoryAmount: currentTopCategory.amount,
+      topCategoryShare: currentTopCategory.share,
+      categoryRows: currentCategoryRows,
+      recentAverageDailyExpense: calculateAverageDailyExpense(rangeTransactions, sampleDays),
+      abnormalExpense: currentAbnormalExpense,
       insight:
-        previousTopCategory.amount > 0
-          ? `${previousTopCategory.name}是上一阶段支出最高的分类，占比约 ${toPercent(previousTopCategory.share)}%。${
-              previousAbnormalExpense
-                ? `另外发现一笔偏大的支出：${previousAbnormalExpense.note || '未备注'}。`
-                : '上一阶段未发现特别突兀的单笔异常。'
+        currentTopCategory.amount > 0
+          ? `${currentTopCategory.name}是当前分析周期支出最高的分类，占比约 ${toPercent(currentTopCategory.share)}%。${
+              currentAbnormalExpense
+                ? `另外发现一笔偏大的支出：${currentAbnormalExpense.note || '未备注'}。`
+                : '当前分析周期未发现特别突兀的单笔异常。'
             }`
-          : '上一阶段还没有足够支出数据，先补齐几笔消费后再看复盘结果。',
+          : '当前分析周期还没有足够的支出分类样本，先补齐几笔消费后再看复盘结果。',
       actions: [
         { label: '查看异常流水', to: '/transactions' },
         { label: '回到首页对比趋势', to: '/' }

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { formatCurrencyFixed2, formatDateTime } from '../../shared/lib/format';
 import { EmptyState } from '../../shared/ui/EmptyState';
@@ -51,6 +51,8 @@ export function BalanceChangesPage() {
   const entries = useFinanceStore((s) => s.balanceChangeEntries);
   const accounts = useFinanceStore((s) => s.accounts);
   const transactions = useFinanceStore((s) => s.transactions);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const rows = useMemo(
     () =>
@@ -75,6 +77,13 @@ export function BalanceChangesPage() {
     [accounts, entries, transactions]
   );
 
+  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const pagedRows = rows.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, pages));
+  }, [pages]);
+
   return (
     <section className="panel balance-change-page">
       <div className="balance-change-header">
@@ -87,6 +96,9 @@ export function BalanceChangesPage() {
         <div className="balance-change-summary">
           <span className="metric-chip">
             明细 <strong>{rows.length}</strong>
+          </span>
+          <span className="metric-chip">
+            当前页 <strong>{pagedRows.length}</strong>
           </span>
         </div>
       </div>
@@ -120,7 +132,7 @@ export function BalanceChangesPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((entry) => (
+              {pagedRows.map((entry) => (
                 <tr key={entry.id}>
                   <td>{formatDateTime(entry.createdAt)}</td>
                   <td>{entry.accountName}</td>
@@ -159,6 +171,45 @@ export function BalanceChangesPage() {
           </table>
         </div>
       )}
+
+      {rows.length > 0 ? (
+        <div className="row" style={{ justifyContent: 'space-between', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+          <label className="balance-change-page-size" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            每页
+            <select
+              value={pageSize}
+              onChange={(event) => {
+                setPageSize(Number(event.target.value));
+                setPage(1);
+              }}
+            >
+              {[10, 20, 50, 100].map((size) => (
+                <option key={size} value={size}>
+                  {size} 条
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="muted">
+              第 {page} / {pages} 页
+            </span>
+            <button type="button" onClick={() => setPage(1)} disabled={page === 1}>
+              首页
+            </button>
+            <button type="button" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}>
+              上一页
+            </button>
+            <button type="button" onClick={() => setPage(Math.min(pages, page + 1))} disabled={page === pages}>
+              下一页
+            </button>
+            <button type="button" onClick={() => setPage(pages)} disabled={page === pages}>
+              末页
+            </button>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
