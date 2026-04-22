@@ -119,27 +119,7 @@ describe('FinancialAnalysisPage', () => {
     financeStoreMock.state = {
       transactions: [
         {
-          id: 'tx-abnormal',
-          date: '2026-04-20',
-          type: 'expense',
-          categoryId: 'cat-food',
-          accountId: 'acc-cash',
-          amount: 260,
-          note: '聚餐',
-          tags: []
-        },
-        {
-          id: 'tx-rent',
-          date: '2026-04-18',
-          type: 'expense',
-          categoryId: 'cat-rent',
-          accountId: 'acc-cash',
-          amount: 1200,
-          note: '房租',
-          tags: []
-        },
-        {
-          id: 'tx-salary',
+          id: 'tx-current-income',
           date: '2026-04-10',
           type: 'income',
           categoryId: 'cat-salary',
@@ -149,8 +129,28 @@ describe('FinancialAnalysisPage', () => {
           tags: []
         },
         {
-          id: 'tx-coffee',
-          date: '2026-04-03',
+          id: 'tx-prev-abnormal',
+          date: '2026-03-20',
+          type: 'expense',
+          categoryId: 'cat-rent',
+          accountId: 'acc-cash',
+          amount: 1200,
+          note: '房租',
+          tags: []
+        },
+        {
+          id: 'tx-prev-food',
+          date: '2026-03-15',
+          type: 'expense',
+          categoryId: 'cat-food',
+          accountId: 'acc-cash',
+          amount: 260,
+          note: '聚餐',
+          tags: []
+        },
+        {
+          id: 'tx-prev-coffee',
+          date: '2026-03-03',
           type: 'expense',
           categoryId: 'cat-food',
           accountId: 'acc-cash',
@@ -212,10 +212,10 @@ describe('FinancialAnalysisPage', () => {
 
     renderPage();
 
-    const abnormalCard = screen.getByText('定位异常流水').closest('article');
-    expect(abnormalCard).not.toBeNull();
-    fireEvent.click(within(abnormalCard as HTMLElement).getByRole('button', { name: '继续处理' }));
-    expect(navigateMock).toHaveBeenCalledWith('/transactions/tx-rent');
+    const abnormalQuickActionCard = screen.getByText('定位异常流水').closest('article');
+    expect(abnormalQuickActionCard).not.toBeNull();
+    fireEvent.click(within(abnormalQuickActionCard as HTMLElement).getByRole('button', { name: '继续处理' }));
+    expect(navigateMock).toHaveBeenCalledWith('/transactions/tx-prev-abnormal');
 
     const pressureCard = screen.getByText('查看还款压力').closest('article');
     expect(pressureCard).not.toBeNull();
@@ -226,6 +226,77 @@ describe('FinancialAnalysisPage', () => {
     expect(subscriptionCard).not.toBeNull();
     fireEvent.click(within(subscriptionCard as HTMLElement).getByRole('button', { name: '去处理' }));
     expect(navigateMock).toHaveBeenCalledWith('/subscriptions');
+  });
+
+  it('应在过去周期有支出流水时展示过去复盘内容', () => {
+    financeStoreMock.state = {
+      transactions: [
+        {
+          id: 'tx-current-income',
+          date: '2026-04-18',
+          type: 'income',
+          categoryId: 'cat-salary',
+          accountId: 'acc-bank',
+          amount: 4200,
+          note: '工资到账',
+          tags: []
+        },
+        {
+          id: 'tx-prev-rent',
+          date: '2026-03-20',
+          type: 'expense',
+          categoryId: 'cat-rent',
+          accountId: 'acc-cash',
+          amount: 1500,
+          note: '房租',
+          tags: []
+        },
+        {
+          id: 'tx-prev-grocery',
+          date: '2026-03-15',
+          type: 'expense',
+          categoryId: 'cat-food',
+          accountId: 'acc-cash',
+          amount: 120,
+          note: '买菜',
+          tags: []
+        },
+        {
+          id: 'tx-prev-dinner',
+          date: '2026-03-03',
+          type: 'expense',
+          categoryId: 'cat-food',
+          accountId: 'acc-cash',
+          amount: 80,
+          note: '晚餐',
+          tags: []
+        }
+      ],
+      categories: [
+        { id: 'cat-food', name: '餐饮', kind: 'expense', color: '#f97316', icon: '🍜', sortOrder: 1 },
+        { id: 'cat-rent', name: '住房', kind: 'expense', color: '#8b5cf6', icon: '🏠', sortOrder: 2 },
+        { id: 'cat-salary', name: '工资', kind: 'income', color: '#16a34a', icon: '💰', sortOrder: 3 }
+      ],
+      accounts: [
+        { id: 'acc-cash', name: '现金', type: 'cash', initialBalance: 500, balance: 300 },
+        { id: 'acc-bank', name: '银行卡', type: 'debit', initialBalance: 1000, balance: 5200 }
+      ],
+      subscriptions: []
+    };
+
+    appPreferencesMock.state = {
+      debts: [],
+      repaymentRecords: [],
+      monthlyIncome: 8000
+    };
+
+    renderPage();
+
+    expect(screen.getAllByText('住房').length).toBeGreaterThan(0);
+    expect(screen.getByText('房租 · ¥1,500.00')).toBeInTheDocument();
+    expect(screen.getByText(/上一阶段支出最高的分类/)).toBeInTheDocument();
+    expect(screen.queryByText('当前范围内还没有足够的分类样本。')).not.toBeInTheDocument();
+    expect(screen.getByText('查看异常流水')).toBeInTheDocument();
   });
 
   it('应按当前分析周期构造交易页跳转参数', () => {
