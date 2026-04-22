@@ -3,11 +3,11 @@ import type { ExchangeApiResponse } from '../model/types';
 
 /**
  * 从公共 API 获取最新汇率
- * 默认使用 frankfurter.app（免费、无需 key、支持 CORS）
+ * 默认使用 frankfurter.dev/v1（frankfurter.app 已跳转到该新地址）
  * 可通过 VITE_EXCHANGE_API_BASE 覆盖
  */
 export async function fetchLatestRates(base: string): Promise<ExchangeApiResponse> {
-  const apiBase = ENV.exchangeApiBase || 'https://api.frankfurter.app';
+  const apiBase = ENV.exchangeApiBase || 'https://api.frankfurter.dev/v1';
   const timeout = ENV.exchangeApiTimeoutMs || 10000;
 
   const controller = new AbortController();

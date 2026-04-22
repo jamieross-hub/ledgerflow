@@ -22,8 +22,8 @@ export const ENV = {
   syncLocalDataPath: import.meta.env.VITE_SYNC_LOCAL_DATA_PATH || '/sync-local-data',
   /** 自动增量同步路径（会拼接到 apiBaseUrl 后） */
   syncChangePath: import.meta.env.VITE_SYNC_CHANGE_PATH || '/sync-change',
-  /** 汇率 API 基础地址，默认 frankfurter.app */
-  exchangeApiBase: import.meta.env.VITE_EXCHANGE_API_BASE || 'https://api.frankfurter.app',
+  /** 汇率 API 基础地址，默认 frankfurter.dev/v1（frankfurter.app 已迁移） */
+  exchangeApiBase: import.meta.env.VITE_EXCHANGE_API_BASE || 'https://api.frankfurter.dev/v1',
   /** 汇率 API 超时时间（ms） */
   exchangeApiTimeoutMs: Number(import.meta.env.VITE_EXCHANGE_API_TIMEOUT_MS || 10000)
 };
