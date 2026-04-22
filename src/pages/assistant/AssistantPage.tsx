@@ -318,7 +318,7 @@ function renderMarkdownContent(raw: string): ReactNode[] {
       continue;
     }
 
-    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
     if (headingMatch) {
       flushBullets();
       const level = headingMatch[1].length;
