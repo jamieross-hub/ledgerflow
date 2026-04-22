@@ -20,6 +20,7 @@ import {
   sanitizeWebdavConfig
 } from '../../shared/lib/backup';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
+import { useGlobalMemoryStore } from '../../shared/store/useGlobalMemoryStore';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
 import { Toast, ToastVariant } from '../../shared/ui/Toast';
 
@@ -67,12 +68,15 @@ export function DatabaseSettingsPage() {
   const transactions = useFinanceStore((s) => s.transactions);
   const categories = useFinanceStore((s) => s.categories);
   const accounts = useFinanceStore((s) => s.accounts);
+  const subscriptions = useFinanceStore((s) => s.subscriptions);
   const addTransaction = useFinanceStore((s) => s.addTransaction);
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
   const addCategory = useFinanceStore((s) => s.addCategory);
   const addAccount = useFinanceStore((s) => s.addAccount);
   const replaceAllData = useFinanceStore((s) => s.replaceAllData);
   const clearAllAccountBills = useFinanceStore((s) => s.clearAllAccountBills);
+  const globalMemories = useGlobalMemoryStore((s) => s.memories);
+  const replaceAllGlobalMemories = useGlobalMemoryStore((s) => s.replaceAllData);
 
   const backupInputRef = useRef<HTMLInputElement | null>(null);
   const billInputRef = useRef<HTMLInputElement | null>(null);
@@ -94,8 +98,19 @@ export function DatabaseSettingsPage() {
   const [selectedRestorePath, setSelectedRestorePath] = useState('');
 
   const totalRows = useMemo(
-    () => transactions.length + categories.length + accounts.length,
-    [transactions.length, categories.length, accounts.length]
+    () =>
+      transactions.length +
+      categories.length +
+      accounts.length +
+      subscriptions.length +
+      globalMemories.length,
+    [
+      transactions.length,
+      categories.length,
+      accounts.length,
+      subscriptions.length,
+      globalMemories.length
+    ]
   );
 
   const showToast = (message: string, variant: ToastVariant) => {
@@ -116,7 +131,13 @@ export function DatabaseSettingsPage() {
   };
 
   const handleExportJson = () => {
-    const payload = createFinanceBackupPayload({ transactions, categories, accounts });
+    const payload = createFinanceBackupPayload({
+      transactions,
+      categories,
+      accounts,
+      subscriptions,
+      globalMemories
+    });
     downloadBackupJson(payload);
     showToast('备份导出成功（JSON）', 'success');
   };
@@ -134,8 +155,9 @@ export function DatabaseSettingsPage() {
       const text = await file.text();
       const payload = parseFinanceBackupPayload(text);
       replaceAllData(payload.data);
+      replaceAllGlobalMemories(payload.data.globalMemories);
       showToast(
-        `备份导入成功：交易 ${payload.data.transactions.length} 条，分类 ${payload.data.categories.length} 条，账户 ${payload.data.accounts.length} 条。`,
+        `备份导入成功：交易 ${payload.data.transactions.length} 条，分类 ${payload.data.categories.length} 条，账户 ${payload.data.accounts.length} 条，订阅 ${payload.data.subscriptions.length} 条，全局记忆 ${payload.data.globalMemories.length} 条。`,
         'success'
       );
     } catch (error) {
@@ -237,7 +259,13 @@ export function DatabaseSettingsPage() {
       validateWebdav();
       setBusy(true);
       showWebdavStatus('正在打包备份...');
-      const payload = createFinanceBackupPayload({ transactions, categories, accounts });
+      const payload = createFinanceBackupPayload({
+        transactions,
+        categories,
+        accounts,
+        subscriptions,
+        globalMemories
+      });
       await webdavUploadBackup(webdav, payload, (stage) => {
         showWebdavStatus(stage);
       });
@@ -284,6 +312,7 @@ export function DatabaseSettingsPage() {
       showWebdavStatus('正在下载并恢复...');
       const payload = await webdavDownloadBackup(webdav, selectedRestorePath);
       replaceAllData(payload.data);
+      replaceAllGlobalMemories(payload.data.globalMemories);
       saveWebdavConfig(webdav);
       setWebdavRestoreDialogOpen(false);
       showWebdavStatus('恢复完成');
@@ -312,7 +341,7 @@ export function DatabaseSettingsPage() {
 
       <section className="panel" style={{ marginTop: 12 }}>
         <h3 style={{ marginTop: 0 }}>本地备份导入导出</h3>
-        <p className="sync-tip">当前总数据量：{totalRows} 条（交易+分类+账户）</p>
+        <p className="sync-tip">当前总数据量：{totalRows} 条（交易+分类+账户+订阅+全局记忆）</p>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <button type="button" className="primary" onClick={handleExportJson}>
             导出 JSON 备份

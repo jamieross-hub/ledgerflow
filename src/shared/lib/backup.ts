@@ -1,6 +1,16 @@
 import { Account } from '../../entities/account/types';
 import { Category } from '../../entities/category/types';
+import {
+  SubscriptionBillingCycle,
+  SubscriptionItem,
+  SubscriptionKind,
+  SubscriptionStatus
+} from '../../entities/subscription/types';
 import { TransactionItem } from '../../entities/transaction/types';
+import {
+  GlobalMemoryItem,
+  sanitizePersistedGlobalMemoryItem
+} from '../store/globalMemory';
 
 const BACKUP_KEY = 'ledgerflow-backup-webdav-v1';
 const BACKUP_PASSWORD_SESSION_KEY = 'ledgerflow-backup-webdav-password';
@@ -139,6 +149,8 @@ export interface FinanceBackupPayload {
     transactions: TransactionItem[];
     categories: Category[];
     accounts: Account[];
+    subscriptions: SubscriptionItem[];
+    globalMemories: GlobalMemoryItem[];
   };
 }
 
@@ -171,6 +183,16 @@ const ACCOUNT_TYPES = new Set<NonNullable<Account['type']>>([
   'liability',
   'receivable'
 ]);
+
+const SUBSCRIPTION_KINDS = new Set<SubscriptionKind>(['digital', 'mobile', 'membership', 'other']);
+const SUBSCRIPTION_BILLING_CYCLES = new Set<SubscriptionBillingCycle>([
+  'monthly',
+  'quarterly',
+  'semiannual',
+  'yearly',
+  'custom'
+]);
+const SUBSCRIPTION_STATUS = new Set<SubscriptionStatus>(['active', 'due-soon', 'expired', 'paused']);
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -343,18 +365,99 @@ function validateAccountItem(item: unknown, index: number): Account {
   };
 }
 
+function validateSubscriptionItem(item: unknown, index: number): SubscriptionItem {
+  if (!isObjectRecord(item)) {
+    throw new Error(`备份文件字段无效：data.subscriptions[${index}] 应为对象`);
+  }
+
+  assertString(item.id, `data.subscriptions[${index}].id`);
+  assertString(item.name, `data.subscriptions[${index}].name`);
+  assertNumber(item.amount, `data.subscriptions[${index}].amount`);
+  assertString(item.currency, `data.subscriptions[${index}].currency`);
+  assertString(item.createdAt, `data.subscriptions[${index}].createdAt`);
+  assertString(item.updatedAt, `data.subscriptions[${index}].updatedAt`);
+  assertString(item.accountId, `data.subscriptions[${index}].accountId`, { required: false });
+  assertString(item.provider, `data.subscriptions[${index}].provider`, { required: false });
+  assertString(item.note, `data.subscriptions[${index}].note`, { required: false });
+  assertDateString(item.renewalDate, `data.subscriptions[${index}].renewalDate`, { required: false });
+  assertDateString(item.expireDate, `data.subscriptions[${index}].expireDate`, { required: false });
+  assertDateString(item.lastGeneratedAt, `data.subscriptions[${index}].lastGeneratedAt`, {
+    required: false
+  });
+  assertString(item.lastGeneratedTransactionId, `data.subscriptions[${index}].lastGeneratedTransactionId`, {
+    required: false
+  });
+  assertDateString(item.trashedAt, `data.subscriptions[${index}].trashedAt`, { required: false });
+
+  if (
+    typeof item.kind !== 'string' ||
+    !SUBSCRIPTION_KINDS.has(item.kind as SubscriptionKind)
+  ) {
+    throw new Error(`备份文件字段无效：data.subscriptions[${index}].kind 枚举值不合法`);
+  }
+
+  if (
+    typeof item.billingCycle !== 'string' ||
+    !SUBSCRIPTION_BILLING_CYCLES.has(item.billingCycle as SubscriptionBillingCycle)
+  ) {
+    throw new Error(`备份文件字段无效：data.subscriptions[${index}].billingCycle 枚举值不合法`);
+  }
+
+  if (
+    typeof item.status !== 'string' ||
+    !SUBSCRIPTION_STATUS.has(item.status as SubscriptionStatus)
+  ) {
+    throw new Error(`备份文件字段无效：data.subscriptions[${index}].status 枚举值不合法`);
+  }
+
+  if (item.customCycleDays !== undefined) {
+    assertNumber(item.customCycleDays, `data.subscriptions[${index}].customCycleDays`);
+  }
+
+  if (item.autoRenew !== undefined && typeof item.autoRenew !== 'boolean') {
+    throw new Error(`备份文件字段无效：data.subscriptions[${index}].autoRenew 应为布尔值`);
+  }
+
+  return {
+    id: asSafeString(item.id),
+    name: asSafeString(item.name),
+    kind: item.kind as SubscriptionKind,
+    amount: Number(item.amount),
+    currency: asSafeString(item.currency),
+    billingCycle: item.billingCycle as SubscriptionBillingCycle,
+    customCycleDays:
+      typeof item.customCycleDays === 'number' ? Number(item.customCycleDays) : undefined,
+    accountId: asSafeString(item.accountId) || undefined,
+    provider: asSafeString(item.provider) || undefined,
+    note: asSafeString(item.note) || undefined,
+    renewalDate: asSafeString(item.renewalDate) || undefined,
+    expireDate: asSafeString(item.expireDate) || undefined,
+    autoRenew: typeof item.autoRenew === 'boolean' ? item.autoRenew : undefined,
+    status: item.status as SubscriptionStatus,
+    lastGeneratedAt: asSafeString(item.lastGeneratedAt) || undefined,
+    lastGeneratedTransactionId: asSafeString(item.lastGeneratedTransactionId) || undefined,
+    trashedAt: asSafeString(item.trashedAt) || undefined,
+    createdAt: asSafeString(item.createdAt),
+    updatedAt: asSafeString(item.updatedAt)
+  };
+}
+
 export function createFinanceBackupPayload(input: {
   transactions: TransactionItem[];
   categories: Category[];
   accounts: Account[];
+  subscriptions?: SubscriptionItem[];
+  globalMemories?: GlobalMemoryItem[];
 }): FinanceBackupPayload {
   return {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     data: {
       transactions: input.transactions,
       categories: input.categories,
-      accounts: input.accounts
+      accounts: input.accounts,
+      subscriptions: Array.isArray(input.subscriptions) ? input.subscriptions : [],
+      globalMemories: Array.isArray(input.globalMemories) ? input.globalMemories : []
     }
   };
 }
@@ -386,9 +489,23 @@ export function parseFinanceBackupPayload(raw: string): FinanceBackupPayload {
     throw new Error('备份文件缺少必要数据（transactions/categories/accounts）');
   }
 
+  if (data.subscriptions !== undefined && !Array.isArray(data.subscriptions)) {
+    throw new Error('备份文件字段无效：data.subscriptions 应为数组');
+  }
+
+  if (data.globalMemories !== undefined && !Array.isArray(data.globalMemories)) {
+    throw new Error('备份文件字段无效：data.globalMemories 应为数组');
+  }
+
   const transactions = data.transactions.map((item, index) => validateTransactionItem(item, index));
   const categories = data.categories.map((item, index) => validateCategoryItem(item, index));
   const accounts = data.accounts.map((item, index) => validateAccountItem(item, index));
+  const subscriptions = (Array.isArray(data.subscriptions) ? data.subscriptions : []).map((item, index) =>
+    validateSubscriptionItem(item, index)
+  );
+  const globalMemories = (Array.isArray(data.globalMemories) ? data.globalMemories : [])
+    .map((item, index) => sanitizePersistedGlobalMemoryItem(item, index))
+    .filter((item): item is GlobalMemoryItem => Boolean(item));
 
   return {
     version:
@@ -398,7 +515,9 @@ export function parseFinanceBackupPayload(raw: string): FinanceBackupPayload {
     data: {
       transactions,
       categories,
-      accounts
+      accounts,
+      subscriptions,
+      globalMemories
     }
   };
 }

@@ -68,6 +68,7 @@ interface GlobalMemoryState {
   memories: GlobalMemoryItem[];
   addMemory: (payload: GlobalMemoryDraft) => { ok: boolean; id?: string; reason?: string };
   updateMemory: (payload: GlobalMemoryUpdatePayload) => { ok: boolean; reason?: string };
+  replaceAllData: (items: GlobalMemoryItem[]) => void;
   removeMemory: (id: string) => void;
   removeMemories: (ids: string[]) => void;
   clearMemories: () => void;
@@ -108,6 +109,14 @@ export const useGlobalMemoryStore = create<GlobalMemoryState>()(
           )
         }));
         return { ok: true };
+      },
+      replaceAllData: (items) => {
+        const safeMemories = Array.isArray(items)
+          ? items
+              .map((item, index) => sanitizePersistedGlobalMemoryItem(item, index))
+              .filter((item): item is GlobalMemoryItem => Boolean(item))
+          : [];
+        set(() => ({ memories: sortMemories(safeMemories) }));
       },
       removeMemory: (id) => {
         set((state) => ({

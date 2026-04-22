@@ -114,6 +114,7 @@ interface FinanceState {
     transactions: TransactionItem[];
     categories: Category[];
     accounts: Account[];
+    subscriptions?: SubscriptionItem[];
   }) => void;
 }
 
@@ -1216,16 +1217,23 @@ export const useFinanceStore = create<FinanceState>()(
           ? payload.transactions
           : [];
         const incomingAccounts = Array.isArray(payload.accounts) ? payload.accounts : [];
+        const incomingSubscriptions = Array.isArray(payload.subscriptions)
+          ? payload.subscriptions.map((item) => ({
+              ...item,
+              status: normalizeSubscriptionStatus(item)
+            }))
+          : [];
         const compacted = sanitizeCategoriesAndTransactions(
           incomingCategories,
           incomingTransactions
         );
+        const rebuilt = rebuildStateSlices(incomingAccounts, compacted.transactions, []);
         set(() => ({
           categories: compacted.categories,
           transactions: compacted.transactions,
-          accounts: rebuildStateSlices(incomingAccounts, compacted.transactions, []).accounts,
-          balanceChangeEntries: rebuildStateSlices(incomingAccounts, compacted.transactions, []).balanceChangeEntries,
-          subscriptions: [],
+          accounts: rebuilt.accounts,
+          balanceChangeEntries: rebuilt.balanceChangeEntries,
+          subscriptions: incomingSubscriptions,
           trashedSubscriptions: [],
           trashedTransactions: [],
           trashedCategories: [],

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  createFinanceBackupPayload,
   listWebdavBackupVersions,
   loadWebdavConfig,
   parseFinanceBackupPayload,
@@ -118,6 +119,108 @@ describe('parseFinanceBackupPayload', () => {
     expect(payload.data.transactions[0].tags).toEqual(['餐饮', '工作日']);
     expect(payload.data.categories[0].name).toBe('餐饮');
     expect(payload.data.accounts[0].name).toBe('招商银行卡');
+    expect(payload.data.subscriptions).toEqual([]);
+    expect(payload.data.globalMemories).toEqual([]);
+  });
+
+  it('应支持订阅与全局记忆一起进入备份载荷', () => {
+    const payload = createFinanceBackupPayload({
+      transactions: [],
+      categories: [],
+      accounts: [],
+      subscriptions: [
+        {
+          id: 'sub-1',
+          name: 'Netflix',
+          kind: 'digital',
+          amount: 55,
+          currency: 'CNY',
+          billingCycle: 'monthly',
+          status: 'active',
+          createdAt: '2026-04-01T00:00:00.000Z',
+          updatedAt: '2026-04-02T00:00:00.000Z'
+        }
+      ],
+      globalMemories: [
+        {
+          id: 'memory-1',
+          title: '偏好简洁回答',
+          content: '先给结论，再展开细节。',
+          type: 'display_preference',
+          source: 'assistant_chat',
+          sourceTrace: [],
+          sourceIds: [],
+          confidence: 0.9,
+          score: 0.9,
+          status: 'active',
+          origin: 'manual',
+          pinned: false,
+          disabled: false,
+          embeddingText: '偏好简洁回答\n先给结论，再展开细节。\ndisplay_preference',
+          lastUsedAt: null,
+          createdAt: '2026-04-01T00:00:00.000Z',
+          updatedAt: '2026-04-02T00:00:00.000Z'
+        }
+      ]
+    });
+
+    expect(payload.version).toBe(2);
+    expect(payload.data.subscriptions).toHaveLength(1);
+    expect(payload.data.globalMemories).toHaveLength(1);
+  });
+
+  it('导入新版本备份时应解析订阅与全局记忆', () => {
+    const payload = parseFinanceBackupPayload(
+      JSON.stringify({
+        version: 2,
+        exportedAt: '2026-04-22T06:00:00.000Z',
+        data: {
+          transactions: [],
+          categories: [],
+          accounts: [],
+          subscriptions: [
+            {
+              id: 'sub-1',
+              name: 'Spotify',
+              kind: 'digital',
+              amount: 15,
+              currency: 'CNY',
+              billingCycle: 'monthly',
+              autoRenew: true,
+              status: 'active',
+              createdAt: '2026-04-01T00:00:00.000Z',
+              updatedAt: '2026-04-02T00:00:00.000Z'
+            }
+          ],
+          globalMemories: [
+            {
+              id: 'memory-1',
+              title: '保守风险偏好',
+              content: '优先保证现金流安全边际。',
+              type: 'risk_preference',
+              source: 'assistant_chat',
+              sourceTrace: [],
+              sourceIds: ['msg-1'],
+              confidence: 0.88,
+              score: 0.88,
+              status: 'active',
+              origin: 'manual',
+              pinned: true,
+              disabled: false,
+              embeddingText: '保守风险偏好\n优先保证现金流安全边际。\nrisk_preference',
+              lastUsedAt: null,
+              createdAt: '2026-04-01T00:00:00.000Z',
+              updatedAt: '2026-04-02T00:00:00.000Z'
+            }
+          ]
+        }
+      })
+    );
+
+    expect(payload.data.subscriptions[0].name).toBe('Spotify');
+    expect(payload.data.subscriptions[0].status).toBe('active');
+    expect(payload.data.globalMemories[0].title).toBe('保守风险偏好');
+    expect(payload.data.globalMemories[0].pinned).toBe(true);
   });
 });
 

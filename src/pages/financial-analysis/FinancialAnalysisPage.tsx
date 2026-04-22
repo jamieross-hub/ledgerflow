@@ -524,7 +524,7 @@ ${JSON.stringify(aiInput)}`
                 ))}
               </div>
             ) : (
-              <p className="muted">当前范围内还没有足够的分类样本。</p>
+              <p className="muted">上一阶段还没有足够的支出分类样本。</p>
             )}
           </article>
 
