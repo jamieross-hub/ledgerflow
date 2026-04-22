@@ -645,12 +645,46 @@ function buildLocalPresetQuestions(transactions: TransactionItem[], categories: 
 }
 
 function buildAssistantConversationPrompt(question: string, history: ChatHistoryItem[]): string {
-  const context = history
-    .slice(-6)
+  const recentHistory = history.slice(-6);
+  const context = recentHistory
     .map((item) => `${item.role === 'user' ? '用户' : '助手'}：${item.text}`)
     .join('\n');
-  if (!context) return question;
-  return `请结合以下最近对话上下文连续回答，避免重复追问已确认的信息。\n\n最近对话：\n${context}\n\n当前问题：${question}`;
+  const combinedText = `${question}\n${recentHistory.map((item) => item.text).join('\n')}`;
+  const style = /为什么|原因|怎么看|判断|值不值|要不要|是否|应该/.test(combinedText)
+    ? 'judgement'
+    : /趋势|变化|波动|上升|下降|最近|本月|上月|环比|同比/.test(combinedText)
+      ? 'trend'
+      : /复盘|回顾|总结|问题在哪|哪里失控|拆解/.test(combinedText)
+        ? 'review'
+        : /预算|计划|安排|怎么做|下一步|清单|执行/.test(combinedText)
+          ? 'planning'
+          : 'general';
+
+  const styleInstruction =
+    style === 'judgement'
+      ? '这更像判断题：先明确你的结论和立场，再解释最关键的依据；若存在前提条件或不确定项，要顺手点出来。'
+      : style === 'trend'
+        ? '这更像趋势题：优先回答“变化发生在哪里、由什么带动、对接下来有什么影响”，可以自然分段，不要硬套固定骨架。'
+        : style === 'review'
+          ? '这更像复盘题：更适合用“先定位问题，再拆原因，最后收束到可执行动作”的自然表达。'
+          : style === 'planning'
+            ? '这更像行动题：少讲空话，直接给轻重缓急、先后顺序和今天能做的动作。'
+            : '请像一个真正看过账本上下文的分析助手那样回答，先抓主线，再补关键细节，不要每次都用同一套模板。';
+
+  const responseGuide = [
+    '回答要求：',
+    '1. 先直接回应当前问题，首句就给判断、观察或答案，不要先说套话。',
+    '2. 结构允许自然变化：可以按“先结论后拆解”、也可以按“先现象后判断”来写，但不要每次都固定成同一三段式。',
+    '3. 只展开最有信息量的 2-4 个点，避免凑条目。若适合，用短标题、小段落或列表；若不适合，就直接自然表达。',
+    '4. 尽量引用当前问题与最近对话中的具体对象、时间范围、分类或金额口径，少用泛化表述。',
+    '5. 如果信息不足，明确指出缺口，并说明缺了什么会影响判断；不要为了完整而硬编。'
+  ].join('\n');
+
+  if (!context) {
+    return `当前问题：${question}\n\n${styleInstruction}\n${responseGuide}`;
+  }
+
+  return `请结合以下最近对话上下文连续回答，避免重复追问已确认的信息。\n\n最近对话：\n${context}\n\n当前问题：${question}\n\n${styleInstruction}\n${responseGuide}`;
 }
 
 function buildCreditConversationPrompt(question: string, history: ChatHistoryItem[]): string {
@@ -880,22 +914,51 @@ function mapCreditItemToRepaymentPrefill(item: CreditExtractedItem) {
 
 function buildFollowUpPrompts(answer: string, history: ChatHistoryItem[]): string[] {
   const latestUserQuestion = [...history].reverse().find((item) => item.role === 'user')?.text?.trim() || '';
-  const hasBudget = /预算|超支|结余|开销|消费/.test(answer + latestUserQuestion);
-  const hasTrend = /趋势|变化|波动|上涨|下降|本月|上月|最近/.test(answer + latestUserQuestion);
-  const hasCategory = /分类|餐饮|交通|住房|娱乐|日用|订阅/.test(answer + latestUserQuestion);
-  const hasAction = /建议|可以|适合|优先|控制|优化|减少|增加/.test(answer);
+  const combined = `${latestUserQuestion}\n${answer}`;
+  const questionSnippet = latestUserQuestion.replace(/\s+/g, ' ').trim().slice(0, 16);
+  const hasBudget = /预算|超支|结余|开销|消费|节流|控费/.test(combined);
+  const hasTrend = /趋势|变化|波动|上涨|下降|本月|上月|最近|环比|同比/.test(combined);
+  const hasCategory = /分类|餐饮|交通|住房|娱乐|日用|订阅|买菜|通勤/.test(combined);
+  const hasAction = /建议|可以|适合|优先|控制|优化|减少|增加|执行|动作/.test(combined);
+  const hasRisk = /风险|压力|危险|失控|隐患|吃紧|透支/.test(combined);
+  const hasDecision = /要不要|值不值|是否|该不该|合适吗|怎么选/.test(combined);
 
-  const candidates = [
-    latestUserQuestion ? `基于“${latestUserQuestion.slice(0, 12)}${latestUserQuestion.length > 12 ? '…' : ''}”，你再说得更具体一点` : '',
-    hasBudget ? '那如果我要把本月预算收紧一点，应该先动哪几项？' : '',
-    hasTrend ? '把这个变化拆成最近 3 个阶段，分别说说看' : '',
-    hasCategory ? '按分类帮我排个轻重缓急，先看最该处理的 3 项' : '',
-    hasAction ? '别只讲方向，给我一个今天就能执行的小清单' : '',
-    '如果我要把这段结论发给未来的我，你会怎么写成一句提醒？',
-    '顺手帮我挑一个最值得继续追问的点'
+  const topicSpecific = [
+    hasBudget ? '如果这个月只能先收紧一项预算，你会先砍哪一项，为什么？' : '',
+    hasBudget ? '把刚才的判断改成一个“本周就能执行”的控费清单。' : '',
+    hasTrend ? '别只说在变，把这个变化拆成 3 个阶段，我想看拐点。' : '',
+    hasTrend ? '如果按这个趋势继续走，下个阶段最可能先出问题的是哪里？' : '',
+    hasCategory ? '按分类重新排一下优先级，只保留最值得先处理的 3 项。' : '',
+    hasCategory ? '把金额最大和最容易忽视的分类分开说，我想看区别。' : '',
+    hasAction ? '别讲大方向了，给我一个今天晚上就能开始的版本。' : '',
+    hasAction ? '如果我只能坚持一个动作 7 天，你最推荐哪一个？' : '',
+    hasRisk ? '你刚才提到的风险里，哪一个最容易被我低估？' : '',
+    hasRisk ? '把风险按“短期会痛 / 长期会拖累”重新分组说一下。' : '',
+    hasDecision ? '如果只能给一个建议，你会明确站哪边？顺手说出你的依据。' : '',
+    hasDecision ? '换个更保守的角度，你的判断会变吗？' : ''
   ].filter(Boolean);
 
-  return Array.from(new Set(candidates)).slice(0, 4);
+  const reframed = [
+    questionSnippet ? `围绕“${questionSnippet}${latestUserQuestion.length > 16 ? '…' : ''}”这个点，只展开最关键的一层。` : '',
+    questionSnippet ? `如果把“${questionSnippet}${latestUserQuestion.length > 16 ? '…' : ''}”当成主要矛盾，你会先怎么看？` : '',
+    '把刚才那段话压缩成一句提醒，写给下周的我。',
+    '如果你来替我继续追问，下一句你会怎么问？',
+    '哪些判断比较稳，哪些地方其实还需要我补数据？',
+    '换成更直接一点的说法，再给我讲一遍重点。'
+  ].filter(Boolean);
+
+  const candidates = Array.from(new Set([...topicSpecific, ...reframed]));
+  if (candidates.length <= 4) return candidates;
+
+  const seedSource = `${latestUserQuestion}::${answer}`;
+  let hash = 0;
+  for (let i = 0; i < seedSource.length; i += 1) {
+    hash = (hash * 31 + seedSource.charCodeAt(i)) >>> 0;
+  }
+
+  const offset = hash % candidates.length;
+  const rotated = candidates.slice(offset).concat(candidates.slice(0, offset));
+  return rotated.slice(0, 4);
 }
 
 function renderFieldMetaTag(meta?: CreditFieldMeta) {

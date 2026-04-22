@@ -163,6 +163,7 @@ function createWorkbenchMock() {
     pdfDataUrls: [],
     handleDropImage: vi.fn(),
     handleRecognizeWithPrompt: vi.fn(),
+    stopRecognize: vi.fn(),
     setTextInput: vi.fn(),
     textInput: '',
     canRecognize: true,
@@ -630,6 +631,73 @@ describe('AssistantPage', () => {
         }
       });
     });
+
+    sessionStorageGetItemSpy.mockRestore();
+  });
+
+  it('AI 助手提问时应注入更灵活的趋势分析提示词', async () => {
+    const workbench = {
+      ...createWorkbenchMock(),
+      textInput: '帮我看看最近支出趋势',
+      handleRecognizeWithPrompt: vi.fn(),
+      status: 'idle'
+    };
+    useAssistantWorkbenchMock.mockReturnValue(workbench);
+
+    render(
+      <MemoryRouter>
+        <AssistantPage />
+      </MemoryRouter>
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTitle('发送'));
+    });
+
+    expect(workbench.handleRecognizeWithPrompt).toHaveBeenCalledWith(
+      expect.stringContaining('这更像趋势题：优先回答“变化发生在哪里、由什么带动、对接下来有什么影响”'),
+      expect.objectContaining({
+        imageDataUrls: [],
+        pdfDataUrls: []
+      })
+    );
+    expect(workbench.handleRecognizeWithPrompt).toHaveBeenCalledWith(
+      expect.stringContaining('不要每次都固定成同一三段式'),
+      expect.anything()
+    );
+  });
+
+  it('AI 助手回复后应生成更灵活的继续追问建议', async () => {
+    useAssistantWorkbenchMock.mockReturnValue({
+      ...createWorkbenchMock(),
+      rawContent: '最近餐饮和通勤支出一起抬升，本月预算压力主要来自高频小额消费。建议先收紧工作日外卖，再看通勤替代方案。',
+      status: 'ready'
+    });
+
+    const sessionStorageGetItemSpy = vi
+      .spyOn(window.sessionStorage.__proto__, 'getItem')
+      .mockImplementation((key) => {
+        if (String(key).includes('chatHistory.assistant')) {
+          return JSON.stringify([
+            {
+              id: 'assistant-user-0',
+              role: 'user',
+              text: '帮我看看最近支出趋势'
+            }
+          ]);
+        }
+        return '[]';
+      });
+
+    render(
+      <MemoryRouter>
+        <AssistantPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('你可以顺手继续问：')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '别只说在变，把这个变化拆成 3 个阶段，我想看拐点。' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '按分类重新排一下优先级，只保留最值得先处理的 3 项。' })).toBeInTheDocument();
 
     sessionStorageGetItemSpy.mockRestore();
   });
