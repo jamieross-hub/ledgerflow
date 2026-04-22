@@ -9,7 +9,6 @@ export interface DashboardWelcomeBannerProps {
   monthlyBalance: number;
   netAssets: number;
   tip: string;
-  addEntryLabel: string;
   onToggleExpanded: () => void;
   onNavigateToQuickAdd: () => void;
   onNavigateToAssistant: () => void;
@@ -24,7 +23,6 @@ export function DashboardWelcomeBanner({
   monthlyBalance,
   netAssets,
   tip,
-  addEntryLabel,
   onToggleExpanded,
   onNavigateToQuickAdd,
   onNavigateToAssistant

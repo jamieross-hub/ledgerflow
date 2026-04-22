@@ -26,7 +26,7 @@ import {
   getConstellationLabel
 } from '../../features/dashboard/model/utils';
 import { APP_VERSION } from '../../shared/config/app';
-import { formatCurrency, formatMoneyByCurrency } from '../../shared/lib/format';
+import { formatCurrency } from '../../shared/lib/format';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { EmptyState } from '../../shared/ui/EmptyState';
@@ -1130,7 +1130,6 @@ export function DashboardPage() {
         monthlyBalance={monthlyBalance}
         netAssets={netAssets}
         tip={localizedTips[tipIndex]}
-        addEntryLabel={t('dashboard.ui.addEntry')}
         onToggleExpanded={() => setIsWelcomeExpanded((prev) => !prev)}
         onNavigateToQuickAdd={() => navigate('/transactions/new?quick=1')}
         onNavigateToAssistant={() => navigate('/assistant')}
