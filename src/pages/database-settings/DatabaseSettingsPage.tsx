@@ -96,6 +96,8 @@ export function DatabaseSettingsPage() {
   const [webdavRestoreDialogOpen, setWebdavRestoreDialogOpen] = useState(false);
   const [webdavRestoreVersions, setWebdavRestoreVersions] = useState<WebdavBackupVersionItem[]>([]);
   const [selectedRestorePath, setSelectedRestorePath] = useState('');
+  const [webdavAdvancedOpen, setWebdavAdvancedOpen] = useState(false);
+  const [remoteConnectionOpen, setRemoteConnectionOpen] = useState(false);
 
   const totalRows = useMemo(
     () =>
@@ -330,13 +332,7 @@ export function DatabaseSettingsPage() {
     <div>
       <section className="panel">
         <h2>备份设置</h2>
-        <p>当前支持本地备份 / WebDAV 同步，同时可单独维护远程 MySQL 连接配置；两者相互独立，不会互相覆盖。</p>
-        <ul style={{ marginTop: 10, color: 'var(--color-text-secondary)', lineHeight: 1.7 }}>
-          <li>支持本地 JSON 一键导出与导入。</li>
-          <li>支持导入微信 / 支付宝账单 CSV / XLSX。</li>
-          <li>支持 WebDAV 远程同步（上传与下载恢复）。</li>
-          <li>支持远程 MySQL / Redis 连接信息的保存、编辑与测试。</li>
-        </ul>
+        <p style={{ margin: 0 }}>集中处理本地备份、账单导入和 WebDAV 远程备份；远程数据库连接放在高级区域。</p>
       </section>
 
       <section className="panel" style={{ marginTop: 12 }}>
@@ -418,40 +414,23 @@ export function DatabaseSettingsPage() {
       </section>
 
       <section className="panel" style={{ marginTop: 12 }}>
-        <h3 style={{ marginTop: 0 }}>远程数据库连接</h3>
-        <p className="sync-tip" style={{ marginTop: 0 }}>
-          这里用于保存和测试远程 MySQL / Redis 连接信息，仅管理连接配置，不会替代本地数据存储，也不会影响 WebDAV 备份设置。
-        </p>
-        <ul style={{ margin: '8px 0 12px', color: 'var(--color-text-secondary)', lineHeight: 1.7 }}>
-          <li>当前阶段仅支持：连接参数录入、保存、启用/停用、基础连通性测试。</li>
-          <li>当前阶段暂不支持：直接把交易/分类/账户写入远程 MySQL，也不会自动从远程库回填本地 store。</li>
-          <li>本地存储、WebDAV 备份、远程数据库连接三者并存，但职责不同：本地负责当前数据，WebDAV 负责备份恢复，MySQL 负责连接配置预留。</li>
-        </ul>
-        <ConnectionConfigManager />
-      </section>
-
-      <section className="panel" style={{ marginTop: 12 }}>
-        <h3 style={{ marginTop: 0 }}>WebDAV 同步</h3>
-        <p className="sync-tip" style={{ marginTop: 0 }}>
-          浏览器直连 WebDAV 常因 CORS 失败。默认开启同源代理：前端请求本站路径（如 /api/webdav），
-          再由服务端反向代理到真实 WebDAV。安全策略：仅允许 HTTPS，且拒绝 localhost/内网地址。
-        </p>
-        <div className="field" style={{ marginBottom: 10 }}>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={webdav.proxyEnabled}
-              onChange={(e) => setWebdav((prev) => ({ ...prev, proxyEnabled: e.target.checked }))}
-            />
-            启用同源代理（推荐）
-          </label>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <h3 style={{ margin: 0 }}>WebDAV 备份</h3>
+            <p className="sync-tip" style={{ margin: '6px 0 0' }}>
+              用于远程备份与恢复，默认通过同源代理连接。
+            </p>
+          </div>
+          <span className="sync-tip" style={{ whiteSpace: 'nowrap' }}>
+            {webdav.proxyEnabled ? '代理已启用' : '浏览器直连'}
+          </span>
         </div>
 
-        <div className="grid grid-2" style={{ gap: 10 }}>
+        <div className="grid grid-2" style={{ gap: 10, marginTop: 10 }}>
           <div className="field" style={{ marginBottom: 0 }}>
-            <label>{webdav.proxyEnabled ? '真实 WebDAV 地址（代理目标）' : 'WebDAV 地址'}</label>
+            <label>{webdav.proxyEnabled ? '真实 WebDAV 地址' : 'WebDAV 地址'}</label>
             <input
-              title={webdav.proxyEnabled ? '真实 WebDAV 地址（代理目标）' : 'WebDAV 地址'}
+              title={webdav.proxyEnabled ? '真实 WebDAV 地址' : 'WebDAV 地址'}
               placeholder="https://dav.example.com/remote.php/dav/files/user"
               value={webdav.endpoint}
               onChange={(e) => setWebdav((prev) => ({ ...prev, endpoint: e.target.value }))}
@@ -464,19 +443,6 @@ export function DatabaseSettingsPage() {
               placeholder="ledgerflow/backup.json"
               value={webdav.remoteFilePath}
               onChange={(e) => setWebdav((prev) => ({ ...prev, remoteFilePath: e.target.value }))}
-            />
-          </div>
-          <div className="field" style={{ marginBottom: 0 }}>
-            <label>保留版本数</label>
-            <input
-              title="保留版本数"
-              type="number"
-              min={1}
-              max={50}
-              value={webdav.retainedVersions}
-              onChange={(e) =>
-                setWebdav((prev) => ({ ...prev, retainedVersions: Number(e.target.value) || 1 }))
-              }
             />
           </div>
           <div className="field" style={{ marginBottom: 0 }}>
@@ -498,28 +464,59 @@ export function DatabaseSettingsPage() {
               onChange={(e) => setWebdav((prev) => ({ ...prev, password: e.target.value }))}
             />
           </div>
-          <div className="field" style={{ marginBottom: 0 }}>
-            <label>代理入口路径（同源）</label>
-            <input
-              title="代理入口路径"
-              placeholder="/api/webdav"
-              value={webdav.proxyBasePath}
-              onChange={(e) => setWebdav((prev) => ({ ...prev, proxyBasePath: e.target.value }))}
-              disabled={!webdav.proxyEnabled}
-            />
-          </div>
         </div>
 
-        <p className="sync-tip" style={{ margin: '10px 0 0 0' }}>
-          {webdav.proxyEnabled
-            ? '当前已启用代理：浏览器请求代理入口路径，代理服务再转发到上方“真实 WebDAV 地址”。'
-            : '当前为浏览器直连 WebDAV：目标服务必须允许当前站点跨域访问。'}
-          {' '}当前上传将生成带时间戳的备份文件，并按保留版本数自动清理旧版本；下载恢复默认优先取最新版本。
+        <div style={{ marginTop: 10 }}>
+          <button type="button" onClick={() => setWebdavAdvancedOpen((prev) => !prev)}>
+            {webdavAdvancedOpen ? '收起高级选项' : '展开高级选项'}
+          </button>
+        </div>
+
+        {webdavAdvancedOpen ? (
+          <div className="grid grid-2" style={{ gap: 10, marginTop: 10 }}>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={webdav.proxyEnabled}
+                  onChange={(e) => setWebdav((prev) => ({ ...prev, proxyEnabled: e.target.checked }))}
+                />
+                启用同源代理
+              </label>
+            </div>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label>保留版本数</label>
+              <input
+                title="保留版本数"
+                type="number"
+                min={1}
+                max={50}
+                value={webdav.retainedVersions}
+                onChange={(e) =>
+                  setWebdav((prev) => ({ ...prev, retainedVersions: Number(e.target.value) || 1 }))
+                }
+              />
+            </div>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label>代理入口路径</label>
+              <input
+                title="代理入口路径"
+                placeholder="/api/webdav"
+                value={webdav.proxyBasePath}
+                onChange={(e) => setWebdav((prev) => ({ ...prev, proxyBasePath: e.target.value }))}
+                disabled={!webdav.proxyEnabled}
+              />
+            </div>
+          </div>
+        ) : null}
+
+        <p className="sync-tip" style={{ margin: '10px 0 0' }}>
+          {webdav.proxyEnabled ? '当前：同源代理已启用。' : '当前：浏览器直连，可能受跨域限制。'}
         </p>
 
-        <div className="row" style={{ gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+        <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           <button type="button" onClick={handleSaveWebdavConfig} disabled={busy}>
-            保存配置
+            保存
           </button>
           <button
             type="button"
@@ -527,13 +524,28 @@ export function DatabaseSettingsPage() {
             onClick={() => void handleWebdavUpload()}
             disabled={busy}
           >
-            备份到 WebDAV
+            立即备份
           </button>
           <button type="button" onClick={() => void handleWebdavDownload()} disabled={busy}>
-            从 WebDAV 下载并恢复
+            恢复备份
           </button>
           {webdavStatus ? <span className="sync-tip">{webdavStatus}</span> : null}
         </div>
+      </section>
+
+      <section className="panel" style={{ marginTop: 12 }}>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <h3 style={{ marginTop: 0, marginBottom: 0 }}>远程数据库连接（高级）</h3>
+            <p className="sync-tip" style={{ margin: '6px 0 0' }}>
+              仅保存和测试连接参数，不会替代本地存储，也不会覆盖 WebDAV 备份。
+            </p>
+          </div>
+          <button type="button" onClick={() => setRemoteConnectionOpen((prev) => !prev)}>
+            {remoteConnectionOpen ? '收起' : '展开'}
+          </button>
+        </div>
+        {remoteConnectionOpen ? <ConnectionConfigManager /> : null}
       </section>
 
       {webdavRestoreDialogOpen ? (
