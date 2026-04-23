@@ -644,47 +644,94 @@ function buildLocalPresetQuestions(transactions: TransactionItem[], categories: 
     .map((item, index) => ({ id: `fallback-${index}`, ...item }));
 }
 
+type AssistantIntent = 'trend' | 'review' | 'planning' | 'decision' | 'risk' | 'category';
+
+const ASSISTANT_INTENT_PATTERNS: Array<{ intent: AssistantIntent; regex: RegExp; label: string; priority: number }> = [
+  { intent: 'trend', regex: /趋势|变化|波动|上升|下降|最近|本月|上月|环比|同比|拐点/, label: '趋势变化', priority: 6 },
+  { intent: 'review', regex: /复盘|回顾|总结|问题在哪|哪里失控|拆解|原因/, label: '复盘拆解', priority: 5 },
+  { intent: 'planning', regex: /预算|计划|安排|怎么做|下一步|清单|执行|优先级/, label: '行动规划', priority: 4 },
+  { intent: 'decision', regex: /怎么看|判断|值不值|要不要|是否|应该|该不该|合适吗/, label: '判断取舍', priority: 5 },
+  { intent: 'risk', regex: /风险|压力|危险|失控|隐患|吃紧|透支/, label: '风险提醒', priority: 4 },
+  { intent: 'category', regex: /分类|餐饮|交通|住房|娱乐|日用|订阅|买菜|通勤/, label: '分类聚焦', priority: 3 }
+];
+
+function rankAssistantIntents(text: string): AssistantIntent[] {
+  const scored = ASSISTANT_INTENT_PATTERNS.map((item) => ({
+    intent: item.intent,
+    label: item.label,
+    priority: item.priority,
+    hits: (text.match(new RegExp(item.regex.source, 'g')) || []).length
+  }))
+    .filter((item) => item.hits > 0)
+    .sort((a, b) => b.hits * 10 + b.priority - (a.hits * 10 + a.priority));
+
+  return scored.slice(0, 3).map((item) => item.intent);
+}
+
+function buildAssistantIntentLabels(intents: AssistantIntent[]): string[] {
+  return intents
+    .map((intent) => ASSISTANT_INTENT_PATTERNS.find((item) => item.intent === intent)?.label || '')
+    .filter(Boolean);
+}
+
+function buildAssistantPromptFocus(intents: AssistantIntent[]): string[] {
+  const focus = new Set<string>();
+  intents.forEach((intent) => {
+    if (intent === 'trend') {
+      focus.add('先抓变化，再解释驱动因素与后续影响');
+    }
+    if (intent === 'review') {
+      focus.add('优先定位问题，再拆原因，不要只报现象');
+    }
+    if (intent === 'planning') {
+      focus.add('把建议落到先后顺序和可执行动作，不要停在方向层');
+    }
+    if (intent === 'decision') {
+      focus.add('需要明确表态时直接给判断，并交代成立前提');
+    }
+    if (intent === 'risk') {
+      focus.add('指出最值得警惕的风险点，并说明影响范围');
+    }
+    if (intent === 'category') {
+      focus.add('尽量落到具体分类、场景或对象，不要只说泛化结论');
+    }
+  });
+
+  if (focus.size === 0) {
+    focus.add('先回答问题主线，再补最关键的细节');
+  }
+
+  return Array.from(focus).slice(0, 3);
+}
+
 function buildAssistantConversationPrompt(question: string, history: ChatHistoryItem[]): string {
   const recentHistory = history.slice(-6);
   const context = recentHistory
     .map((item) => `${item.role === 'user' ? '用户' : '助手'}：${item.text}`)
     .join('\n');
-  const combinedText = `${question}\n${recentHistory.map((item) => item.text).join('\n')}`;
-  const style = /为什么|原因|怎么看|判断|值不值|要不要|是否|应该/.test(combinedText)
-    ? 'judgement'
-    : /趋势|变化|波动|上升|下降|最近|本月|上月|环比|同比/.test(combinedText)
-      ? 'trend'
-      : /复盘|回顾|总结|问题在哪|哪里失控|拆解/.test(combinedText)
-        ? 'review'
-        : /预算|计划|安排|怎么做|下一步|清单|执行/.test(combinedText)
-          ? 'planning'
-          : 'general';
-
-  const styleInstruction =
-    style === 'judgement'
-      ? '这更像判断题：先明确你的结论和立场，再解释最关键的依据；若存在前提条件或不确定项，要顺手点出来。'
-      : style === 'trend'
-        ? '这更像趋势题：优先回答“变化发生在哪里、由什么带动、对接下来有什么影响”，可以自然分段，不要硬套固定骨架。'
-        : style === 'review'
-          ? '这更像复盘题：更适合用“先定位问题，再拆原因，最后收束到可执行动作”的自然表达。'
-          : style === 'planning'
-            ? '这更像行动题：少讲空话，直接给轻重缓急、先后顺序和今天能做的动作。'
-            : '请像一个真正看过账本上下文的分析助手那样回答，先抓主线，再补关键细节，不要每次都用同一套模板。';
-
-  const responseGuide = [
-    '回答要求：',
-    '1. 先直接回应当前问题，首句就给判断、观察或答案，不要先说套话。',
-    '2. 结构允许自然变化：可以按“先结论后拆解”、也可以按“先现象后判断”来写，但不要每次都固定成同一三段式。',
-    '3. 只展开最有信息量的 2-4 个点，避免凑条目。若适合，用短标题、小段落或列表；若不适合，就直接自然表达。',
-    '4. 尽量引用当前问题与最近对话中的具体对象、时间范围、分类或金额口径，少用泛化表述。',
-    '5. 如果信息不足，明确指出缺口，并说明缺了什么会影响判断；不要为了完整而硬编。'
-  ].join('\n');
+  const analysisText = `${question}\n${recentHistory
+    .filter((item) => item.role === 'user')
+    .map((item) => item.text)
+    .join('\n')}`;
+  const intents = rankAssistantIntents(analysisText);
+  const intentLabels = buildAssistantIntentLabels(intents);
+  const focusPoints = buildAssistantPromptFocus(intents);
+  const promptSections = [
+    '请像真正读过账本和上下文的分析助手那样回答。',
+    intentLabels.length > 0 ? `回答偏好：${intentLabels.join(' / ')}` : '',
+    '回答原则：',
+    '- 先直接回应当前问题，不要先说套话。',
+    '- 结构允许自然变化，用最适合当前问题的组织方式，不要套固定三段式。',
+    '- 只展开最有信息量的 2-4 个点，优先引用具体时间、分类、对象或金额口径。',
+    '- 如果信息不足，明确说明缺口及其影响，不要硬编。',
+    ...focusPoints.map((item) => `- ${item}`)
+  ].filter(Boolean);
 
   if (!context) {
-    return `当前问题：${question}\n\n${styleInstruction}\n${responseGuide}`;
+    return `当前问题：${question}\n\n${promptSections.join('\n')}`;
   }
 
-  return `请结合以下最近对话上下文连续回答，避免重复追问已确认的信息。\n\n最近对话：\n${context}\n\n当前问题：${question}\n\n${styleInstruction}\n${responseGuide}`;
+  return `请结合以下最近对话上下文连续回答，避免重复追问已确认的信息。\n\n最近对话：\n${context}\n\n当前问题：${question}\n\n${promptSections.join('\n')}`;
 }
 
 function buildCreditConversationPrompt(question: string, history: ChatHistoryItem[]): string {
@@ -914,51 +961,56 @@ function mapCreditItemToRepaymentPrefill(item: CreditExtractedItem) {
 
 function buildFollowUpPrompts(answer: string, history: ChatHistoryItem[]): string[] {
   const latestUserQuestion = [...history].reverse().find((item) => item.role === 'user')?.text?.trim() || '';
-  const combined = `${latestUserQuestion}\n${answer}`;
   const questionSnippet = latestUserQuestion.replace(/\s+/g, ' ').trim().slice(0, 16);
-  const hasBudget = /预算|超支|结余|开销|消费|节流|控费/.test(combined);
-  const hasTrend = /趋势|变化|波动|上涨|下降|本月|上月|最近|环比|同比/.test(combined);
-  const hasCategory = /分类|餐饮|交通|住房|娱乐|日用|订阅|买菜|通勤/.test(combined);
-  const hasAction = /建议|可以|适合|优先|控制|优化|减少|增加|执行|动作/.test(combined);
-  const hasRisk = /风险|压力|危险|失控|隐患|吃紧|透支/.test(combined);
-  const hasDecision = /要不要|值不值|是否|该不该|合适吗|怎么选/.test(combined);
+  const questionIntents = rankAssistantIntents(latestUserQuestion);
+  const answerIntents = rankAssistantIntents(answer);
+  const mergedIntents = Array.from(new Set([...questionIntents, ...answerIntents]));
 
-  const topicSpecific = [
-    hasBudget ? '如果这个月只能先收紧一项预算，你会先砍哪一项，为什么？' : '',
-    hasBudget ? '把刚才的判断改成一个“本周就能执行”的控费清单。' : '',
-    hasTrend ? '别只说在变，把这个变化拆成 3 个阶段，我想看拐点。' : '',
-    hasTrend ? '如果按这个趋势继续走，下个阶段最可能先出问题的是哪里？' : '',
-    hasCategory ? '按分类重新排一下优先级，只保留最值得先处理的 3 项。' : '',
-    hasCategory ? '把金额最大和最容易忽视的分类分开说，我想看区别。' : '',
-    hasAction ? '别讲大方向了，给我一个今天晚上就能开始的版本。' : '',
-    hasAction ? '如果我只能坚持一个动作 7 天，你最推荐哪一个？' : '',
-    hasRisk ? '你刚才提到的风险里，哪一个最容易被我低估？' : '',
-    hasRisk ? '把风险按“短期会痛 / 长期会拖累”重新分组说一下。' : '',
-    hasDecision ? '如果只能给一个建议，你会明确站哪边？顺手说出你的依据。' : '',
-    hasDecision ? '换个更保守的角度，你的判断会变吗？' : ''
-  ].filter(Boolean);
+  const candidates: Array<{ prompt: string; score: number }> = [];
+  const pushCandidate = (prompt: string, score: number) => {
+    if (!prompt.trim()) return;
+    candidates.push({ prompt, score });
+  };
 
-  const reframed = [
-    questionSnippet ? `围绕“${questionSnippet}${latestUserQuestion.length > 16 ? '…' : ''}”这个点，只展开最关键的一层。` : '',
-    questionSnippet ? `如果把“${questionSnippet}${latestUserQuestion.length > 16 ? '…' : ''}”当成主要矛盾，你会先怎么看？` : '',
-    '把刚才那段话压缩成一句提醒，写给下周的我。',
-    '如果你来替我继续追问，下一句你会怎么问？',
-    '哪些判断比较稳，哪些地方其实还需要我补数据？',
-    '换成更直接一点的说法，再给我讲一遍重点。'
-  ].filter(Boolean);
+  mergedIntents.forEach((intent, index) => {
+    const baseScore = 100 - index * 10;
+    if (intent === 'trend') {
+      pushCandidate('把这个变化拆成几个阶段，我想看真正的拐点。', baseScore);
+      pushCandidate('如果按现在的节奏继续走，下个阶段最先恶化的会是什么？', baseScore - 2);
+    }
+    if (intent === 'review') {
+      pushCandidate('别只复述现象，继续往下拆一层真正原因。', baseScore);
+      pushCandidate('如果只允许保留一个复盘结论，你觉得最关键的是哪一个？', baseScore - 2);
+    }
+    if (intent === 'planning') {
+      pushCandidate('把建议压缩成一个这周就能执行的小清单。', baseScore);
+      pushCandidate('如果我这周只能先做一件事，你建议先做哪一步？', baseScore - 2);
+    }
+    if (intent === 'decision') {
+      pushCandidate('如果你必须明确站一边，你现在会怎么选？', baseScore);
+      pushCandidate('换成更保守的前提，你的判断会不会变？', baseScore - 2);
+    }
+    if (intent === 'risk') {
+      pushCandidate('你刚才提到的风险里，哪个最容易被低估？', baseScore);
+      pushCandidate('把风险按短期影响和长期拖累重新排一下。', baseScore - 2);
+    }
+    if (intent === 'category') {
+      pushCandidate('按分类重新排一下优先级，只保留最值得先处理的几项。', baseScore);
+      pushCandidate('把金额最大和最容易忽视的分类分开说，我想看差别。', baseScore - 2);
+    }
+  });
 
-  const candidates = Array.from(new Set([...topicSpecific, ...reframed]));
-  if (candidates.length <= 4) return candidates;
+  pushCandidate(questionSnippet ? `围绕“${questionSnippet}${latestUserQuestion.length > 16 ? '…' : ''}”这个点，只展开最关键的一层。` : '', 60);
+  pushCandidate('哪些判断已经比较稳，哪些地方还需要我补数据？', 50);
+  pushCandidate('把刚才那段话压缩成一句提醒，写给下周的我。', 40);
 
-  const seedSource = `${latestUserQuestion}::${answer}`;
-  let hash = 0;
-  for (let i = 0; i < seedSource.length; i += 1) {
-    hash = (hash * 31 + seedSource.charCodeAt(i)) >>> 0;
-  }
+  const ranked = candidates
+    .sort((a, b) => b.score - a.score)
+    .filter((item, index, list) => list.findIndex((candidate) => candidate.prompt === item.prompt) === index)
+    .slice(0, 4)
+    .map((item) => item.prompt);
 
-  const offset = hash % candidates.length;
-  const rotated = candidates.slice(offset).concat(candidates.slice(0, offset));
-  return rotated.slice(0, 4);
+  return ranked;
 }
 
 function renderFieldMetaTag(meta?: CreditFieldMeta) {

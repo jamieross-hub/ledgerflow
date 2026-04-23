@@ -635,7 +635,7 @@ describe('AssistantPage', () => {
     sessionStorageGetItemSpy.mockRestore();
   });
 
-  it('AI 助手提问时应注入更灵活的趋势分析提示词', async () => {
+  it('AI 助手提问时应注入稳定的行为约束而不是绑定固定文案', async () => {
     const workbench = {
       ...createWorkbenchMock(),
       textInput: '帮我看看最近支出趋势',
@@ -654,20 +654,23 @@ describe('AssistantPage', () => {
       fireEvent.click(screen.getByTitle('发送'));
     });
 
-    expect(workbench.handleRecognizeWithPrompt).toHaveBeenCalledWith(
-      expect.stringContaining('这更像趋势题：优先回答“变化发生在哪里、由什么带动、对接下来有什么影响”'),
+    const [prompt, payload] = workbench.handleRecognizeWithPrompt.mock.calls[0] || [];
+    expect(typeof prompt).toBe('string');
+    expect(String(prompt)).toContain('当前问题：帮我看看最近支出趋势');
+    expect(String(prompt)).toContain('回答偏好：');
+    expect(String(prompt)).toContain('趋势变化');
+    expect(String(prompt)).toContain('回答原则：');
+    expect(String(prompt)).toContain('不要套固定三段式');
+    expect(String(prompt)).toContain('先抓变化，再解释驱动因素与后续影响');
+    expect(payload).toEqual(
       expect.objectContaining({
         imageDataUrls: [],
         pdfDataUrls: []
       })
     );
-    expect(workbench.handleRecognizeWithPrompt).toHaveBeenCalledWith(
-      expect.stringContaining('不要每次都固定成同一三段式'),
-      expect.anything()
-    );
   });
 
-  it('AI 助手回复后应生成更灵活的继续追问建议', async () => {
+  it('AI 助手回复后应生成与主题相关的继续追问建议', async () => {
     useAssistantWorkbenchMock.mockReturnValue({
       ...createWorkbenchMock(),
       rawContent: '最近餐饮和通勤支出一起抬升，本月预算压力主要来自高频小额消费。建议先收紧工作日外卖，再看通勤替代方案。',
@@ -696,8 +699,13 @@ describe('AssistantPage', () => {
     );
 
     expect(await screen.findByText('你可以顺手继续问：')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '别只说在变，把这个变化拆成 3 个阶段，我想看拐点。' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '按分类重新排一下优先级，只保留最值得先处理的 3 项。' })).toBeInTheDocument();
+    const chips = screen.getAllByRole('button').filter((button) =>
+      button.className.includes('chat-follow-up-chip')
+    );
+    expect(chips.length).toBeGreaterThanOrEqual(2);
+    expect(chips.length).toBeLessThanOrEqual(4);
+    expect(chips.some((button) => /变化|趋势|阶段|拐点/.test(button.textContent || ''))).toBe(true);
+    expect(chips.some((button) => /分类|优先级|预算|风险|数据/.test(button.textContent || ''))).toBe(true);
 
     sessionStorageGetItemSpy.mockRestore();
   });
