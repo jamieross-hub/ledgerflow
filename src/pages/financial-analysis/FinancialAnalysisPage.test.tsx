@@ -130,7 +130,7 @@ describe('FinancialAnalysisPage', () => {
         },
         {
           id: 'tx-prev-abnormal',
-          date: '2026-03-20',
+          date: '2026-04-20',
           type: 'expense',
           categoryId: 'cat-rent',
           accountId: 'acc-cash',
@@ -140,7 +140,7 @@ describe('FinancialAnalysisPage', () => {
         },
         {
           id: 'tx-prev-food',
-          date: '2026-03-15',
+          date: '2026-04-15',
           type: 'expense',
           categoryId: 'cat-food',
           accountId: 'acc-cash',
@@ -150,7 +150,7 @@ describe('FinancialAnalysisPage', () => {
         },
         {
           id: 'tx-prev-coffee',
-          date: '2026-03-03',
+          date: '2026-04-03',
           type: 'expense',
           categoryId: 'cat-food',
           accountId: 'acc-cash',
@@ -228,6 +228,101 @@ describe('FinancialAnalysisPage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/subscriptions');
   });
 
+  it('应展示消费习惯、可压缩支出与消费者画像', () => {
+    financeStoreMock.state = {
+      transactions: [
+        {
+          id: 'tx-weekday-lunch-1',
+          date: '2026-04-21',
+          type: 'expense',
+          categoryId: 'cat-food',
+          accountId: 'acc-cash',
+          amount: 28,
+          note: '咖啡',
+          tags: []
+        },
+        {
+          id: 'tx-weekday-lunch-2',
+          date: '2026-04-20',
+          type: 'expense',
+          categoryId: 'cat-food',
+          accountId: 'acc-cash',
+          amount: 32,
+          note: '咖啡',
+          tags: []
+        },
+        {
+          id: 'tx-weekend-taxi',
+          date: '2026-04-19',
+          type: 'expense',
+          categoryId: 'cat-transport',
+          accountId: 'acc-cash',
+          amount: 45,
+          note: '打车',
+          tags: []
+        },
+        {
+          id: 'tx-weekend-milk-tea',
+          date: '2026-04-18',
+          type: 'expense',
+          categoryId: 'cat-food',
+          accountId: 'acc-cash',
+          amount: 26,
+          note: '奶茶',
+          tags: []
+        },
+        {
+          id: 'tx-shopping',
+          date: '2026-04-16',
+          type: 'expense',
+          categoryId: 'cat-shopping',
+          accountId: 'acc-cash',
+          amount: 268,
+          note: '网购',
+          tags: []
+        },
+        {
+          id: 'tx-income',
+          date: '2026-04-15',
+          type: 'income',
+          categoryId: 'cat-salary',
+          accountId: 'acc-bank',
+          amount: 5000,
+          note: '工资',
+          tags: []
+        }
+      ],
+      categories: [
+        { id: 'cat-food', name: '餐饮', kind: 'expense', color: '#f97316', icon: '🍜', sortOrder: 1 },
+        { id: 'cat-transport', name: '交通', kind: 'expense', color: '#0ea5e9', icon: '🚇', sortOrder: 2 },
+        { id: 'cat-shopping', name: '购物', kind: 'expense', color: '#8b5cf6', icon: '🛍️', sortOrder: 3 },
+        { id: 'cat-salary', name: '工资', kind: 'income', color: '#16a34a', icon: '💰', sortOrder: 4 }
+      ],
+      accounts: [
+        { id: 'acc-cash', name: '现金', type: 'cash', initialBalance: 500, balance: 180 },
+        { id: 'acc-bank', name: '银行卡', type: 'debit', initialBalance: 1000, balance: 6200 }
+      ],
+      subscriptions: []
+    };
+
+    appPreferencesMock.state = {
+      debts: [],
+      repaymentRecords: [],
+      monthlyIncome: 8000
+    };
+
+    renderPage();
+
+    expect(screen.getByText('行为洞察：消费习惯与画像')).toBeInTheDocument();
+    expect(screen.getByText('消费习惯推断')).toBeInTheDocument();
+    expect(screen.getByText('可压缩支出信号')).toBeInTheDocument();
+    expect(screen.getByText('消费者画像推测')).toBeInTheDocument();
+    expect(screen.getByText(/规划型消费者|舒适优先型消费者|即时反馈型消费者|平衡观察型消费者/)).toBeInTheDocument();
+    expect(screen.getByText(/该画像只基于当前账本行为特征推测/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '查看消费明细' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '去 AI 助手' })).toBeInTheDocument();
+  });
+
   it('应在过去周期有支出流水时展示过去复盘内容', () => {
     financeStoreMock.state = {
       transactions: [
@@ -243,7 +338,7 @@ describe('FinancialAnalysisPage', () => {
         },
         {
           id: 'tx-prev-rent',
-          date: '2026-03-20',
+          date: '2026-04-20',
           type: 'expense',
           categoryId: 'cat-rent',
           accountId: 'acc-cash',
@@ -253,7 +348,7 @@ describe('FinancialAnalysisPage', () => {
         },
         {
           id: 'tx-prev-grocery',
-          date: '2026-03-15',
+          date: '2026-04-15',
           type: 'expense',
           categoryId: 'cat-food',
           accountId: 'acc-cash',
@@ -263,7 +358,7 @@ describe('FinancialAnalysisPage', () => {
         },
         {
           id: 'tx-prev-dinner',
-          date: '2026-03-03',
+          date: '2026-04-03',
           type: 'expense',
           categoryId: 'cat-food',
           accountId: 'acc-cash',
@@ -294,8 +389,8 @@ describe('FinancialAnalysisPage', () => {
 
     expect(screen.getAllByText('住房').length).toBeGreaterThan(0);
     expect(screen.getByText('房租 · ¥1,500.00')).toBeInTheDocument();
-    expect(screen.getByText(/上一阶段支出最高的分类/)).toBeInTheDocument();
-    expect(screen.queryByText('当前范围内还没有足够的分类样本。')).not.toBeInTheDocument();
+    expect(screen.getByText(/住房是当前分析周期支出最高的分类/)).toBeInTheDocument();
+    expect(screen.queryByText('上一阶段还没有足够的支出分类样本。')).not.toBeInTheDocument();
     expect(screen.getByText('查看异常流水')).toBeInTheDocument();
   });
 
@@ -356,5 +451,68 @@ describe('FinancialAnalysisPage', () => {
     expect(navigateMock).toHaveBeenCalledWith(
       '/transactions?datePreset=custom&dateFrom=2026-03-22&dateTo=2026-04-20'
     );
+  });
+
+  it('行为洞察动作应支持跳转到交易页与 AI 助手', () => {
+    financeStoreMock.state = {
+      transactions: [
+        {
+          id: 'tx-1',
+          date: '2026-04-20',
+          type: 'expense',
+          categoryId: 'cat-food',
+          accountId: 'acc-cash',
+          amount: 38,
+          note: '咖啡',
+          tags: []
+        },
+        {
+          id: 'tx-2',
+          date: '2026-04-19',
+          type: 'expense',
+          categoryId: 'cat-shopping',
+          accountId: 'acc-cash',
+          amount: 188,
+          note: '网购',
+          tags: []
+        },
+        {
+          id: 'tx-3',
+          date: '2026-04-12',
+          type: 'income',
+          categoryId: 'cat-salary',
+          accountId: 'acc-bank',
+          amount: 3200,
+          note: '工资',
+          tags: []
+        }
+      ],
+      categories: [
+        { id: 'cat-food', name: '餐饮', kind: 'expense', color: '#f97316', icon: '🍜', sortOrder: 1 },
+        { id: 'cat-shopping', name: '购物', kind: 'expense', color: '#8b5cf6', icon: '🛍️', sortOrder: 2 },
+        { id: 'cat-salary', name: '工资', kind: 'income', color: '#16a34a', icon: '💰', sortOrder: 3 }
+      ],
+      accounts: [
+        { id: 'acc-cash', name: '现金', type: 'cash', initialBalance: 500, balance: 200 },
+        { id: 'acc-bank', name: '银行卡', type: 'debit', initialBalance: 1000, balance: 4200 }
+      ],
+      subscriptions: []
+    };
+
+    appPreferencesMock.state = {
+      debts: [],
+      repaymentRecords: [],
+      monthlyIncome: 6000
+    };
+
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: '查看消费明细' }));
+    expect(navigateMock).toHaveBeenCalledWith(
+      '/transactions?type=expense&datePreset=custom&dateFrom=2026-03-22&dateTo=2026-04-20'
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '去 AI 助手' }));
+    expect(navigateMock).toHaveBeenCalledWith('/assistant');
   });
 });

@@ -23,6 +23,11 @@ interface AiFinancialAnalysisPayload {
   }>;
 }
 
+function behaviorToneClass(tone?: 'default' | 'warning' | 'success'): string {
+  if (tone === 'warning') return 'warning';
+  return '';
+}
+
 interface FinancialAnalysisQuickAction {
   label: string;
   hint: string;
@@ -203,6 +208,11 @@ export function FinancialAnalysisPage() {
         suggestedBuffer: analysis.future.suggestedBuffer,
         dueSoonSubscriptionCount: analysis.future.dueSoonSubscriptionCount,
         dueSoonRepaymentCount: analysis.future.dueSoonRepaymentCount
+      },
+      behavior: {
+        habits: analysis.behavior.habits,
+        avoidableSignals: analysis.behavior.avoidableSignals,
+        consumerProfile: analysis.behavior.consumerProfile
       }
     }),
     [analysis, range.label]
@@ -487,6 +497,113 @@ ${JSON.stringify(aiInput)}`
             <p className="muted">点击“生成 AI 解读”，让模型结合当前财务快照输出更完整的过去 / 现在 / 未来分析。</p>
           )}
         </article>
+      </section>
+
+      <section className="panel financial-analysis-section">
+        <div className="financial-analysis-section-head">
+          <div>
+            <h3>行为洞察：消费习惯与画像</h3>
+            <p className="muted">基于当前周期账本，补充看消费习惯、可压缩支出与偏好画像。以下结论属于行为推测，不等同于人格定论。</p>
+          </div>
+          <span className="metric-chip">
+            可优化项
+            <strong>{analysis.behavior.avoidableSignals.length}</strong>
+          </span>
+        </div>
+
+        <div className="financial-analysis-two-col">
+          <article className="financial-analysis-subcard">
+            <h4>消费习惯推断</h4>
+            <div className="financial-analysis-ai-columns">
+              {analysis.behavior.habits.map((item) => (
+                <div key={item.title} className={`financial-analysis-highlight ${behaviorToneClass(item.tone)}`}>
+                  <strong>{item.title}</strong>
+                  <p>{item.detail}</p>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="financial-analysis-subcard">
+            <h4>可压缩支出信号</h4>
+            {analysis.behavior.avoidableSignals.length > 0 ? (
+              <div className="financial-analysis-ai-columns">
+                {analysis.behavior.avoidableSignals.map((item) => (
+                  <div key={item.title} className={`financial-analysis-highlight ${behaviorToneClass(item.tone)}`}>
+                    <strong>{item.title}</strong>
+                    <p>{item.detail}</p>
+                    <div className="financial-analysis-stat-grid">
+                      <div>
+                        <span>累计金额</span>
+                        <strong>{formatCurrency(item.amount)}</strong>
+                      </div>
+                      <div>
+                        <span>出现次数</span>
+                        <strong>{item.count}</strong>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="muted">当前周期还没有足够样本来识别可压缩支出。</p>
+            )}
+          </article>
+        </div>
+
+        <div className="financial-analysis-two-col">
+          <article className="financial-analysis-subcard">
+            <h4>消费者画像推测</h4>
+            <div className="financial-analysis-highlight">
+              <strong>{analysis.behavior.consumerProfile.archetype}</strong>
+              <p>{analysis.behavior.consumerProfile.summary}</p>
+            </div>
+            <div className="financial-analysis-actions">
+              {analysis.behavior.consumerProfile.traits.map((item) => (
+                <span key={item} className="metric-chip">
+                  {item}
+                </span>
+              ))}
+            </div>
+            <p className="financial-analysis-confidence">{analysis.behavior.consumerProfile.disclaimer}</p>
+          </article>
+
+          <article className="financial-analysis-subcard">
+            <h4>建议动作</h4>
+            <div className="financial-analysis-ai-columns">
+              <article className="financial-analysis-subcard">
+                <h4>去看高频消费</h4>
+                <p className="financial-analysis-paragraph">回到交易页聚焦当前分析周期，优先核对高频小额、娱乐购物和备注重复的场景。</p>
+                <div className="financial-analysis-actions">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        buildTransactionsLink({
+                          type: 'expense',
+                          datePreset: 'custom',
+                          dateFrom: rangeTransactionDates.from,
+                          dateTo: rangeTransactionDates.to
+                        })
+                      )
+                    }
+                  >
+                    查看消费明细
+                  </button>
+                </div>
+              </article>
+              <article className="financial-analysis-subcard">
+                <h4>让 AI 继续拆解</h4>
+                <p className="financial-analysis-paragraph">如果你想把“哪些消费其实可以砍”继续往下拆，可以直接带着当前习惯洞察去问 AI 助手。</p>
+                <div className="financial-analysis-actions">
+                  <button type="button" onClick={() => navigate('/assistant')}>
+                    去 AI 助手
+                  </button>
+                </div>
+              </article>
+            </div>
+          </article>
+        </div>
       </section>
 
       <section className="panel financial-analysis-section">
