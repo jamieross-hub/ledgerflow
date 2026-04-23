@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Account } from '../../entities/account/types';
@@ -6,6 +6,7 @@ import type { Category } from '../../entities/category/types';
 import type { SubscriptionItem } from '../../entities/subscription/types';
 import type { TransactionItem } from '../../entities/transaction/types';
 import type { DebtItem, RepaymentRecord } from '../../features/debt/model/debtMetrics';
+import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
 import { FinancialAnalysisPage } from './FinancialAnalysisPage';
 
 const navigateMock = vi.fn();
@@ -97,6 +98,7 @@ describe('FinancialAnalysisPage', () => {
       repaymentRecords: [],
       monthlyIncome: 0
     };
+    vi.mocked(sendAiChat).mockReset();
   });
 
   afterEach(() => {
@@ -321,6 +323,111 @@ describe('FinancialAnalysisPage', () => {
     expect(screen.getByText(/该画像只基于当前账本行为特征推测/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '查看消费明细' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '去 AI 助手' })).toBeInTheDocument();
+  });
+
+  it('生成 AI 解读后应补充行为洞察判断', async () => {
+    vi.mocked(sendAiChat).mockResolvedValueOnce({
+      content: JSON.stringify({
+        summary: '当前消费弹性较高，但仍可通过场景约束来改善结余。',
+        past: ['过去 30 天支出主要集中在餐饮和购物。'],
+        present: ['当前有多笔即时满足型消费。'],
+        future: ['若继续保持当前节奏，建议优先压缩高频小额消费。'],
+        actions: [{ label: '去制定预算', to: '/smart-budget' }],
+        behavior: {
+          summary: 'AI 认为你更像场景驱动型消费，容易在便利和情绪补偿场景下放大支出。',
+          habits: ['工作日存在小额高频咖啡消费，说明你有固定提神型开销。', '周末更容易出现临时出行和休闲支出。'],
+          avoidable: ['餐饮中的饮品和加餐可优先设限。', '购物类消费更适合改成延迟下单。'],
+          profile: '场景驱动型消费者',
+          confidenceNote: '该结论由 AI 结合当前账本样本生成，样本期较短时应结合近 2~3 周继续观察。'
+        }
+      })
+    } as Awaited<ReturnType<typeof sendAiChat>>);
+
+    financeStoreMock.state = {
+      transactions: [
+        {
+          id: 'tx-ai-1',
+          date: '2026-04-21',
+          type: 'expense',
+          categoryId: 'cat-food',
+          accountId: 'acc-cash',
+          amount: 28,
+          note: '咖啡',
+          tags: []
+        },
+        {
+          id: 'tx-ai-2',
+          date: '2026-04-20',
+          type: 'expense',
+          categoryId: 'cat-food',
+          accountId: 'acc-cash',
+          amount: 32,
+          note: '咖啡',
+          tags: []
+        },
+        {
+          id: 'tx-ai-3',
+          date: '2026-04-19',
+          type: 'expense',
+          categoryId: 'cat-transport',
+          accountId: 'acc-cash',
+          amount: 45,
+          note: '打车',
+          tags: []
+        },
+        {
+          id: 'tx-ai-4',
+          date: '2026-04-18',
+          type: 'expense',
+          categoryId: 'cat-shopping',
+          accountId: 'acc-cash',
+          amount: 268,
+          note: '网购',
+          tags: []
+        },
+        {
+          id: 'tx-ai-5',
+          date: '2026-04-15',
+          type: 'income',
+          categoryId: 'cat-salary',
+          accountId: 'acc-bank',
+          amount: 5000,
+          note: '工资',
+          tags: []
+        }
+      ],
+      categories: [
+        { id: 'cat-food', name: '餐饮', kind: 'expense', color: '#f97316', icon: '🍜', sortOrder: 1 },
+        { id: 'cat-transport', name: '交通', kind: 'expense', color: '#0ea5e9', icon: '🚇', sortOrder: 2 },
+        { id: 'cat-shopping', name: '购物', kind: 'expense', color: '#8b5cf6', icon: '🛍️', sortOrder: 3 },
+        { id: 'cat-salary', name: '工资', kind: 'income', color: '#16a34a', icon: '💰', sortOrder: 4 }
+      ],
+      accounts: [
+        { id: 'acc-cash', name: '现金', type: 'cash', initialBalance: 500, balance: 180 },
+        { id: 'acc-bank', name: '银行卡', type: 'debit', initialBalance: 1000, balance: 6200 }
+      ],
+      subscriptions: []
+    };
+
+    appPreferencesMock.state = {
+      debts: [],
+      repaymentRecords: [],
+      monthlyIncome: 8000
+    };
+
+    renderPage();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '生成 AI 解读' }));
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('AI 补充判断')).toBeInTheDocument();
+    expect(screen.getByText('场景驱动型消费者')).toBeInTheDocument();
+    expect(screen.getByText(/工作日存在小额高频咖啡消费/)).toBeInTheDocument();
+    expect(screen.getByText(/餐饮中的饮品和加餐可优先设限/)).toBeInTheDocument();
+    expect(screen.getByText(/样本期较短时应结合近 2~3 周继续观察/)).toBeInTheDocument();
+    expect(vi.mocked(sendAiChat)).toHaveBeenCalledTimes(1);
   });
 
   it('应在过去周期有支出流水时展示过去复盘内容', () => {

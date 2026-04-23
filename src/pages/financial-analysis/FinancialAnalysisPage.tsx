@@ -12,6 +12,14 @@ import { useAppPreferences } from '../../shared/store/useAppPreferences';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { EmptyState } from '../../shared/ui/EmptyState';
 
+interface AiBehaviorAnalysisPayload {
+  summary: string;
+  habits: string[];
+  avoidable: string[];
+  profile: string;
+  confidenceNote: string;
+}
+
 interface AiFinancialAnalysisPayload {
   summary: string;
   past: string[];
@@ -21,6 +29,7 @@ interface AiFinancialAnalysisPayload {
     label: string;
     to: string;
   }>;
+  behavior?: AiBehaviorAnalysisPayload;
 }
 
 function behaviorToneClass(tone?: 'default' | 'warning' | 'success'): string {
@@ -89,12 +98,37 @@ function normalizeAiPayload(raw: unknown): AiFinancialAnalysisPayload | null {
     return null;
   }
 
+  const behavior =
+    payload.behavior && typeof payload.behavior === 'object'
+      ? (() => {
+          const rawBehavior = payload.behavior as Partial<AiBehaviorAnalysisPayload>;
+          const profile = String(rawBehavior.profile || '').trim();
+          const behaviorSummary = String(rawBehavior.summary || '').trim();
+          const confidenceNote = String(rawBehavior.confidenceNote || '').trim();
+          const habits = normalizeList(rawBehavior.habits);
+          const avoidable = normalizeList(rawBehavior.avoidable);
+
+          if (!profile && !behaviorSummary && habits.length === 0 && avoidable.length === 0) {
+            return undefined;
+          }
+
+          return {
+            summary: behaviorSummary || 'AI 已结合当前账本补充行为判断。',
+            habits,
+            avoidable,
+            profile: profile || 'AI 暂未形成稳定画像',
+            confidenceNote: confidenceNote || '该结论由 AI 结合当前账本样本生成，仍需与你的真实消费背景一起判断。'
+          };
+        })()
+      : undefined;
+
   return {
     summary,
     past: normalizeList(payload.past),
     present: normalizeList(payload.present),
     future: normalizeList(payload.future),
-    actions
+    actions,
+    behavior
   };
 }
 
@@ -343,13 +377,15 @@ export function FinancialAnalysisPage() {
         messages: [
           {
             role: 'user',
-            text: `请基于以下财务分析快照，输出 JSON：{"summary":"一句总判断","past":["过去分析1","过去分析2"],"present":["现在分析1","现在分析2"],"future":["未来分析1","未来分析2"],"actions":[{"label":"动作名","to":"/transactions|/smart-budget|/repayment-management|/subscriptions|/assistant"}] }。
+            text: `请基于以下财务分析快照，输出 JSON：{"summary":"一句总判断","past":["过去分析1","过去分析2"],"present":["现在分析1","现在分析2"],"future":["未来分析1","未来分析2"],"actions":[{"label":"动作名","to":"/transactions|/smart-budget|/repayment-management|/subscriptions|/assistant"}],"behavior":{"summary":"行为总判断","habits":["习惯1","习惯2"],"avoidable":["可优化点1","可优化点2"],"profile":"一句画像结论","confidenceNote":"样本说明"}} 。
 要求：
 1) past / present / future 各返回 2~3 条；
-2) 必须结合输入数字，不要泛泛而谈；
-3) 若样本不足，要明确提示“样本不足”；
-4) actions 最多 3 条，必须是可执行入口；
-5) 用简体中文。
+2) behavior.habits 与 behavior.avoidable 各返回 2~3 条，尽量补足本地规则难以识别的消费语境；
+3) behavior.profile 要明确说明你推测到的消费风格，不要写成绝对人格定论；
+4) 若样本不足，要明确提示“样本不足”，但仍要尽量基于已有账本给出保守判断；
+5) actions 最多 3 条，必须是可执行入口；
+6) 必须结合输入数字和已有 behavior 字段，不要泛泛而谈；
+7) 只输出 JSON，用简体中文。
 
 财务分析快照：
 ${JSON.stringify(aiInput)}`
@@ -503,13 +539,46 @@ ${JSON.stringify(aiInput)}`
         <div className="financial-analysis-section-head">
           <div>
             <h3>行为洞察：消费习惯与画像</h3>
-            <p className="muted">基于当前周期账本，补充看消费习惯、可压缩支出与偏好画像。以下结论属于行为推测，不等同于人格定论。</p>
+            <p className="muted">先展示本地规则结果；生成 AI 解读后，这里会补充更细的消费语境判断。以下结论属于行为推测，不等同于人格定论。</p>
           </div>
           <span className="metric-chip">
             可优化项
             <strong>{analysis.behavior.avoidableSignals.length}</strong>
           </span>
         </div>
+
+        {aiResult?.behavior ? (
+          <article className="financial-analysis-subcard" style={{ marginBottom: 12 }}>
+            <h4>AI 补充判断</h4>
+            <div className="financial-analysis-highlight">
+              <strong>{aiResult.behavior.profile}</strong>
+              <p>{aiResult.behavior.summary}</p>
+            </div>
+            <div className="financial-analysis-ai-columns">
+              <section>
+                <h4>AI 看见的习惯</h4>
+                <ul>
+                  {aiResult.behavior.habits.map((item, index) => (
+                    <li key={`ai-habit-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              </section>
+              <section>
+                <h4>AI 识别的可优化点</h4>
+                <ul>
+                  {aiResult.behavior.avoidable.map((item, index) => (
+                    <li key={`ai-avoidable-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              </section>
+            </div>
+            <p className="financial-analysis-confidence">{aiResult.behavior.confidenceNote}</p>
+          </article>
+        ) : (
+          <p className="financial-analysis-confidence" style={{ marginBottom: 12 }}>
+            点击上方“生成 AI 解读”后，这里会补充更细的消费习惯判断，帮助你在样本偏少时也得到保守分析。
+          </p>
+        )}
 
         <div className="financial-analysis-two-col">
           <article className="financial-analysis-subcard">
