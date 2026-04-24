@@ -335,73 +335,95 @@ export function DatabaseSettingsPage() {
         <p style={{ margin: 0 }}>集中处理本地备份、账单导入和 WebDAV 远程备份；远程数据库连接放在高级区域。</p>
       </section>
 
-      <section className="panel" style={{ marginTop: 12 }}>
-        <h3 style={{ marginTop: 0 }}>本地备份导入导出</h3>
-        <p className="sync-tip">当前总数据量：{totalRows} 条（交易+分类+账户+订阅+全局记忆）</p>
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          <button type="button" className="primary" onClick={handleExportJson}>
-            导出 JSON 备份
-          </button>
-          <button type="button" onClick={() => backupInputRef.current?.click()}>
-            导入 JSON 备份
-          </button>
-          <input
-            ref={backupInputRef}
-            type="file"
-            title="导入 JSON 备份"
-            aria-label="导入 JSON 备份"
-            accept="application/json,.json"
-            style={{ display: 'none' }}
-            onChange={handleBackupFileImport}
-          />
+      <section className="panel database-data-hub" style={{ marginTop: 12 }}>
+        <div className="database-data-hub-head">
+          <div>
+            <h3 style={{ marginTop: 0 }}>本地备份与账单导入</h3>
+            <p className="sync-tip">
+              先留一份备份，再导入新账单会更安心。这里可以保存整本账本，也可以把微信、支付宝账单一次补进来。
+            </p>
+          </div>
+          <span className="database-data-hub-count">当前共 {totalRows} 条数据</span>
         </div>
-      </section>
 
-      <section className="panel" style={{ marginTop: 12 }}>
-        <h3 style={{ marginTop: 0 }}>账单导入</h3>
-        <p className="sync-tip">支持微信、支付宝官方账单 CSV / TXT（含制表符）与微信 XLSX 格式。</p>
-        <div className="database-import-actions">
-          <label className="field database-import-mode-field" style={{ marginBottom: 0 }}>
-            导入模式
-            <select
-              aria-label="账单导入模式"
-              value={importMode}
-              onChange={(e) => setImportMode(e.target.value as BillImportMode)}
-            >
-              <option value="incremental">增量（跳过重复）</option>
-              <option value="merge">合并（覆盖重复）</option>
-              <option value="overwrite">覆盖（清空后导入）</option>
-            </select>
-          </label>
-          <button
-            type="button"
-            onClick={() => {
-              setImportSource('wechat');
-              billInputRef.current?.click();
-            }}
-            disabled={!hasHydrated}
-          >
-            导入微信账单
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setImportSource('alipay');
-              billInputRef.current?.click();
-            }}
-            disabled={!hasHydrated}
-          >
-            导入支付宝账单
-          </button>
-          <input
-            ref={billInputRef}
-            type="file"
-            title="导入账单文件"
-            aria-label="导入账单文件"
-            accept=".csv,text/csv,.txt,text/plain,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            style={{ display: 'none' }}
-            onChange={handleImportBillFile}
-          />
+        <div className="database-data-hub-grid">
+          <div className="database-data-hub-block">
+            <div>
+              <span className="database-data-hub-label">完整备份</span>
+              <h4>导出或恢复整本账本</h4>
+            </div>
+            <p className="sync-tip">
+              适合换设备、批量整理前留档。交易、分类、账户、订阅和记忆都会一起保存。
+            </p>
+            <div className="database-data-hub-actions">
+              <button type="button" className="primary" onClick={handleExportJson}>
+                导出完整备份
+              </button>
+              <button type="button" onClick={() => backupInputRef.current?.click()}>
+                导入备份文件
+              </button>
+              <input
+                ref={backupInputRef}
+                type="file"
+                title="导入 JSON 备份"
+                aria-label="导入 JSON 备份"
+                accept="application/json,.json"
+                style={{ display: 'none' }}
+                onChange={handleBackupFileImport}
+              />
+            </div>
+          </div>
+
+          <div className="database-data-hub-block">
+            <div>
+              <span className="database-data-hub-label">账单导入</span>
+              <h4>把微信 / 支付宝账单补进来</h4>
+            </div>
+            <p className="sync-tip">支持微信、支付宝官方账单 CSV / TXT（含制表符），以及微信 XLSX。</p>
+            <div className="database-import-actions">
+              <label className="field database-import-mode-field" style={{ marginBottom: 0 }}>
+                遇到重复账单时
+                <select
+                  aria-label="账单导入模式"
+                  value={importMode}
+                  onChange={(e) => setImportMode(e.target.value as BillImportMode)}
+                >
+                  <option value="incremental">保留旧账单，跳过重复</option>
+                  <option value="merge">用新账单覆盖重复项</option>
+                  <option value="overwrite">清空现有交易后重新导入</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setImportSource('wechat');
+                  billInputRef.current?.click();
+                }}
+                disabled={!hasHydrated}
+              >
+                导入微信账单
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setImportSource('alipay');
+                  billInputRef.current?.click();
+                }}
+                disabled={!hasHydrated}
+              >
+                导入支付宝账单
+              </button>
+              <input
+                ref={billInputRef}
+                type="file"
+                title="导入账单文件"
+                aria-label="导入账单文件"
+                accept=".csv,text/csv,.txt,text/plain,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                style={{ display: 'none' }}
+                onChange={handleImportBillFile}
+              />
+            </div>
+          </div>
         </div>
       </section>
 
