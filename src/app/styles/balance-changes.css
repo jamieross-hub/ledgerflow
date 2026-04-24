@@ -200,8 +200,8 @@
 }
 
 .balance-change-domino-group.is-collapsed .balance-change-card-list {
-  min-height: 166px;
-  padding-bottom: 28px;
+  min-height: 152px;
+  padding-bottom: 34px;
 }
 
 .balance-change-domino-group.is-expanded .balance-change-card-list {
@@ -236,23 +236,42 @@
   right: 16px;
   top: 16px;
   z-index: calc(30 - var(--domino-clamped));
-  opacity: calc(1 - min(var(--domino-index), 5) * 0.12);
-  filter: saturate(calc(1 - min(var(--domino-index), 4) * 0.06));
+  opacity: 1;
+  filter: none;
   transform:
-    translateY(calc(var(--domino-clamped) * 18px))
-    translateX(calc(var(--domino-clamped) * 8px))
-    rotate(calc((var(--domino-clamped) - 2) * -1.4deg))
-    scale(calc(1 - var(--domino-clamped) * 0.025));
+    translateY(calc(var(--domino-clamped) * 14px))
+    translateX(calc(var(--domino-clamped) * 5px))
+    scale(calc(1 - var(--domino-clamped) * 0.018));
   pointer-events: none;
+}
+
+.balance-change-domino-group.is-collapsed .balance-change-card:not(:first-child) {
+  min-height: 76px;
+  overflow: hidden;
+  opacity: calc(0.86 - min(var(--domino-index), 4) * 0.12);
+  filter: saturate(0.86);
+}
+
+.balance-change-domino-group.is-collapsed .balance-change-card:not(:first-child) > * {
+  opacity: 0;
+}
+
+.balance-change-domino-group.is-collapsed .balance-change-card:not(:first-child)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--group-accent) 18%, transparent), transparent 34%),
+    color-mix(in srgb, var(--color-bg-elevated) 78%, transparent);
 }
 
 .balance-change-domino-group.is-collapsed .balance-change-card:nth-child(n + 6) {
   opacity: 0;
   transform:
-    translateY(96px)
-    translateX(44px)
-    rotate(-7deg)
-    scale(0.86);
+    translateY(70px)
+    translateX(24px)
+    scale(0.92);
 }
 
 .balance-change-domino-group.is-expanded .balance-change-card {
@@ -269,10 +288,9 @@
 
 .balance-change-domino-group.is-collapsed .balance-change-card:hover {
   transform:
-    translateY(calc(var(--domino-clamped) * 18px - 2px))
-    translateX(calc(var(--domino-clamped) * 8px))
-    rotate(calc((var(--domino-clamped) - 2) * -1.4deg))
-    scale(calc(1 - var(--domino-clamped) * 0.025));
+    translateY(calc(var(--domino-clamped) * 14px - 2px))
+    translateX(calc(var(--domino-clamped) * 5px))
+    scale(calc(1 - var(--domino-clamped) * 0.018));
 }
 
 .balance-change-card.is-positive {

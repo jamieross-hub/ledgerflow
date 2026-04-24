@@ -838,6 +838,19 @@ export function TransactionTable({
                               </option>
                             ))}
                           </select>
+                        ) : column.key === 'account' ? (
+                          <select
+                            aria-label="按账户筛选"
+                            value={quickFilters.account}
+                            onChange={(event) => onQuickFilterChange('account', event.target.value)}
+                          >
+                            <option value="">全部账户</option>
+                            {accountOptions.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.name}
+                              </option>
+                            ))}
+                          </select>
                         ) : column.key === 'amount' ? (
                           <input
                             type="number"

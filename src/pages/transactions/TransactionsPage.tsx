@@ -705,7 +705,7 @@ export function TransactionsPage() {
       const typePass = quickFilters.type === 'all' ? true : row.item.type === quickFilters.type;
       const statusPass = statusFilter === 'all' ? true : row.item.status === statusFilter;
       const categoryPass = matchesCategoryQuickFilter(categoryFilter, row.item.categoryId);
-      const accountPass = !accountFilter || row.accountName.toLowerCase().includes(accountFilter);
+      const accountPass = !accountFilter || row.item.accountId === accountFilter;
       const orderNoPass =
         !orderNoFilter || (row.item.orderNo || '').toLowerCase().includes(orderNoFilter);
       const merchantOrderNoPass =
