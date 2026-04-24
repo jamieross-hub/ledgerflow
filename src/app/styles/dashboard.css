@@ -64,6 +64,20 @@
   border-radius: 12px;
   padding: 20px;
   box-shadow: var(--card-shadow);
+  border-left: 4px solid var(--color-stripe-neutral);
+  transition: border-left-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+.dashboard-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--card-hover-shadow);
+}
+.dashboard-stat-card.dashboard-stat-income {
+  background: var(--gradient-card-income);
+  border-left-color: var(--color-stripe-income);
+}
+.dashboard-stat-card.dashboard-stat-expense {
+  background: var(--gradient-card-expense);
+  border-left-color: var(--color-stripe-expense);
 }
 
 .dashboard-stat-value {
@@ -97,11 +111,12 @@
 
 /* 趋势图表 */
 .dashboard-expense-trend-card {
-  background: var(--card-bg);
+  background: var(--gradient-card-primary);
   border-radius: 12px;
   padding: 20px;
   box-shadow: var(--card-shadow);
   margin-bottom: 24px;
+  border-left: 4px solid var(--color-stripe-neutral);
 }
 
 .dashboard-trend-header {
@@ -229,10 +244,11 @@
 
 /* 分类构成图 */
 .dashboard-category-breakdown {
-  background: var(--card-bg);
+  background: var(--gradient-card-primary);
   border-radius: 12px;
   padding: 20px;
   box-shadow: var(--card-shadow);
+  border-left: 4px solid var(--color-accent-purple);
 }
 
 .dashboard-category-pie-container {
@@ -309,11 +325,12 @@
 
 /* AI 洞察面板 */
 .dashboard-insight-panel {
-  background: var(--card-bg);
+  background: var(--gradient-card-info);
   border-radius: 12px;
   padding: 20px;
   box-shadow: var(--card-shadow);
   margin-bottom: 24px;
+  border-left: 4px solid var(--color-accent-cyan);
 }
 
 .dashboard-insight-header {
@@ -373,11 +390,12 @@
 
 /* 模块管理 */
 .dashboard-module-manager {
-  background: var(--card-bg);
+  background: var(--gradient-card-primary);
   border-radius: 12px;
   padding: 20px;
   box-shadow: var(--card-shadow);
   margin-bottom: 24px;
+  border-left: 4px solid var(--color-primary);
 }
 
 .dashboard-module-list {

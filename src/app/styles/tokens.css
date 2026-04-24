@@ -126,6 +126,69 @@
   --sidebar-collapsed-width: 68px;
   --topbar-height: 56px;
   --content-max-width: 1080px;
+
+  /* ---- 兼容层：旧版 CSS 变量名 -> 新版设计 Token ---- */
+  --card-bg: var(--color-bg-elevated);
+  --bg-primary: var(--color-bg);
+  --hover-bg: var(--color-bg-hover);
+  --border-color: var(--color-border);
+  --text-primary: var(--color-text);
+  --text-secondary: var(--color-text-secondary);
+  --text-tertiary: var(--color-text-tertiary);
+  --primary-color: var(--color-primary);
+  --primary-color-dark: var(--color-primary-hover);
+  --primary-color-opacity-10: var(--color-primary-bg);
+  --primary-color-opacity-20: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  --primary-color-opacity-30: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  --primary-color-opacity-50: color-mix(in srgb, var(--color-primary) 50%, transparent);
+  --success-color: var(--color-success);
+  --success-color-opacity-10: var(--color-success-bg);
+  --danger-color: var(--color-danger);
+  --danger-color-opacity-10: var(--color-danger-bg);
+  --danger-color-opacity-20: color-mix(in srgb, var(--color-danger) 20%, transparent);
+  --warning-color: var(--color-warning);
+  --warning-color-opacity-10: var(--color-warning-bg);
+  --info-color: var(--color-primary);
+  --info-color-opacity-10: var(--color-primary-bg);
+  --info-color-opacity-20: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  --card-shadow: var(--shadow-sm);
+  --card-hover-shadow: var(--shadow-md);
+  --tooltip-bg: #1a1d23;
+  --tooltip-text: #ffffff;
+
+  /* ---- 视觉增强：辅助强调色 ---- */
+  --color-accent-cyan: #06b6d4;
+  --color-accent-cyan-bg: rgba(6, 182, 212, 0.08);
+  --color-accent-purple: #8b5cf6;
+  --color-accent-purple-bg: rgba(139, 92, 246, 0.08);
+  --color-accent-orange: #f97316;
+  --color-accent-orange-bg: rgba(249, 115, 22, 0.08);
+
+  /* ---- 视觉增强：渐变卡片背景 ---- */
+  --gradient-card-income: linear-gradient(135deg, color-mix(in srgb, var(--color-success) 8%, var(--color-bg-elevated)) 0%, var(--color-bg-elevated) 100%);
+  --gradient-card-expense: linear-gradient(135deg, color-mix(in srgb, var(--color-danger) 6%, var(--color-bg-elevated)) 0%, var(--color-bg-elevated) 100%);
+  --gradient-card-primary: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 8%, var(--color-bg-elevated)) 0%, var(--color-bg-elevated) 100%);
+  --gradient-card-warning: linear-gradient(135deg, color-mix(in srgb, var(--color-warning) 8%, var(--color-bg-elevated)) 0%, var(--color-bg-elevated) 100%);
+  --gradient-card-info: linear-gradient(135deg, color-mix(in srgb, var(--color-accent-cyan) 8%, var(--color-bg-elevated)) 0%, var(--color-bg-elevated) 100%);
+
+  /* ---- 视觉增强：徽章色彩 ---- */
+  --badge-bg-default: var(--color-bg-subtle);
+  --badge-bg-info: var(--color-primary-bg);
+  --badge-bg-success: var(--color-success-bg);
+  --badge-bg-warning: var(--color-warning-bg);
+  --badge-bg-danger: var(--color-danger-bg);
+  --badge-text-default: var(--color-text-secondary);
+  --badge-text-info: var(--color-primary);
+  --badge-text-success: var(--color-success);
+  --badge-text-warning: var(--color-warning);
+  --badge-text-danger: var(--color-danger);
+
+  /* ---- 视觉增强：状态指示条颜色 ---- */
+  --color-stripe-income: var(--color-success);
+  --color-stripe-expense: var(--color-danger);
+  --color-stripe-neutral: var(--color-primary);
+  --color-stripe-warning: var(--color-warning);
+  --color-stripe-info: var(--color-accent-cyan);
 }
 
 /* ---- 暗色模式 ---- */
@@ -200,6 +263,24 @@
   --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.3);
   --shadow-xl: 0 14px 32px rgba(0, 0, 0, 0.34);
   --shadow-dropdown: 0 8px 20px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(255, 255, 255, 0.06);
+
+  /* ---- 兼容层：暗色模式下需要覆盖的值 ---- */
+  --tooltip-bg: #e5e7eb;
+  --tooltip-text: #0f172a;
+
+  /* ---- 视觉增强：暗色模式覆盖 ---- */
+  --color-accent-cyan: #22d3ee;
+  --color-accent-cyan-bg: rgba(34, 211, 238, 0.12);
+  --color-accent-purple: #a78bfa;
+  --color-accent-purple-bg: rgba(167, 139, 250, 0.12);
+  --color-accent-orange: #fb923c;
+  --color-accent-orange-bg: rgba(251, 146, 60, 0.12);
+  --gradient-card-income: linear-gradient(135deg, color-mix(in srgb, var(--color-success) 12%, var(--color-bg-elevated)) 0%, var(--color-bg-elevated) 100%);
+  --gradient-card-expense: linear-gradient(135deg, color-mix(in srgb, var(--color-danger) 10%, var(--color-bg-elevated)) 0%, var(--color-bg-elevated) 100%);
+  --gradient-card-primary: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 12%, var(--color-bg-elevated)) 0%, var(--color-bg-elevated) 100%);
+  --gradient-card-warning: linear-gradient(135deg, color-mix(in srgb, var(--color-warning) 12%, var(--color-bg-elevated)) 0%, var(--color-bg-elevated) 100%);
+  --gradient-card-info: linear-gradient(135deg, color-mix(in srgb, var(--color-accent-cyan) 12%, var(--color-bg-elevated)) 0%, var(--color-bg-elevated) 100%);
+  --badge-bg-default: var(--color-bg-hover);
 }
 
 [data-accent-theme='emerald'] {

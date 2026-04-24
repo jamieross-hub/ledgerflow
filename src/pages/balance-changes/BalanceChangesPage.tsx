@@ -26,6 +26,25 @@ function getDirectionText(beforeBalance: number, afterBalance: number) {
   return '余额无变化';
 }
 
+function getChangeTone(beforeBalance: number, afterBalance: number) {
+  if (afterBalance > beforeBalance) {
+    return 'is-positive';
+  }
+  if (afterBalance < beforeBalance) {
+    return 'is-negative';
+  }
+  return 'is-neutral';
+}
+
+function getChangeIcon(type: string, beforeBalance: number, afterBalance: number) {
+  if (type === 'manual-adjustment') return '✍️';
+  if (type === 'transaction-refund') return '↩️';
+  if (type === 'transaction-repayment') return '💳';
+  if (afterBalance > beforeBalance) return '↗';
+  if (afterBalance < beforeBalance) return '↘';
+  return '•';
+}
+
 function getRelatedDescription(entry: {
   type: string;
   transactionSummary: string;
@@ -117,64 +136,66 @@ export function BalanceChangesPage() {
           icon="📚"
         />
       ) : (
-        <div className="balance-change-table-wrap">
-          <table className="balance-change-table">
-            <thead>
-              <tr>
-                <th>时间</th>
-                <th>账户</th>
-                <th>变动类型</th>
-                <th>金额</th>
-                <th>变动前</th>
-                <th>变动后</th>
-                <th>关联对象</th>
-                <th>备注</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagedRows.map((entry) => (
-                <tr key={entry.id}>
-                  <td>{formatDateTime(entry.createdAt)}</td>
-                  <td>{entry.accountName}</td>
-                  <td>
-                    <div className="balance-change-related">
-                      <span>{getTypeLabel(entry.type)}</span>
-                      <small>{getDirectionText(entry.beforeBalance, entry.afterBalance)}</small>
+        <div className="balance-change-card-list" aria-label="余额变动记录列表">
+          {pagedRows.map((entry) => {
+            const tone = getChangeTone(entry.beforeBalance, entry.afterBalance);
+            const direction = getDirectionText(entry.beforeBalance, entry.afterBalance);
+            const relatedDescription = getRelatedDescription(entry);
+
+            return (
+              <article key={entry.id} className={`balance-change-card ${tone}`}>
+                <div className="balance-change-card-icon" aria-hidden="true">
+                  {getChangeIcon(entry.type, entry.beforeBalance, entry.afterBalance)}
+                </div>
+
+                <div className="balance-change-card-main">
+                  <header className="balance-change-card-head">
+                    <div>
+                      <p className="balance-change-card-kicker">{formatDateTime(entry.createdAt)}</p>
+                      <h3>{entry.accountName}</h3>
                     </div>
-                  </td>
-                  <td
-                    className={
-                      entry.afterBalance >= entry.beforeBalance
-                        ? 'balance-change-amount is-positive'
-                        : 'balance-change-amount is-negative'
-                    }
-                  >
-                    {formatCurrencyFixed2(entry.amount)}
-                  </td>
-                  <td>{formatCurrencyFixed2(entry.beforeBalance)}</td>
-                  <td>{formatCurrencyFixed2(entry.afterBalance)}</td>
-                  <td>
-                    <div className="balance-change-related">
-                      <span>{getRelatedDescription(entry)}</span>
+                    <div className={`balance-change-card-amount ${tone}`}>
+                      <span>{direction}</span>
+                      <strong>{formatCurrencyFixed2(entry.amount)}</strong>
+                    </div>
+                  </header>
+
+                  <div className="balance-change-card-body">
+                    <div className="balance-change-reason">
+                      <span>{getTypeLabel(entry.type)}</span>
+                      <strong>{relatedDescription}</strong>
                       {entry.relatedTransactionId ? <small>关联原单：{entry.relatedSummary}</small> : null}
                     </div>
-                  </td>
-                  <td>
-                    <div className="balance-change-related">
-                      <span>{entry.note || '—'}</span>
-                      {entry.remark ? <small>{entry.remark}</small> : null}
+
+                    <div className="balance-change-flow" aria-label="余额变化路径">
+                      <div>
+                        <span>变动前</span>
+                        <strong>{formatCurrencyFixed2(entry.beforeBalance)}</strong>
+                      </div>
+                      <i aria-hidden="true">→</i>
+                      <div>
+                        <span>变动后</span>
+                        <strong>{formatCurrencyFixed2(entry.afterBalance)}</strong>
+                      </div>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+
+                  {(entry.note || entry.remark) && (
+                    <footer className="balance-change-card-note">
+                      {entry.note ? <span>{entry.note}</span> : null}
+                      {entry.remark ? <small>{entry.remark}</small> : null}
+                    </footer>
+                  )}
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
 
       {rows.length > 0 ? (
-        <div className="row" style={{ justifyContent: 'space-between', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
-          <label className="balance-change-page-size" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <div className="balance-change-pagination">
+          <label className="balance-change-page-size">
             每页
             <select
               value={pageSize}
@@ -191,7 +212,7 @@ export function BalanceChangesPage() {
             </select>
           </label>
 
-          <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="balance-change-pagination-actions">
             <span className="muted">
               第 {page} / {pages} 页
             </span>
