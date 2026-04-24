@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { CSSProperties, useEffect, useMemo, useState } from 'react';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { formatCurrencyFixed2, formatDateTime } from '../../shared/lib/format';
 import { EmptyState } from '../../shared/ui/EmptyState';
@@ -10,6 +10,33 @@ const TYPE_LABELS: Record<string, string> = {
   'transaction-repayment': '还款扣减',
   'transaction-refund': '退款回补',
   'manual-adjustment': '手动调整'
+};
+
+type BalanceChangeGroupKey = 'income' | 'expense' | 'neutral';
+
+const GROUP_META: Record<
+  BalanceChangeGroupKey,
+  {
+    title: string;
+    subtitle: string;
+    icon: string;
+  }
+> = {
+  income: {
+    title: '收入 / 回补',
+    subtitle: '余额增加的记录，优先看入账、退款与调增',
+    icon: '↗'
+  },
+  expense: {
+    title: '支出 / 扣减',
+    subtitle: '余额减少的记录，优先看消费、还款与调减',
+    icon: '↘'
+  },
+  neutral: {
+    title: '其他变动',
+    subtitle: '余额无明显变化或无法归类的记录',
+    icon: '•'
+  }
 };
 
 function getTypeLabel(type: string) {
@@ -34,6 +61,16 @@ function getChangeTone(beforeBalance: number, afterBalance: number) {
     return 'is-negative';
   }
   return 'is-neutral';
+}
+
+function getGroupKey(beforeBalance: number, afterBalance: number): BalanceChangeGroupKey {
+  if (afterBalance > beforeBalance) {
+    return 'income';
+  }
+  if (afterBalance < beforeBalance) {
+    return 'expense';
+  }
+  return 'neutral';
 }
 
 function getChangeIcon(type: string, beforeBalance: number, afterBalance: number) {
@@ -71,7 +108,12 @@ export function BalanceChangesPage() {
   const accounts = useFinanceStore((s) => s.accounts);
   const transactions = useFinanceStore((s) => s.transactions);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(50);
+  const [expandedGroups, setExpandedGroups] = useState<Record<BalanceChangeGroupKey, boolean>>({
+    income: false,
+    expense: false,
+    neutral: false
+  });
 
   const rows = useMemo(
     () =>
@@ -99,6 +141,20 @@ export function BalanceChangesPage() {
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
   const pagedRows = rows.slice((page - 1) * pageSize, page * pageSize);
 
+  const groupedRows = useMemo(() => {
+    const next: Record<BalanceChangeGroupKey, typeof pagedRows> = {
+      income: [],
+      expense: [],
+      neutral: []
+    };
+
+    pagedRows.forEach((entry) => {
+      next[getGroupKey(entry.beforeBalance, entry.afterBalance)].push(entry);
+    });
+
+    return next;
+  }, [pagedRows]);
+
   useEffect(() => {
     setPage((current) => Math.min(current, pages));
   }, [pages]);
@@ -109,7 +165,7 @@ export function BalanceChangesPage() {
         <div>
           <h2>余额变动明细</h2>
           <p className="muted">
-            用来回答“这笔余额为什么变了”。已覆盖收入、支出、退款、手动调整等余额变化。
+            按收入、支出和其他变动分组展示。先看每组摘要，需要时再展开查看具体流水。
           </p>
         </div>
         <div className="balance-change-summary">
@@ -123,9 +179,9 @@ export function BalanceChangesPage() {
       </div>
 
       <div className="balance-change-tip">
-        <strong>历史兼容说明</strong>
+        <strong>阅读方式</strong>
         <p>
-          历史余额明细会基于现有交易记录与手动余额调整记录重建；若更早历史数据缺少关联信息，页面会尽量展示已知对象，并保留“未知/缺失”说明。
+          默认只露出每组最近几条记录，像一叠多米诺卡片；点击收入或支出分组后，会展开更多流水和余额变化路径。
         </p>
       </div>
 
@@ -136,58 +192,92 @@ export function BalanceChangesPage() {
           icon="📚"
         />
       ) : (
-        <div className="balance-change-card-list" aria-label="余额变动记录列表">
-          {pagedRows.map((entry) => {
-            const tone = getChangeTone(entry.beforeBalance, entry.afterBalance);
-            const direction = getDirectionText(entry.beforeBalance, entry.afterBalance);
-            const relatedDescription = getRelatedDescription(entry);
+        <div className="balance-change-domino-board" aria-label="按类型分组的余额变动记录">
+          {(['income', 'expense', 'neutral'] as BalanceChangeGroupKey[]).map((groupKey) => {
+            const groupRows = groupedRows[groupKey];
+            if (groupRows.length === 0) return null;
+
+            const meta = GROUP_META[groupKey];
+            const expanded = expandedGroups[groupKey];
+            const groupTotal = groupRows.reduce((sum, entry) => sum + Math.abs(entry.amount), 0);
 
             return (
-              <article key={entry.id} className={`balance-change-card ${tone}`}>
-                <div className="balance-change-card-icon" aria-hidden="true">
-                  {getChangeIcon(entry.type, entry.beforeBalance, entry.afterBalance)}
+              <section key={groupKey} className={`balance-change-domino-group is-${groupKey} ${expanded ? 'is-expanded' : 'is-collapsed'}`}>
+                <button
+                  type="button"
+                  className="balance-change-group-toggle"
+                  aria-expanded={expanded}
+                  onClick={() => setExpandedGroups((current) => ({ ...current, [groupKey]: !current[groupKey] }))}
+                >
+                  <span className="balance-change-group-icon">{meta.icon}</span>
+                  <span className="balance-change-group-copy">
+                    <strong>{meta.title}</strong>
+                    <small>{meta.subtitle}</small>
+                  </span>
+                  <span className="balance-change-group-stat">
+                    <strong>{groupRows.length} 笔</strong>
+                    <small>{formatCurrencyFixed2(groupTotal)}</small>
+                  </span>
+                  <span className="balance-change-group-action">{expanded ? '收起' : '展开'}</span>
+                </button>
+
+                <div className="balance-change-card-list" aria-label={`${meta.title}列表`}>
+                  {groupRows.map((entry, index) => {
+                    const tone = getChangeTone(entry.beforeBalance, entry.afterBalance);
+                    const direction = getDirectionText(entry.beforeBalance, entry.afterBalance);
+                    const relatedDescription = getRelatedDescription(entry);
+                    const style = { '--domino-index': index } as CSSProperties;
+
+                    return (
+                      <article key={entry.id} className={`balance-change-card ${tone}`} style={style}>
+                        <div className="balance-change-card-icon" aria-hidden="true">
+                          {getChangeIcon(entry.type, entry.beforeBalance, entry.afterBalance)}
+                        </div>
+
+                        <div className="balance-change-card-main">
+                          <header className="balance-change-card-head">
+                            <div>
+                              <p className="balance-change-card-kicker">{formatDateTime(entry.createdAt)}</p>
+                              <h3>{entry.accountName}</h3>
+                            </div>
+                            <div className={`balance-change-card-amount ${tone}`}>
+                              <span>{direction}</span>
+                              <strong>{formatCurrencyFixed2(entry.amount)}</strong>
+                            </div>
+                          </header>
+
+                          <div className="balance-change-card-body">
+                            <div className="balance-change-reason">
+                              <span>{getTypeLabel(entry.type)}</span>
+                              <strong>{relatedDescription}</strong>
+                              {entry.relatedTransactionId ? <small>关联原单：{entry.relatedSummary}</small> : null}
+                            </div>
+
+                            <div className="balance-change-flow" aria-label="余额变化路径">
+                              <div>
+                                <span>变动前</span>
+                                <strong>{formatCurrencyFixed2(entry.beforeBalance)}</strong>
+                              </div>
+                              <i aria-hidden="true">→</i>
+                              <div>
+                                <span>变动后</span>
+                                <strong>{formatCurrencyFixed2(entry.afterBalance)}</strong>
+                              </div>
+                            </div>
+                          </div>
+
+                          {(entry.note || entry.remark) && (
+                            <footer className="balance-change-card-note">
+                              {entry.note ? <span>{entry.note}</span> : null}
+                              {entry.remark ? <small>{entry.remark}</small> : null}
+                            </footer>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
-
-                <div className="balance-change-card-main">
-                  <header className="balance-change-card-head">
-                    <div>
-                      <p className="balance-change-card-kicker">{formatDateTime(entry.createdAt)}</p>
-                      <h3>{entry.accountName}</h3>
-                    </div>
-                    <div className={`balance-change-card-amount ${tone}`}>
-                      <span>{direction}</span>
-                      <strong>{formatCurrencyFixed2(entry.amount)}</strong>
-                    </div>
-                  </header>
-
-                  <div className="balance-change-card-body">
-                    <div className="balance-change-reason">
-                      <span>{getTypeLabel(entry.type)}</span>
-                      <strong>{relatedDescription}</strong>
-                      {entry.relatedTransactionId ? <small>关联原单：{entry.relatedSummary}</small> : null}
-                    </div>
-
-                    <div className="balance-change-flow" aria-label="余额变化路径">
-                      <div>
-                        <span>变动前</span>
-                        <strong>{formatCurrencyFixed2(entry.beforeBalance)}</strong>
-                      </div>
-                      <i aria-hidden="true">→</i>
-                      <div>
-                        <span>变动后</span>
-                        <strong>{formatCurrencyFixed2(entry.afterBalance)}</strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  {(entry.note || entry.remark) && (
-                    <footer className="balance-change-card-note">
-                      {entry.note ? <span>{entry.note}</span> : null}
-                      {entry.remark ? <small>{entry.remark}</small> : null}
-                    </footer>
-                  )}
-                </div>
-              </article>
+              </section>
             );
           })}
         </div>
@@ -204,7 +294,7 @@ export function BalanceChangesPage() {
                 setPage(1);
               }}
             >
-              {[10, 20, 50, 100].map((size) => (
+              {[20, 50, 100, 200].map((size) => (
                 <option key={size} value={size}>
                   {size} 条
                 </option>
