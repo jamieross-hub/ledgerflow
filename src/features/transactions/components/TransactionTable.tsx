@@ -1187,10 +1187,10 @@ export function TransactionTable({
             className="row transaction-pagination"
             style={{ marginTop: 12, justifyContent: 'space-between' }}
           >
-            <small style={{ color: 'var(--color-text-secondary)' }}>
+            <small className="transaction-pagination-summary" style={{ color: 'var(--color-text-secondary)' }}>
               当前 {filteredTotal} 条 / 全部 {total} 条
             </small>
-            <div className="row transaction-pagination-controls">
+            <div className="transaction-pagination-controls">
               <label className="transaction-page-size">
                 每页
                 <select
@@ -1205,21 +1205,23 @@ export function TransactionTable({
                   ))}
                 </select>
               </label>
-              <button type="button" disabled={page === 1} onClick={onFirstPage}>
-                第一页
-              </button>
-              <button type="button" disabled={page === 1} onClick={onPrevPage}>
-                上一页
-              </button>
-              <small style={{ color: 'var(--color-text-secondary)' }}>
+              <small className="transaction-page-indicator" style={{ color: 'var(--color-text-secondary)' }}>
                 第 {page} / {pages} 页
               </small>
-              <button type="button" disabled={page === pages} onClick={onNextPage}>
-                下一页
-              </button>
-              <button type="button" disabled={page === pages} onClick={onLastPage}>
-                最后一页
-              </button>
+              <div className="transaction-page-nav">
+                <button type="button" disabled={page === 1} onClick={onFirstPage} aria-label="第一页">
+                  首页
+                </button>
+                <button type="button" disabled={page === 1} onClick={onPrevPage} aria-label="上一页">
+                  上页
+                </button>
+                <button type="button" disabled={page === pages} onClick={onNextPage} aria-label="下一页">
+                  下页
+                </button>
+                <button type="button" disabled={page === pages} onClick={onLastPage} aria-label="最后一页">
+                  末页
+                </button>
+              </div>
             </div>
           </div>
           {contextMenu

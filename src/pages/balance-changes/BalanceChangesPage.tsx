@@ -200,12 +200,14 @@ export function BalanceChangesPage() {
             const meta = GROUP_META[groupKey];
             const expanded = expandedGroups[groupKey];
             const groupTotal = groupRows.reduce((sum, entry) => sum + Math.abs(entry.amount), 0);
+            const listId = `balance-change-group-${groupKey}`;
 
             return (
               <section key={groupKey} className={`balance-change-domino-group is-${groupKey} ${expanded ? 'is-expanded' : 'is-collapsed'}`}>
                 <button
                   type="button"
                   className="balance-change-group-toggle"
+                  aria-controls={listId}
                   aria-expanded={expanded}
                   onClick={() => setExpandedGroups((current) => ({ ...current, [groupKey]: !current[groupKey] }))}
                 >
@@ -221,12 +223,13 @@ export function BalanceChangesPage() {
                   <span className="balance-change-group-action">{expanded ? '收起' : '展开'}</span>
                 </button>
 
-                <div className="balance-change-card-list" aria-label={`${meta.title}列表`}>
+                <div id={listId} className="balance-change-card-list" aria-label={`${meta.title}列表`}>
                   {groupRows.map((entry, index) => {
                     const tone = getChangeTone(entry.beforeBalance, entry.afterBalance);
                     const direction = getDirectionText(entry.beforeBalance, entry.afterBalance);
                     const relatedDescription = getRelatedDescription(entry);
                     const style = { '--domino-index': index } as CSSProperties;
+                    const showExpandedDetails = expanded;
 
                     return (
                       <article key={entry.id} className={`balance-change-card ${tone}`} style={style}>
@@ -246,27 +249,29 @@ export function BalanceChangesPage() {
                             </div>
                           </header>
 
-                          <div className="balance-change-card-body">
-                            <div className="balance-change-reason">
-                              <span>{getTypeLabel(entry.type)}</span>
-                              <strong>{relatedDescription}</strong>
-                              {entry.relatedTransactionId ? <small>关联原单：{entry.relatedSummary}</small> : null}
-                            </div>
-
-                            <div className="balance-change-flow" aria-label="余额变化路径">
-                              <div>
-                                <span>变动前</span>
-                                <strong>{formatCurrencyFixed2(entry.beforeBalance)}</strong>
+                          {showExpandedDetails ? (
+                            <div className="balance-change-card-body">
+                              <div className="balance-change-reason">
+                                <span>{getTypeLabel(entry.type)}</span>
+                                <strong>{relatedDescription}</strong>
+                                {entry.relatedTransactionId ? <small>关联原单：{entry.relatedSummary}</small> : null}
                               </div>
-                              <i aria-hidden="true">→</i>
-                              <div>
-                                <span>变动后</span>
-                                <strong>{formatCurrencyFixed2(entry.afterBalance)}</strong>
+
+                              <div className="balance-change-flow" aria-label="余额变化路径">
+                                <div>
+                                  <span>变动前</span>
+                                  <strong>{formatCurrencyFixed2(entry.beforeBalance)}</strong>
+                                </div>
+                                <i aria-hidden="true">→</i>
+                                <div>
+                                  <span>变动后</span>
+                                  <strong>{formatCurrencyFixed2(entry.afterBalance)}</strong>
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          ) : null}
 
-                          {(entry.note || entry.remark) && (
+                          {showExpandedDetails && (entry.note || entry.remark) && (
                             <footer className="balance-change-card-note">
                               {entry.note ? <span>{entry.note}</span> : null}
                               {entry.remark ? <small>{entry.remark}</small> : null}

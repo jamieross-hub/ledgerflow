@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ThemeSwitcher } from '../../features/theme-switcher/ThemeSwitcher';
 import { formatCurrency } from '../../shared/lib/format';
@@ -25,9 +25,15 @@ const SIDEBAR_COLLAPSED_WIDTH = 76;
 const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 420;
 
+function truncateMobileInsightText(value: string, maxLength: number) {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
+}
+
 export function AppLayout() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -153,6 +159,107 @@ export function AppLayout() {
   const monthIncome = monthSummary.incomeTotal;
   const monthExpense = monthSummary.expenseTotal;
   const monthBalance = monthSummary.netTotal;
+  const monthTransactionCount = monthTransactions.length;
+  const latestMonthTransaction = useMemo(
+    () =>
+      [...monthTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] ?? null,
+    [monthTransactions]
+  );
+  const isEnglish = i18n.language === 'en';
+  const mobileNavInsight = useMemo(() => {
+    const defaultReviewTo = location.pathname.startsWith('/assistant')
+      ? '/transactions?datePreset=thisMonth'
+      : '/assistant';
+    const defaultReviewAction = location.pathname.startsWith('/assistant')
+      ? isEnglish
+        ? 'Review month'
+        : '查看本月流水'
+      : isEnglish
+        ? 'Ask AI'
+        : '去 AI 复盘';
+
+    if (monthTransactionCount === 0) {
+      return {
+        tone: 'idle',
+        icon: '🧾',
+        eyebrow: isEnglish ? 'This month' : '本月动态',
+        title: isEnglish ? 'No records yet' : '本月还没有新流水',
+        description: isEnglish
+          ? 'Add one real transaction first, then the assistant can give more grounded follow-up suggestions.'
+          : '先补一笔真实收支，再回来追问或复盘，会比固定提示更有参考价值。',
+        actionLabel: isEnglish ? 'Quick add one' : '去补一笔',
+        to: '/transactions?quickAdd=1&entry=layout'
+      };
+    }
+
+    if (monthBalance < 0) {
+      return {
+        tone: 'warning',
+        icon: '⚠️',
+        eyebrow: isEnglish ? 'Cash flow' : '资金提醒',
+        title: isEnglish ? `Monthly balance ${formatCurrency(monthBalance)}` : `本月结余 ${formatCurrency(monthBalance)}`,
+        description: isEnglish
+          ? `You've logged ${monthTransactionCount} records this month. Check budget pressure before continuing.`
+          : `本月已记录 ${monthTransactionCount} 笔，当前已经偏紧，先看看预算或高频支出会更稳。`,
+        actionLabel: isEnglish ? 'Open budget' : '去看预算',
+        to: '/smart-budget'
+      };
+    }
+
+    if (monthIncome === 0 && monthExpense > 0) {
+      return {
+        tone: 'focus',
+        icon: '💸',
+        eyebrow: isEnglish ? 'Income gap' : '记录提醒',
+        title: isEnglish ? `Expenses ${formatCurrency(monthExpense)}` : `本月支出 ${formatCurrency(monthExpense)}`,
+        description: isEnglish
+          ? 'Expenses are already recorded, but income is still blank. Completing the flow will make monthly review clearer.'
+          : '支出已经开始累积，但收入侧还是空白，补齐之后月度结余会更准确。',
+        actionLabel: isEnglish ? 'Continue bookkeeping' : '继续记账',
+        to: '/transactions?quickAdd=1&entry=layout'
+      };
+    }
+
+    const latestSummary = latestMonthTransaction?.note?.trim()
+      ? truncateMobileInsightText(latestMonthTransaction.note.trim(), isEnglish ? 36 : 18)
+      : latestMonthTransaction
+        ? latestMonthTransaction.type === 'income'
+          ? isEnglish
+            ? 'Latest record is an income entry'
+            : '最近一笔是收入记录'
+          : latestMonthTransaction.type === 'repayment'
+            ? isEnglish
+              ? 'Latest record is a repayment entry'
+              : '最近一笔是还款记录'
+            : isEnglish
+              ? 'Latest record is an expense entry'
+              : '最近一笔是支出记录'
+        : '';
+
+    return {
+      tone: 'positive',
+      icon: '✨',
+      eyebrow: isEnglish ? 'Latest update' : '最近更新',
+      title: isEnglish ? `${monthTransactionCount} records this month` : `本月已记录 ${monthTransactionCount} 笔`,
+      description: isEnglish
+        ? latestSummary
+          ? `${latestSummary}. Keep going or open the assistant for a quick review.`
+          : 'Your monthly ledger is moving. Continue bookkeeping or open the assistant for a quick review.'
+        : latestSummary
+          ? `${latestSummary}。继续补齐，或者让 AI 直接帮你做一轮复盘。`
+          : '这个月已经有连续记录了，继续补齐，或者让 AI 帮你做一轮复盘。',
+      actionLabel: defaultReviewAction,
+      to: defaultReviewTo
+    };
+  }, [
+    isEnglish,
+    latestMonthTransaction,
+    location.pathname,
+    monthBalance,
+    monthExpense,
+    monthIncome,
+    monthTransactionCount
+  ]);
 
 
   useEffect(() => {
@@ -413,7 +520,25 @@ export function AppLayout() {
               </p>
             </section>
 
-            <div className="mobile-nav-tip-banner">{t('layout.tip')}</div>
+            <section className={`mobile-nav-insight-card is-${mobileNavInsight.tone}`}>
+              <div className="mobile-nav-insight-head">
+                <span className="mobile-nav-insight-icon" aria-hidden="true">
+                  {mobileNavInsight.icon}
+                </span>
+                <div className="mobile-nav-insight-copy">
+                  <small>{mobileNavInsight.eyebrow}</small>
+                  <strong>{mobileNavInsight.title}</strong>
+                  <p>{mobileNavInsight.description}</p>
+                </div>
+              </div>
+              <Link
+                to={mobileNavInsight.to}
+                className="mobile-nav-insight-link motion-pill-btn"
+                onClick={() => setMobileNavOpen(false)}
+              >
+                {mobileNavInsight.actionLabel}
+              </Link>
+            </section>
 
             {mobileQuickGroups.map((group) => (
               <section key={group.title} className="mobile-nav-grid-card">

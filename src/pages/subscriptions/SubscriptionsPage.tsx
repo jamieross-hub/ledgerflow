@@ -69,6 +69,32 @@ const DEFAULT_FORM = {
   status: 'active' as SubscriptionStatus
 };
 
+function normalizeShortcutDateInput(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  const match = trimmed.match(/^(\d{1,4})-(\d{1,2})-(\d{1,2})$/);
+  if (!match) return trimmed;
+
+  const [, rawYear, rawMonth, rawDay] = match;
+  const month = Number(rawMonth);
+  const day = Number(rawDay);
+  if (!Number.isInteger(month) || !Number.isInteger(day) || month < 1 || month > 12 || day < 1 || day > 31) {
+    return trimmed;
+  }
+
+  let year = Number(rawYear);
+  if (!Number.isInteger(year)) {
+    return trimmed;
+  }
+
+  if (rawYear.length <= 2 || year < 100) {
+    year += 2000;
+  }
+
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 export function SubscriptionsPage() {
   const navigate = useNavigate();
   const subscriptions = useFinanceStore((s) => s.subscriptions);
@@ -129,6 +155,13 @@ export function SubscriptionsPage() {
     setForm(DEFAULT_FORM);
     setEditingId(null);
     setError('');
+  };
+
+  const handleDateFieldChange = (field: 'renewalDate' | 'expireDate', value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      [field]: normalizeShortcutDateInput(value)
+    }));
   };
 
   const handleSubmit = (event: FormEvent) => {
@@ -307,16 +340,28 @@ export function SubscriptionsPage() {
           </select>
         </label>
         <label>
-          <span>服务商</span>
-          <input value={form.provider} onChange={(e) => setForm((prev) => ({ ...prev, provider: e.target.value }))} placeholder="可选" />
+          <span>所属平台 / 商户</span>
+          <input
+            value={form.provider}
+            onChange={(e) => setForm((prev) => ({ ...prev, provider: e.target.value }))}
+            placeholder="例如 Apple、腾讯视频、中国移动"
+          />
         </label>
         <label>
           <span>续费日</span>
-          <input type="date" value={form.renewalDate} onChange={(e) => setForm((prev) => ({ ...prev, renewalDate: e.target.value }))} />
+          <input
+            type="date"
+            value={form.renewalDate}
+            onChange={(e) => handleDateFieldChange('renewalDate', e.target.value)}
+          />
         </label>
         <label>
           <span>到期日</span>
-          <input type="date" value={form.expireDate} onChange={(e) => setForm((prev) => ({ ...prev, expireDate: e.target.value }))} />
+          <input
+            type="date"
+            value={form.expireDate}
+            onChange={(e) => handleDateFieldChange('expireDate', e.target.value)}
+          />
         </label>
         <label>
           <span>状态</span>

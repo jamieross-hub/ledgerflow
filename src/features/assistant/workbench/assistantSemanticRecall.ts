@@ -31,6 +31,12 @@ export interface SemanticRecallCacheMeta {
   indexedDocs: number;
 }
 
+export interface BlockingSemanticRecallResult {
+  debug: EmbeddingRecallDebug;
+  semanticContext: string;
+  globalMemoryContext: string;
+}
+
 export function createIdleEmbeddingDebug(model = ''): EmbeddingRecallDebug {
   return {
     enabled: false,
@@ -53,6 +59,14 @@ export function createSemanticRecallMeta(model = ''): SemanticRecallCacheMeta {
     model,
     updatedAt: 0,
     indexedDocs: 0
+  };
+}
+
+export function createEmptyBlockingSemanticRecallResult(model = ''): BlockingSemanticRecallResult {
+  return {
+    debug: createIdleEmbeddingDebug(model),
+    semanticContext: '',
+    globalMemoryContext: ''
   };
 }
 
@@ -80,7 +94,7 @@ export async function runBlockingSemanticRecall(params: {
   accounts: Account[];
   globalMemories: GlobalMemoryItem[];
   signal?: AbortSignal;
-}): Promise<EmbeddingRecallDebug> {
+}): Promise<BlockingSemanticRecallResult> {
   const {
     baseUrl,
     apiKey,
@@ -104,26 +118,30 @@ export async function runBlockingSemanticRecall(params: {
 
   if (!(enableEmbeddingModel && embeddingModel.trim() && cleanPrompt)) {
     return {
-      ...debugBase,
-      reason: !enableEmbeddingModel ? 'disabled' : !embeddingModel.trim() ? 'model-empty' : 'empty-question'
+      debug: {
+        ...debugBase,
+        reason: !enableEmbeddingModel ? 'disabled' : !embeddingModel.trim() ? 'model-empty' : 'empty-question'
+      },
+      semanticContext: '',
+      globalMemoryContext: ''
     };
   }
 
   const startedAt = performance.now();
-  try {
-    const recall = await buildSemanticRecallContext({
-      baseUrl,
-      apiKey,
-      model: embeddingModel,
-      question: cleanPrompt,
-      transactions,
-      categories,
-      accounts,
-      signal
-    });
 
-    if (recall?.context) {
-      await buildGlobalMemoryRecallContext({
+  try {
+    const [recall, memoryRecall] = await Promise.all([
+      buildSemanticRecallContext({
+        baseUrl,
+        apiKey,
+        model: embeddingModel,
+        question: cleanPrompt,
+        transactions,
+        categories,
+        accounts,
+        signal
+      }),
+      buildGlobalMemoryRecallContext({
         baseUrl,
         apiKey,
         embeddingModel,
@@ -132,50 +150,69 @@ export async function runBlockingSemanticRecall(params: {
         question: cleanPrompt,
         memories: globalMemories,
         signal
-      }).catch(() => null);
+      }).catch(() => null)
+    ]);
 
+    const semanticContext = recall?.context || '';
+    const globalMemoryContext = memoryRecall?.context || '';
+    const used = Boolean(semanticContext || globalMemoryContext);
+
+    if (used) {
       return {
-        enabled: true,
-        model: embeddingModel.trim(),
-        used: true,
-        downgraded: false,
-        reason: '',
-        latencyMs: recall.latencyMs || Math.round(performance.now() - startedAt),
-        indexedDocs: recall.indexedDocs || 0,
-        hitCount: recall.hitCount,
-        topScore: recall.topScore,
-        averageScore: recall.averageScore || 0,
-        hits: recall.hits || []
+        debug: {
+          enabled: true,
+          model: embeddingModel.trim(),
+          used: true,
+          downgraded: false,
+          reason: '',
+          latencyMs: recall?.latencyMs || Math.round(performance.now() - startedAt),
+          indexedDocs: recall?.indexedDocs || transactions.length,
+          hitCount: recall?.hitCount || 0,
+          topScore: recall?.topScore || 0,
+          averageScore: recall?.averageScore || 0,
+          hits: recall?.hits || []
+        },
+        semanticContext,
+        globalMemoryContext
       };
     }
 
     return {
-      enabled: true,
-      model: embeddingModel.trim(),
-      used: false,
-      downgraded: false,
-      reason: 'no-hit',
-      latencyMs: Math.round(performance.now() - startedAt),
-      indexedDocs: transactions.length,
-      hitCount: 0,
-      topScore: 0,
-      averageScore: 0,
-      hits: []
+      debug: {
+        enabled: true,
+        model: embeddingModel.trim(),
+        used: false,
+        downgraded: false,
+        reason: 'no-hit',
+        latencyMs: Math.round(performance.now() - startedAt),
+        indexedDocs: recall?.indexedDocs || transactions.length,
+        hitCount: 0,
+        topScore: 0,
+        averageScore: 0,
+        hits: []
+      },
+      semanticContext: '',
+      globalMemoryContext: ''
     };
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
+
     return {
-      enabled: true,
-      model: embeddingModel.trim(),
-      used: false,
-      downgraded: true,
-      reason: error instanceof Error ? error.message : '语义召回失败，已自动降级为普通分析',
-      latencyMs: Math.round(performance.now() - startedAt),
-      indexedDocs: 0,
-      hitCount: 0,
-      topScore: 0,
-      averageScore: 0,
-      hits: []
+      debug: {
+        enabled: true,
+        model: embeddingModel.trim(),
+        used: false,
+        downgraded: true,
+        reason: error instanceof Error ? error.message : 'semantic recall downgraded',
+        latencyMs: Math.round(performance.now() - startedAt),
+        indexedDocs: 0,
+        hitCount: 0,
+        topScore: 0,
+        averageScore: 0,
+        hits: []
+      },
+      semanticContext: '',
+      globalMemoryContext: ''
     };
   }
 }

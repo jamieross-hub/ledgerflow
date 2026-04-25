@@ -7,6 +7,7 @@ import { useDebugLogStore } from '../../../shared/store/useDebugLogStore';
 import { useAiSettings } from '../../../shared/store/useAiSettings';
 import {
   clearSemanticRecallIndexCache,
+  createEmptyBlockingSemanticRecallResult,
   createIdleEmbeddingDebug,
   createSemanticRecallMeta,
   readSemanticRecallCacheMeta,
@@ -18,6 +19,7 @@ import type { GlobalMemoryItem } from '../../../shared/store/globalMemory';
 import {
   ANALYSIS_AGENT_PROMPT,
   CREDIT_ANALYSIS_AGENT_PROMPT,
+  buildAssistantSystemPrompt,
   buildTimeContext,
   buildTransactionPromptContext,
   buildRepaymentPromptContext,
@@ -468,7 +470,8 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
             globalMemories: input.globalMemories || [],
             signal: controller.signal
           })
-            .then((semanticRecallDebug) => {
+            .then((semanticRecallResult) => {
+              const semanticRecallDebug = semanticRecallResult.debug;
               setEmbeddingDebug(semanticRecallDebug);
 
               if (semanticRecallDebug.downgraded) {
@@ -504,19 +507,25 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
               }
 
               refreshSemanticRecallCacheMeta();
-              return semanticRecallDebug;
+              return semanticRecallResult;
             })
             .catch((error) => {
               if (error instanceof DOMException && error.name === 'AbortError') {
-                return createIdleEmbeddingDebug(effectiveEmbeddingModel.trim());
+                return createEmptyBlockingSemanticRecallResult(effectiveEmbeddingModel.trim());
               }
               throw error;
             })
-        : Promise.resolve(createIdleEmbeddingDebug());
+        : Promise.resolve(createEmptyBlockingSemanticRecallResult());
 
-      const repaymentContextBlock =
-        input.sceneMode === 'credit' ? `\n\n还款管理上下文：\n${repaymentContext}` : '';
-      const prompt = `${basePrompt}\n\n${await buildTimeContext()}\n\n账本交易数据快照：\n${transactionContext}${repaymentContextBlock}`;
+      const semanticRecallResult = await semanticRecallTask;
+      const prompt = buildAssistantSystemPrompt({
+        basePrompt,
+        timeContext: await buildTimeContext(),
+        transactionContext,
+        repaymentContext: input.sceneMode === 'credit' ? repaymentContext : '',
+        semanticRecallContext: semanticRecallResult.semanticContext,
+        globalMemoryContext: semanticRecallResult.globalMemoryContext
+      });
       if (isConversationalMode) {
         let streamedContent = '';
         await sendAiChatStream(
@@ -542,7 +551,6 @@ export function useAssistantWorkbench(input: UseAssistantWorkbenchInput) {
             }
           }
         );
-        await semanticRecallTask;
         setRawReasoning('');
         setLastUsage(null);
         setEntries([]);

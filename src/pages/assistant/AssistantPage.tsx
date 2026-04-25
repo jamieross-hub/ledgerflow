@@ -43,7 +43,7 @@ import {
 function getModelDisplayLabel(modelId: string): string {
   const value = modelId.trim();
   if (!value) return value;
-  return value === 'gpt-5.2' ? `${value}（推荐）` : value;
+  return value === 'gpt-5.4' ? `${value}（推荐）` : value;
 }
 
 function inputPlaceholder(
@@ -377,6 +377,11 @@ interface PresetQuestion {
   prompt: string;
 }
 
+interface SmartPresetCard extends PresetQuestion {
+  tag: string;
+  hint: string;
+}
+
 interface PushInsight {
   id: string;
   title: string;
@@ -579,6 +584,11 @@ function readChatHistory(mode: AssistantMode): ChatHistoryItem[] {
 
 function toMonthKey(date: string) {
   return date.slice(0, 7);
+}
+
+function truncateAssistantText(value: string, maxLength: number) {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
 }
 
 function buildLocalPresetQuestions(transactions: TransactionItem[], categories: Category[]) {
@@ -1162,14 +1172,6 @@ export function AssistantPage() {
       dueSoonItems
     };
   }, [debts, repaymentRecords]);
-  const recentTimelineTransactions = useMemo(
-    () =>
-      [...transactions]
-        .filter((item) => item.type !== 'budget')
-        .sort((a, b) => +new Date(b.date) - +new Date(a.date))
-        .slice(0, 3),
-    [transactions]
-  );
   const lastAssistantRef = useRef<Record<AssistantMode, string>>({
     bookkeeping: '',
     assistant: '',
@@ -1536,6 +1538,92 @@ export function AssistantPage() {
     () => (mode === 'credit' ? CREDIT_SHORTCUT_SEEDS : presetQuestions).slice(0, isMobileView ? 1 : 2),
     [presetQuestions, isMobileView, mode]
   );
+
+  const smartBehaviorCards = useMemo<SmartPresetCard[]>(
+    () =>
+      displayBehaviorQuestions.map((item) => {
+        const text = `${item.label} ${item.prompt}`;
+        const latestDirectionLabel =
+          latestTransaction && getTransactionDirection(latestTransaction) === 'inflow' ? '最近收入' : '最近支出';
+        const latestNote = latestTransaction?.note?.trim()
+          ? truncateAssistantText(latestTransaction.note.trim(), isMobileView ? 12 : 18)
+          : '最近一笔';
+
+        if (/预算|节流|现金流|压力|控费/.test(text)) {
+          return {
+            ...item,
+            tag: '预算动作',
+            hint:
+              assistantOverview.todayNet < 0
+                ? '今天净流出偏高，先抓大头支出更有效。'
+                : truncateAssistantText(assistantOverview.riskAlert, isMobileView ? 24 : 34)
+          };
+        }
+
+        if (/趋势|波动|最近|7天|14|复盘/.test(text)) {
+          return {
+            ...item,
+            tag: '趋势追踪',
+            hint:
+              latestTransaction != null
+                ? `${latestDirectionLabel}「${latestNote}」适合继续往回追。`
+                : '最近账本更新后，这类问题会更容易看到变化。'
+          };
+        }
+
+        if (/餐饮|交通|住房|娱乐|订阅|分类|重点看/.test(text)) {
+          return {
+            ...item,
+            tag: '分类聚焦',
+            hint: truncateAssistantText(assistantOverview.monthlySummary, isMobileView ? 24 : 34)
+          };
+        }
+
+        return {
+          ...item,
+          tag: '动态建议',
+          hint:
+            assistantOverview.todayTodos.filter((todo) => (todo.count ?? 0) > 0).length > 0
+              ? '我按今天最值得处理的账本问题帮你挑了一条。'
+              : '这条建议会跟着最近账本变化自动更新。'
+        };
+      }),
+    [assistantOverview, displayBehaviorQuestions, isMobileView, latestTransaction]
+  );
+
+  const assistantMascotLine = useMemo(() => {
+    if (mode === 'credit') {
+      return wb.semanticRecallCacheMeta.exists
+        ? '把最近账单和截图丢给我，我会先把应还、待补和风险点拆成可执行顺序。'
+        : '先把信用账户补齐，我再继续盯到期日、最低还款和异常账单。';
+    }
+
+    if (mode === 'bookkeeping') {
+      return latestTransaction
+        ? `刚刚那笔「${truncateAssistantText(latestTransaction.note || '未备注', isMobileView ? 10 : 16)}」还能继续追问，我会顺手帮你补齐分类和备注。`
+        : '先随手记一笔真实流水，后面的分类、复盘和提醒都会更靠谱。';
+    }
+
+    const pendingTodos = assistantOverview.todayTodos.filter((item) => (item.count ?? 0) > 0);
+    if (pendingTodos.length > 0) {
+      return `${pendingTodos[0].label}还没收口，我可以先陪你把这块讲明白，再看趋势。`;
+    }
+
+    if (latestTransaction) {
+      return `最近一笔是「${truncateAssistantText(
+        latestTransaction.note || '未备注',
+        isMobileView ? 12 : 18
+      )}」，从它往回追最容易看出这阵子的消费习惯。`;
+    }
+
+    return truncateAssistantText(assistantOverview.monthlySummary, isMobileView ? 28 : 42);
+  }, [assistantOverview, isMobileView, latestTransaction, mode, wb.semanticRecallCacheMeta.exists]);
+
+  const latestContextLabel = latestTransaction
+    ? getTransactionDirection(latestTransaction) === 'inflow'
+      ? '最近收入'
+      : '最近支出'
+    : '最近一笔';
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 768px)');
@@ -2185,6 +2273,8 @@ export function AssistantPage() {
           <button
             type="button"
             className="chat-clear-btn"
+            aria-label={t('assistant.ui.clearContext')}
+            title={t('assistant.ui.clearContext')}
             onClick={() => {
               setChatHistory([]);
               setStreamingPreviewMessage('');
@@ -2199,7 +2289,7 @@ export function AssistantPage() {
             }}
             disabled={chatHistory.length === 0}
           >
-            {t('assistant.ui.clearContext')}
+            {isMobileView ? '清空' : t('assistant.ui.clearContext')}
           </button>
         </div>
       </header>
@@ -2321,38 +2411,6 @@ export function AssistantPage() {
                     ) : null}
                   </div>
 
-                  {recentTimelineTransactions.length > 0 ? (
-                    <div className="chat-insight-section" aria-label="最近记账时间轴">
-                      <div className="chat-insight-section-head">
-                        <h3>🧾 最近记账</h3>
-                        <span>只看最近三条，够快，不啰嗦</span>
-                      </div>
-                      <div className="chat-recent-timeline">
-                        {recentTimelineTransactions.map((item) => {
-                          const categoryName =
-                            categories.find((category) => category.id === item.categoryId)?.name ||
-                            '未分类';
-                          return (
-                            <article className="chat-recent-timeline-item" key={item.id}>
-                              <div className="chat-recent-timeline-dot" aria-hidden />
-                              <div className="chat-recent-timeline-content">
-                                <div className="chat-recent-timeline-top">
-                                  <strong>{item.note || categoryName}</strong>
-                                  <span>
-                                    {getTransactionDirection(item) === 'inflow' ? '+' : '-'}¥
-                                    {item.amount.toFixed(2)}
-                                  </span>
-                                </div>
-                                <p>
-                                  {new Date(item.date).toLocaleString()} · {categoryName}
-                                </p>
-                              </div>
-                            </article>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
 
                 <div className="chat-assistant-layout-side">
@@ -2412,7 +2470,7 @@ export function AssistantPage() {
                 </button>
               </div>
               <div className="chat-preset-list chat-preset-list-smart">
-                {displayBehaviorQuestions.map((item) => (
+                {smartBehaviorCards.map((item) => (
                   <button
                     key={item.id}
                     type="button"
@@ -2420,8 +2478,9 @@ export function AssistantPage() {
                     onClick={() => submitPrompt(item.prompt)}
                     disabled={wb.status === 'recognizing'}
                   >
-                    <span className="chat-preset-item-tag">最近行为推荐</span>
+                    <span className="chat-preset-item-tag">{item.tag}</span>
                     <strong>{item.label}</strong>
+                    <small className="chat-preset-item-meta">{item.hint}</small>
                   </button>
                 ))}
               </div>
@@ -2440,7 +2499,7 @@ export function AssistantPage() {
               </div>
               <div className="chat-kawaii-mascot" aria-hidden>
                 <span>🧾</span>
-                <small>数据会说话，我负责翻译；如果它们嘴硬，我就多问两句。</small>
+                <small>{assistantMascotLine}</small>
               </div>
             </section>
           )}
@@ -3186,13 +3245,13 @@ export function AssistantPage() {
             ＋
           </button>
 
-          <div className="chat-input-main">
+          <div className={`chat-input-main ${latestTransaction ? 'has-context' : ''}`}>
             {latestTransaction ? (
               <div
                 className={`chat-input-context ${wb.textInput.trim() ? 'is-collapsed' : ''}`}
                 aria-label="最近一笔账单"
               >
-                <span>最近一笔</span>
+                <span>{latestContextLabel}</span>
                 <strong>
                   {latestTransaction.note || '未备注'} ·
                   {getTransactionDirection(latestTransaction) === 'inflow' ? ' +' : ' -'}¥

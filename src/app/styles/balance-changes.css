@@ -200,8 +200,8 @@
 }
 
 .balance-change-domino-group.is-collapsed .balance-change-card-list {
-  min-height: 152px;
-  padding-bottom: 34px;
+  min-height: 132px;
+  padding-bottom: 28px;
 }
 
 .balance-change-domino-group.is-expanded .balance-change-card-list {
@@ -245,14 +245,33 @@
   pointer-events: none;
 }
 
+.balance-change-domino-group.is-collapsed .balance-change-card:first-child {
+  min-height: 68px;
+}
+
+.balance-change-domino-group.is-collapsed .balance-change-card:first-child .balance-change-card-main {
+  gap: 0;
+}
+
+.balance-change-domino-group.is-collapsed .balance-change-card:first-child .balance-change-card-head {
+  align-items: center;
+}
+
 .balance-change-domino-group.is-collapsed .balance-change-card:not(:first-child) {
   min-height: 76px;
   overflow: hidden;
   opacity: calc(0.86 - min(var(--domino-index), 4) * 0.12);
+  border-color: color-mix(in srgb, var(--color-border-light) 84%, transparent);
+  background: color-mix(in srgb, var(--color-bg-elevated) 94%, var(--color-bg-subtle));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-text) 5%, transparent);
   filter: saturate(0.86);
 }
 
 .balance-change-domino-group.is-collapsed .balance-change-card:not(:first-child) > * {
+  opacity: 0;
+}
+
+.balance-change-domino-group.is-collapsed .balance-change-card:not(:first-child)::before {
   opacity: 0;
 }
 
@@ -261,9 +280,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--group-accent) 18%, transparent), transparent 34%),
-    color-mix(in srgb, var(--color-bg-elevated) 78%, transparent);
+  background: color-mix(in srgb, var(--color-bg-elevated) 94%, var(--color-bg-subtle));
 }
 
 .balance-change-domino-group.is-collapsed .balance-change-card:nth-child(n + 6) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Account } from '../../../entities/account/types';
 import { ensureAccountId, inferAccountNameFromText } from './workbenchMapping';
-import { extractJsonString, normalizeAiBill } from './workbenchUtils';
+import { buildAssistantSystemPrompt, extractJsonString, normalizeAiBill } from './workbenchUtils';
 
 describe('workbenchUtils', () => {
   it('应能从带解释文本的响应中提取 transactions JSON', () => {
@@ -193,5 +193,23 @@ describe('workbenchUtils', () => {
     expect(result?.transactions).toHaveLength(1);
     expect(result?.transactions[0].amount).toBe(300);
     expect(result?.transactions[0].currency).toBe('HKD');
+  });
+
+  it('应将语义召回与长期记忆片段注入系统提示词', () => {
+    const prompt = buildAssistantSystemPrompt({
+      basePrompt: 'base prompt',
+      timeContext: 'time context',
+      transactionContext: '{"rows":[]}',
+      repaymentContext: '{"plannedRepayment":[]}',
+      semanticRecallContext: '1. expense coffee',
+      globalMemoryContext: '1. user prefers monthly summaries'
+    });
+
+    expect(prompt).toContain('账本交易数据快照');
+    expect(prompt).toContain('还款管理上下文');
+    expect(prompt).toContain('语义召回片段');
+    expect(prompt).toContain('1. expense coffee');
+    expect(prompt).toContain('长期记忆片段');
+    expect(prompt).toContain('1. user prefers monthly summaries');
   });
 });

@@ -89,8 +89,17 @@ const ACCENT_THEME_OPTIONS: Array<{ value: AppAccentTheme; labelKey: string; pre
   { value: 'emerald', labelKey: 'settings.accent.options.emerald', preview: '#10b981' },
   { value: 'violet', labelKey: 'settings.accent.options.violet', preview: '#8b5cf6' },
   { value: 'rose', labelKey: 'settings.accent.options.rose', preview: '#f43f5e' },
-  { value: 'amber', labelKey: 'settings.accent.options.amber', preview: '#f59e0b' }
+  { value: 'amber', labelKey: 'settings.accent.options.amber', preview: '#f59e0b' },
+  {
+    value: 'aurora',
+    labelKey: 'settings.accent.options.aurora',
+    preview: 'linear-gradient(135deg, #6366f1 0%, #22c55e 45%, #ec4899 100%)'
+  }
 ];
+
+function normalizeProviderBaseUrl(url: string): string {
+  return url.trim().replace(/\/+$/, '');
+}
 
 interface ModelSelectorProps {
   label: string;
@@ -228,12 +237,56 @@ export function SettingsPage() {
         embeddingChannel.apiKey.trim() ||
         embeddingChannel.model.trim()
     );
+  const selectedProviderPreset = useMemo(
+    () =>
+      AI_PROVIDER_PRESETS.find(
+        (item) => normalizeProviderBaseUrl(item.value) === normalizeProviderBaseUrl(baseUrl)
+      ) || null,
+    [baseUrl]
+  );
+  const providerPresetValue = selectedProviderPreset?.value || (baseUrl.trim() ? '__custom__' : '');
+  const providerSummary = selectedProviderPreset
+    ? `${
+        currentLanguage === 'en' ? 'Selected provider' : '已选择供应商'
+      }：${selectedProviderPreset.label}`
+    : baseUrl.trim()
+      ? currentLanguage === 'en'
+        ? 'Using a custom provider URL'
+        : '当前使用自定义供应商地址'
+      : currentLanguage === 'en'
+        ? 'Choose a provider preset for quick fill'
+        : '可先选择渠道商快速填充';
+  const embeddingPanelHasContent = Boolean(
+    embeddingChannel.enabled ||
+      embeddingChannel.baseUrl.trim() ||
+      embeddingChannel.apiKey.trim() ||
+      embeddingChannel.model.trim()
+  );
+  const embeddingPanelStatus = embeddingOverrideActive
+    ? currentLanguage === 'en'
+      ? 'Override active'
+      : '覆盖中'
+    : embeddingChannel.enabled
+      ? currentLanguage === 'en'
+        ? 'Enabled'
+        : '已启用'
+      : currentLanguage === 'en'
+        ? 'Disabled'
+        : '未启用';
   const embeddingEffectiveBaseUrl = embeddingOverrideActive
     ? (embeddingChannel.baseUrl.trim() || baseUrl)
     : baseUrl;
   const embeddingEffectiveModel = embeddingOverrideActive
     ? (embeddingChannel.model.trim() || embeddingModel.trim())
     : embeddingModel.trim();
+  const [embeddingPanelExpanded, setEmbeddingPanelExpanded] = useState(embeddingPanelHasContent);
+  const embeddingPanelToggleText = embeddingPanelExpanded
+    ? currentLanguage === 'en'
+      ? 'Collapse'
+      : '收起'
+    : currentLanguage === 'en'
+      ? 'Expand'
+      : '展开';
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -369,10 +422,11 @@ export function SettingsPage() {
           <label>{t('settings.baseUrl')}</label>
           <div className="settings-baseurl-row">
             <select
-              value=""
+              className={selectedProviderPreset ? 'settings-provider-select active' : 'settings-provider-select'}
+              value={providerPresetValue}
               onChange={(e) => {
                 const next = e.target.value;
-                if (!next) return;
+                if (!next || next === '__custom__') return;
                 setBaseUrl(next);
                 showSaveToast();
               }}
@@ -383,6 +437,7 @@ export function SettingsPage() {
                   {item.label}
                 </option>
               ))}
+              {baseUrl.trim() && !selectedProviderPreset ? <option value="__custom__">自定义地址</option> : null}
             </select>
             <input
               value={baseUrl}
@@ -393,6 +448,9 @@ export function SettingsPage() {
               placeholder="https://api.openai.com/v1"
             />
           </div>
+          <small className={`settings-provider-state ${selectedProviderPreset ? 'is-active' : ''}`}>
+            {providerSummary}
+          </small>
         </div>
 
         <div className="field">
@@ -424,9 +482,6 @@ export function SettingsPage() {
             />
             记住 API Key（版本更新后无需重填）
           </label>
-          <small>
-            开启后会将 API Key 持久保存在当前浏览器；关闭时仅保留在当前会话。
-          </small>
         </div>
 
         <div className="settings-inline-grid settings-inline-grid--triple">
@@ -502,134 +557,163 @@ export function SettingsPage() {
 
         <div className="settings-divider" />
 
-        <div className="settings-subpanel">
-          <h3 style={{ marginTop: 0 }}>{t('settings.embeddingChannel.title')}</h3>
-          <p className="muted" style={{ marginTop: 8 }}>
-            {t('settings.embeddingChannel.desc')}
-          </p>
-          <div
-            style={{
-              marginTop: 12,
-              padding: '10px 12px',
-              borderRadius: 10,
-              background: 'rgba(245, 158, 11, 0.10)',
-              border: '1px solid rgba(245, 158, 11, 0.25)',
-              color: 'var(--color-text, #1f2937)'
-            }}
+        <div
+          className={`settings-subpanel settings-subpanel--embedding ${embeddingPanelExpanded ? 'is-expanded' : ''} ${
+            embeddingOverrideActive ? 'is-active' : ''
+          }`}
+        >
+          <button
+            type="button"
+            className="settings-subpanel-toggle"
+            aria-expanded={embeddingPanelExpanded}
+            onClick={() => setEmbeddingPanelExpanded((current) => !current)}
           >
-            <strong>隐私提示：</strong>
-            如果你为嵌入渠道单独配置了 baseUrl / apiKey / model，发送给助手的部分文本可能会被提交到这条嵌入渠道做向量化，
-            它和聊天模型使用的服务不一定是同一家。涉及敏感内容时，建议先确认该服务的存储与日志策略。
+            <span className="settings-subpanel-copy">
+              <strong>{t('settings.embeddingChannel.title')}</strong>
+              <small>{t('settings.embeddingChannel.desc')}</small>
+            </span>
+            <span className="settings-subpanel-meta">
+              <span className={`settings-subpanel-chip ${embeddingOverrideActive ? 'is-active' : ''}`}>
+                {embeddingPanelStatus}
+              </span>
+              <span className="settings-subpanel-arrow">{embeddingPanelToggleText}</span>
+            </span>
+          </button>
+
+          <div className="settings-subpanel-summary">
+            <span>
+              {currentLanguage === 'en' ? 'Effective model' : '当前生效模型'}：
+              <strong>{embeddingEffectiveModel || (currentLanguage === 'en' ? 'Not set' : '未设置')}</strong>
+            </span>
+            <span>
+              Base URL：
+              <strong>{embeddingEffectiveBaseUrl || (currentLanguage === 'en' ? 'Not set' : '未设置')}</strong>
+            </span>
+            <small>
+              {currentLanguage === 'en'
+                ? 'If you use a dedicated embedding service, just confirm its storage and logging policy.'
+                : '如使用单独 embedding 服务，确认其数据存储与日志策略即可。'}
+            </small>
           </div>
 
-          <div className="settings-inline-grid settings-inline-grid--double">
-            <div className="field">
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={embeddingChannel.enabled}
-                  onChange={(e) => {
-                    setEmbeddingChannel({ enabled: e.target.checked });
-                    showSaveToast();
-                  }}
-                />
-                {t('settings.embeddingChannel.enabledLabel')}
-              </label>
-              <small>{t('settings.embeddingChannel.enabledHint')}</small>
-            </div>
+          {embeddingPanelExpanded ? (
+            <div className="settings-subpanel-body">
+              <div className="settings-inline-grid settings-inline-grid--double">
+                <div className="field">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={embeddingChannel.enabled}
+                      onChange={(e) => {
+                        setEmbeddingChannel({ enabled: e.target.checked });
+                        showSaveToast();
+                      }}
+                    />
+                    {t('settings.embeddingChannel.enabledLabel')}
+                  </label>
+                  <small>{t('settings.embeddingChannel.enabledHint')}</small>
+                </div>
 
-            <div className="field">
-              <label>{t('settings.embeddingChannel.modelLabel')}</label>
-              <small>{t('settings.embeddingChannel.modelHint')}</small>
-              <input
-                value={embeddingChannel.model}
-                list="embedding-model-candidates"
-                placeholder="例如：jina-embeddings-v3"
-                onChange={(e) => {
-                  setEmbeddingChannel({ model: e.target.value });
-                  showSaveToast();
-                }}
-              />
-              <datalist id="embedding-model-candidates">
-                {embeddingModelCandidates.map((item) => (
-                  <option key={item} value={item} />
-                ))}
-              </datalist>
-              {embeddingChannel.model.trim() ? (
-                <small style={{ color: embeddingChannelModelValidation ? 'var(--color-warning, #b45309)' : 'var(--color-success, #15803d)' }}>
-                  {embeddingChannelModelValidation || '模型名校验通过，可直接测试嵌入配置。'}
-                </small>
-              ) : (
-                <small>常见模型：{embeddingModelCandidates.slice(0, 4).join(' / ')}</small>
-              )}
-            </div>
+                <div className="field">
+                  <label>{t('settings.embeddingChannel.modelLabel')}</label>
+                  <small>{t('settings.embeddingChannel.modelHint')}</small>
+                  <input
+                    value={embeddingChannel.model}
+                    list="embedding-model-candidates"
+                    placeholder="例如：jina-embeddings-v3"
+                    onChange={(e) => {
+                      setEmbeddingChannel({ model: e.target.value });
+                      showSaveToast();
+                    }}
+                  />
+                  <datalist id="embedding-model-candidates">
+                    {embeddingModelCandidates.map((item) => (
+                      <option key={item} value={item} />
+                    ))}
+                  </datalist>
+                  {embeddingChannel.model.trim() ? (
+                    <small
+                      style={{
+                        color: embeddingChannelModelValidation
+                          ? 'var(--color-warning, #b45309)'
+                          : 'var(--color-success, #15803d)'
+                      }}
+                    >
+                      {embeddingChannelModelValidation || '模型名校验通过，可直接测试嵌入配置。'}
+                    </small>
+                  ) : (
+                    <small>常见模型：{embeddingModelCandidates.slice(0, 4).join(' / ')}</small>
+                  )}
+                </div>
 
-            <div className="field">
-              <label>{t('settings.embeddingChannel.baseUrlLabel')}</label>
-              <small>{t('settings.embeddingChannel.baseUrlHint')}</small>
-              <input
-                value={embeddingChannel.baseUrl}
-                placeholder="https://api.example.com/v1"
-                onChange={(e) => {
-                  setEmbeddingChannel({ baseUrl: e.target.value });
-                  showSaveToast();
-                }}
-              />
-            </div>
+                <div className="field">
+                  <label>{t('settings.embeddingChannel.baseUrlLabel')}</label>
+                  <small>{t('settings.embeddingChannel.baseUrlHint')}</small>
+                  <input
+                    value={embeddingChannel.baseUrl}
+                    placeholder="https://api.example.com/v1"
+                    onChange={(e) => {
+                      setEmbeddingChannel({ baseUrl: e.target.value });
+                      showSaveToast();
+                    }}
+                  />
+                </div>
 
-            <div className="field">
-              <label>{t('settings.embeddingChannel.apiKeyLabel')}</label>
-              <small>{t('settings.embeddingChannel.apiKeyHint')}</small>
-              <input
-                value={embeddingChannel.apiKey}
-                type={masked ? 'password' : 'text'}
-                placeholder="sk-..."
-                onChange={(e) => {
-                  setEmbeddingChannel({ apiKey: e.target.value });
-                  showSaveToast();
-                }}
-              />
-            </div>
-          </div>
+                <div className="field">
+                  <label>{t('settings.embeddingChannel.apiKeyLabel')}</label>
+                  <small>{t('settings.embeddingChannel.apiKeyHint')}</small>
+                  <input
+                    value={embeddingChannel.apiKey}
+                    type={masked ? 'password' : 'text'}
+                    placeholder="sk-..."
+                    onChange={(e) => {
+                      setEmbeddingChannel({ apiKey: e.target.value });
+                      showSaveToast();
+                    }}
+                  />
+                </div>
+              </div>
 
-          <div
-            style={{
-              marginTop: 12,
-              padding: '10px 12px',
-              borderRadius: 10,
-              background: 'rgba(79, 110, 247, 0.08)',
-              border: '1px solid rgba(79, 110, 247, 0.18)'
-            }}
-          >
-            <div style={{ fontWeight: 600, marginBottom: 6 }}>当前生效规则</div>
-            <div style={{ fontSize: 14, lineHeight: 1.6 }}>
-              1. 默认使用下方“嵌入模型（Embedding）”里的全局 model：
-              <strong>{embeddingModel.trim() || '未设置'}</strong>
-              。<br />
-              2. 如果开启了“嵌入渠道”，并填写了专用 baseUrl / apiKey / model 中的任意一项，就优先使用这套渠道配置。<br />
-              3. 当前实际生效的 embedding model：<strong>{embeddingEffectiveModel || '未设置'}</strong>；
-              baseUrl：<strong>{embeddingEffectiveBaseUrl || '未设置'}</strong>。
-              {embeddingOverrideActive ? '（当前为嵌入渠道覆盖中）' : '（当前为全局默认配置）'}
-            </div>
-          </div>
+              <div className="settings-embedding-effective-card">
+                <div className="settings-embedding-effective-title">
+                  {currentLanguage === 'en' ? 'Effective rule' : '当前生效规则'}
+                </div>
+                <div className="settings-embedding-effective-copy">
+                  {currentLanguage === 'en'
+                    ? 'The global Embedding model below is used by default. Once override is enabled and any dedicated baseUrl / apiKey / model is filled in, this embedding channel takes precedence.'
+                    : '默认优先使用下方全局 Embedding 模型；开启覆盖且填写了专用 baseUrl / apiKey / model 任一项后，会切到这套嵌入渠道配置。'}{' '}
+                  {currentLanguage === 'en' ? 'Current effective model' : '当前实际生效的模型为'}{' '}
+                  <strong>{embeddingEffectiveModel || (currentLanguage === 'en' ? 'Not set' : '未设置')}</strong>
+                  ，Base URL {currentLanguage === 'en' ? 'is' : '为'}{' '}
+                  <strong>{embeddingEffectiveBaseUrl || (currentLanguage === 'en' ? 'Not set' : '未设置')}</strong>。
+                </div>
+              </div>
 
-          <small className="muted">{t('settings.embeddingChannel.fallbackHint')}</small>
+              <div className="settings-model-input-row settings-model-input-row--inline">
+                <button
+                  type="button"
+                  onClick={() => void handleTestEmbeddingChannel()}
+                  disabled={embeddingTestStatus.loading}
+                >
+                  {embeddingTestStatus.loading
+                    ? t('settings.model.refreshing')
+                    : t('settings.embeddingChannel.testButton')}
+                </button>
+                {embeddingTestStatus.message ? (
+                  <small
+                    style={{
+                      color: embeddingTestStatus.ok ? 'var(--color-success)' : 'var(--color-danger)'
+                    }}
+                  >
+                    {embeddingTestStatus.message}
+                  </small>
+                ) : null}
+              </div>
+
+              <small className="muted">{t('settings.embeddingChannel.fallbackHint')}</small>
+            </div>
+          ) : null}
         </div>
-
-          <div className="settings-model-input-row" style={{ marginTop: 10, display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button
-              type="button"
-              onClick={() => void handleTestEmbeddingChannel()}
-              disabled={embeddingTestStatus.loading}
-            >
-              {embeddingTestStatus.loading ? t('settings.model.refreshing') : t('settings.embeddingChannel.testButton')}
-            </button>
-            {embeddingTestStatus.message ? (
-              <small style={{ color: embeddingTestStatus.ok ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                {embeddingTestStatus.message}
-              </small>
-            ) : null}
-          </div>
 
         <div className="settings-model-grid">
           <ModelSelector

@@ -288,11 +288,19 @@ function buildSummaryLine(net: number, fixedRatio: number, debtPressureRatio: nu
   return `${netText}，${fixedText}，${debtText}。`;
 }
 
+const MIN_ANALYSIS_TRANSACTION_COUNT = 3;
+const MIN_BEHAVIOR_EXPENSE_SAMPLES = 3;
+const RECOMMENDED_ANALYSIS_TRANSACTION_COUNT = 5;
+const RECOMMENDED_ANALYSIS_SAMPLE_DAYS = 7;
+
 function buildConfidenceNote(transactionCount: number, sampleDays: number): string {
   if (transactionCount === 0) {
     return '当前没有可用于分析的交易数据，请先记录几笔流水。';
   }
-  if (sampleDays < 7 || transactionCount < 5) {
+  if (
+    sampleDays < RECOMMENDED_ANALYSIS_SAMPLE_DAYS ||
+    transactionCount < RECOMMENDED_ANALYSIS_TRANSACTION_COUNT
+  ) {
     return '当前样本较少，以下结论仅适合作为轻量参考。';
   }
   if (transactionCount < 15) {
@@ -311,6 +319,15 @@ function isPotentiallyAvoidableNote(note: string): boolean {
 
 function buildHabitInsights(rows: TransactionItem[], categories: Category[]): FinancialAnalysisHabitInsight[] {
   const expenseRows = rows.filter((item) => isAnalysisExpenseLike(item, categories));
+  if (expenseRows.length < MIN_BEHAVIOR_EXPENSE_SAMPLES) {
+    return [
+      {
+        title: '行为样本不足',
+        detail: `当前分析周期内至少记录 ${MIN_BEHAVIOR_EXPENSE_SAMPLES} 笔支出后再开始判断习惯。若能覆盖 ${RECOMMENDED_ANALYSIS_SAMPLE_DAYS} 天并累计 ${RECOMMENDED_ANALYSIS_TRANSACTION_COUNT} 笔以上交易，结论会更稳。`,
+        tone: 'warning'
+      }
+    ];
+  }
   if (expenseRows.length === 0) {
     return [
       {
@@ -536,7 +553,7 @@ export function analyzeFinancialOverview(input: {
   const activeAccounts = input.accounts.filter((item) => Number(item.balance ?? item.initialBalance ?? 0) > 0).length;
   const repaymentRecordsInRange = input.repaymentRecords.filter((item) => isInRange(item.paidAt, start, today));
   const savingsRate = summary.incomeTotal > 0 ? summary.netTotal / summary.incomeTotal : 0;
-  const hasEnoughData = rangeTransactions.length >= 3;
+  const hasEnoughData = rangeTransactions.length >= MIN_ANALYSIS_TRANSACTION_COUNT;
   const habits = buildHabitInsights(rangeTransactions, input.categories);
   const avoidableSignals = buildAvoidableSignals(rangeTransactions, input.categories);
   const consumerProfile = buildConsumerProfile(

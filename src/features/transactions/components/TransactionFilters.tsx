@@ -102,11 +102,17 @@ export function TransactionFilters({
 
   return (
     <section className="panel transaction-filters-panel">
-      <h2>交易记录</h2>
-      <p className="surface-caption transaction-filters-caption">把首屏注意力放在流水本身，筛选与操作保持就近、克制、可展开。</p>
+      <div className="transaction-filters-header">
+        <div>
+          <h2>交易记录</h2>
+          <p className="surface-caption transaction-filters-caption">
+            把首屏注意力放在流水本身，筛选与操作保持就近、克制、可展开。
+          </p>
+        </div>
+      </div>
 
       <div className="transaction-filters-primary-row">
-        <div className="field" style={{ marginBottom: 0 }}>
+        <div className="field transaction-filter-field transaction-filter-field-keyword" style={{ marginBottom: 0 }}>
           <label>关键词</label>
           <input
             placeholder="搜索备注或标签"
@@ -115,7 +121,7 @@ export function TransactionFilters({
           />
         </div>
 
-        <div className="field" style={{ marginBottom: 0 }}>
+        <div className="field transaction-filter-field" style={{ marginBottom: 0 }}>
           <label htmlFor="tx-filter-type">类型</label>
           <select
             id="tx-filter-type"
@@ -131,7 +137,7 @@ export function TransactionFilters({
           </select>
         </div>
 
-        <div className="field" style={{ marginBottom: 0 }}>
+        <div className="field transaction-filter-field" style={{ marginBottom: 0 }}>
           <label htmlFor="tx-filter-date-preset">日期</label>
           <select
             id="tx-filter-date-preset"
@@ -148,7 +154,7 @@ export function TransactionFilters({
         </div>
 
         <div className="transaction-filters-primary-cta">
-          <label style={{ visibility: 'hidden' }}>操作</label>
+          <label className="transaction-filters-mobile-only-label">操作</label>
           <button type="button" className="primary" onClick={onQuickAdd}>
             新增账目
           </button>
