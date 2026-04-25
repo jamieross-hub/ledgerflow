@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent
 } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -358,9 +359,33 @@ export function CategoriesAccountsPage() {
     setEditingBalanceAccountId(accountId);
     setEditingBalances((prev) => ({
       ...prev,
-      [accountId]:
-        prev[accountId] ?? (Number.isFinite(computedBalance) ? computedBalance.toFixed(2) : '0.00')
+      [accountId]: Number.isFinite(computedBalance) ? computedBalance.toFixed(2) : '0.00'
     }));
+  };
+
+  const cancelEditBalance = (accountId: string, computedBalance: number) => {
+    setEditingBalances((prev) => ({
+      ...prev,
+      [accountId]: Number.isFinite(computedBalance) ? computedBalance.toFixed(2) : '0.00'
+    }));
+    setEditingBalanceAccountId((prev) => (prev === accountId ? null : prev));
+  };
+
+  const handleBalanceInputKeyDown = (
+    event: ReactKeyboardEvent<HTMLInputElement>,
+    accountId: string,
+    computedBalance: number
+  ) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      applyAccountBalance(accountId);
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelEditBalance(accountId, computedBalance);
+    }
   };
 
   const applySingleAdjustment = (accountId: string) => {
@@ -750,66 +775,57 @@ export function CategoriesAccountsPage() {
                         <small>初始：{formatCurrencyFixed2(item.initialBalance ?? 0)}</small>
                       </div>
                       <div className="account-card-balance-wrap">
-                        <span
-                          className={`mono-inline account-card-balance ${
-                            item.computedBalance < 0
-                              ? 'account-card-balance-negative'
-                              : 'account-card-balance-positive'
-                          }`}
-                          onDoubleClick={() => startEditBalance(item.id, item.computedBalance)}
-                          title="双击编辑余额"
-                        >
-                          {formatCurrencyFixed2(item.computedBalance)}
-                        </span>
-                        <small>按交易自动汇总</small>
+                        {isEditingBalance ? (
+                          <div className="account-card-balance-editor">
+                            <input
+                              className="account-balance-input account-card-balance-editor-input"
+                              type="number"
+                              inputMode="decimal"
+                              aria-label={`account-balance-editor-${item.id}`}
+                              placeholder="输入余额"
+                              value={balanceValue}
+                              onChange={(e) =>
+                                setEditingBalances((prev) => ({ ...prev, [item.id]: e.target.value }))
+                              }
+                              onKeyDown={(event) =>
+                                handleBalanceInputKeyDown(event, item.id, item.computedBalance)
+                              }
+                              autoFocus
+                            />
+                            <div className="account-card-balance-editor-actions">
+                              <button type="button" onClick={() => applyAccountBalance(item.id)}>
+                                保存
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => cancelEditBalance(item.id, item.computedBalance)}
+                              >
+                                取消
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className={`mono-inline account-card-balance account-card-balance-trigger ${
+                                item.computedBalance < 0
+                                  ? 'account-card-balance-negative'
+                                  : 'account-card-balance-positive'
+                              }`}
+                              onDoubleClick={() => startEditBalance(item.id, item.computedBalance)}
+                              title="双击编辑余额"
+                              aria-label={`account-balance-display-${item.id}`}
+                            >
+                              {formatCurrencyFixed2(item.computedBalance)}
+                            </button>
+                            <small>按交易自动汇总，双击可校准</small>
+                          </>
+                        )}
                       </div>
                     </header>
 
-                    <div
-                      className={`account-card-actions ${
-                        isEditingBalance ? '' : 'account-card-actions-balance-view'
-                      }`.trim()}
-                    >
-                      <div className="field account-balance-field">
-                        <label>账户余额（双击可编辑）</label>
-                        {isEditingBalance ? (
-                          <input
-                            className="account-balance-input"
-                            type="number"
-                            placeholder="输入余额"
-                            value={balanceValue}
-                            onChange={(e) =>
-                              setEditingBalances((prev) => ({ ...prev, [item.id]: e.target.value }))
-                            }
-                            autoFocus
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            className="account-balance-display-btn"
-                            onDoubleClick={() => startEditBalance(item.id, item.computedBalance)}
-                          >
-                            {formatCurrencyFixed2(item.computedBalance)}
-                          </button>
-                        )}
-                      </div>
-                      {isEditingBalance ? (
-                        <>
-                          <button type="button" onClick={() => applyAccountBalance(item.id)}>
-                            保存
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setEditingBalanceAccountId((prev) => (prev === item.id ? null : prev))
-                            }
-                          >
-                            取消
-                          </button>
-                        </>
-                      ) : null}
-                    </div>
-                    <div className="account-card-actions" style={{ marginTop: 8 }}>
+                    <div className="account-card-actions account-card-actions-secondary">
                       <input
                         className="account-balance-input"
                         type="number"
