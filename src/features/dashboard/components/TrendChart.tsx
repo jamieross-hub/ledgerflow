@@ -31,7 +31,7 @@ export function TrendChart({
   onTrendMonthOffsetChange,
   onSelectedTrendIndexChange,
   onNavigateToTransactions,
-  trendBarHeight,
+  trendBarHeight
 }: TrendChartProps) {
   const { t } = useTranslation();
 
@@ -66,21 +66,21 @@ export function TrendChart({
               className={trendGranularity === 'week' ? 'active' : ''}
               onClick={() => onTrendGranularityChange('week')}
             >
-              {t('dashboard.ui.granularityDay')}
+              按周
             </button>
             <button
               type="button"
               className={trendGranularity === 'month' ? 'active' : ''}
               onClick={() => onTrendGranularityChange('month')}
             >
-              {t('dashboard.ui.granularityMonth')}
+              按月
             </button>
             <button
               type="button"
               className={trendGranularity === 'year' ? 'active' : ''}
               onClick={() => onTrendGranularityChange('year')}
             >
-              {t('dashboard.ui.granularityYear')}
+              按年
             </button>
           </div>
         </div>
@@ -95,12 +95,16 @@ export function TrendChart({
                 {activeTrendIndex === trendPeakIndex
                   ? t('dashboard.ui.peakExpense')
                   : trendSeries[activeTrendIndex].value > expenseTrendAverage
-                  ? t('dashboard.ui.aboveAverageWarning')
-                  : t('dashboard.ui.normalRange')}
+                    ? t('dashboard.ui.aboveAverageWarning')
+                    : t('dashboard.ui.normalRange')}
               </em>
             </div>
           )}
-          <div className="dashboard-expense-trend-chart" role="list" aria-label={t('dashboard.ui.expenseTrendChart')}>
+          <div
+            className="dashboard-expense-trend-chart"
+            role="list"
+            aria-label={t('dashboard.ui.expenseTrendChart')}
+          >
             {trendSeries.map((item, index) => {
               const isActive = index === activeTrendIndex;
               const isPeak = index === trendPeakIndex;

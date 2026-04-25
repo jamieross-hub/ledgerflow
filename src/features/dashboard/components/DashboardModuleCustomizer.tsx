@@ -24,13 +24,20 @@ export function DashboardModuleCustomizer({
   onDragStart,
   onDrop,
   onDragEnd,
-  onToggle,
+  onToggle
 }: DashboardModuleCustomizerProps) {
+  const enabledCount = items.filter((item) => item.checked).length;
+
   return (
     <section className="dashboard-module-customizer" aria-label={title}>
-      <div className="dashboard-section-header">
-        <h4>{title}</h4>
-        <span>{hint}</span>
+      <div className="dashboard-module-customizer-head">
+        <div className="dashboard-module-customizer-copy">
+          <h4>{title}</h4>
+          <p>{hint}</p>
+        </div>
+        <span className="dashboard-module-customizer-badge">
+          {enabledCount}/{items.length} 已显示
+        </span>
       </div>
       <div className="dashboard-module-manage-list" aria-label="模块配置列表">
         {items.map((item) => (
@@ -45,17 +52,30 @@ export function DashboardModuleCustomizer({
             title={item.description}
             data-dragging={draggingModuleId === item.id ? 'true' : 'false'}
           >
-            <div className="dashboard-module-manage-topline">
+            <div className="dashboard-module-manage-main">
               <span className="dashboard-module-drag-handle" aria-hidden="true">
-                ↕
+                ⋮⋮
               </span>
-              <input
-                type="checkbox"
-                checked={item.checked}
-                onChange={(event) => onToggle(item.id, event.target.checked)}
+              <div className="dashboard-module-manage-copy">
+                <strong>{item.label}</strong>
+                <small>{item.description}</small>
+              </div>
+            </div>
+            <div className="dashboard-module-manage-tail">
+              <span
+                className={`dashboard-module-state-dot ${item.checked ? 'is-enabled' : 'is-disabled'}`}
+                aria-hidden="true"
               />
-              <strong>{item.label}</strong>
-              <span className="dashboard-module-state">{item.checked ? '显示中' : '已隐藏'}</span>
+              <span className="dashboard-module-state">{item.checked ? '显示' : '隐藏'}</span>
+              <span className="dashboard-module-switch">
+                <input
+                  type="checkbox"
+                  checked={item.checked}
+                  onChange={(event) => onToggle(item.id, event.target.checked)}
+                  aria-label={`${item.label}${item.checked ? '已显示' : '已隐藏'}`}
+                />
+                <span aria-hidden="true" />
+              </span>
             </div>
           </label>
         ))}

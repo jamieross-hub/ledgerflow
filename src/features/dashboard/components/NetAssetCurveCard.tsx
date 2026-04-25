@@ -1,23 +1,27 @@
 import { formatCurrency } from '../../../shared/lib/format';
 
 export interface NetAssetCurveRow {
+  key: string;
   label: string;
   value: number;
   delta: number;
+  dateFrom: string;
+  dateTo: string;
+  isCurrent?: boolean;
 }
 
 export interface NetAssetCurveCardProps {
   rows: NetAssetCurveRow[];
-  worstDropLabel?: string;
+  worstDropKey?: string;
   worstDropDelta?: number;
-  onNavigateToMonth: (label: string) => void;
+  onNavigateToMonth: (dateFrom: string, dateTo: string) => void;
 }
 
 export function NetAssetCurveCard({
   rows,
-  worstDropLabel,
+  worstDropKey,
   worstDropDelta,
-  onNavigateToMonth,
+  onNavigateToMonth
 }: NetAssetCurveCardProps) {
   const maxValue = Math.max(...rows.map((item) => item.value), 1);
 
@@ -29,12 +33,17 @@ export function NetAssetCurveCard({
       <div className="dashboard-net-curve">
         {rows.map((item) => (
           <button
-            key={item.label}
+            key={item.key}
             type="button"
-            className={`dashboard-net-row ${worstDropLabel === item.label ? 'is-worst-drop' : ''}`.trim()}
-            onClick={() => onNavigateToMonth(item.label)}
+            className={`dashboard-net-row ${worstDropKey === item.key ? 'is-worst-drop' : ''} ${
+              item.isCurrent ? 'is-current' : ''
+            }`.trim()}
+            onClick={() => onNavigateToMonth(item.dateFrom, item.dateTo)}
           >
-            <span>{item.label}</span>
+            <span className="dashboard-net-row-label">
+              {item.label}
+              {item.isCurrent ? <em>当前</em> : null}
+            </span>
             <i style={{ width: `${(item.value / maxValue) * 100}%` }} />
             <strong>{formatCurrency(item.value)}</strong>
             <small className={item.delta >= 0 ? 'up' : 'down'}>
@@ -44,9 +53,9 @@ export function NetAssetCurveCard({
           </button>
         ))}
       </div>
-      {worstDropLabel && typeof worstDropDelta === 'number' ? (
+      {worstDropKey && typeof worstDropDelta === 'number' ? (
         <p className="dashboard-net-worst-hint">
-          最大回撤：{worstDropLabel}（Δ{formatCurrency(worstDropDelta)}），可点击查看该月流水。
+          最大回撤：{formatCurrency(worstDropDelta)}，可点击对应月份查看当月流水。
         </p>
       ) : null}
     </article>

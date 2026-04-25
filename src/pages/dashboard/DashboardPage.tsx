@@ -33,6 +33,7 @@ import { EmptyState } from '../../shared/ui/EmptyState';
 
 const FORECAST_CACHE_KEY = 'dashboard_forecast_cache_v1';
 const DASHBOARD_MODULES_KEY = 'dashboard_custom_modules_v1';
+const DASHBOARD_INLINE_HELP_KEY = 'dashboard_inline_help_dismissed_v1';
 
 const DASHBOARD_MODULE_CATALOG = [
   { id: 'dynamic-charts', label: '动态图表', description: '收支趋势、分类占比、净资产曲线' },
@@ -95,38 +96,43 @@ function saveForecastCache(payload: ForecastPayload, updatedAt: string) {
 }
 
 export function DashboardPage() {
- const { t } = useTranslation();
- const navigate = useNavigate();
- const transactions = useFinanceStore((s) => s.transactions);
- const accounts = useFinanceStore((s) => s.accounts);
- const categories = useFinanceStore((s) => s.categories);
- const subscriptions = useFinanceStore((s) => s.subscriptions);
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const transactions = useFinanceStore((s) => s.transactions);
+  const accounts = useFinanceStore((s) => s.accounts);
+  const categories = useFinanceStore((s) => s.categories);
+  const subscriptions = useFinanceStore((s) => s.subscriptions);
 
- const baseUrl = useAiSettings((s) => s.baseUrl);
- const apiKey = useAiSettings((s) => s.apiKey);
- const model = useAiSettings((s) => s.model);
+  const baseUrl = useAiSettings((s) => s.baseUrl);
+  const apiKey = useAiSettings((s) => s.apiKey);
+  const model = useAiSettings((s) => s.model);
 
- const [forecast, setForecast] = useState<ForecastPayload | null>(null);
- const [forecastStatus, setForecastStatus] = useState<'idle' | 'loading' | 'done' | 'error'>(
- 'idle'
- );
- const [forecastError, setForecastError] = useState('');
- const [forecastUpdatedAt, setForecastUpdatedAt] = useState<string>('');
- const [forecastRequestToken, setForecastRequestToken] = useState(0);
+  const [forecast, setForecast] = useState<ForecastPayload | null>(null);
+  const [forecastStatus, setForecastStatus] = useState<'idle' | 'loading' | 'done' | 'error'>(
+    'idle'
+  );
+  const [forecastError, setForecastError] = useState('');
+  const [forecastUpdatedAt, setForecastUpdatedAt] = useState<string>('');
+  const [forecastRequestToken, setForecastRequestToken] = useState(0);
 
- const [monthlyInsight, setMonthlyInsight] = useState<MonthlyInsightPayload | null>(null);
- const [monthlyInsightStatus, setMonthlyInsightStatus] = useState<
- 'idle' | 'loading' | 'streaming' | 'done' | 'error'
- >('idle');
- const [monthlyInsightError, setMonthlyInsightError] = useState('');
- const [monthlyInsightRequestToken, setMonthlyInsightRequestToken] = useState(0);
- const [hoveredChartPoint, setHoveredChartPoint] = useState<{
- label: string;
- value: number;
- } | null>(null);
- 
- // State for welcome banner collapse/expand
- const [isWelcomeExpanded, setIsWelcomeExpanded] = useState(false);
+  const [monthlyInsight, setMonthlyInsight] = useState<MonthlyInsightPayload | null>(null);
+  const [monthlyInsightStatus, setMonthlyInsightStatus] = useState<
+    'idle' | 'loading' | 'streaming' | 'done' | 'error'
+  >('idle');
+  const [monthlyInsightError, setMonthlyInsightError] = useState('');
+  const [monthlyInsightRequestToken, setMonthlyInsightRequestToken] = useState(0);
+  const [hoveredChartPoint, setHoveredChartPoint] = useState<{
+    label: string;
+    value: number;
+  } | null>(null);
+  const [isWelcomeExpanded, setIsWelcomeExpanded] = useState(false);
+  const [isInlineHelpDismissed, setIsInlineHelpDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(DASHBOARD_INLINE_HELP_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
   const [trendGranularity, setTrendGranularity] = useState<'week' | 'month' | 'year'>('week');
   const [trendMonthOffset, setTrendMonthOffset] = useState(0);
   const [selectedTrendIndex, setSelectedTrendIndex] = useState<number | null>(null);
@@ -151,6 +157,7 @@ export function DashboardPage() {
     const d = new Date(t.date);
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   });
+  const hasExpenseTransactions = transactions.some((item) => isActualExpenseType(item.type));
   const income = monthly.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
   const expense = monthly
     .filter((t) => isActualExpenseType(t.type))
@@ -185,7 +192,10 @@ export function DashboardPage() {
   }, 0);
 
   const subscriptionAlerts = useMemo(
-    () => subscriptions.filter((item) => item.status === 'due-soon' || item.status === 'expired').slice(0, 3),
+    () =>
+      subscriptions
+        .filter((item) => item.status === 'due-soon' || item.status === 'expired')
+        .slice(0, 3),
     [subscriptions]
   );
 
@@ -505,7 +515,10 @@ export function DashboardPage() {
   const reducedHistoryMonths = useMemo(() => recentMonths.slice(-4), [recentMonths]);
   const currentIndex = Math.max(reducedHistoryMonths.length - 1, 0);
 
-  const trendBaseDate = useMemo(() => new Date(currentYear, currentMonth + trendMonthOffset, 1), [currentMonth, currentYear, trendMonthOffset]);
+  const trendBaseDate = useMemo(
+    () => new Date(currentYear, currentMonth + trendMonthOffset, 1),
+    [currentMonth, currentYear, trendMonthOffset]
+  );
   const trendBaseMonth = trendBaseDate.getMonth();
   const trendBaseYear = trendBaseDate.getFullYear();
 
@@ -612,7 +625,10 @@ export function DashboardPage() {
             amount: item.total,
             percent:
               monthlyTurnover > 0
-                ? Math.min(100, Math.max(0, Math.round((Math.abs(item.total) / monthlyTurnover) * 1000) / 10))
+                ? Math.min(
+                    100,
+                    Math.max(0, Math.round((Math.abs(item.total) / monthlyTurnover) * 1000) / 10)
+                  )
                 : 0
           })),
     [monthlyInsight, monthlyInsightInput, monthlyTurnover]
@@ -650,7 +666,10 @@ export function DashboardPage() {
   const categoryMetaMap = useMemo(
     () =>
       new Map(
-        categories.map((item) => [item.id, { name: item.name, icon: item.icon || '🏷️', color: item.color }])
+        categories.map((item) => [
+          item.id,
+          { name: item.name, icon: item.icon || '🏷️', color: item.color }
+        ])
       ),
     [categories]
   );
@@ -790,7 +809,9 @@ export function DashboardPage() {
     if (trendGranularity === 'year') {
       return Array.from({ length: 6 }).map((_, index) => {
         const targetYear = currentYear - (5 - index);
-        const rows = transactions.filter((item) => new Date(item.date).getFullYear() === targetYear);
+        const rows = transactions.filter(
+          (item) => new Date(item.date).getFullYear() === targetYear
+        );
         const yearExpense = rows
           .filter((item) => isActualExpenseType(item.type))
           .reduce((sum, item) => sum + item.amount, 0);
@@ -827,18 +848,24 @@ export function DashboardPage() {
       dailyMap.set(day, (dailyMap.get(day) || 0) + item.amount);
     });
 
-    return Array.from({ length: daysInMonth }).map((_, index) => {
-      const day = index + 1;
-      const date = `${trendBaseYear}-${String(trendBaseMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const weekCount = Math.ceil(daysInMonth / 7);
+    return Array.from({ length: weekCount }).map((_, index) => {
+      const startDay = index * 7 + 1;
+      const endDay = Math.min(startDay + 6, daysInMonth);
+      let value = 0;
+      for (let day = startDay; day <= endDay; day += 1) {
+        value += dailyMap.get(day) || 0;
+      }
+
       return {
-        label: `${day}日`,
-        shortLabel: String(day),
-        value: dailyMap.get(day) || 0,
-        dateFrom: date,
-        dateTo: date
+        label: `${trendBaseMonth + 1}月第${index + 1}周`,
+        shortLabel: `第${index + 1}周`,
+        value,
+        dateFrom: `${trendBaseYear}-${String(trendBaseMonth + 1).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`,
+        dateTo: `${trendBaseYear}-${String(trendBaseMonth + 1).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`
       };
     });
-  }, [currentMonth, currentYear, monthly, recentMonths, transactions, trendBaseMonth, trendBaseYear, trendGranularity]);
+  }, [currentYear, recentMonths, transactions, trendBaseMonth, trendBaseYear, trendGranularity]);
 
   const trendPeakIndex = useMemo(() => {
     if (!trendSeries.length) return -1;
@@ -862,7 +889,9 @@ export function DashboardPage() {
   }, [trendPeakIndex, trendSeries]);
 
   const activeTrendIndex =
-    selectedTrendIndex !== null && selectedTrendIndex >= 0 && selectedTrendIndex < trendSeries.length
+    selectedTrendIndex !== null &&
+    selectedTrendIndex >= 0 &&
+    selectedTrendIndex < trendSeries.length
       ? selectedTrendIndex
       : trendPeakIndex >= 0
         ? trendPeakIndex
@@ -894,8 +923,18 @@ export function DashboardPage() {
       points[i] = running;
       running -= balances[i];
     }
-    return recentMonths.map((item, index) => ({ label: item.shortLabel, value: points[index] }));
-  }, [netAssets, recentMonths]);
+    return recentMonths.map((item, index) => {
+      const [year, month] = item.key.split('-').map(Number);
+      return {
+        key: item.key,
+        label: year === currentYear ? item.shortLabel : `${String(year).slice(-2)}年${month}月`,
+        value: points[index],
+        dateFrom: `${year}-${String(month).padStart(2, '0')}-01`,
+        dateTo: new Date(year, month, 0).toISOString().slice(0, 10),
+        isCurrent: year === currentYear && month === currentMonth + 1
+      };
+    });
+  }, [currentMonth, currentYear, netAssets, recentMonths]);
 
   const anomalyInsight = useMemo(() => {
     const expenseRows = transactions.filter((item) => isActualExpenseType(item.type));
@@ -960,7 +999,10 @@ export function DashboardPage() {
   }, [categoryNameMap, monthly, monthlyInsight?.highlights, transactions]);
 
   const cashflowCategoryRows = useMemo(() => {
-    const map = new Map<string, { amount: number; prevAmount: number; icon: string; color?: string }>();
+    const map = new Map<
+      string,
+      { amount: number; prevAmount: number; icon: string; color?: string }
+    >();
 
     const thisMonthRows = transactions.filter((item) => {
       const d = new Date(item.date);
@@ -1040,7 +1082,13 @@ export function DashboardPage() {
       { amount: 0, prevAmount: 0 }
     );
     if (Math.abs(other.amount) > 0) {
-      top.push({ name: '其他', amount: other.amount, prevAmount: other.prevAmount, icon: '🧩', color: undefined });
+      top.push({
+        name: '其他',
+        amount: other.amount,
+        prevAmount: other.prevAmount,
+        icon: '🧩',
+        color: undefined
+      });
     }
 
     const total = top.reduce((sum, item) => sum + Math.abs(item.amount), 0);
@@ -1048,10 +1096,13 @@ export function DashboardPage() {
       ...item,
       percent: total > 0 ? (Math.abs(item.amount) / total) * 100 : 0,
       diffRate:
-        item.prevAmount !== 0 ? ((item.amount - item.prevAmount) / Math.abs(item.prevAmount)) * 100 : null,
+        item.prevAmount !== 0
+          ? ((item.amount - item.prevAmount) / Math.abs(item.prevAmount)) * 100
+          : null,
       ringColor:
         item.color ||
-        ['#2563eb', '#60a5fa', '#93c5fd', '#c4b5fd', '#34d399', '#d1d5db'][index] || '#d1d5db'
+        ['#2563eb', '#60a5fa', '#93c5fd', '#c4b5fd', '#34d399', '#d1d5db'][index] ||
+        '#d1d5db'
     }));
   }, [cashflowView, categoryMetaMap, currentMonth, currentYear, transactions]);
 
@@ -1069,7 +1120,9 @@ export function DashboardPage() {
   }, [cashflowCategoryRows]);
 
   const activeCategoryItem =
-    cashflowCategoryRows.find((item) => item.name === selectedCategoryName) || cashflowCategoryRows[0] || null;
+    cashflowCategoryRows.find((item) => item.name === selectedCategoryName) ||
+    cashflowCategoryRows[0] ||
+    null;
 
   const donutChart = useMemo(() => {
     const size = 220;
@@ -1101,10 +1154,20 @@ export function DashboardPage() {
   const netAssetWorstDrop = useMemo(() => {
     const candidates = netAssetRows.filter((_, index) => index > 0);
     if (!candidates.length) return null;
-    return candidates.reduce((worst, current) =>
-      current.delta < worst.delta ? current : worst
+    const worst = candidates.reduce((currentWorst, current) =>
+      current.delta < currentWorst.delta ? current : currentWorst
     );
+    return worst.delta < 0 ? worst : null;
   }, [netAssetRows]);
+
+  const dismissInlineHelp = () => {
+    setIsInlineHelpDismissed(true);
+    try {
+      localStorage.setItem(DASHBOARD_INLINE_HELP_KEY, '1');
+    } catch {
+      // ignore persistence errors
+    }
+  };
 
   const moveModule = (from: DashboardModuleId, to: DashboardModuleId) => {
     if (from === to) return;
@@ -1135,26 +1198,55 @@ export function DashboardPage() {
         onNavigateToAssistant={() => navigate('/assistant')}
       />
 
-      <section className="panel dashboard-inline-help">
-        <div className="dashboard-section-header">
-          <h3>少解释一点，多直接去做</h3>
-          <span>详细说明放在帮助页，首页只保留高频入口</span>
-        </div>
-        <p className="dashboard-shortcuts-tip">
-          如果你是第一次来，先去帮助页；如果你今天只是想快点把账记清，那下面这几个入口更省时间。
-        </p>
-        <div className="dashboard-inline-help-actions">
-          <button type="button" onClick={() => navigate('/help')}>
-            打开帮助页
-          </button>
-          <button type="button" onClick={() => navigate('/assistant')}>
-            去问 AI 助手
-          </button>
-          <button type="button" onClick={() => navigate('/transactions/new?quick=1')}>
-            {t('dashboard.ui.addEntry')}
-          </button>
-        </div>
-      </section>
+      {!isInlineHelpDismissed ? (
+        <section className="panel dashboard-inline-help">
+          <div className="dashboard-section-header">
+            <div>
+              <h3>第一次来，先看这里</h3>
+              <span>帮助页讲完整逻辑，首页只留高频入口</span>
+            </div>
+            <button
+              type="button"
+              className="dashboard-inline-help-dismiss"
+              onClick={dismissInlineHelp}
+            >
+              跳过引导
+            </button>
+          </div>
+          <p className="dashboard-shortcuts-tip">
+            第一次使用建议先看帮助；如果你现在只想快速记账，直接用下面几个入口就够了。
+          </p>
+          <div className="dashboard-inline-help-actions">
+            <button
+              type="button"
+              onClick={() => {
+                dismissInlineHelp();
+                navigate('/help');
+              }}
+            >
+              打开帮助页
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                dismissInlineHelp();
+                navigate('/assistant');
+              }}
+            >
+              去问 AI 助手
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                dismissInlineHelp();
+                navigate('/transactions/new?quick=1');
+              }}
+            >
+              {t('dashboard.ui.addEntry')}
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section className="panel">
         <h2>{t('dashboard.ui.corePanel')}</h2>
@@ -1193,20 +1285,19 @@ export function DashboardPage() {
         <DashboardModuleCustomizer
           title={t('dashboard.ui.moduleCustomize')}
           hint={t('dashboard.ui.moduleCustomizeHint')}
-          items={moduleOrder.reduce<Array<{ id: DashboardModuleId; label: string; description: string; checked: boolean }>>(
-            (acc, moduleId) => {
-              const module = DASHBOARD_MODULE_CATALOG.find((item) => item.id === moduleId);
-              if (!module) return acc;
-              acc.push({
-                id: module.id,
-                label: module.label,
-                description: module.description,
-                checked: moduleVisibility[module.id]
-              });
-              return acc;
-            },
-            []
-          )}
+          items={moduleOrder.reduce<
+            Array<{ id: DashboardModuleId; label: string; description: string; checked: boolean }>
+          >((acc, moduleId) => {
+            const module = DASHBOARD_MODULE_CATALOG.find((item) => item.id === moduleId);
+            if (!module) return acc;
+            acc.push({
+              id: module.id,
+              label: module.label,
+              description: module.description,
+              checked: moduleVisibility[module.id]
+            });
+            return acc;
+          }, [])}
           draggingModuleId={draggingModule}
           onDragStart={(moduleId) => setDraggingModule(moduleId as DashboardModuleId)}
           onDrop={(moduleId) => {
@@ -1237,7 +1328,9 @@ export function DashboardPage() {
                   onTrendMonthOffsetChange={setTrendMonthOffset}
                   onSelectedTrendIndexChange={setSelectedTrendIndex}
                   onNavigateToTransactions={(dateFrom: string, dateTo: string) =>
-                    navigate(`/transactions?datePreset=custom&dateFrom=${dateFrom}&dateTo=${dateTo}`)
+                    navigate(
+                      `/transactions?datePreset=custom&dateFrom=${dateFrom}&dateTo=${dateTo}`
+                    )
                   }
                   trendBarHeight={trendBarHeight}
                 />
@@ -1251,14 +1344,12 @@ export function DashboardPage() {
                 />
                 <NetAssetCurveCard
                   rows={netAssetRows}
-                  worstDropLabel={netAssetWorstDrop?.label}
+                  worstDropKey={netAssetWorstDrop?.key}
                   worstDropDelta={netAssetWorstDrop?.delta}
-                  onNavigateToMonth={(label) => {
-                    const targetMonth = Number(label.replace('月', ''));
-                    if (!Number.isFinite(targetMonth)) return;
-                    const from = `${currentYear}-${String(targetMonth).padStart(2, '0')}-01`;
-                    const to = new Date(currentYear, targetMonth, 0).toISOString().slice(0, 10);
-                    navigate(`/transactions?datePreset=custom&dateFrom=${from}&dateTo=${to}`);
+                  onNavigateToMonth={(dateFrom, dateTo) => {
+                    navigate(
+                      `/transactions?datePreset=custom&dateFrom=${dateFrom}&dateTo=${dateTo}`
+                    );
                   }}
                 />
               </section>
@@ -1266,6 +1357,9 @@ export function DashboardPage() {
           }
 
           if (moduleId === 'anomaly-insights') {
+            if (!hasExpenseTransactions && subscriptionAlerts.length === 0) {
+              return null;
+            }
             return (
               <DashboardAnomalyInsights
                 key={moduleId}
@@ -1471,7 +1565,9 @@ export function DashboardPage() {
               </div>
               <div className="dashboard-forecast-hover-card">
                 <strong>{hoveredChartPoint ? hoveredChartPoint.label : '悬停数据点'}</strong>
-                <span>{hoveredChartPoint ? formatCurrency(hoveredChartPoint.value) : '查看具体数值'}</span>
+                <span>
+                  {hoveredChartPoint ? formatCurrency(hoveredChartPoint.value) : '查看具体数值'}
+                </span>
                 <em>{hoveredChartPoint ? '历史 / 预测属性预览' : '支持鼠标悬停预览'}</em>
               </div>
               <div className="dashboard-forecast-legend">
