@@ -1,7 +1,20 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFinanceStore } from '../../shared/store/useFinanceStore';
 import { formatCurrencyFixed2, formatDateTime } from '../../shared/lib/format';
 import { EmptyState } from '../../shared/ui/EmptyState';
+
+const PAGE_SIZE = 10;
+
+type RecycleBinEntryKind = 'transaction' | 'category' | 'account' | 'subscription';
+
+interface RecycleBinEntry {
+  id: string;
+  kind: RecycleBinEntryKind;
+  kindLabel: string;
+  title: string;
+  meta: string[];
+  sortTime: number;
+}
 
 export function RecycleBinPage() {
   const trashedTransactions = useFinanceStore((s) => s.trashedTransactions);
@@ -16,171 +29,207 @@ export function RecycleBinPage() {
   const permanentlyDeleteAccount = useFinanceStore((s) => s.permanentlyDeleteAccount);
   const restoreSubscription = useFinanceStore((s) => s.restoreSubscription);
   const permanentlyDeleteSubscription = useFinanceStore((s) => s.permanentlyDeleteSubscription);
+  const clearRecycleBin = useFinanceStore((s) => s.clearRecycleBin);
+  const [page, setPage] = useState(1);
 
   const totalCount =
     trashedTransactions.length + trashedCategories.length + trashedAccounts.length + trashedSubscriptions.length;
 
-  const sortedTransactions = useMemo(
-    () =>
-      [...trashedTransactions].sort(
-        (a, b) => new Date(b.trashedAt || b.updatedAt || b.date).getTime() - new Date(a.trashedAt || a.updatedAt || a.date).getTime()
-      ),
-    [trashedTransactions]
+  const allItems = useMemo<RecycleBinEntry[]>(
+    () => [
+      ...trashedTransactions.map((item) => ({
+        id: item.id,
+        kind: 'transaction' as const,
+        kindLabel: '交易',
+        title: item.note || '未命名交易',
+        meta: [
+          item.type,
+          formatCurrencyFixed2(item.amount),
+          `删除于 ${formatDateTime(item.trashedAt || item.updatedAt || item.date)}`
+        ],
+        sortTime: new Date(item.trashedAt || item.updatedAt || item.date).getTime()
+      })),
+      ...trashedCategories.map((item) => ({
+        id: item.id,
+        kind: 'category' as const,
+        kindLabel: '分类',
+        title: `${item.icon ? `${item.icon} ` : ''}${item.name}`,
+        meta: [item.kind || '未设置类型', `删除于 ${formatDateTime(item.trashedAt || new Date().toISOString())}`],
+        sortTime: new Date(item.trashedAt || 0).getTime()
+      })),
+      ...trashedAccounts.map((item) => ({
+        id: item.id,
+        kind: 'account' as const,
+        kindLabel: '账户',
+        title: item.name,
+        meta: [
+          formatCurrencyFixed2(Number(item.balance ?? item.initialBalance ?? 0)),
+          `删除于 ${formatDateTime(item.trashedAt || new Date().toISOString())}`
+        ],
+        sortTime: new Date(item.trashedAt || 0).getTime()
+      })),
+      ...trashedSubscriptions.map((item) => ({
+        id: item.id,
+        kind: 'subscription' as const,
+        kindLabel: '订阅',
+        title: item.name,
+        meta: [
+          `${formatCurrencyFixed2(Number(item.amount ?? 0))} ${item.currency || 'CNY'}`,
+          item.provider || '未设置服务商',
+          `删除于 ${formatDateTime(item.trashedAt || item.updatedAt || new Date().toISOString())}`
+        ],
+        sortTime: new Date(item.trashedAt || 0).getTime()
+      }))
+    ].sort((a, b) => b.sortTime - a.sortTime),
+    [trashedAccounts, trashedCategories, trashedSubscriptions, trashedTransactions]
   );
 
-  const sortedCategories = useMemo(
-    () => [...trashedCategories].sort((a, b) => new Date(b.trashedAt || 0).getTime() - new Date(a.trashedAt || 0).getTime()),
-    [trashedCategories]
-  );
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const pagedItems = allItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageStart = totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const pageEnd = Math.min(page * PAGE_SIZE, totalCount);
 
-  const sortedAccounts = useMemo(
-    () => [...trashedAccounts].sort((a, b) => new Date(b.trashedAt || 0).getTime() - new Date(a.trashedAt || 0).getTime()),
-    [trashedAccounts]
-  );
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
 
-  const sortedSubscriptions = useMemo(
-    () => [...trashedSubscriptions].sort((a, b) => new Date(b.trashedAt || 0).getTime() - new Date(a.trashedAt || 0).getTime()),
-    [trashedSubscriptions]
-  );
+  const handleRestore = (item: RecycleBinEntry) => {
+    switch (item.kind) {
+      case 'transaction':
+        restoreTransaction(item.id);
+        return;
+      case 'category':
+        restoreCategory(item.id);
+        return;
+      case 'account':
+        restoreAccount(item.id);
+        return;
+      case 'subscription':
+        restoreSubscription(item.id);
+        return;
+      default:
+        return;
+    }
+  };
+
+  const handlePermanentDelete = (item: RecycleBinEntry) => {
+    switch (item.kind) {
+      case 'transaction':
+        permanentlyDeleteTransaction(item.id);
+        return;
+      case 'category':
+        permanentlyDeleteCategory(item.id);
+        return;
+      case 'account':
+        permanentlyDeleteAccount(item.id);
+        return;
+      case 'subscription':
+        permanentlyDeleteSubscription(item.id);
+        return;
+      default:
+        return;
+    }
+  };
+
+  const handleClearRecycleBin = () => {
+    if (totalCount === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm(`确认清空回收站吗？将永久删除其中的 ${totalCount} 项内容，且无法恢复。`);
+    if (!confirmed) {
+      return;
+    }
+
+    clearRecycleBin();
+    setPage(1);
+  };
 
   return (
     <section className="panel recycle-bin-page">
       <div className="recycle-bin-header">
         <div>
           <h2>回收站</h2>
-          <p className="muted">删除的交易、分类、账户会先进入这里。恢复后会重新参与余额与统计计算。</p>
+          <p className="muted">删除的交易、分类、账户和订阅会先进入这里。回收站每页最多显示 10 条，可翻页查看。</p>
         </div>
-        <span className="metric-chip">
-          共 <strong>{totalCount}</strong> 项
-        </span>
+        <div className="recycle-bin-header-actions">
+          <span className="metric-chip">
+            共 <strong>{totalCount}</strong> 项
+          </span>
+          <button type="button" className="danger" disabled={totalCount === 0} onClick={handleClearRecycleBin}>
+            清空回收站
+          </button>
+        </div>
       </div>
 
       {totalCount === 0 ? (
         <EmptyState title="回收站为空" description="删除的内容会先进入回收站，避免误删后无法找回。" icon="🗑️" />
       ) : (
-        <div className="recycle-bin-sections">
-          <section className="recycle-bin-block">
-            <div className="recycle-bin-block-header">
-              <h3>交易</h3>
-              <span>{sortedTransactions.length} 条</span>
-            </div>
-            {sortedTransactions.length === 0 ? (
-              <p className="muted">暂无已删除交易</p>
-            ) : (
-              <div className="recycle-bin-list">
-                {sortedTransactions.map((item) => (
-                  <article key={item.id} className="recycle-bin-item">
-                    <div>
-                      <strong>{item.note || '未命名交易'}</strong>
-                      <div className="recycle-bin-meta">
-                        <span>{item.type}</span>
-                        <span>{formatCurrencyFixed2(item.amount)}</span>
-                        <span>删除于 {formatDateTime(item.trashedAt || item.updatedAt || item.date)}</span>
-                      </div>
-                    </div>
-                    <div className="row">
-                      <button type="button" onClick={() => restoreTransaction(item.id)}>恢复</button>
-                      <button type="button" className="danger" onClick={() => permanentlyDeleteTransaction(item.id)}>
-                        彻底删除
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
+        <>
+          <div className="recycle-bin-summary" aria-label="回收站统计">
+            <article className="recycle-bin-stat">
+              <span>交易</span>
+              <strong>{trashedTransactions.length}</strong>
+            </article>
+            <article className="recycle-bin-stat">
+              <span>分类</span>
+              <strong>{trashedCategories.length}</strong>
+            </article>
+            <article className="recycle-bin-stat">
+              <span>账户</span>
+              <strong>{trashedAccounts.length}</strong>
+            </article>
+            <article className="recycle-bin-stat">
+              <span>订阅</span>
+              <strong>{trashedSubscriptions.length}</strong>
+            </article>
+          </div>
 
-          <section className="recycle-bin-block">
-            <div className="recycle-bin-block-header">
-              <h3>分类</h3>
-              <span>{sortedCategories.length} 个</span>
-            </div>
-            {sortedCategories.length === 0 ? (
-              <p className="muted">暂无已删除分类</p>
-            ) : (
-              <div className="recycle-bin-list">
-                {sortedCategories.map((item) => (
-                  <article key={item.id} className="recycle-bin-item">
-                    <div>
-                      <strong>{item.icon ? `${item.icon} ` : ''}{item.name}</strong>
-                      <div className="recycle-bin-meta">
-                        <span>{item.kind || '未设置类型'}</span>
-                        <span>删除于 {formatDateTime(item.trashedAt || new Date().toISOString())}</span>
-                      </div>
-                    </div>
-                    <div className="row">
-                      <button type="button" onClick={() => restoreCategory(item.id)}>恢复</button>
-                      <button type="button" className="danger" onClick={() => permanentlyDeleteCategory(item.id)}>
-                        彻底删除
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
+          <div className="recycle-bin-list" aria-label="回收站列表">
+            {pagedItems.map((item) => (
+              <article key={`${item.kind}-${item.id}`} className="recycle-bin-item">
+                <div className="recycle-bin-item-main">
+                  <span className={`recycle-bin-tag is-${item.kind}`}>{item.kindLabel}</span>
+                  <strong>{item.title}</strong>
+                  <div className="recycle-bin-meta">
+                    {item.meta.map((meta, index) => (
+                      <span key={`${item.id}-meta-${index}`}>{meta}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="recycle-bin-actions">
+                  <button type="button" onClick={() => handleRestore(item)}>恢复</button>
+                  <button type="button" className="danger" onClick={() => handlePermanentDelete(item)}>
+                    彻底删除
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
 
-          <section className="recycle-bin-block">
-            <div className="recycle-bin-block-header">
-              <h3>账户</h3>
-              <span>{sortedAccounts.length} 个</span>
+          <div className="recycle-bin-pagination">
+            <small className="muted">
+              显示第 {pageStart}-{pageEnd} 条，共 {totalCount} 条，每页 10 条
+            </small>
+            <div className="recycle-bin-pagination-controls">
+              <button type="button" disabled={page === 1} onClick={() => setPage(1)}>
+                第一页
+              </button>
+              <button type="button" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                上一页
+              </button>
+              <small className="muted">
+                第 {page} / {totalPages} 页
+              </small>
+              <button type="button" disabled={page === totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>
+                下一页
+              </button>
+              <button type="button" disabled={page === totalPages} onClick={() => setPage(totalPages)}>
+                最后一页
+              </button>
             </div>
-            {sortedAccounts.length === 0 ? (
-              <p className="muted">暂无已删除账户</p>
-            ) : (
-              <div className="recycle-bin-list">
-                {sortedAccounts.map((item) => (
-                  <article key={item.id} className="recycle-bin-item">
-                    <div>
-                      <strong>{item.name}</strong>
-                      <div className="recycle-bin-meta">
-                        <span>{formatCurrencyFixed2(Number(item.balance ?? item.initialBalance ?? 0))}</span>
-                        <span>删除于 {formatDateTime(item.trashedAt || new Date().toISOString())}</span>
-                      </div>
-                    </div>
-                    <div className="row">
-                      <button type="button" onClick={() => restoreAccount(item.id)}>恢复</button>
-                      <button type="button" className="danger" onClick={() => permanentlyDeleteAccount(item.id)}>
-                        彻底删除
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="recycle-bin-block">
-            <div className="recycle-bin-block-header">
-              <h3>订阅</h3>
-              <span>{sortedSubscriptions.length} 个</span>
-            </div>
-            {sortedSubscriptions.length === 0 ? (
-              <p className="muted">暂无已删除订阅</p>
-            ) : (
-              <div className="recycle-bin-list">
-                {sortedSubscriptions.map((item) => (
-                  <article key={item.id} className="recycle-bin-item">
-                    <div>
-                      <strong>{item.name}</strong>
-                      <div className="recycle-bin-meta">
-                        <span>{formatCurrencyFixed2(Number(item.amount ?? 0))} {item.currency || 'CNY'}</span>
-                        <span>{item.provider || '未设置服务商'}</span>
-                        <span>删除于 {formatDateTime(item.trashedAt || item.updatedAt || new Date().toISOString())}</span>
-                      </div>
-                    </div>
-                    <div className="row">
-                      <button type="button" onClick={() => restoreSubscription(item.id)}>恢复</button>
-                      <button type="button" className="danger" onClick={() => permanentlyDeleteSubscription(item.id)}>
-                        彻底删除
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
+          </div>
+        </>
       )}
     </section>
   );

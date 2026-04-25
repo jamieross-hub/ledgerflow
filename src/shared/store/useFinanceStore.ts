@@ -100,6 +100,7 @@ interface FinanceState {
   permanentlyDeleteSubscription: (id: string) => void;
   generateSubscriptionTransaction: (id: string) => GenerateSubscriptionTransactionResult;
   clearAllAccountBills: () => void;
+  clearRecycleBin: () => void;
   suggestCategoryByLearning: (input: CategoryLearningInput) => {
     categoryId: string;
     confidence: number;
@@ -1197,6 +1198,14 @@ export const useFinanceStore = create<FinanceState>()(
           transactions: [],
           ...rebuildStateSlices(s.accounts, [], [])
         }));
+      },
+      clearRecycleBin: () => {
+        set({
+          trashedTransactions: [],
+          trashedCategories: [],
+          trashedAccounts: [],
+          trashedSubscriptions: []
+        });
       },
       suggestCategoryByLearning: () => {
         return null;

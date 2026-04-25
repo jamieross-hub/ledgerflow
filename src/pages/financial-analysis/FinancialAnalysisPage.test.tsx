@@ -325,6 +325,76 @@ describe('FinancialAnalysisPage', () => {
     expect(screen.getByRole('button', { name: '去 AI 助手' })).toBeInTheDocument();
   });
 
+  it('当历史消费被误标为收入但分类仍为支出时，仍应生成消费习惯洞察', () => {
+    financeStoreMock.state = {
+      transactions: [
+        {
+          id: 'tx-mislabel-1',
+          date: '2026-04-21',
+          type: 'income',
+          categoryId: 'cat-food',
+          accountId: 'acc-cash',
+          amount: 29,
+          note: '咖啡',
+          tags: []
+        },
+        {
+          id: 'tx-mislabel-2',
+          date: '2026-04-20',
+          type: 'income',
+          categoryId: 'cat-food',
+          accountId: 'acc-cash',
+          amount: 31,
+          note: '咖啡',
+          tags: []
+        },
+        {
+          id: 'tx-mislabel-3',
+          date: '2026-04-19',
+          type: 'income',
+          categoryId: 'cat-shopping',
+          accountId: 'acc-cash',
+          amount: 188,
+          note: '网购',
+          tags: []
+        },
+        {
+          id: 'tx-income',
+          date: '2026-04-18',
+          type: 'income',
+          categoryId: 'cat-salary',
+          accountId: 'acc-bank',
+          amount: 4200,
+          note: '工资',
+          tags: []
+        }
+      ],
+      categories: [
+        { id: 'cat-food', name: '餐饮', kind: 'expense', color: '#f97316', icon: '🍜', sortOrder: 1 },
+        { id: 'cat-shopping', name: '购物', kind: 'expense', color: '#8b5cf6', icon: '🛍️', sortOrder: 2 },
+        { id: 'cat-salary', name: '工资', kind: 'income', color: '#16a34a', icon: '💰', sortOrder: 3 }
+      ],
+      accounts: [
+        { id: 'acc-cash', name: '现金', type: 'cash', initialBalance: 500, balance: 252 },
+        { id: 'acc-bank', name: '银行卡', type: 'debit', initialBalance: 1000, balance: 5200 }
+      ],
+      subscriptions: []
+    };
+
+    appPreferencesMock.state = {
+      debts: [],
+      repaymentRecords: [],
+      monthlyIncome: 8000
+    };
+
+    renderPage();
+
+    expect(screen.queryByText('行为样本不足')).not.toBeInTheDocument();
+    expect(screen.getByText(/餐饮支出较集中|购物支出较集中|消费节奏整体分散|高频小额支出偏多/)).toBeInTheDocument();
+    expect(screen.getAllByText(/餐饮里可能有可压缩支出|购物里可能有可压缩支出/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/舒适优先型消费者|即时反馈型消费者|平衡观察型消费者|规划型消费者/)).toBeInTheDocument();
+  });
+
   it('生成 AI 解读后应补充行为洞察判断', async () => {
     vi.mocked(sendAiChat).mockResolvedValueOnce({
       content: JSON.stringify({

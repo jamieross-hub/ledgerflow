@@ -169,12 +169,24 @@ function isExpenseLike(tx: TransactionItem): boolean {
   return tx.type === 'expense' || tx.type === 'budget' || tx.type === 'repayment';
 }
 
+function isAnalysisExpenseLike(tx: TransactionItem, categories: Category[]): boolean {
+  if (tx.adjustmentKind) {
+    return false;
+  }
+
+  if (isExpenseLike(tx)) {
+    return true;
+  }
+
+  return categories.find((item) => item.id === tx.categoryId)?.kind === 'expense';
+}
+
 function getCategoryName(categoryId: string, categories: Category[]): string {
   return categories.find((item) => item.id === categoryId)?.name || '未分类';
 }
 
 function calculateCategoryRows(rows: TransactionItem[], categories: Category[]) {
-  const expenseRows = rows.filter((item) => isExpenseLike(item) && !item.adjustmentKind);
+  const expenseRows = rows.filter((item) => isAnalysisExpenseLike(item, categories));
   const total = expenseRows.reduce((sum, item) => sum + Math.max(0, Number(item.amount) || 0), 0);
   const grouped = expenseRows.reduce<Record<string, number>>((acc, item) => {
     const key = getCategoryName(item.categoryId, categories);
@@ -192,18 +204,18 @@ function calculateCategoryRows(rows: TransactionItem[], categories: Category[]) 
     .slice(0, 5);
 }
 
-function calculateAverageDailyExpense(rows: TransactionItem[], sampleDays: number): number {
+function calculateAverageDailyExpense(rows: TransactionItem[], sampleDays: number, categories: Category[]): number {
   if (sampleDays <= 0) {
     return 0;
   }
   const total = rows
-    .filter((item) => isExpenseLike(item) && !item.adjustmentKind)
+    .filter((item) => isAnalysisExpenseLike(item, categories))
     .reduce((sum, item) => sum + Math.max(0, Number(item.amount) || 0), 0);
   return normalizeAmount(total / sampleDays);
 }
 
-function findAbnormalExpense(rows: TransactionItem[]): TransactionItem | null {
-  const expenseRows = rows.filter((item) => item.type === 'expense' && !item.adjustmentKind);
+function findAbnormalExpense(rows: TransactionItem[], categories: Category[]): TransactionItem | null {
+  const expenseRows = rows.filter((item) => isAnalysisExpenseLike(item, categories));
   if (expenseRows.length < 3) {
     return null;
   }
@@ -298,7 +310,7 @@ function isPotentiallyAvoidableNote(note: string): boolean {
 }
 
 function buildHabitInsights(rows: TransactionItem[], categories: Category[]): FinancialAnalysisHabitInsight[] {
-  const expenseRows = rows.filter((item) => item.type === 'expense' && !item.adjustmentKind);
+  const expenseRows = rows.filter((item) => isAnalysisExpenseLike(item, categories));
   if (expenseRows.length === 0) {
     return [
       {
@@ -380,7 +392,7 @@ function buildAvoidableSignals(
   rows: TransactionItem[],
   categories: Category[]
 ): FinancialAnalysisAvoidableSpendingSignal[] {
-  const expenseRows = rows.filter((item) => item.type === 'expense' && !item.adjustmentKind);
+  const expenseRows = rows.filter((item) => isAnalysisExpenseLike(item, categories));
   const grouped = expenseRows.reduce<Record<string, { title: string; amount: number; count: number }>>((acc, item) => {
     const categoryName = getCategoryName(item.categoryId, categories);
     const note = item.note || '未备注';
@@ -442,7 +454,7 @@ function buildConsumerProfile(
   fixedExpenseRatio: number,
   savingsRate: number
 ): FinancialAnalysisConsumerProfile {
-  const expenseRows = rows.filter((item) => item.type === 'expense' && !item.adjustmentKind);
+  const expenseRows = rows.filter((item) => isAnalysisExpenseLike(item, categories));
   const categoryRows = calculateCategoryRows(expenseRows, categories);
   const topCategory = categoryRows[0];
   const avoidableAmount = buildAvoidableSignals(rows, categories).reduce((sum, item) => sum + item.amount, 0);
@@ -509,7 +521,7 @@ export function analyzeFinancialOverview(input: {
       : Math.max(1, input.range.days || 30);
   const currentCategoryRows = calculateCategoryRows(rangeTransactions, input.categories);
   const currentTopCategory = currentCategoryRows[0] || { name: '未分类', amount: 0, share: 0 };
-  const currentAbnormalExpense = findAbnormalExpense(rangeTransactions);
+  const currentAbnormalExpense = findAbnormalExpense(rangeTransactions, input.categories);
   const subscriptionMonthlyCost = calculateMonthlySubscriptionCost(input.subscriptions);
   const debtSummary = calculateDebtSummary(input.debts, input.monthlyIncome);
   const debtHealthScore = calculateDebtHealthScore(debtSummary, input.monthlyIncome);
@@ -570,7 +582,7 @@ export function analyzeFinancialOverview(input: {
       topCategoryAmount: currentTopCategory.amount,
       topCategoryShare: currentTopCategory.share,
       categoryRows: currentCategoryRows,
-      recentAverageDailyExpense: calculateAverageDailyExpense(rangeTransactions, sampleDays),
+      recentAverageDailyExpense: calculateAverageDailyExpense(rangeTransactions, sampleDays, input.categories),
       abnormalExpense: currentAbnormalExpense,
       insight:
         currentTopCategory.amount > 0

@@ -1,30 +1,52 @@
-
 .recycle-bin-page {
   display: grid;
   gap: 16px;
 }
 
 .recycle-bin-header,
-.recycle-bin-block-header,
-.recycle-bin-item {
+.recycle-bin-item,
+.recycle-bin-pagination {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
 
-.recycle-bin-sections {
-  display: grid;
-  gap: 16px;
+.recycle-bin-header-actions,
+.recycle-bin-actions,
+.recycle-bin-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.recycle-bin-block {
+.recycle-bin-header-actions {
+  justify-content: flex-end;
+}
+
+.recycle-bin-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.recycle-bin-stat {
   border: 1px solid var(--color-border);
   border-radius: 14px;
   background: var(--color-bg-elevated);
-  padding: 16px;
+  padding: 14px 16px;
   display: grid;
-  gap: 12px;
+  gap: 8px;
+}
+
+.recycle-bin-stat span {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.recycle-bin-stat strong {
+  font-size: 22px;
 }
 
 .recycle-bin-list {
@@ -39,11 +61,72 @@
   background: var(--color-bg-panel);
 }
 
+.recycle-bin-item-main {
+  display: grid;
+  gap: 8px;
+}
+
+.recycle-bin-tag {
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-elevated);
+}
+
+.recycle-bin-tag.is-transaction {
+  color: #8ec5ff;
+  border-color: rgba(142, 197, 255, 0.28);
+  background: rgba(84, 133, 255, 0.12);
+}
+
+.recycle-bin-tag.is-category {
+  color: #f8c56f;
+  border-color: rgba(248, 197, 111, 0.28);
+  background: rgba(248, 197, 111, 0.12);
+}
+
+.recycle-bin-tag.is-account {
+  color: #7ee2b8;
+  border-color: rgba(126, 226, 184, 0.28);
+  background: rgba(126, 226, 184, 0.12);
+}
+
+.recycle-bin-tag.is-subscription {
+  color: #d6a9ff;
+  border-color: rgba(214, 169, 255, 0.28);
+  background: rgba(214, 169, 255, 0.12);
+}
+
 .recycle-bin-meta {
-  margin-top: 6px;
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
   color: var(--color-text-secondary);
   font-size: 13px;
+}
+
+.recycle-bin-pagination {
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .recycle-bin-header,
+  .recycle-bin-item,
+  .recycle-bin-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .recycle-bin-header-actions {
+    justify-content: flex-start;
+  }
+
+  .recycle-bin-actions,
+  .recycle-bin-pagination-controls {
+    width: 100%;
+  }
 }
