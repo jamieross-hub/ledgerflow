@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type {
   SubscriptionBillingCycle,
@@ -69,6 +69,64 @@ const DEFAULT_FORM = {
   status: 'active' as SubscriptionStatus
 };
 
+const SUBSCRIPTIONS_DEMO_SEEDED_KEY = 'ledgerflow-subscriptions-demo-seeded';
+
+function formatDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function shiftDate(base: Date, days: number) {
+  const next = new Date(base);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function createDemoSubscriptions(defaultAccountId?: string) {
+  const seedTime = new Date();
+
+  return [
+    {
+      name: 'Spotify Premium',
+      kind: 'digital' as const,
+      amount: 15,
+      currency: 'CNY',
+      billingCycle: 'monthly' as const,
+      accountId: defaultAccountId,
+      provider: 'Spotify',
+      renewalDate: formatDateInputValue(shiftDate(seedTime, 4)),
+      expireDate: formatDateInputValue(shiftDate(seedTime, 4)),
+      autoRenew: true
+    },
+    {
+      name: '中国移动 5G 套餐',
+      kind: 'mobile' as const,
+      amount: 59,
+      currency: 'CNY',
+      billingCycle: 'monthly' as const,
+      accountId: defaultAccountId,
+      provider: '中国移动',
+      renewalDate: formatDateInputValue(shiftDate(seedTime, 12)),
+      expireDate: formatDateInputValue(shiftDate(seedTime, 12)),
+      autoRenew: true
+    },
+    {
+      name: 'iCloud+ 200GB',
+      kind: 'digital' as const,
+      amount: 21,
+      currency: 'CNY',
+      billingCycle: 'monthly' as const,
+      accountId: defaultAccountId,
+      provider: 'Apple',
+      renewalDate: formatDateInputValue(shiftDate(seedTime, 19)),
+      expireDate: formatDateInputValue(shiftDate(seedTime, 19)),
+      autoRenew: true
+    }
+  ];
+}
+
 function normalizeShortcutDateInput(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return '';
@@ -104,7 +162,9 @@ function normalizeShortcutDateInput(value: string) {
 
 export function SubscriptionsPage() {
   const navigate = useNavigate();
+  const hasHydrated = useFinanceStore((s) => s.hasHydrated);
   const subscriptions = useFinanceStore((s) => s.subscriptions);
+  const trashedSubscriptions = useFinanceStore((s) => s.trashedSubscriptions);
   const accounts = useFinanceStore((s) => s.accounts);
   const addSubscription = useFinanceStore((s) => s.addSubscription);
   const updateSubscription = useFinanceStore((s) => s.updateSubscription);
@@ -115,6 +175,26 @@ export function SubscriptionsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!hasHydrated || subscriptions.length > 0 || trashedSubscriptions.length > 0) {
+      return;
+    }
+
+    try {
+      if (window.localStorage.getItem(SUBSCRIPTIONS_DEMO_SEEDED_KEY) === '1') {
+        return;
+      }
+
+      const defaultAccountId = accounts.find((item) => item.id === 'acc-card')?.id || accounts[0]?.id;
+      window.localStorage.setItem(SUBSCRIPTIONS_DEMO_SEEDED_KEY, '1');
+      createDemoSubscriptions(defaultAccountId).forEach((item) => {
+        addSubscription(item);
+      });
+    } catch {
+      // ignore localStorage failures and keep the page usable
+    }
+  }, [accounts, addSubscription, hasHydrated, subscriptions.length, trashedSubscriptions.length]);
 
   const pendingDeleteItem = useMemo(
     () => subscriptions.find((item) => item.id === pendingDeleteId) ?? null,
