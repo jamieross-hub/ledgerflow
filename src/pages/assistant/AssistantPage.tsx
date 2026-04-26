@@ -1874,9 +1874,6 @@ export function AssistantPage() {
         <div className="chat-topbar-left">
           <div className="chat-topbar-title-group">
             <span className="chat-topbar-title">{t('assistant.ui.bookkeepingAssistant')}</span>
-            <span className="chat-topbar-mobile-heading">
-              {t('assistant.ui.bookkeepingAssistant')}
-            </span>
             <div className="chat-model-selector">
               <button
                 type="button"

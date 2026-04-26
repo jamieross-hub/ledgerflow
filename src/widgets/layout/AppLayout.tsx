@@ -119,6 +119,25 @@ export function AppLayout() {
     [t]
   );
 
+  const currentWorkspaceTitle = useMemo(() => {
+    const pathname = location.pathname;
+
+    if (pathname === '/') {
+      return t('nav.dashboard');
+    }
+
+    const navItems = navSections.flatMap((section) => section.items);
+    const matchedItem = navItems.find((item) => {
+      if (!item.to || item.to === '/') {
+        return false;
+      }
+
+      return pathname === item.to || pathname.startsWith(`${item.to}/`);
+    });
+
+    return matchedItem?.label ?? t('layout.workspaceTitle');
+  }, [location.pathname, navSections, t]);
+
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(navSections.map((section) => [section.title, true]))
   );
@@ -466,7 +485,12 @@ export function AppLayout() {
               >
                 ☰
               </button>
-              {collapsed ? (
+              {isMobileViewport ? (
+                <div className="workspace-topbar-title" title={currentWorkspaceTitle}>
+                  {currentWorkspaceTitle}
+                </div>
+              ) : null}
+              {collapsed && !isMobileViewport ? (
                 <div className="topbar-brand-copy compact">
                   <h1>{t('layout.brand')}</h1>
                   <span>{t('layout.workspaceTitle')}</span>

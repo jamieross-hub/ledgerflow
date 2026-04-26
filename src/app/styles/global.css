@@ -456,6 +456,19 @@ body {
   position: relative;
 }
 
+.workspace-topbar-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .topbar-right {
   margin-left: auto;
   position: relative;
@@ -6353,6 +6366,10 @@ input[type="date"]:focus {
 
   .workspace-topbar {
     padding: var(--space-3);
+  }
+
+  .topbar-left {
+    width: 100%;
   }
 
   .topbar-right {

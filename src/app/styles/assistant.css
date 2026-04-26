@@ -105,12 +105,6 @@
   color: var(--color-text);
 }
 
-.chat-topbar-mobile-heading {
-  display: none;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
 .chat-topbar-sep {
   color: var(--color-text-tertiary);
   user-select: none;
@@ -2838,31 +2832,24 @@
 
   .chat-topbar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
     gap: 10px;
     padding: 8px 10px;
   }
 
   .chat-topbar-left {
-    grid-column: 1 / -1;
-    width: 100%;
+    grid-column: auto;
+    width: auto;
     min-width: 0;
   }
 
   .chat-topbar-title-group {
-    width: 100%;
-    display: grid;
-    gap: 6px;
+    width: auto;
   }
 
   .chat-topbar-title {
     display: none;
-  }
-
-  .chat-topbar-mobile-heading {
-    display: block;
-    font-size: var(--font-sm);
   }
 
   .chat-mode-switch {
@@ -2939,10 +2926,11 @@
 
   .chat-topbar-right {
     display: flex;
-    grid-column: 1 / -1;
-    width: 100%;
+    grid-column: auto;
+    width: auto;
     justify-content: flex-end;
-    flex-wrap: wrap;
+    justify-self: end;
+    flex-wrap: nowrap;
     gap: 6px;
   }
 
@@ -2951,7 +2939,11 @@
   }
 
   .chat-topbar-right button {
-    min-height: 34px;
+    min-height: 32px;
+  }
+
+  .chat-clear-btn {
+    padding-inline: 8px;
   }
 
   .chat-topbar-provider {
