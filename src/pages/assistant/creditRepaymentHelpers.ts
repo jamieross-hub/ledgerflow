@@ -2,7 +2,7 @@ import type { DebtItem, RepaymentRecord } from '../../features/debt/model/debtMe
 import type {
   CreditRepaymentGapSummary,
   CreditRepaymentLookupSummary
-} from './creditAssistantTypes';
+} from '../../features/assistant/creditAssistant/types';
 
 export interface CreditRepaymentSummaryItem {
   title: string;

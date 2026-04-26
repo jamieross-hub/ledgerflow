@@ -63,25 +63,37 @@ vi.mock('react-i18next', () => ({
   })
 }));
 
+const aiSettingsMocks = vi.hoisted(() => {
+  const setModelMock = vi.fn();
+  const state = {
+    baseUrl: 'https://example.com/v1',
+    apiKey: 'test-key',
+    model: 'gpt-test',
+    setModel: setModelMock,
+    showEmbeddingSummary: false,
+    showEmbeddingDebug: false,
+    embeddingModel: '',
+    enableEmbeddingModel: false
+  };
+  return { setModelMock, state };
+});
+
 vi.mock('../../shared/store/useAiSettings', () => ({
-  useAiSettings: (selector: (state: any) => unknown) =>
-    selector({
-      baseUrl: 'https://example.com/v1',
-      apiKey: 'test-key',
-      model: 'gpt-test',
-      setModel: vi.fn(),
-      showEmbeddingSummary: false,
-      showEmbeddingDebug: false
-    })
+  useAiSettings: (selector: (state: any) => unknown) => selector(aiSettingsMocks.state)
 }));
 
 
 const appPreferencesMocks = vi.hoisted(() => {
   const addDebtMock = vi.fn();
   const updateDebtMock = vi.fn();
+  const removeDebtMock = vi.fn();
+  const addRepaymentRecordMock = vi.fn();
   const state = {
     addDebt: addDebtMock,
     updateDebt: updateDebtMock,
+    removeDebt: removeDebtMock,
+    addRepaymentRecord: addRepaymentRecordMock,
+    monthlyIncome: 0,
     debts: [
       {
         id: 'saved-debt-1',
@@ -109,7 +121,7 @@ const appPreferencesMocks = vi.hoisted(() => {
     (selector: (state: any) => unknown) => selector(state),
     { getState: () => state }
   );
-  return { addDebtMock, updateDebtMock, state, useAppPreferences };
+  return { addDebtMock, updateDebtMock, removeDebtMock, addRepaymentRecordMock, state, useAppPreferences };
 });
 
 const addDebtMock = appPreferencesMocks.addDebtMock;
@@ -119,17 +131,35 @@ vi.mock('../../shared/store/useAppPreferences', () => ({
   useAppPreferences: appPreferencesMocks.useAppPreferences
 }));
 
+const financeStoreMocks = vi.hoisted(() => {
+  const addCategoryMock = vi.fn();
+  const addAccountMock = vi.fn();
+  const addTransactionMock = vi.fn();
+  const updateTransactionMock = vi.fn();
+  const addSubscriptionMock = vi.fn();
+  const state = {
+    categories: [],
+    accounts: [],
+    transactions: [],
+    subscriptions: [],
+    addCategory: addCategoryMock,
+    addAccount: addAccountMock,
+    addTransaction: addTransactionMock,
+    updateTransaction: updateTransactionMock,
+    addSubscription: addSubscriptionMock
+  };
+  return {
+    addCategoryMock,
+    addAccountMock,
+    addTransactionMock,
+    updateTransactionMock,
+    addSubscriptionMock,
+    state
+  };
+});
+
 vi.mock('../../shared/store/useFinanceStore', () => ({
-  useFinanceStore: (selector: (state: any) => unknown) =>
-    selector({
-      categories: [],
-      accounts: [],
-      transactions: [],
-      addCategory: vi.fn(),
-      addAccount: vi.fn(),
-      addTransaction: vi.fn(),
-      updateTransaction: vi.fn()
-    })
+  useFinanceStore: (selector: (state: any) => unknown) => selector(financeStoreMocks.state)
 }));
 
 vi.mock('../../features/assistant/api/openaiCompatibleClient', () => ({

@@ -1057,15 +1057,9 @@ export function TransactionsPage() {
         return;
       }
 
-      if (/^[0-9.+\-*/()%]$/.test(event.key)) {
+      if (/^[0-9.+\-*/()]$/.test(event.key)) {
         event.preventDefault();
         handleQuickAddKeypadInput(event.key);
-        return;
-      }
-
-      if (event.key === '^') {
-        event.preventDefault();
-        handleQuickAddKeypadInput('^');
       }
     };
 
@@ -2778,15 +2772,15 @@ export function TransactionsPage() {
                 {quickAddCalculatedAmount !== null ? quickAddCalculatedAmount : quickAddAmount || '0'}
               </div>
               <div className="field" style={{ marginBottom: 10 }}>
-                <label htmlFor="quick-add-expression">金额表达式（支持科学计算）</label>
+                <label htmlFor="quick-add-expression">金额表达式（简易计算）</label>
                 <input
                   id="quick-add-expression"
-                  placeholder="例如：100+20*3 或 sqrt(81)+sin(0)"
+                  placeholder="例如：100+20*3 或 (88+12)/2"
                   value={quickAddExpression}
                   onChange={(event) => setQuickAddExpression(event.target.value)}
                 />
                 <small style={{ color: 'var(--color-text-secondary)' }}>
-                  支持：+ - * / % ( ) ^、sqrt/log/ln/sin/cos/tan、PI、E，回车可快速计算。
+                  支持：+ - * / ( ) 和小数，回车可快速计算。
                 </small>
               </div>
               <div className="quick-add-grid quick-add-grid-wide">
@@ -2850,18 +2844,10 @@ export function TransactionsPage() {
                 />
               </div>
 
-              <div className="quick-add-keypad" role="group" aria-label="金额科学键盘">
+              <div className="quick-add-keypad" role="group" aria-label="金额键盘">
                 {[
-                  'sin(',
-                  'cos(',
-                  'tan(',
-                  'log(',
-                  'ln(',
-                  'sqrt(',
                   '(',
                   ')',
-                  '^',
-                  '%',
                   '7',
                   '8',
                   '9',
@@ -2874,12 +2860,10 @@ export function TransactionsPage() {
                   '2',
                   '3',
                   '-',
+                  '00',
                   '0',
                   '.',
-                  '00',
                   '+',
-                  'PI',
-                  'E'
                 ].map((key) => (
                   <button
                     key={key}

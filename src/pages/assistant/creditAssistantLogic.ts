@@ -9,7 +9,7 @@ import type {
   CreditFieldMeta,
   CreditFieldSource,
   CreditFieldStatus
-} from './creditAssistantTypes';
+} from '../../features/assistant/creditAssistant/types';
 
 export interface CreditHistoryLikeItem {
   role: 'user' | 'assistant';

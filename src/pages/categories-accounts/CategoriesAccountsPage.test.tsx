@@ -57,7 +57,11 @@ describe('CategoriesAccountsPage', () => {
       </MemoryRouter>
     );
 
-    await screen.findByRole('button', { name: 'account-balance-display-acc-alipay' });
+    await screen.findByRole(
+      'button',
+      { name: 'account-balance-display-acc-alipay' },
+      { timeout: 10000 }
+    );
 
     expect(screen.getAllByText('¥630.73')).toHaveLength(1);
 

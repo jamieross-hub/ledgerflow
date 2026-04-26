@@ -24,7 +24,12 @@ export interface CreditRepaymentGapSummary {
   explanationItems?: string[];
 }
 
-export type CreditFieldSource = 'explicit' | 'rule' | 'ai-inferred' | 'user-supplemented' | 'pending';
+export type CreditFieldSource =
+  | 'explicit'
+  | 'rule'
+  | 'ai-inferred'
+  | 'user-supplemented'
+  | 'pending';
 export type CreditFieldStatus = 'confirmed' | 'needs-confirmation' | 'low-confidence';
 
 export interface CreditFieldMeta {
@@ -73,7 +78,13 @@ export interface CreditExtractedItem {
   repaymentLookupSummary?: CreditRepaymentLookupSummary;
   fieldMeta?: Partial<
     Record<
-      'title' | 'dueAmount' | 'totalDebt' | 'repaymentDate' | 'remainingPeriods' | 'monthlyAmount' | 'interest',
+      | 'title'
+      | 'dueAmount'
+      | 'totalDebt'
+      | 'repaymentDate'
+      | 'remainingPeriods'
+      | 'monthlyAmount'
+      | 'interest',
       CreditFieldMeta
     >
   >;

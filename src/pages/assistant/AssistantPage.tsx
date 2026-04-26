@@ -1,7 +1,6 @@
 import {
   FormEvent,
   KeyboardEvent,
-  ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -12,8 +11,15 @@ import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { sendAiChat } from '../../features/assistant/api/openaiCompatibleClient';
+import {
+  buildCreditAssistantMessageText,
+  extractCreditStructuredItems,
+  extractStreamingCreditPreview
+} from '../../features/assistant/creditAssistant/parser';
+import type { CreditExtractedItem, CreditFieldMeta } from '../../features/assistant/creditAssistant/types';
 import { useAssistantWorkbench } from '../../features/assistant/workbench/useAssistantWorkbench';
 import { BillPreviewCard } from '../../features/assistant/ui/BillPreviewCard';
+import { renderMarkdownContent } from '../../features/assistant/ui/MarkdownRenderer';
 import { useAiSettings } from '../../shared/store/useAiSettings';
 import { useGlobalMemoryStore } from '../../shared/store/useGlobalMemoryStore';
 import { extractGlobalMemoriesFromConversation } from '../../features/assistant/memory/extractGlobalMemories';
@@ -33,7 +39,6 @@ import {
 import type { DraftBillEntry } from '../../features/assistant/workbench/workbenchTypes';
 import type { TransactionItem } from '../../entities/transaction/types';
 import type { Category } from '../../entities/category/types';
-import type { CreditExtractedItem, CreditFieldMeta } from './creditAssistantTypes';
 import {
   buildCreditFollowUpPrompts,
   enrichCreditItemsForConfirmation,
@@ -86,117 +91,6 @@ function inputPlaceholder(
   }
 }
 
-/**
- * 仅做最轻量的行内 Markdown 渲染：当前支持 **加粗**。
- * 这里不用第三方解析器，避免引入额外依赖与 XSS 风险面。
- */
-function renderInlineMarkdown(text: string): ReactNode[] {
-  const nodes: ReactNode[] = [];
-  const strongRegex = /\*\*(.+?)\*\*/g;
-  let cursor = 0;
-  let match: RegExpExecArray | null = null;
-
-  while ((match = strongRegex.exec(text)) !== null) {
-    if (match.index > cursor) nodes.push(text.slice(cursor, match.index));
-    nodes.push(<strong key={`md-strong-${match.index}`}>{match[1]}</strong>);
-    cursor = match.index + match[0].length;
-  }
-
-  if (cursor < text.length) nodes.push(text.slice(cursor));
-  return nodes;
-}
-
-/**
- * 将模型返回文本按“段落/标题/列表”切分并转为 React 节点。
- * 支持：
- * - # / ## / ### 标题
- * - - / * 无序列表
- * - 1. 2. 有序列表（统一渲染为列表项）
- */
-function extractStreamingCreditPreview(answer: string): CreditExtractedItem[] {
-  const text = String(answer || '').trim();
-  if (!text) return [];
-
-  const blocks = text
-    .split(/\n(?=产品|平台|项目|标题|1\.|2\.|3\.|-\s*(?:产品|平台|项目|标题))/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  const candidates: Array<CreditExtractedItem | null> = (blocks.length > 1 ? blocks : [text]).map((block, index) => {
-    const pick = (patterns: RegExp[]) => {
-      for (const pattern of patterns) {
-        const matched = block.match(pattern);
-        if (matched?.[1]?.trim()) return matched[1].trim();
-      }
-      return '';
-    };
-
-    const title = pick([
-      /产品(?:\/平台)?[：:】]\s*([^\n]+)/i,
-      /平台(?:\/产品)?[：:】]\s*([^\n]+)/i,
-      /标题[：:】]\s*([^\n]+)/i
-    ]);
-    const dueAmount = pick([/当前应还(?:金额)?[：:】]\s*([^\n]+)/i, /本期应还[：:】]\s*([^\n]+)/i]);
-    const totalDebt = pick([
-      /总欠款[：:】]\s*([^\n]+)/i,
-      /剩余待还[：:】]\s*([^\n]+)/i,
-      /总待还[：:】]\s*([^\n]+)/i
-    ]);
-    const repaymentDate = pick([/还款日(?:期)?[：:】]\s*([^\n]+)/i, /扣款日[：:】]\s*([^\n]+)/i]);
-    const remainingPeriods = pick([/剩余期数[：:】]\s*([^\n]+)/i, /(剩余[0-9一二三四五六七八九十]+期)/i]);
-    const monthlyAmount = pick([/每期(?:金额|应还)?[：:】]\s*([^\n]+)/i, /月供[：:】]\s*([^\n]+)/i]);
-    const interest = pick([
-      /利息(?:\/费率|\/手续费|\/服务费)?[：:】]\s*([^\n]+)/i,
-      /费率[：:】]\s*([^\n]+)/i,
-      /服务费[：:】]\s*([^\n]+)/i
-    ]);
-    const riskHint = pick([/风险提示[：:】]\s*([^\n]+)/i, /风险[：:】]\s*([^\n]+)/i]);
-    const actionSuggestion = pick([
-      /下一步(?:建议)?[：:】]\s*([^\n]+)/i,
-      /建议动作[：:】]\s*([^\n]+)/i,
-      /建议[：:】]\s*([^\n]+)/i
-    ]);
-
-    const productTypeText = `${title} ${block}`;
-    const productType = /房贷|车贷|按揭|贷款/i.test(productTypeText)
-      ? '贷款'
-      : /花呗|白条|分期|消费贷|借呗|现金贷/i.test(productTypeText)
-        ? '消费贷'
-        : /信用卡/i.test(productTypeText)
-          ? '信用卡'
-          : '待识别';
-
-    const pendingFields = [
-      !dueAmount ? '当前应还' : '',
-      !totalDebt ? '剩余待还' : '',
-      !repaymentDate ? '还款日' : '',
-      !monthlyAmount ? '每期金额' : ''
-    ].filter(Boolean);
-
-    if (!title && !dueAmount && !totalDebt && !repaymentDate && !monthlyAmount && !interest) {
-      return null;
-    }
-
-    return {
-      id: `streaming-credit-${index}`,
-      title: title || `识别中项目 ${index + 1}`,
-      productType,
-      dueAmount: dueAmount || undefined,
-      totalDebt: totalDebt || undefined,
-      repaymentDate: repaymentDate || undefined,
-      remainingPeriods: remainingPeriods || undefined,
-      monthlyAmount: monthlyAmount || undefined,
-      interest: interest || undefined,
-      riskHint: riskHint || undefined,
-      actionSuggestion: actionSuggestion || undefined,
-      pendingFields,
-      confidence: title && (dueAmount || totalDebt || repaymentDate) ? 'medium' : 'low'
-    } satisfies CreditExtractedItem;
-  });
-
-  return candidates.filter((item): item is CreditExtractedItem => item !== null).slice(0, 3);
-}
-
 function renderCreditCardSkeleton(count = 2) {
   return (
     <div className="chat-credit-cards chat-credit-cards-skeleton">
@@ -237,122 +131,6 @@ function renderCreditCardSkeleton(count = 2) {
       ))}
     </div>
   );
-}
-
-function renderMarkdownContent(raw: string): ReactNode[] {
-  const lines = raw.split(/\n/);
-  const nodes: ReactNode[] = [];
-  let bullets: string[] = [];
-
-  const parseTableRow = (line: string) =>
-    line
-      .replace(/^\||\|$/g, '')
-      .split('|')
-      .map((cell) => cell.trim());
-
-  const isTableSeparator = (line: string) => {
-    const cells = parseTableRow(line);
-    return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
-  };
-
-  const isTableRow = (line: string) => /^\|.+\|$/.test(line);
-
-  const flushBullets = () => {
-    if (bullets.length === 0) return;
-    nodes.push(
-      <ul key={`md-ul-${nodes.length}`} className="chat-md-list">
-        {bullets.map((item, idx) => (
-          <li key={`md-li-${idx}`}>{renderInlineMarkdown(item)}</li>
-        ))}
-      </ul>
-    );
-    bullets = [];
-  };
-
-  for (let idx = 0; idx < lines.length; idx += 1) {
-    const line = lines[idx].trim();
-    if (!line) {
-      flushBullets();
-      continue;
-    }
-
-    const nextLine = lines[idx + 1]?.trim() || '';
-    if (isTableRow(line) && isTableSeparator(nextLine)) {
-      flushBullets();
-      const headerCells = parseTableRow(line);
-      const rows: string[][] = [];
-      idx += 2;
-      while (idx < lines.length) {
-        const rowLine = lines[idx].trim();
-        if (!isTableRow(rowLine)) break;
-        const rowCells = parseTableRow(rowLine);
-        if (rowCells.length > 0) rows.push(rowCells);
-        idx += 1;
-      }
-      idx -= 1;
-
-      nodes.push(
-        <div key={`md-table-${nodes.length}`} className="chat-md-table-wrap">
-          <table className="chat-md-table">
-            <thead>
-              <tr>
-                {headerCells.map((cell, cellIdx) => (
-                  <th key={`md-th-${cellIdx}`}>{renderInlineMarkdown(cell)}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, rowIdx) => (
-                <tr key={`md-tr-${rowIdx}`}>
-                  {headerCells.map((_, colIdx) => (
-                    <td key={`md-td-${rowIdx}-${colIdx}`}>
-                      {renderInlineMarkdown(row[colIdx] ?? '')}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      );
-      continue;
-    }
-
-    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
-    if (headingMatch) {
-      flushBullets();
-      const level = headingMatch[1].length;
-      const title = headingMatch[2];
-      nodes.push(
-        <p key={`md-h-${idx}`} className={`chat-md-heading chat-md-h${level}`}>
-          {renderInlineMarkdown(title)}
-        </p>
-      );
-      continue;
-    }
-
-    const bulletMatch = line.match(/^[-*]\s+(.+)$/);
-    if (bulletMatch) {
-      bullets.push(bulletMatch[1]);
-      continue;
-    }
-
-    const numberedMatch = line.match(/^(\d+)\.\s+(.+)$/);
-    if (numberedMatch) {
-      bullets.push(`${numberedMatch[1]}. ${numberedMatch[2]}`);
-      continue;
-    }
-
-    flushBullets();
-    nodes.push(
-      <p key={`md-p-${idx}`} className="chat-md-paragraph">
-        {renderInlineMarkdown(line)}
-      </p>
-    );
-  }
-
-  flushBullets();
-  return nodes;
 }
 
 interface ChatHistoryItem {
@@ -813,87 +591,6 @@ function splitStreamingSegments(raw: string): { committed: string[]; draft: stri
   return { committed, draft };
 }
 
-function buildCreditAssistantMessageText(answer: string): string {
-  const plain = stripCreditJsonBlock(answer).trim();
-  if (!plain) return answer.trim();
-
-  const paragraphs = plain
-    .split(/\n{2,}/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  const selected = paragraphs.slice(0, 3);
-  const joined = selected.join('\n\n');
-  if (joined.length <= 280) return joined;
-  return `${joined.slice(0, 280).trimEnd()}…`;
-}
-
-function extractCreditStructuredItems(answer: string): CreditExtractedItem[] {
-  const jsonBlockMatch = answer.match(/```json\s*([\s\S]*?)```/i);
-  const rawJson = jsonBlockMatch?.[1]?.trim();
-  if (!rawJson) return [];
-
-  try {
-    const parsed = JSON.parse(rawJson) as { creditItems?: Array<Record<string, unknown>> };
-    if (!Array.isArray(parsed.creditItems)) return [];
-
-    return parsed.creditItems
-      .map((item, index) => {
-        const title = String(item.title || item.product || item.platform || '').trim();
-        const productType = String(item.productType || item.type || '其他').trim();
-        const dueAmount = String(item.dueAmount || '').trim();
-        const totalDebt = String(item.totalDebt || item.remainingDebt || '').trim();
-        const repaymentDate = String(item.repaymentDate || item.dueDate || '').trim();
-        const remainingPeriods = String(item.remainingPeriods || item.periodsLeft || '').trim();
-        const monthlyAmount = String(item.monthlyAmount || item.perPeriodAmount || '').trim();
-        const interest = String(item.interest || item.fee || '').trim();
-        const rateType = String(item.rateType || item.rateLabel || '').trim();
-        const rateSource: CreditExtractedItem['rateSource'] =
-          item.rateSource === 'explicit' || item.rateSource === 'inferred' || item.rateSource === 'pending'
-            ? item.rateSource
-            : undefined;
-        const riskHint = String(item.riskHint || item.risk || '').trim();
-        const actionSuggestion = String(item.actionSuggestion || item.nextStep || '').trim();
-        const pendingFields = Array.isArray(item.pendingFields)
-          ? item.pendingFields.map((field) => String(field).trim()).filter(Boolean)
-          : [];
-        const confidence: CreditExtractedItem['confidence'] =
-          item.confidence === 'high' || item.confidence === 'medium' || item.confidence === 'low'
-            ? item.confidence
-            : 'medium';
-
-        if (!title && !productType && !dueAmount && !totalDebt) return null;
-
-        const normalized: CreditExtractedItem = {
-          id: `credit-${index}-${title || productType || 'unknown'}`,
-          title: title || '待确认信贷项目',
-          productType: productType || '其他',
-          dueAmount: dueAmount || undefined,
-          totalDebt: totalDebt || undefined,
-          repaymentDate: repaymentDate || undefined,
-          remainingPeriods: remainingPeriods || undefined,
-          monthlyAmount: monthlyAmount || undefined,
-          interest: interest || undefined,
-          rateType: rateType || undefined,
-          rateSource,
-          riskHint: riskHint || undefined,
-          actionSuggestion: actionSuggestion || undefined,
-          pendingFields,
-          confidence
-        };
-
-        return normalized;
-      })
-      .filter((item): item is CreditExtractedItem => item !== null);
-  } catch {
-    return [];
-  }
-}
-
-function stripCreditJsonBlock(answer: string): string {
-  return answer.replace(/```json\s*[\s\S]*?```/gi, '').trim();
-}
-
 function normalizeCreditDebtPayload(item: CreditExtractedItem): Omit<DebtItem, 'id'> {
   const prefill = mapCreditItemToRepaymentPrefill(item);
   const toNumber = (value?: string) => {
@@ -1128,6 +825,7 @@ export function AssistantPage() {
     assistant: '',
     credit: ''
   });
+  const hasInitializedModeHistoryRef = useRef(false);
   const activeHistoryModeRef = useRef<AssistantMode>(mode);
   const skipHistoryPersistRef = useRef(false);
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -2130,6 +1828,12 @@ export function AssistantPage() {
   }, [loadPersonalizedQuestions]);
 
   useEffect(() => {
+    if (!hasInitializedModeHistoryRef.current) {
+      hasInitializedModeHistoryRef.current = true;
+      activeHistoryModeRef.current = mode;
+      return;
+    }
+
     const previousMode = activeHistoryModeRef.current;
     if (previousMode !== mode) {
       try {

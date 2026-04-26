@@ -328,24 +328,31 @@ function normalizePositiveInteger(value: unknown): number {
 }
 
 function addMonths(dateText: string, monthsToAdd: number): string {
+  const formatLocalDate = (year: number, monthIndex: number, day: number) =>
+    `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
   const match = String(dateText || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (match) {
     const [, year, month, day] = match;
-    const base = new Date(Number(year), Number(month) - 1, Number(day));
-    const target = new Date(base.getFullYear(), base.getMonth() + monthsToAdd, base.getDate());
-    return target.toISOString().slice(0, 10);
+    const yearNumber = Number(year);
+    const monthIndex = Number(month) - 1;
+    const dayNumber = Number(day);
+    const targetMonthIndex = monthIndex + monthsToAdd;
+    const targetYear = yearNumber + Math.floor(targetMonthIndex / 12);
+    const normalizedMonthIndex = ((targetMonthIndex % 12) + 12) % 12;
+    const lastDay = new Date(targetYear, normalizedMonthIndex + 1, 0).getDate();
+    return formatLocalDate(targetYear, normalizedMonthIndex, Math.min(dayNumber, lastDay));
   }
 
   const parsed = new Date(dateText);
   if (Number.isNaN(parsed.getTime())) return dateText;
   const originalDay = parsed.getDate();
   const originalMonth = parsed.getMonth();
-  const next = new Date(parsed);
-  next.setDate(1);
-  next.setMonth(originalMonth + monthsToAdd + 1, 0);
-  const lastDay = next.getDate();
-  next.setFullYear(parsed.getFullYear(), originalMonth + monthsToAdd, Math.min(originalDay, lastDay));
-  return next.toISOString().slice(0, 10);
+  const targetMonthIndex = originalMonth + monthsToAdd;
+  const targetYear = parsed.getFullYear() + Math.floor(targetMonthIndex / 12);
+  const normalizedMonthIndex = ((targetMonthIndex % 12) + 12) % 12;
+  const lastDay = new Date(targetYear, normalizedMonthIndex + 1, 0).getDate();
+  return formatLocalDate(targetYear, normalizedMonthIndex, Math.min(originalDay, lastDay));
 }
 
 function isFutureDate(dateText: string): boolean {

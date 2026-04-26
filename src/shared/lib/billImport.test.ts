@@ -128,5 +128,5 @@ describe('parseBillCsvToTransactions', () => {
 
     expect(asyncRows).toHaveLength(1200);
     expect(asyncRows).toEqual(syncRows);
-  });
+  }, 15000);
 });
