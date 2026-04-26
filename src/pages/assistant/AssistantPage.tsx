@@ -1872,51 +1872,58 @@ export function AssistantPage() {
     >
       <header className="chat-topbar">
         <div className="chat-topbar-left">
-          <span className="chat-topbar-title">{t('assistant.ui.bookkeepingAssistant')}</span>
-          <div className="chat-model-selector">
-            <button
-              type="button"
-              className="chat-model-btn"
-              onClick={() => setModelOpen((v) => !v)}
-              aria-haspopup="listbox"
-            >
-              {getModelDisplayLabel(model || t('assistant.ui.selectModel'))}
-              <span className="chat-model-arrow">▼</span>
-            </button>
+          <div className="chat-topbar-title-group">
+            <span className="chat-topbar-title">{t('assistant.ui.bookkeepingAssistant')}</span>
+            <span className="chat-topbar-mobile-heading">
+              {t('assistant.ui.bookkeepingAssistant')}
+            </span>
+            <div className="chat-model-selector">
+              <button
+                type="button"
+                className="chat-model-btn"
+                onClick={() => setModelOpen((v) => !v)}
+                aria-haspopup="listbox"
+              >
+                {getModelDisplayLabel(model || t('assistant.ui.selectModel'))}
+                <span className="chat-model-arrow">▼</span>
+              </button>
 
-            {modelOpen ? (
-              <div className="chat-model-dropdown" role="dialog" aria-label="模型列表">
-                <div className="chat-model-dropdown-header">
-                  <button
-                    type="button"
-                    className="chat-model-fetch-btn"
-                    disabled={wb.loadingModels}
-                    onClick={() => void wb.handleLoadModels()}
-                  >
-                    {wb.loadingModels ? t('assistant.ui.loadingModels') : t('assistant.ui.refreshModels')}
-                  </button>
+              {modelOpen ? (
+                <div className="chat-model-dropdown" role="dialog" aria-label="模型列表">
+                  <div className="chat-model-dropdown-header">
+                    <button
+                      type="button"
+                      className="chat-model-fetch-btn"
+                      disabled={wb.loadingModels}
+                      onClick={() => void wb.handleLoadModels()}
+                    >
+                      {wb.loadingModels
+                        ? t('assistant.ui.loadingModels')
+                        : t('assistant.ui.refreshModels')}
+                    </button>
+                  </div>
+                  <div className="chat-model-list">
+                    {wb.models.length === 0 ? (
+                      <div className="chat-model-empty">{t('assistant.ui.emptyModels')}</div>
+                    ) : (
+                      wb.models.map((item: string) => (
+                        <button
+                          key={item}
+                          type="button"
+                          className={`chat-model-option ${item === model ? 'active' : ''}`}
+                          onClick={() => {
+                            setModel(item);
+                            setModelOpen(false);
+                          }}
+                        >
+                          {getModelDisplayLabel(item)}
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </div>
-                <div className="chat-model-list">
-                  {wb.models.length === 0 ? (
-                    <div className="chat-model-empty">{t('assistant.ui.emptyModels')}</div>
-                  ) : (
-                    wb.models.map((item: string) => (
-                      <button
-                        key={item}
-                        type="button"
-                        className={`chat-model-option ${item === model ? 'active' : ''}`}
-                        onClick={() => {
-                          setModel(item);
-                          setModelOpen(false);
-                        }}
-                      >
-                        {getModelDisplayLabel(item)}
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -1958,7 +1965,7 @@ export function AssistantPage() {
           ) : null}
           <button
             type="button"
-            className={`chat-icon-topbar-btn ${isWideLayout ? 'is-active' : ''}`}
+            className={`chat-icon-topbar-btn chat-wide-toggle ${isWideLayout ? 'is-active' : ''}`}
             onClick={() => setIsWideLayout((prev) => !prev)}
             aria-label={isWideLayout ? '切换为标准宽度' : '拉伸显示'}
             title={isWideLayout ? '切换为标准宽度' : '拉伸显示'}

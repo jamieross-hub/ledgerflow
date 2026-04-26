@@ -3,6 +3,10 @@ import { formatDateTime } from '../../../shared/lib/format';
 import { useDebugLogStore } from '../../../shared/store/useDebugLogStore';
 
 export function DebugLogPanel() {
+  if (!import.meta.env.DEV) {
+    return null;
+  }
+
   const logs = useDebugLogStore((s) => s.logs);
   const clearLogs = useDebugLogStore((s) => s.clearLogs);
   const [open, setOpen] = useState(false);

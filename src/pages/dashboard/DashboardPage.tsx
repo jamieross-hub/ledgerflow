@@ -1169,6 +1169,8 @@ export function DashboardPage() {
     }
   };
 
+  const showInlineHelp = !isInlineHelpDismissed && transactions.length === 0;
+
   const moveModule = (from: DashboardModuleId, to: DashboardModuleId) => {
     if (from === to) return;
     setModuleOrder((prev) => {
@@ -1198,27 +1200,19 @@ export function DashboardPage() {
         onNavigateToAssistant={() => navigate('/assistant')}
       />
 
-      {!isInlineHelpDismissed ? (
+      {showInlineHelp ? (
         <section className="panel dashboard-inline-help">
-          <div className="dashboard-section-header">
-            <div>
-              <h3>第一次来，先看这里</h3>
-              <span>帮助页讲完整逻辑，首页只留高频入口</span>
-            </div>
-            <button
-              type="button"
-              className="dashboard-inline-help-dismiss"
-              onClick={dismissInlineHelp}
-            >
-              跳过引导
-            </button>
+          <div className="dashboard-inline-help-copy">
+            <span className="dashboard-inline-help-kicker">首次使用建议</span>
+            <h3>先看一遍帮助页，再回来记第一笔</h3>
+            <p className="dashboard-shortcuts-tip">
+              如果你已经知道怎么用，直接用上面的「记一笔」即可；首页不再重复展开长说明。
+            </p>
           </div>
-          <p className="dashboard-shortcuts-tip">
-            第一次使用建议先看帮助；如果你现在只想快速记账，直接用下面几个入口就够了。
-          </p>
           <div className="dashboard-inline-help-actions">
             <button
               type="button"
+              className="primary"
               onClick={() => {
                 dismissInlineHelp();
                 navigate('/help');
@@ -1228,23 +1222,22 @@ export function DashboardPage() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                dismissInlineHelp();
-                navigate('/assistant');
-              }}
-            >
-              去问 AI 助手
-            </button>
-            <button
-              type="button"
+              className="dashboard-inline-help-secondary"
               onClick={() => {
                 dismissInlineHelp();
                 navigate('/transactions/new?quick=1');
               }}
             >
-              {t('dashboard.ui.addEntry')}
+              直接记一笔
             </button>
           </div>
+          <button
+            type="button"
+            className="dashboard-inline-help-dismiss"
+            onClick={dismissInlineHelp}
+          >
+            暂时收起
+          </button>
         </section>
       ) : null}
 

@@ -67,6 +67,7 @@ export function TransactionFilters({
 }: TransactionFiltersProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const hasSecondaryFocus = bulkSelectionEnabled || privacyMode;
 
   useEffect(() => {
     if (!menuOpen) {
@@ -156,7 +157,7 @@ export function TransactionFilters({
         <div className="transaction-filters-primary-cta">
           <label className="transaction-filters-mobile-only-label">操作</label>
           <button type="button" className="primary" onClick={onQuickAdd}>
-            新增账目
+            记一笔
           </button>
         </div>
       </div>
@@ -221,33 +222,42 @@ export function TransactionFilters({
       <div className="transaction-filters-secondary-row">
         <button
           type="button"
-          className={`transaction-filter-trigger ${bulkSelectionEnabled ? 'active' : ''}`}
-          onClick={onToggleBulkSelection}
-        >
-          批量操作
-        </button>
-        <button
-          type="button"
           className={`transaction-filter-trigger ${sidePanelVisible ? 'active' : ''}`}
           onClick={onToggleSidePanel}
         >
           {sidePanelVisible ? '收起洞察' : '查看洞察'}
         </button>
-        <button type="button" className="transaction-filter-trigger" onClick={onTogglePrivacy}>
-          {privacyMode ? '🙈 关闭隐私模式' : '🕶️ 开启隐私模式'}
-        </button>
         <div ref={menuRef} className={`transaction-filter-popover ${menuOpen ? 'open' : ''}`}>
           <button
             type="button"
-            className="transaction-filter-trigger"
+            className={`transaction-filter-trigger ${menuOpen || hasSecondaryFocus ? 'active' : ''}`}
             onClick={() => setMenuOpen((prev) => !prev)}
             aria-haspopup="true"
             aria-expanded={menuOpen}
           >
-            筛选与操作
+            更多筛选与操作
           </button>
           {menuOpen ? (
             <div className="transaction-filter-popover-panel" role="group" aria-label="筛选与操作">
+              <p className="transaction-filter-section-title">快捷开关</p>
+              <div className="transaction-filter-actions-grid transaction-filter-actions-grid-inline">
+                <button
+                  type="button"
+                  className={bulkSelectionEnabled ? 'is-active' : ''}
+                  onClick={onToggleBulkSelection}
+                >
+                  {bulkSelectionEnabled ? '批量操作已开启' : '开启批量操作'}
+                </button>
+                <button
+                  type="button"
+                  className={privacyMode ? 'is-active' : ''}
+                  onClick={onTogglePrivacy}
+                >
+                  {privacyMode ? '关闭隐私模式' : '开启隐私模式'}
+                </button>
+              </div>
+
+              <div className="transaction-context-divider" />
               <p className="transaction-filter-section-title">更多筛选</p>
               <div className="field" style={{ marginBottom: 0 }}>
                 <label htmlFor="tx-filter-source">来源</label>

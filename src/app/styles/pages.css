@@ -333,31 +333,29 @@
   }
 
   .transaction-filters-secondary-row {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    margin: 0 -2px;
-    scrollbar-width: none;
-  }
-
-  .transaction-filters-secondary-row::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap;
+    overflow: visible;
+    padding-bottom: 0;
+    margin: 0;
   }
 
   .transaction-filter-trigger {
-    flex: 0 0 auto;
+    flex: 1 1 calc(50% - 6px);
     min-height: 40px;
     padding: 8px 12px;
-    white-space: nowrap;
     font-size: var(--font-sm);
   }
 
   .transaction-filter-popover {
-    flex: 0 0 auto;
+    flex: 1 1 calc(50% - 6px);
   }
 
   .transaction-filter-popover > .transaction-filter-trigger {
-    width: auto;
+    width: 100%;
+  }
+
+  .transaction-filter-actions-grid-inline {
+    grid-template-columns: 1fr;
   }
 
   .transaction-filters-mobile-only-label {
@@ -370,9 +368,25 @@
   gap: var(--space-2);
 }
 
+.transaction-filter-actions-grid-inline {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .transaction-filter-actions-grid > button {
   width: 100%;
   justify-content: flex-start;
+}
+
+.transaction-filter-actions-grid > button.is-active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+@media (max-width: 520px) {
+  .transaction-filter-actions-grid-inline {
+    grid-template-columns: 1fr;
+  }
 }
 
 .transaction-insight-panel {

@@ -653,6 +653,7 @@ export function RepaymentManagementPage() {
   const [prefillHint, setPrefillHint] = useState('');
   const debtIdsRef = useRef<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const debtEntrySectionRef = useRef<HTMLDivElement | null>(null);
 
   const startEditingDebt = useCallback((item: DebtItem) => {
     setEditingDebtId(item.id);
@@ -1597,137 +1598,176 @@ export function RepaymentManagementPage() {
           <h3 style={{ marginTop: 0 }}>📊 负债压力总览</h3>
           {debts.length === 0 ? (
             <div className="finance-empty-guide">
-              <p className="finance-empty-guide-title">先补齐基础信息，再生成策略</p>
-              <ol className="finance-empty-guide-steps">
-                <li>1分钟补全账单：手动添加 1-2 笔负债，或直接上传账单截图。</li>
-                <li>上传月度账单/图片后，系统会自动提取负债并估算月收入。</li>
-                <li>只需上传一次信用卡账单，即可看到最低还款与最优还款顺序。</li>
-              </ol>
-              <p className="muted" style={{ margin: 0 }}>
-                你也可以先手动输入月收入，后续再用 AI 刷新估算。
-              </p>
+              <div className="finance-empty-guide-head">
+                <div>
+                  <span className="finance-empty-guide-kicker">还没开始建立负债清单</span>
+                  <p className="finance-empty-guide-title">
+                    先补 1 笔负债，就能看到还款压力、最低还款和处理优先级
+                  </p>
+                  <p className="muted" style={{ margin: 0 }}>
+                    支持截图自动识别，也可以先手动录入一笔，细节后面再补。
+                  </p>
+                </div>
+                <span className="finance-empty-guide-badge">预计 1 分钟</span>
+              </div>
+              <div className="finance-empty-guide-actions">
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={extractLoading}
+                >
+                  {extractLoading ? '识别中...' : '上传账单自动识别'}
+                </button>
+                <button
+                  type="button"
+                  className="finance-empty-guide-secondary"
+                  onClick={() =>
+                    debtEntrySectionRef.current?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'start'
+                    })
+                  }
+                >
+                  手动添加负债
+                </button>
+              </div>
+              <ul className="finance-empty-guide-steps">
+                <li>截图识别后会自动补全欠款金额、期数，并尝试估算月收入。</li>
+                <li>手动录入时优先填名称、类型和剩余本金，其它字段可稍后补齐。</li>
+                <li>录入完成后就能生成还款压力和 AI 建议，不必一次填完所有信息。</li>
+              </ul>
             </div>
           ) : null}
-          <div className="finance-overview-hero">
-            <div
-              className="finance-pressure-ring"
-              style={{
-                background: `conic-gradient(var(--color-danger) 0 ${pressureRingPercent}%, var(--color-bg-subtle) ${pressureRingPercent}% 100%)`
-              }}
-              aria-label="负债率环形图"
-            >
-              <span>{pressurePercent.toFixed(1)}%</span>
-            </div>
-            <div className="finance-overview-bars" aria-label="关键指标柱状图">
-              <div className="finance-overview-bar-row">
-                <span>最低还款额</span>
-                <div>
-                  <i
-                    style={{
-                      width: `${Math.min(100, (debtSummary.totalMinimumPayment / Math.max(1, monthlyIncome || debtSummary.totalMinimumPayment)) * 100)}%`
-                    }}
-                  />
-                </div>
-                <strong>¥{debtSummary.totalMinimumPayment.toFixed(0)}</strong>
-              </div>
-              <div className="finance-overview-bar-row">
-                <span>总负债</span>
-                <div>
-                  <i
-                    style={{
-                      width: `${Math.min(100, (overviewTotalDebt / Math.max(1, monthlyIncome * 12 || overviewTotalDebt)) * 100)}%`
-                    }}
-                  />
-                </div>
-                <strong>¥{overviewTotalDebt.toFixed(0)}</strong>
-              </div>
-            </div>
-          </div>
-          <div className="finance-overview-grid finance-overview-grid-strong">
-            <article className="finance-overview-metric-card">
-              <p className="finance-overview-label">💰 总负债</p>
-              <p className="finance-overview-value">
-                <span className="finance-overview-number">{overviewTotalDebt.toFixed(2)}</span>
-                <span className="finance-overview-unit">¥</span>
-              </p>
-              <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-                仅统计进行中的负债
-              </p>
-            </article>
-            <article className="finance-overview-metric-card">
-              <p className="finance-overview-label">📉 每月最低还款</p>
-              <p className="finance-overview-value">
-                <span className="finance-overview-number">
-                  {debtSummary.totalMinimumPayment.toFixed(2)}
-                </span>
-                <span className="finance-overview-unit">¥</span>
-              </p>
-            </article>
-            <article
-              className={`finance-overview-metric-card finance-overview-pressure-card finance-overview-pressure-${pressureLevel.tone}`}
-            >
-              <p className="finance-overview-label">⚠️ 负债率（{pressureLevel.label}）</p>
-              <p className="finance-overview-value">
-                <span className="finance-overview-number">
-                  {(debtSummary.pressureRatio * 100).toFixed(1)}
-                </span>
-                <span className="finance-overview-unit">%</span>
-              </p>
-            </article>
-            <article className="finance-overview-metric-card finance-overview-health-card">
-              <p className="finance-overview-label">🩺 负债健康度
-                <span
-                  className="finance-metric-help"
-                  title="健康度≈(1-最低月还款/可用月收入)×100。数值越高，现金流压力越低。"
-                  aria-label="负债健康度说明"
+          {debts.length > 0 ? (
+            <>
+              <div className="finance-overview-hero">
+                <div
+                  className="finance-pressure-ring"
+                  style={{
+                    background: `conic-gradient(var(--color-danger) 0 ${pressureRingPercent}%, var(--color-bg-subtle) ${pressureRingPercent}% 100%)`
+                  }}
+                  aria-label="负债率环形图"
                 >
-                  ⓘ
-                </span>
+                  <span>{pressurePercent.toFixed(1)}%</span>
+                </div>
+                <div className="finance-overview-bars" aria-label="关键指标柱状图">
+                  <div className="finance-overview-bar-row">
+                    <span>最低还款额</span>
+                    <div>
+                      <i
+                        style={{
+                          width: `${Math.min(100, (debtSummary.totalMinimumPayment / Math.max(1, monthlyIncome || debtSummary.totalMinimumPayment)) * 100)}%`
+                        }}
+                      />
+                    </div>
+                    <strong>¥{debtSummary.totalMinimumPayment.toFixed(0)}</strong>
+                  </div>
+                  <div className="finance-overview-bar-row">
+                    <span>总负债</span>
+                    <div>
+                      <i
+                        style={{
+                          width: `${Math.min(100, (overviewTotalDebt / Math.max(1, monthlyIncome * 12 || overviewTotalDebt)) * 100)}%`
+                        }}
+                      />
+                    </div>
+                    <strong>¥{overviewTotalDebt.toFixed(0)}</strong>
+                  </div>
+                </div>
+              </div>
+              <div className="finance-overview-grid finance-overview-grid-strong">
+                <article className="finance-overview-metric-card">
+                  <p className="finance-overview-label">💰 总负债</p>
+                  <p className="finance-overview-value">
+                    <span className="finance-overview-number">{overviewTotalDebt.toFixed(2)}</span>
+                    <span className="finance-overview-unit">¥</span>
+                  </p>
+                  <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+                    仅统计进行中的负债
+                  </p>
+                </article>
+                <article className="finance-overview-metric-card">
+                  <p className="finance-overview-label">📉 每月最低还款</p>
+                  <p className="finance-overview-value">
+                    <span className="finance-overview-number">
+                      {debtSummary.totalMinimumPayment.toFixed(2)}
+                    </span>
+                    <span className="finance-overview-unit">¥</span>
+                  </p>
+                </article>
+                <article
+                  className={`finance-overview-metric-card finance-overview-pressure-card finance-overview-pressure-${pressureLevel.tone}`}
+                >
+                  <p className="finance-overview-label">⚠️ 负债率（{pressureLevel.label}）</p>
+                  <p className="finance-overview-value">
+                    <span className="finance-overview-number">
+                      {(debtSummary.pressureRatio * 100).toFixed(1)}
+                    </span>
+                    <span className="finance-overview-unit">%</span>
+                  </p>
+                </article>
+                <article className="finance-overview-metric-card finance-overview-health-card">
+                  <p className="finance-overview-label">
+                    🩺 负债健康度
+                    <span
+                      className="finance-metric-help"
+                      title="健康度≈(1-最低月还款/可用月收入)×100。数值越高，现金流压力越低。"
+                      aria-label="负债健康度说明"
+                    >
+                      ⓘ
+                    </span>
+                  </p>
+                  <p className="finance-overview-value">
+                    <span className="finance-overview-number">{debtHealthScore}</span>
+                    <span className="finance-overview-unit">/100</span>
+                  </p>
+                </article>
+                <article className="finance-overview-metric-card">
+                  <p className="finance-overview-label">🧾 净负债</p>
+                  <p className="finance-overview-value">
+                    <span className="finance-overview-number">{overviewTotalDebt.toFixed(2)}</span>
+                    <span className="finance-overview-unit">¥</span>
+                  </p>
+                </article>
+                <article className="finance-overview-metric-card">
+                  <p className="finance-overview-label">🗂️ 历史负债</p>
+                  <p className="finance-overview-value">
+                    <span className="finance-overview-number">{archivedDebts.length}</span>
+                    <span className="finance-overview-unit">笔</span>
+                  </p>
+                  <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+                    余额合计 ¥{archivedTotalDebt.toFixed(2)}
+                  </p>
+                </article>
+                <article className="finance-overview-metric-card">
+                  <p className="finance-overview-label">📚 负债笔数</p>
+                  <p className="finance-overview-value">
+                    <span className="finance-overview-number">{debts.length}</span>
+                    <span className="finance-overview-unit">笔</span>
+                  </p>
+                </article>
+                <article className="finance-overview-metric-card">
+                  <p className="finance-overview-label">💼 月收入</p>
+                  <p className="finance-overview-value">
+                    <span className="finance-overview-number">
+                      {monthlyIncome > 0 ? monthlyIncome.toFixed(2) : '--'}
+                    </span>
+                    <span className="finance-overview-unit">¥</span>
+                  </p>
+                  <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+                    来源：{incomeConfidenceTag}
+                  </p>
+                </article>
+              </div>
+              <p className="muted" style={{ margin: '8px 0 0' }}>
+                总负债与净负债均基于“负债明细”计算；负债率按“每月最低还款 / 月收入”计算。
               </p>
-              <p className="finance-overview-value">
-                <span className="finance-overview-number">{debtHealthScore}</span>
-                <span className="finance-overview-unit">/100</span>
+              <p className="muted" style={{ margin: '8px 0 0' }}>
+                负债健康度基于负债明细中的还款压力；建议补充账单日/还款日以获得更准确提醒。
               </p>
-            </article>
-            <article className="finance-overview-metric-card">
-              <p className="finance-overview-label">🧾 净负债</p>
-              <p className="finance-overview-value">
-                <span className="finance-overview-number">{overviewTotalDebt.toFixed(2)}</span>
-                <span className="finance-overview-unit">¥</span>
-              </p>
-            </article>
-            <article className="finance-overview-metric-card">
-              <p className="finance-overview-label">🗂️ 历史负债</p>
-              <p className="finance-overview-value">
-                <span className="finance-overview-number">{archivedDebts.length}</span>
-                <span className="finance-overview-unit">笔</span>
-              </p>
-              <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-                余额合计 ¥{archivedTotalDebt.toFixed(2)}
-              </p>
-            </article>
-            <article className="finance-overview-metric-card">
-              <p className="finance-overview-label">📚 负债笔数</p>
-              <p className="finance-overview-value">
-                <span className="finance-overview-number">{debts.length}</span>
-                <span className="finance-overview-unit">笔</span>
-              </p>
-            </article>
-            <article className="finance-overview-metric-card">
-              <p className="finance-overview-label">💼 月收入</p>
-              <p className="finance-overview-value">
-                <span className="finance-overview-number">{monthlyIncome > 0 ? monthlyIncome.toFixed(2) : '--'}</span>
-                <span className="finance-overview-unit">¥</span>
-              </p>
-              <p className="muted" style={{ margin: 0, fontSize: 12 }}>来源：{incomeConfidenceTag}</p>
-            </article>
-          </div>
-          <p className="muted" style={{ margin: '8px 0 0' }}>
-            总负债与净负债均基于“负债明细”计算；负债率按“每月最低还款 / 月收入”计算。
-          </p>
-          <p className="muted" style={{ margin: '8px 0 0' }}>
-            负债健康度基于负债明细中的还款压力；建议补充账单日/还款日以获得更准确提醒。
-          </p>
+            </>
+          ) : null}
           <div className="finance-overview-income-actions">
             <button
               type="button"
@@ -1755,13 +1795,14 @@ export function RepaymentManagementPage() {
           {incomeHint ? <p className="muted finance-income-inline-hint">{incomeHint}</p> : null}
         </div>
 
-        <FinanceCollapsibleSection
-          title="第 1 步：添加负债"
-          subtitle="先把欠款录进去，再继续补日期、账户和规则。"
-          icon="💳"
-          defaultOpen={debts.length === 0}
-          className="card finance-secondary-panel finance-debt-entry-card finance-mobile-collapsible-section"
-        >
+        <div ref={debtEntrySectionRef}>
+          <FinanceCollapsibleSection
+            title="第 1 步：添加负债"
+            subtitle="先把欠款录进去，再继续补日期、账户和规则。"
+            icon="💳"
+            defaultOpen={debts.length === 0}
+            className="card finance-secondary-panel finance-debt-entry-card finance-mobile-collapsible-section"
+          >
           <div className="finance-debt-entry-header">
             <div>
               <h3 style={{ margin: 0 }}>添加负债</h3>
@@ -2097,7 +2138,8 @@ export function RepaymentManagementPage() {
                 })}
             </div>
           </div>
-        </FinanceCollapsibleSection>
+          </FinanceCollapsibleSection>
+        </div>
 
         <FinanceCollapsibleSection
           title="第 2 步：检查还款安排"
