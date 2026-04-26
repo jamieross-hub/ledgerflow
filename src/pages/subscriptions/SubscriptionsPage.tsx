@@ -79,7 +79,14 @@ function normalizeShortcutDateInput(value: string) {
   const [, rawYear, rawMonth, rawDay] = match;
   const month = Number(rawMonth);
   const day = Number(rawDay);
-  if (!Number.isInteger(month) || !Number.isInteger(day) || month < 1 || month > 12 || day < 1 || day > 31) {
+  if (
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
     return trimmed;
   }
 
@@ -117,6 +124,7 @@ export function SubscriptionsPage() {
   const summary = useMemo(() => {
     return {
       total: subscriptions.length,
+      active: subscriptions.filter((item) => item.status === 'active').length,
       dueSoon: subscriptions.filter((item) => item.status === 'due-soon').length,
       expired: subscriptions.filter((item) => item.status === 'expired').length
     };
@@ -149,6 +157,16 @@ export function SubscriptionsPage() {
   const attentionItems = useMemo(
     () => rows.filter((item) => item.status === 'due-soon' || item.status === 'expired').slice(0, 6),
     [rows]
+  );
+
+  const formMonthlyPreview = useMemo(
+    () =>
+      toMonthlyAmount({
+        amount: Number(form.amount || '0'),
+        billingCycle: form.billingCycle,
+        customCycleDays: Number(form.customCycleDays || 0)
+      }),
+    [form.amount, form.billingCycle, form.customCycleDays]
   );
 
   const resetForm = () => {
@@ -235,21 +253,61 @@ export function SubscriptionsPage() {
   };
 
   return (
-    <section className="panel subscriptions-page">
-      <div className="subscriptions-header">
-        <div>
-          <h2>订阅管理</h2>
-          <p className="muted">统一管理数字订阅、话费、会员卡等周期性项目，支持多币种与到期日跟踪。</p>
+    <div className="subscriptions-page">
+      <section className="panel subscriptions-hero">
+        <div className="subscriptions-header">
+          <div className="subscriptions-hero-copy">
+            <span className="subscriptions-kicker">周期支出总览</span>
+            <h2>订阅管理</h2>
+            <p className="muted">
+              统一管理数字订阅、话费、会员卡等周期性项目，支持多币种、续费日和到期状态追踪。
+            </p>
+          </div>
+          <div className="subscriptions-summary-grid">
+            <article className="subscriptions-stat-card">
+              <span>总数</span>
+              <strong>{summary.total}</strong>
+              <em>全部订阅项目</em>
+            </article>
+            <article className="subscriptions-stat-card">
+              <span>活跃中</span>
+              <strong>{summary.active}</strong>
+              <em>正常计费或待续费</em>
+            </article>
+            <article className="subscriptions-stat-card is-warning">
+              <span>即将到期</span>
+              <strong>{summary.dueSoon}</strong>
+              <em>优先处理续费提醒</em>
+            </article>
+            <article className="subscriptions-stat-card is-danger">
+              <span>已到期</span>
+              <strong>{summary.expired}</strong>
+              <em>可暂停或重新启用</em>
+            </article>
+          </div>
         </div>
-        <div className="subscriptions-summary">
-          <span className="metric-chip">总数 <strong>{summary.total}</strong></span>
-          <span className="metric-chip">即将到期 <strong>{summary.dueSoon}</strong></span>
-          <span className="metric-chip">已到期 <strong>{summary.expired}</strong></span>
-        </div>
-      </div>
+
+        {monthlySummaryByCurrency.length > 0 ? (
+          <div className="subscriptions-monthly-summary">
+            <div className="dashboard-section-header">
+              <h4>预计月度固定成本</h4>
+              <span>按币种分组展示，避免错误合并</span>
+            </div>
+            <div className="subscriptions-monthly-summary-list">
+              {monthlySummaryByCurrency.map((item) => (
+                <article key={item.currency} className="subscriptions-monthly-summary-card">
+                  <span className="subscriptions-monthly-summary-currency">{item.currency}</span>
+                  <strong>{formatMoneyByCurrency(item.amount, item.currency)}</strong>
+                  <em>按当前订阅周期折算到每月</em>
+                </article>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </section>
 
       {attentionItems.length > 0 ? (
-        <div className="subscriptions-alerts">
+        <section className="panel subscriptions-alerts">
           <div className="dashboard-section-header">
             <h4>待处理提醒</h4>
             <span>优先处理即将到期与已到期项目</span>
@@ -271,185 +329,303 @@ export function SubscriptionsPage() {
               </article>
             ))}
           </div>
-        </div>
+        </section>
       ) : null}
 
-      {monthlySummaryByCurrency.length > 0 ? (
-        <div className="subscriptions-monthly-summary">
-          <div className="dashboard-section-header">
-            <h4>预计月度固定成本</h4>
-            <span>按币种分组展示，避免错误合并</span>
+      <div className="subscriptions-main-grid">
+        <section className="panel subscriptions-form-panel">
+          <div className="subscriptions-panel-head">
+            <div>
+              <h3>{editingId ? '编辑订阅' : '新增订阅'}</h3>
+              <p className="muted">先录入基础信息，再补充账户、续费和备注，后续生成支出会更顺手。</p>
+            </div>
+            <div className="subscriptions-form-preview">
+              <span>折算月均</span>
+              <strong>{formatMoneyByCurrency(formMonthlyPreview, form.currency || 'CNY')}</strong>
+              <em>
+                {form.billingCycle === 'custom' ? '按自定义周期折算' : CYCLE_LABELS[form.billingCycle]}
+              </em>
+            </div>
           </div>
-          <div className="subscriptions-monthly-summary-list">
-            {monthlySummaryByCurrency.map((item) => (
-              <article key={item.currency} className="subscriptions-monthly-summary-card">
-                <strong>{item.currency}</strong>
-                <span>{formatMoneyByCurrency(item.amount, item.currency)}</span>
-                <em>按当前订阅周期折算到每月</em>
-              </article>
-            ))}
+
+          <form className="subscriptions-form" onSubmit={handleSubmit}>
+            <div className="subscriptions-form-section subscriptions-form-full">
+              <div className="subscriptions-form-section-head">
+                <h4>基础信息</h4>
+                <span>先定义是什么、多少钱、多久扣一次</span>
+              </div>
+              <div className="subscriptions-form-grid subscriptions-form-grid-primary">
+                <label className="subscriptions-field subscriptions-field-wide">
+                  <span>名称</span>
+                  <input
+                    value={form.name}
+                    onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="例如：Spotify / 中国移动 / 健身月卡"
+                  />
+                </label>
+                <label className="subscriptions-field">
+                  <span>类型</span>
+                  <select
+                    value={form.kind}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, kind: e.target.value as SubscriptionKind }))
+                    }
+                  >
+                    <option value="digital">数字订阅</option>
+                    <option value="mobile">话费/通信</option>
+                    <option value="membership">会员卡</option>
+                    <option value="other">其他</option>
+                  </select>
+                </label>
+                <label className="subscriptions-field">
+                  <span>金额</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.amount}
+                    onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
+                  />
+                </label>
+                <label className="subscriptions-field">
+                  <span>币种</span>
+                  <input
+                    value={form.currency}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, currency: e.target.value.toUpperCase() }))
+                    }
+                    placeholder="CNY / USD / HKD"
+                  />
+                </label>
+                <label className="subscriptions-field">
+                  <span>计费周期</span>
+                  <select
+                    value={form.billingCycle}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        billingCycle: e.target.value as SubscriptionBillingCycle
+                      }))
+                    }
+                  >
+                    <option value="monthly">每月</option>
+                    <option value="quarterly">每季度</option>
+                    <option value="semiannual">每半年</option>
+                    <option value="yearly">每年</option>
+                    <option value="custom">自定义</option>
+                  </select>
+                </label>
+                {form.billingCycle === 'custom' ? (
+                  <label className="subscriptions-field">
+                    <span>自定义天数</span>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={form.customCycleDays}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, customCycleDays: e.target.value }))
+                      }
+                    />
+                  </label>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="subscriptions-form-section subscriptions-form-full">
+              <div className="subscriptions-form-section-head">
+                <h4>扣费与日期</h4>
+                <span>把账户、平台和续费时间补完整，后面更好追踪</span>
+              </div>
+              <div className="subscriptions-form-grid">
+                <label className="subscriptions-field">
+                  <span>扣费账户</span>
+                  <select
+                    value={form.accountId}
+                    onChange={(e) => setForm((prev) => ({ ...prev, accountId: e.target.value }))}
+                  >
+                    <option value="">未指定</option>
+                    {accounts.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="subscriptions-field subscriptions-field-wide">
+                  <span>所属平台 / 商户</span>
+                  <input
+                    value={form.provider}
+                    onChange={(e) => setForm((prev) => ({ ...prev, provider: e.target.value }))}
+                    placeholder="例如 Apple、腾讯视频、中国移动"
+                  />
+                </label>
+                <label className="subscriptions-field">
+                  <span>续费日</span>
+                  <input
+                    type="date"
+                    value={form.renewalDate}
+                    onChange={(e) => handleDateFieldChange('renewalDate', e.target.value)}
+                  />
+                </label>
+                <label className="subscriptions-field">
+                  <span>到期日</span>
+                  <input
+                    type="date"
+                    value={form.expireDate}
+                    onChange={(e) => handleDateFieldChange('expireDate', e.target.value)}
+                  />
+                </label>
+                <label className="subscriptions-field">
+                  <span>状态</span>
+                  <select
+                    value={form.status}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, status: e.target.value as SubscriptionStatus }))
+                    }
+                  >
+                    <option value="active">正常</option>
+                    <option value="paused">已暂停</option>
+                  </select>
+                </label>
+                <label className="subscriptions-checkbox subscriptions-field">
+                  <input
+                    type="checkbox"
+                    checked={form.autoRenew}
+                    onChange={(e) => setForm((prev) => ({ ...prev, autoRenew: e.target.checked }))}
+                  />
+                  <span>自动续费</span>
+                </label>
+              </div>
+            </div>
+
+            <label className="subscriptions-field subscriptions-form-full">
+              <span>备注</span>
+              <textarea
+                value={form.note}
+                onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))}
+                rows={4}
+                placeholder="可记录套餐说明、会员权益、卡号尾号等"
+              />
+            </label>
+            {error ? <p className="assistant-wb-issue error subscriptions-form-full">{error}</p> : null}
+            <div className="subscriptions-actions subscriptions-form-full">
+              <button type="submit" className="primary">
+                {editingId ? '保存修改' : '新增订阅'}
+              </button>
+              {editingId ? (
+                <button type="button" onClick={resetForm}>
+                  取消编辑
+                </button>
+              ) : null}
+            </div>
+          </form>
+        </section>
+
+        <section className="panel subscriptions-list-panel">
+          <div className="subscriptions-panel-head">
+            <div>
+              <h3>订阅清单</h3>
+              <p className="muted">按到期时间排序，优先把需要处理的项目放到前面。</p>
+            </div>
+            {summary.total > 0 ? (
+              <span className="metric-chip metric-chip-highlight">
+                已录入
+                <strong>{summary.total}</strong>
+              </span>
+            ) : null}
           </div>
-        </div>
-      ) : null}
 
-      <form className="subscriptions-form" onSubmit={handleSubmit}>
-        <label>
-          <span>名称</span>
-          <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="例如：Spotify / 中国移动 / 健身月卡" />
-        </label>
-        <label>
-          <span>类型</span>
-          <select value={form.kind} onChange={(e) => setForm((prev) => ({ ...prev, kind: e.target.value as SubscriptionKind }))}>
-            <option value="digital">数字订阅</option>
-            <option value="mobile">话费/通信</option>
-            <option value="membership">会员卡</option>
-            <option value="other">其他</option>
-          </select>
-        </label>
-        <label>
-          <span>金额</span>
-          <input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))} />
-        </label>
-        <label>
-          <span>币种</span>
-          <input value={form.currency} onChange={(e) => setForm((prev) => ({ ...prev, currency: e.target.value.toUpperCase() }))} placeholder="CNY / USD / HKD" />
-        </label>
-        <label>
-          <span>计费周期</span>
-          <select value={form.billingCycle} onChange={(e) => setForm((prev) => ({ ...prev, billingCycle: e.target.value as SubscriptionBillingCycle }))}>
-            <option value="monthly">每月</option>
-            <option value="quarterly">每季度</option>
-            <option value="semiannual">每半年</option>
-            <option value="yearly">每年</option>
-            <option value="custom">自定义</option>
-          </select>
-        </label>
-        {form.billingCycle === 'custom' ? (
-          <label>
-            <span>自定义天数</span>
-            <input type="number" min="1" step="1" value={form.customCycleDays} onChange={(e) => setForm((prev) => ({ ...prev, customCycleDays: e.target.value }))} />
-          </label>
-        ) : null}
-        <label>
-          <span>扣费账户</span>
-          <select value={form.accountId} onChange={(e) => setForm((prev) => ({ ...prev, accountId: e.target.value }))}>
-            <option value="">未指定</option>
-            {accounts.map((item) => (
-              <option key={item.id} value={item.id}>{item.name}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>所属平台 / 商户</span>
-          <input
-            value={form.provider}
-            onChange={(e) => setForm((prev) => ({ ...prev, provider: e.target.value }))}
-            placeholder="例如 Apple、腾讯视频、中国移动"
-          />
-        </label>
-        <label>
-          <span>续费日</span>
-          <input
-            type="date"
-            value={form.renewalDate}
-            onChange={(e) => handleDateFieldChange('renewalDate', e.target.value)}
-          />
-        </label>
-        <label>
-          <span>到期日</span>
-          <input
-            type="date"
-            value={form.expireDate}
-            onChange={(e) => handleDateFieldChange('expireDate', e.target.value)}
-          />
-        </label>
-        <label>
-          <span>状态</span>
-          <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value as SubscriptionStatus }))}>
-            <option value="active">正常</option>
-            <option value="paused">已暂停</option>
-          </select>
-        </label>
-        <label className="subscriptions-checkbox">
-          <input type="checkbox" checked={form.autoRenew} onChange={(e) => setForm((prev) => ({ ...prev, autoRenew: e.target.checked }))} />
-          <span>自动续费</span>
-        </label>
-        <label className="subscriptions-form-full">
-          <span>备注</span>
-          <textarea value={form.note} onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))} rows={3} placeholder="可记录套餐说明、会员权益、卡号尾号等" />
-        </label>
-        {error ? <p className="assistant-wb-issue error subscriptions-form-full">{error}</p> : null}
-        <div className="subscriptions-actions subscriptions-form-full">
-          <button type="submit" className="primary">{editingId ? '保存修改' : '新增订阅'}</button>
-          {editingId ? <button type="button" onClick={resetForm}>取消编辑</button> : null}
-        </div>
-      </form>
-
-      {rows.length === 0 ? (
-        <EmptyState title="还没有订阅项目" description="先添加第一个数字订阅、话费套餐或会员卡，后面就能统一看费用和到期情况。" icon="🧾" />
-      ) : (
-        <div className="subscriptions-table-wrap">
-          <table className="subscriptions-table">
-            <thead>
-              <tr>
-                <th>名称</th>
-                <th>类型</th>
-                <th>金额</th>
-                <th>周期</th>
-                <th>账户</th>
-                <th>续费/到期</th>
-                <th>状态</th>
-                <th>备注</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
+          {rows.length === 0 ? (
+            <EmptyState
+              title="还没有订阅项目"
+              description="先添加第一个数字订阅、话费套餐或会员卡，后面就能统一看费用和到期情况。"
+              icon="🧾"
+            />
+          ) : (
+            <div className="subscriptions-card-list">
               {rows.map((item) => {
                 const account = item.accountId ? accounts.find((row) => row.id === item.accountId) : null;
+                const monthlyAmount = toMonthlyAmount(item);
+
                 return (
-                  <tr key={item.id}>
-                    <td>
-                      <div className="balance-change-related">
-                        <span>{item.name}</span>
-                        {item.provider ? <small>{item.provider}</small> : null}
+                  <article key={item.id} className="subscriptions-card">
+                    <div className="subscriptions-card-head">
+                      <div className="subscriptions-card-title">
+                        <h4>{item.name}</h4>
+                        {item.provider ? <p>{item.provider}</p> : <p>{KIND_LABELS[item.kind]}</p>}
                       </div>
-                    </td>
-                    <td>{KIND_LABELS[item.kind]}</td>
-                    <td>{formatMoneyByCurrency(item.amount, item.currency)}</td>
-                    <td>{item.billingCycle === 'custom' ? `每 ${item.customCycleDays || '—'} 天` : CYCLE_LABELS[item.billingCycle]}</td>
-                    <td>{account?.name || '未指定'}</td>
-                    <td>
-                      <div className="balance-change-related">
-                        <span>{item.renewalDate ? `续费：${formatDate(item.renewalDate)}` : '续费日未设置'}</span>
-                        <small>{item.expireDate ? `到期：${formatDate(item.expireDate)}` : '到期日未设置'}</small>
+                      <div className="subscriptions-card-badges">
+                        <span className={STATUS_CLASS[item.status]}>{STATUS_LABELS[item.status]}</span>
+                        <span className="badge">{KIND_LABELS[item.kind]}</span>
+                        <span className="badge">{item.autoRenew ? '自动续费' : '手动续费'}</span>
                       </div>
-                    </td>
-                    <td><span className={STATUS_CLASS[item.status]}>{STATUS_LABELS[item.status]}</span></td>
-                    <td>{item.note || '—'}</td>
-                    <td>
-                      <div className="subscriptions-actions-inline">
-                        <button type="button" className="primary" onClick={() => handleGenerateTransaction(item)}>
-                          生成支出
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate(`/transactions?tags=${encodeURIComponent('订阅')}&note=${encodeURIComponent(item.name)}`)
-                          }
-                        >
-                          查看支出
-                        </button>
-                        <button type="button" onClick={() => startEdit(item)}>编辑</button>
-                        <button type="button" className="danger" onClick={() => setPendingDeleteId(item.id)}>删除</button>
+                    </div>
+
+                    <div className="subscriptions-card-metrics">
+                      <article>
+                        <span>当前金额</span>
+                        <strong>{formatMoneyByCurrency(item.amount, item.currency)}</strong>
+                      </article>
+                      <article>
+                        <span>折算月均</span>
+                        <strong>{formatMoneyByCurrency(monthlyAmount, item.currency)}</strong>
+                      </article>
+                      <article>
+                        <span>扣费账户</span>
+                        <strong>{account?.name || '未指定'}</strong>
+                      </article>
+                    </div>
+
+                    <div className="subscriptions-card-meta">
+                      <div>
+                        <span>计费周期</span>
+                        <strong>
+                          {item.billingCycle === 'custom'
+                            ? `每 ${item.customCycleDays || '—'} 天`
+                            : CYCLE_LABELS[item.billingCycle]}
+                        </strong>
                       </div>
-                    </td>
-                  </tr>
+                      <div>
+                        <span>续费日</span>
+                        <strong>{item.renewalDate ? formatDate(item.renewalDate) : '未设置'}</strong>
+                      </div>
+                      <div>
+                        <span>到期日</span>
+                        <strong>{item.expireDate ? formatDate(item.expireDate) : '未设置'}</strong>
+                      </div>
+                    </div>
+
+                    {item.note ? <p className="subscriptions-card-note">{item.note}</p> : null}
+
+                    <div className="subscriptions-actions-inline">
+                      <button type="button" className="primary" onClick={() => handleGenerateTransaction(item)}>
+                        生成支出
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            `/transactions?tags=${encodeURIComponent('订阅')}&note=${encodeURIComponent(item.name)}`
+                          )
+                        }
+                      >
+                        查看支出
+                      </button>
+                      <button type="button" onClick={() => startEdit(item)}>
+                        编辑
+                      </button>
+                      <button type="button" className="danger" onClick={() => setPendingDeleteId(item.id)}>
+                        删除
+                      </button>
+                    </div>
+                  </article>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-      )}
+            </div>
+          )}
+        </section>
+      </div>
 
       <ConfirmDialog
         open={Boolean(pendingDeleteItem)}
@@ -464,6 +640,6 @@ export function SubscriptionsPage() {
           if (editingId === pendingDeleteId) resetForm();
         }}
       />
-    </section>
+    </div>
   );
 }
