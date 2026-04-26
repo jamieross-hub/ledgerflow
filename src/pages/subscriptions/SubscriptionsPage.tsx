@@ -279,11 +279,13 @@ export function SubscriptionsPage() {
               <strong>{summary.dueSoon}</strong>
               <em>优先处理续费提醒</em>
             </article>
-            <article className="subscriptions-stat-card is-danger">
-              <span>已到期</span>
-              <strong>{summary.expired}</strong>
-              <em>可暂停或重新启用</em>
-            </article>
+            {summary.expired > 0 ? (
+              <article className="subscriptions-stat-card is-danger">
+                <span>已到期</span>
+                <strong>{summary.expired}</strong>
+                <em>可暂停或重新启用</em>
+              </article>
+            ) : null}
           </div>
         </div>
 
