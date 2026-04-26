@@ -10,18 +10,22 @@
 
 .subscriptions-header {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
 }
 
 .subscriptions-hero-copy {
   display: grid;
-  gap: 8px;
+  gap: 12px;
 }
 
 .subscriptions-hero-copy h2 {
   margin-bottom: 0;
+}
+
+.subscriptions-hero-copy p {
+  max-width: 720px;
 }
 
 .subscriptions-kicker {
@@ -39,45 +43,42 @@
   letter-spacing: 0.02em;
 }
 
-.subscriptions-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.subscriptions-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.subscriptions-summary-pill {
+  display: inline-flex;
+  align-items: center;
   gap: 12px;
-}
-
-.subscriptions-stat-card {
-  display: grid;
-  gap: 6px;
-  padding: 14px 16px;
-  border-radius: 16px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--color-border-light) 88%, transparent);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-bg-elevated) 96%, white 4%),
-      color-mix(in srgb, var(--color-bg-subtle) 94%, var(--color-bg-elevated))
-    );
+  background: color-mix(in srgb, var(--color-bg-elevated) 92%, var(--color-bg-subtle));
 }
 
-.subscriptions-stat-card span,
-.subscriptions-stat-card em {
+.subscriptions-summary-pill span {
   color: var(--color-text-secondary);
-  font-style: normal;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
-.subscriptions-stat-card strong {
-  font-size: clamp(28px, 4vw, 36px);
+.subscriptions-summary-pill strong {
+  font-size: 20px;
   line-height: 1;
 }
 
-.subscriptions-stat-card.is-warning {
+.subscriptions-summary-pill.is-warning {
   border-color: color-mix(in srgb, var(--color-warning) 28%, var(--color-border-light));
-  background: color-mix(in srgb, var(--color-warning) 10%, var(--color-bg-elevated));
+  background: color-mix(in srgb, var(--color-warning) 9%, var(--color-bg-elevated));
 }
 
-.subscriptions-stat-card.is-danger {
+.subscriptions-summary-pill.is-danger {
   border-color: color-mix(in srgb, var(--color-danger) 24%, var(--color-border-light));
-  background: color-mix(in srgb, var(--color-danger-bg) 60%, var(--color-bg-elevated));
+  background: color-mix(in srgb, var(--color-danger-bg) 58%, var(--color-bg-elevated));
 }
 
 .subscriptions-monthly-summary {
@@ -361,13 +362,11 @@
 }
 
 @media (max-width: 1180px) {
-  .subscriptions-header,
   .subscriptions-main-grid,
   .subscriptions-form-grid-primary {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .subscriptions-summary-grid,
   .subscriptions-card-metrics,
   .subscriptions-card-meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -379,11 +378,19 @@
 }
 
 @media (max-width: 760px) {
-  .subscriptions-summary-grid,
   .subscriptions-form-grid,
   .subscriptions-card-metrics,
   .subscriptions-card-meta {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .subscriptions-summary-strip {
+    gap: 8px;
+  }
+
+  .subscriptions-summary-pill {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .subscriptions-checkbox {

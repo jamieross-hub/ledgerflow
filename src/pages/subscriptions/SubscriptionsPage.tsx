@@ -262,30 +262,26 @@ export function SubscriptionsPage() {
             <p className="muted">
               统一管理数字订阅、话费、会员卡等周期性项目，支持多币种、续费日和到期状态追踪。
             </p>
-          </div>
-          <div className="subscriptions-summary-grid">
-            <article className="subscriptions-stat-card">
-              <span>总数</span>
-              <strong>{summary.total}</strong>
-              <em>全部订阅项目</em>
-            </article>
-            <article className="subscriptions-stat-card">
-              <span>活跃中</span>
-              <strong>{summary.active}</strong>
-              <em>正常计费或待续费</em>
-            </article>
-            <article className="subscriptions-stat-card is-warning">
-              <span>即将到期</span>
-              <strong>{summary.dueSoon}</strong>
-              <em>优先处理续费提醒</em>
-            </article>
-            {summary.expired > 0 ? (
-              <article className="subscriptions-stat-card is-danger">
-                <span>已到期</span>
-                <strong>{summary.expired}</strong>
-                <em>可暂停或重新启用</em>
+            <div className="subscriptions-summary-strip" aria-label="订阅概览">
+              <article className="subscriptions-summary-pill">
+                <span>总数</span>
+                <strong>{summary.total}</strong>
               </article>
-            ) : null}
+              <article className="subscriptions-summary-pill">
+                <span>活跃中</span>
+                <strong>{summary.active}</strong>
+              </article>
+              <article className="subscriptions-summary-pill is-warning">
+                <span>即将到期</span>
+                <strong>{summary.dueSoon}</strong>
+              </article>
+              {summary.expired > 0 ? (
+                <article className="subscriptions-summary-pill is-danger">
+                  <span>已到期</span>
+                  <strong>{summary.expired}</strong>
+                </article>
+              ) : null}
+            </div>
           </div>
         </div>
 
