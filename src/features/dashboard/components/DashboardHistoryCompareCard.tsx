@@ -13,18 +13,31 @@ export interface DashboardHistoryCompareCardProps {
   monthlyInsightStatus: 'idle' | 'loading' | 'streaming' | 'done' | 'error';
 }
 
+function getProfileStatusText(status: DashboardHistoryCompareCardProps['monthlyInsightStatus']) {
+  if (status === 'loading' || status === 'streaming') {
+    return 'AI 正在生成本月消费画像…';
+  }
+  if (status === 'error') {
+    return 'AI 画像暂未生成成功，可稍后重试。';
+  }
+  if (status === 'done') {
+    return '画像已根据本月账单自动刷新。';
+  }
+  return '有账单后会自动生成本月画像。';
+}
+
 export function DashboardHistoryCompareCard({
   previousMonthExpense,
   quarterExpense,
   yearlyExpense,
   profile,
-  monthlyInsightStatus,
+  monthlyInsightStatus
 }: DashboardHistoryCompareCardProps) {
   return (
     <article className="panel" style={{ marginTop: 12 }}>
       <div className="dashboard-section-header">
         <h3>历史对比与消费画像</h3>
-        <span>少字显示 · 金额优先</span>
+        <span>对比金额 + 自动画像</span>
       </div>
 
       <div className="grid grid-2 dashboard-history-profile-grid" style={{ gap: 12 }}>
@@ -49,16 +62,14 @@ export function DashboardHistoryCompareCard({
         <section className="panel dashboard-profile-card" style={{ margin: 0 }}>
           <h4>消费画像</h4>
           <div className="dashboard-profile-tags dashboard-profile-tags--compact">
-            <span>时段：{profile?.timePreference || '暂无'}</span>
-            <span>商家：{profile?.topMerchant || '暂无'}</span>
-            <span>风格：{profile?.personality || '暂无'}</span>
-            <span>对比：{profile?.crowdCompare || '暂无'}</span>
+            <span>时段：{profile?.timePreference || '生成中'}</span>
+            <span>商家：{profile?.topMerchant || '生成中'}</span>
+            <span>风格：{profile?.personality || '生成中'}</span>
+            <span>对比：{profile?.crowdCompare || '生成中'}</span>
           </div>
-          {monthlyInsightStatus !== 'done' ? (
-            <p className="dashboard-ai-error dashboard-profile-tip" style={{ marginTop: 8 }}>
-              暂无 AI 画像
-            </p>
-          ) : null}
+          <p className="dashboard-profile-tip" style={{ marginTop: 8 }}>
+            {getProfileStatusText(monthlyInsightStatus)}
+          </p>
         </section>
       </div>
     </article>

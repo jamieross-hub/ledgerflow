@@ -43,6 +43,13 @@ interface FinancialAnalysisQuickAction {
   onClick: () => void;
 }
 
+interface FinancialAnalysisMarketRow {
+  label: string;
+  income: number;
+  expense: number;
+  net: number;
+}
+
 function formatPercent(value: number): string {
   return `${value.toFixed(1)}%`;
 }
@@ -144,6 +151,10 @@ function buildTransactionsLink(params: Record<string, string | number | undefine
 
   const query = search.toString();
   return query ? `/transactions?${query}` : '/transactions';
+}
+
+function formatDelta(value: number) {
+  return `${value >= 0 ? '+' : ''}${formatCurrency(value)}`;
 }
 
 function getRangeDateBounds(range: { key: FinancialAnalysisRangeKey; days: number | null }) {
@@ -260,6 +271,68 @@ export function FinancialAnalysisPage() {
   }, [rangeKey, analysis.transactionCount]);
 
   const rangeTransactionDates = useMemo(() => getRangeDateBounds(range), [range]);
+
+  const marketRows = useMemo<FinancialAnalysisMarketRow[]>(() => {
+    const now = new Date();
+    return Array.from({ length: 6 }).map((_, index) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
+      const month = date.getMonth();
+      const year = date.getFullYear();
+      const rows = transactions.filter((item) => {
+        const txDate = new Date(item.date);
+        return txDate.getFullYear() === year && txDate.getMonth() === month;
+      });
+      const income = rows
+        .filter((item) => item.type === 'income')
+        .reduce((sum, item) => sum + item.amount, 0);
+      const expense = rows
+        .filter((item) => item.type === 'expense' || item.type === 'repayment' || item.type === 'budget')
+        .reduce((sum, item) => sum + item.amount, 0);
+      return {
+        label: `${month + 1}月`,
+        income,
+        expense,
+        net: income - expense
+      };
+    });
+  }, [transactions]);
+
+  const latestMarketRow = marketRows[marketRows.length - 1] || {
+    label: range.label,
+    income: analysis.metrics[0]?.value || 0,
+    expense: analysis.metrics[1]?.value || 0,
+    net: analysis.metrics[2]?.value || 0
+  };
+  const previousMarketRow = marketRows[marketRows.length - 2] || latestMarketRow;
+  const marketBarScale = useMemo(
+    () => Math.max(...marketRows.map((item) => Math.max(Math.abs(item.net), item.income, item.expense)), 1),
+    [marketRows]
+  );
+  const marketCards = useMemo(
+    () => [
+      {
+        label: '收入',
+        value: latestMarketRow.income,
+        delta: latestMarketRow.income - previousMarketRow.income,
+        tone: 'income'
+      },
+      {
+        label: '支出',
+        value: latestMarketRow.expense,
+        delta: latestMarketRow.expense - previousMarketRow.expense,
+        tone: 'expense'
+      },
+      {
+        label: '净结余',
+        value: latestMarketRow.net,
+        delta: latestMarketRow.net - previousMarketRow.net,
+        tone: latestMarketRow.net >= 0 ? 'income' : 'expense'
+      }
+    ],
+    [latestMarketRow, previousMarketRow]
+  );
+  const marketHeadline =
+    latestMarketRow.net >= previousMarketRow.net ? '资金动能回升' : '资金动能转弱';
 
   const previousQuickActions = useMemo<FinancialAnalysisQuickAction[]>(() => {
     const actions: FinancialAnalysisQuickAction[] = [
@@ -479,6 +552,45 @@ ${JSON.stringify(aiInput)}`
           ))}
         </div>
 
+        <article className="financial-analysis-market-board">
+          <header className="financial-analysis-market-head">
+            <div>
+              <h3>资金动态看板</h3>
+              <p className="muted">像看行情一样，先看本月，再看最近 6 个月的变化节奏。</p>
+            </div>
+            <span className="metric-chip">
+              动态判断
+              <strong>{marketHeadline}</strong>
+            </span>
+          </header>
+          <div className="financial-analysis-market-ticker">
+            {marketCards.map((item) => (
+              <article key={item.label} className={`financial-analysis-market-card tone-${item.tone}`}>
+                <span>{item.label}</span>
+                <strong>{formatCurrency(item.value)}</strong>
+                <small>{formatDelta(item.delta)}</small>
+              </article>
+            ))}
+          </div>
+          <div className="financial-analysis-market-bars" role="list" aria-label="最近6个月资金动态">
+            {marketRows.map((item) => (
+              <div key={item.label} role="listitem" className="financial-analysis-market-bar-item">
+                <span>{item.label}</span>
+                <div className="financial-analysis-market-bar-track">
+                  <i
+                    className={item.net >= 0 ? 'is-positive' : 'is-negative'}
+                    style={{ height: `${Math.max(14, (Math.abs(item.net) / marketBarScale) * 96)}px` }}
+                  />
+                </div>
+                <strong>{formatCurrency(item.net)}</strong>
+                <small>
+                  收 {formatCurrency(item.income)} / 支 {formatCurrency(item.expense)}
+                </small>
+              </div>
+            ))}
+          </div>
+        </article>
+
         <article className="financial-analysis-ai-card">
           <header>
             <div>
@@ -530,7 +642,18 @@ ${JSON.stringify(aiInput)}`
               ) : null}
             </div>
           ) : (
+            <>
+            <div className="financial-analysis-ai-empty">
+              <div>
+                <strong>AI 还没开始解读</strong>
+                <p className="muted">生成后会补齐过去、现在、未来的重点判断。</p>
+              </div>
+              <button type="button" onClick={runAiAnalysis} disabled={aiStatus === 'loading'}>
+                {aiStatus === 'loading' ? '分析中..' : '生成 AI 解读'}
+              </button>
+            </div>
             <p className="muted">点击“生成 AI 解读”，让模型结合当前财务快照输出更完整的过去 / 现在 / 未来分析。</p>
+            </>
           )}
         </article>
       </section>
@@ -633,6 +756,26 @@ ${JSON.stringify(aiInput)}`
                   {item}
                 </span>
               ))}
+            </div>
+            <div className="financial-analysis-actions">
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    buildTransactionsLink({
+                      type: 'expense',
+                      datePreset: 'custom',
+                      dateFrom: rangeTransactionDates.from,
+                      dateTo: rangeTransactionDates.to
+                    })
+                  )
+                }
+              >
+                鏌ョ湅娑堣垂鏄庣粏
+              </button>
+              <button type="button" onClick={() => navigate('/assistant')}>
+                鍘?AI 鍔╂墜
+              </button>
             </div>
             <p className="financial-analysis-confidence">{analysis.behavior.consumerProfile.disclaimer}</p>
           </article>

@@ -22,7 +22,6 @@ import {
   extractJson,
   toSafeNumber,
   monthBounds,
-  buildSmoothPath,
   getConstellationLabel
 } from '../../features/dashboard/model/utils';
 import { APP_VERSION } from '../../shared/config/app';
@@ -93,6 +92,18 @@ function saveForecastCache(payload: ForecastPayload, updatedAt: string) {
   } catch {
     // ignore cache errors
   }
+}
+
+function buildSmoothPath(points: Array<{ x: number; y: number }>) {
+  if (points.length < 2) return '';
+  return points.reduce((path, point, index, list) => {
+    if (index === 0) {
+      return `M ${point.x} ${point.y}`;
+    }
+    const prev = list[index - 1];
+    const midX = (prev.x + point.x) / 2;
+    return `${path} C ${midX} ${prev.y}, ${midX} ${point.y}, ${point.x} ${point.y}`;
+  }, '');
 }
 
 export function DashboardPage() {
@@ -504,6 +515,13 @@ export function DashboardPage() {
     transactions.length
   ]);
 
+  useEffect(() => {
+    if (!transactions.length) return;
+    if (!apiKey.trim()) return;
+    if (monthlyInsightRequestToken > 0) return;
+    setMonthlyInsightRequestToken(1);
+  }, [apiKey, monthlyInsightRequestToken, transactions.length]);
+
   const handleRefreshForecast = () => {
     setForecastRequestToken((prev) => prev + 1);
   };
@@ -598,6 +616,14 @@ export function DashboardPage() {
       };
     });
   }, [currentMonth, currentYear, forecast?.points, monthlyBalance]);
+
+  const forecastBarScale = useMemo(
+    () => Math.max(...chartData.map((item) => Math.abs(item.value)), 1),
+    [chartData]
+  );
+
+  const forecastBarHeight = (value: number) =>
+    `${Math.max(12, (Math.abs(value) / forecastBarScale) * 92)}px`;
 
   const currentMonthLabel = `${currentYear}年${currentMonth + 1}月`;
   const monthlyInsightActionLabel =
@@ -997,6 +1023,7 @@ export function DashboardPage() {
       highlights
     };
   }, [categoryNameMap, monthly, monthlyInsight?.highlights, transactions]);
+  void anomalyInsight;
 
   const cashflowCategoryRows = useMemo(() => {
     const map = new Map<
@@ -1105,6 +1132,77 @@ export function DashboardPage() {
         '#d1d5db'
     }));
   }, [cashflowView, categoryMetaMap, currentMonth, currentYear, transactions]);
+
+  const anomalyInsightDisplay = useMemo(() => {
+    const expenseRows = transactions.filter((item) => isActualExpenseType(item.type));
+    if (!expenseRows.length) {
+      return {
+        anomalies: ['暂无支出数据，暂时无法识别异常。'],
+        highlights: ['先记一笔账单，系统就能开始给出异常与亮点判断。'],
+        supportFacts: [] as string[]
+      };
+    }
+
+    const merchantThisWeek = new Map<string, number>();
+    const merchantPrevWeek = new Map<string, number>();
+    const today = new Date();
+    const thisWeekStart = new Date(today);
+    thisWeekStart.setDate(today.getDate() - 6);
+    const prevWeekStart = new Date(today);
+    prevWeekStart.setDate(today.getDate() - 13);
+
+    expenseRows.forEach((item) => {
+      const date = new Date(item.date);
+      const merchant =
+        (item.note || '').trim().slice(0, 12) || categoryNameMap.get(item.categoryId) || '未知商家';
+      if (date >= thisWeekStart) {
+        merchantThisWeek.set(merchant, (merchantThisWeek.get(merchant) || 0) + item.amount);
+      } else if (date >= prevWeekStart && date < thisWeekStart) {
+        merchantPrevWeek.set(merchant, (merchantPrevWeek.get(merchant) || 0) + item.amount);
+      }
+    });
+
+    const anomalies = Array.from(merchantThisWeek.entries())
+      .map(([merchant, amount]) => {
+        const prev = merchantPrevWeek.get(merchant) || 0;
+        return { merchant, amount, prev, ratio: prev > 0 ? amount / prev : amount > 0 ? 99 : 0 };
+      })
+      .filter((item) => item.amount > 100 && item.ratio >= 1.8)
+      .sort((a, b) => b.ratio - a.ratio)
+      .slice(0, 2)
+      .map((item) => {
+        const changeText = item.prev
+          ? `较上周提高 ${((item.ratio - 1) * 100).toFixed(0)}%`
+          : '较上周明显抬升';
+        return `${item.merchant} 本周支出 ${formatCurrency(item.amount)}，${changeText}。`;
+      });
+
+    const monthlyByDay = new Map<string, number>();
+    monthly.forEach((item) => {
+      if (!isActualExpenseType(item.type)) return;
+      const key = item.date.slice(0, 10);
+      monthlyByDay.set(key, (monthlyByDay.get(key) || 0) + item.amount);
+    });
+    const dayValues = Array.from(monthlyByDay.values());
+    const dayAvg = dayValues.reduce((sum, value) => sum + value, 0) / Math.max(dayValues.length, 1);
+    const lowerDays = dayValues.filter((value) => value < dayAvg * 0.7).length;
+    const topExpenseCategory = [...cashflowCategoryRows]
+      .filter((item) => item.amount > 0)
+      .sort((a, b) => b.amount - a.amount)[0];
+
+    return {
+      anomalies: anomalies.length ? anomalies : ['未发现明显异常消费激增，当前消费波动相对稳定。'],
+      highlights: [
+        `本月日均支出约 ${formatCurrency(dayAvg)}，其中 ${lowerDays} 天低于均值 70%，节奏控制较稳。`,
+        ...(monthlyInsight?.highlights?.slice(0, 2) || [])
+      ].slice(0, 3),
+      supportFacts: [
+        `本月支出 ${formatCurrency(expense)}`,
+        `支出笔数 ${expenseRows.length} 笔`,
+        topExpenseCategory ? `重点分类 ${topExpenseCategory.name}` : ''
+      ].filter(Boolean)
+    };
+  }, [cashflowCategoryRows, categoryNameMap, expense, monthly, monthlyInsight?.highlights, transactions]);
 
   useEffect(() => {
     if (!cashflowCategoryRows.length) {
@@ -1356,12 +1454,10 @@ export function DashboardPage() {
             return (
               <DashboardAnomalyInsights
                 key={moduleId}
-                anomalyInsight={anomalyInsight}
+                anomalyInsight={anomalyInsightDisplay}
                 subscriptionAlerts={subscriptionAlerts}
                 onNavigateToSmartBudget={() => navigate('/smart-budget')}
                 onNavigateToTransactions={() => navigate('/transactions')}
-                onNavigateToRepaymentManagement={() => navigate('/repayment-management')}
-                onNavigateToDashboard={() => navigate('/dashboard')}
                 onNavigateToSubscriptions={() => navigate('/subscriptions')}
               />
             );
@@ -1474,8 +1570,37 @@ export function DashboardPage() {
             <div
               className="dashboard-forecast-chart"
               aria-label="未来趋势动态图表"
-              onMouseLeave={() => setHoveredChartPoint(null)}
             >
+              <div className="dashboard-forecast-summary-card">
+                <strong>{forecast?.summary || '点击“手动分析”生成未来趋势分析。'}</strong>
+                <span>改成柱状图后，可以更快看清历史走势和未来 3 个月预测。</span>
+              </div>
+              <div className="dashboard-forecast-bars" role="list" aria-label="历史与未来趋势柱状图">
+                {chartData.map((item, index) => {
+                  const klass =
+                    index === currentIndex
+                      ? 'current'
+                      : item.type === 'forecast'
+                        ? 'forecast'
+                        : 'history';
+                  return (
+                    <div
+                      key={`bar-${item.label}-${index}`}
+                      role="listitem"
+                      className={`dashboard-forecast-bar-item ${klass}`.trim()}
+                    >
+                      <span className="dashboard-forecast-bar-value">{formatCurrency(item.value)}</span>
+                      <div className="dashboard-forecast-bar-track">
+                        <i
+                          className={item.value >= 0 ? 'is-positive' : 'is-negative'}
+                          style={{ height: forecastBarHeight(item.value) }}
+                        />
+                      </div>
+                      <strong>{item.label}</strong>
+                    </div>
+                  );
+                })}
+              </div>
               <div className="dashboard-forecast-axes">
                 <div className="dashboard-forecast-axis-y" aria-label="金额轴">
                   {axisTicks.map((value, index) => (

@@ -17,6 +17,13 @@ export interface NetAssetCurveCardProps {
   onNavigateToMonth: (dateFrom: string, dateTo: string) => void;
 }
 
+function formatDeltaLabel(delta: number) {
+  if (Math.abs(delta) < 0.005) {
+    return '较上月持平';
+  }
+  return `较上月${delta > 0 ? '+' : ''}${formatCurrency(delta)}`;
+}
+
 export function NetAssetCurveCard({
   rows,
   worstDropKey,
@@ -28,7 +35,7 @@ export function NetAssetCurveCard({
   return (
     <article className="panel dashboard-unified-card" style={{ margin: 0 }}>
       <div className="dashboard-section-header dashboard-section-header-tight">
-        <h4>累计净资产曲线（含每月Δ）</h4>
+        <h4>累计净资产曲线</h4>
       </div>
       <div className="dashboard-net-curve">
         {rows.map((item) => (
@@ -46,10 +53,7 @@ export function NetAssetCurveCard({
             </span>
             <i style={{ width: `${(item.value / maxValue) * 100}%` }} />
             <strong>{formatCurrency(item.value)}</strong>
-            <small className={item.delta >= 0 ? 'up' : 'down'}>
-              Δ {item.delta >= 0 ? '+' : ''}
-              {formatCurrency(item.delta)}
-            </small>
+            <small className={item.delta >= 0 ? 'up' : 'down'}>{formatDeltaLabel(item.delta)}</small>
           </button>
         ))}
       </div>

@@ -21,7 +21,6 @@ export interface CategoryBreakdownChartProps {
     icon: string;
     amount: number;
     percent: number;
-    diffRate: number | null;
     ringColor: string;
   }>;
   onCashflowViewChange: (view: 'expense' | 'income' | 'net') => void;
@@ -34,7 +33,7 @@ export function CategoryBreakdownChart({
   donutChart,
   cashflowCategoryRows,
   onCashflowViewChange,
-  onSelectedCategoryNameChange,
+  onSelectedCategoryNameChange
 }: CategoryBreakdownChartProps) {
   const { t } = useTranslation();
 
@@ -108,25 +107,17 @@ export function CategoryBreakdownChart({
                   onFocus={() => onSelectedCategoryNameChange(item.name)}
                   onClick={() => onSelectedCategoryNameChange(item.name)}
                 >
-                  <span className="dashboard-donut-list-icon">{item.icon}</span>
-                  <div className="dashboard-donut-list-main">
-                    <header>
-                      <strong title={item.name}>{item.name}</strong>
-                      <span>{item.percent.toFixed(1)}%</span>
-                    </header>
-                    <div className="dashboard-donut-list-track">
-                      <i style={{ width: `${item.percent}%`, background: item.ringColor }} />
-                    </div>
-                    <div className="dashboard-donut-list-side">
-                      <strong>{formatCurrency(item.amount)}</strong>
-                      <small>
-                        {item.diffRate === null
-                          ? t('dashboard.ui.环比NoChange')
-                          : `${t('dashboard.ui.环比')} ${item.diffRate >= 0 ? '↑' : '↓'}${Math.abs(
-                              item.diffRate
-                            ).toFixed(1)}%`}
-                      </small>
-                    </div>
+                  <div className="dashboard-donut-list-head">
+                    <span className="dashboard-donut-list-icon">{item.icon}</span>
+                    <strong title={item.name}>{item.name}</strong>
+                    <span className="dashboard-donut-list-percent">{item.percent.toFixed(1)}%</span>
+                  </div>
+                  <div className="dashboard-donut-list-track">
+                    <i style={{ width: `${item.percent}%`, background: item.ringColor }} />
+                  </div>
+                  <div className="dashboard-donut-list-side">
+                    <strong>{formatCurrency(item.amount)}</strong>
+                    <small>本月占比</small>
                   </div>
                 </button>
               );
