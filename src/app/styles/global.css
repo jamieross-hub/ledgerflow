@@ -11063,6 +11063,14 @@ body.categories-accounts-resizing {
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
 }
 
+.finance-debt-form-row-key {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.finance-debt-form-row-schedule {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .finance-debt-form-row-detail {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -11217,7 +11225,7 @@ body.categories-accounts-resizing {
 
 .finance-overview-income-actions {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: minmax(112px, auto) minmax(0, 1fr);
   gap: 10px;
   align-items: center;
   margin-top: 10px;
@@ -11225,9 +11233,20 @@ body.categories-accounts-resizing {
 
 .finance-overview-income-actions .finance-income-inline-manual {
   display: grid;
-  grid-template-columns: minmax(180px, 240px) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
+  min-width: 0;
+}
+
+.finance-overview-income-actions .finance-income-inline-manual > * {
+  min-width: 0;
+}
+
+.finance-overview-income-actions .finance-income-inline-action {
+  min-height: 44px;
+  padding-inline: 12px;
+  white-space: nowrap;
 }
 
 .finance-debt-dual-entry {
@@ -11288,6 +11307,19 @@ body.categories-accounts-resizing {
   flex-shrink: 0;
 }
 
+.finance-collapsible-side-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary-soft) 68%, var(--color-bg-elevated));
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
 .finance-collapsible-icon {
   width: 28px;
   height: 28px;
@@ -11311,6 +11343,40 @@ body.categories-accounts-resizing {
 
 .finance-collapsible-body {
   padding: 0 16px 16px;
+}
+
+.finance-debt-form-advanced {
+  border: 1px solid var(--color-border-light);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-bg-elevated) 92%, var(--color-primary-soft));
+  overflow: hidden;
+}
+
+.finance-debt-form-advanced > summary {
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.finance-debt-form-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.finance-debt-form-advanced > summary span:first-child {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.finance-debt-form-advanced > summary .muted {
+  font-size: 12px;
+}
+
+.finance-debt-form-advanced > .finance-debt-form-row {
+  padding: 0 14px 14px;
 }
 
 .finance-debt-form-helper {
@@ -12352,9 +12418,14 @@ body.categories-accounts-resizing {
 
 @media (max-width: 760px) {
   .finance-debt-form-row-primary,
-  .finance-debt-form-row-detail,
   .finance-feed-form-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .finance-debt-form-row-key,
+  .finance-debt-form-row-schedule,
+  .finance-debt-form-row-detail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .finance-overview-grid {
@@ -12366,12 +12437,19 @@ body.categories-accounts-resizing {
   .finance-simulator-row,
   .finance-strategy-compare-grid,
   .finance-income-inline,
-  .finance-income-inline-manual,
-  .finance-overview-income-actions,
   .finance-ledger-grid,
   .finance-ledger-meta-grid,
   .dashboard-donut-layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .finance-overview-income-actions {
+    grid-template-columns: minmax(104px, auto) minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .finance-overview-income-actions .finance-income-inline-manual {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .finance-collapsible-summary,
@@ -12395,6 +12473,15 @@ body.categories-accounts-resizing {
   .finance-debt-submit,
   .finance-debt-item button {
     width: 100%;
+  }
+
+  .finance-overview-income-actions .finance-income-inline-action {
+    width: auto;
+  }
+
+  .finance-debt-form-advanced > summary {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .dashboard-module-toggle-list,

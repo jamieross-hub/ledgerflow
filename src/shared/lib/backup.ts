@@ -6,11 +6,16 @@ import {
   SubscriptionKind,
   SubscriptionStatus
 } from '../../entities/subscription/types';
-import { TransactionItem } from '../../entities/transaction/types';
+import {
+  BalanceChangeEntry,
+  TransactionAttachmentItem,
+  TransactionItem
+} from '../../entities/transaction/types';
 import {
   GlobalMemoryItem,
   sanitizePersistedGlobalMemoryItem
 } from '../store/globalMemory';
+import type { FinanceDataSnapshot } from '../store/useFinanceStore';
 
 const BACKUP_KEY = 'ledgerflow-backup-webdav-v1';
 const BACKUP_PASSWORD_SESSION_KEY = 'ledgerflow-backup-webdav-password';
@@ -145,11 +150,7 @@ export function sanitizeWebdavConfig(config: BackupWebdavConfig): BackupWebdavCo
 export interface FinanceBackupPayload {
   version: number;
   exportedAt: string;
-  data: {
-    transactions: TransactionItem[];
-    categories: Category[];
-    accounts: Account[];
-    subscriptions: SubscriptionItem[];
+  data: FinanceDataSnapshot & {
     globalMemories: GlobalMemoryItem[];
   };
 }
@@ -173,6 +174,11 @@ const TRANSACTION_STATUS = new Set<NonNullable<TransactionItem['status']>>([
   'closed',
   'failed'
 ]);
+const TRANSACTION_ADJUSTMENT_KINDS = new Set<NonNullable<TransactionItem['adjustmentKind']>>([
+  'normal',
+  'refund',
+  'reversal'
+]);
 const CATEGORY_KINDS = new Set<NonNullable<Category['kind']>>(['income', 'expense']);
 const ACCOUNT_TYPES = new Set<NonNullable<Account['type']>>([
   'cash',
@@ -193,6 +199,14 @@ const SUBSCRIPTION_BILLING_CYCLES = new Set<SubscriptionBillingCycle>([
   'custom'
 ]);
 const SUBSCRIPTION_STATUS = new Set<SubscriptionStatus>(['active', 'due-soon', 'expired', 'paused']);
+const BALANCE_CHANGE_TYPES = new Set<BalanceChangeEntry['type']>([
+  'transaction-income',
+  'transaction-expense',
+  'transaction-budget',
+  'transaction-repayment',
+  'transaction-refund',
+  'manual-adjustment'
+]);
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

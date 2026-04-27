@@ -396,6 +396,7 @@ function FinanceCollapsibleSection({
   title,
   subtitle,
   icon,
+  sideLabel,
   defaultOpen = false,
   className = '',
   children
@@ -403,6 +404,7 @@ function FinanceCollapsibleSection({
   title: string;
   subtitle?: string;
   icon?: string;
+  sideLabel?: string;
   defaultOpen?: boolean;
   className?: string;
   children: ReactNode;
@@ -415,6 +417,7 @@ function FinanceCollapsibleSection({
           {subtitle ? <p className="muted">{subtitle}</p> : null}
         </div>
         <span className="finance-collapsible-summary-side">
+          {sideLabel ? <span className="finance-collapsible-side-label">{sideLabel}</span> : null}
           {icon ? (
             <span className="finance-debt-entry-icon finance-collapsible-icon" aria-hidden>
               {icon}
@@ -1775,7 +1778,7 @@ export function RepaymentManagementPage() {
               onClick={() => void resolveMonthlyIncomeByAi(true)}
               disabled={incomeLoading}
             >
-              {incomeLoading ? '估算中...' : '刷新 AI 月收入'}
+              {incomeLoading ? '估算中...' : 'AI 月收入'}
             </button>
             <form className="finance-income-inline-manual" onSubmit={onManualIncomeSubmit}>
               <RepaymentUnitInput
@@ -1784,11 +1787,11 @@ export function RepaymentManagementPage() {
                 unit="¥"
                 min={0}
                 step="1"
-                placeholder="手动填入月收入"
-                ariaLabel="手动填入月收入"
+                placeholder="手动月收入"
+                ariaLabel="手动月收入"
               />
               <button type="submit" className="finance-income-inline-action">
-                保存手动月收入
+                保存收入
               </button>
             </form>
           </div>
@@ -1861,8 +1864,7 @@ export function RepaymentManagementPage() {
           ) : null}
 
           <p className="muted" style={{ margin: '12px 0 8px 0' }}>
-            手动添加（推荐按顺序填写）：负债名称 → 负债类型 →
-            剩余本金；如为贷款，再补全年化利率与剩余期数。
+            先填名称、类型、余额；其余设置可以稍后补充。
           </p>
           <form onSubmit={onAddDebt} className="finance-debt-form-grid">
             <div className="finance-debt-form-row finance-debt-form-row-primary">
@@ -1887,7 +1889,22 @@ export function RepaymentManagementPage() {
                 <option value="loan">负债类型：贷款</option>
               </select>
             </div>
-            <div className="finance-debt-form-row finance-debt-form-row-detail">
+            <div className="finance-debt-form-row finance-debt-form-row-key">
+              <RepaymentUnitInput
+                value={debtBalance}
+                onChange={(value) => {
+                  setDebtBalance(value);
+                  setDebtFormError('');
+                }}
+                unit="\u00a5"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                placeholder={'\u5269\u4f59\u672c\u91d1'}
+                ariaLabel={'\u5269\u4f59\u672c\u91d1'}
+              />
+            </div>
+            <div className="finance-debt-form-row finance-debt-form-row-schedule">
               <input
                 className="finance-debt-form-control"
                 value={debtPaymentAccount}
@@ -1977,8 +1994,14 @@ export function RepaymentManagementPage() {
                 ariaLabel="宽限期"
               />
             </div>
-            <div className="finance-debt-form-row finance-debt-form-row-detail">
-              <RepaymentUnitInput
+            {isLoanType ? (
+              <details className="finance-debt-form-advanced" open>
+                <summary>
+                  <span>{'\u8d37\u6b3e\u8865\u5145\u4fe1\u606f'}</span>
+                  <span className="muted">{'\u5229\u7387\u3001\u671f\u6570\u548c\u603b\u8fd8\u6b3e'}</span>
+                </summary>
+                <div className="finance-debt-form-row finance-debt-form-row-detail">
+                  <RepaymentUnitInput
                 value={debtAnnualRate}
                 onChange={(value) => {
                   setDebtAnnualRate(value);
@@ -2050,7 +2073,9 @@ export function RepaymentManagementPage() {
                 placeholder="总还款"
                 ariaLabel="总还款"
               />
-            </div>
+                </div>
+              </details>
+            ) : null}
             <p className="muted finance-debt-form-helper">
               {isLoanType
                 ? '贷款支持总期数、已还期数、借款金额、总还款；可自动反推年化利率。请同时补充扣款账户、记录方式和宽限期。'
@@ -2429,6 +2454,7 @@ export function RepaymentManagementPage() {
           title="AI 还款策略"
           subtitle="推荐优先级、压力提示、模拟器与审计提醒集中收纳，手机端默认折叠。"
           icon="🤖"
+          sideLabel="AI 建议"
           className="card finance-primary-panel finance-mobile-collapsible-section"
         >
           <h3 style={{ marginTop: 0 }}>🤖 AI 还款策略</h3>

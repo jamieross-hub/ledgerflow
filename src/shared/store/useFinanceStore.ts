@@ -59,6 +59,18 @@ interface GenerateSubscriptionTransactionResult {
   duplicated: boolean;
 }
 
+export interface FinanceDataSnapshot {
+  transactions: TransactionItem[];
+  categories: Category[];
+  accounts: Account[];
+  subscriptions?: SubscriptionItem[];
+  trashedTransactions?: TransactionItem[];
+  trashedCategories?: Category[];
+  trashedAccounts?: Account[];
+  balanceChangeEntries?: BalanceChangeEntry[];
+  trashedSubscriptions?: SubscriptionItem[];
+}
+
 interface FinanceState {
   hasHydrated: boolean;
   transactions: TransactionItem[];
@@ -111,12 +123,7 @@ interface FinanceState {
   ) => void;
   undoLatestCategoryLearning: () => boolean;
   clearCategoryLearning: () => void;
-  replaceAllData: (payload: {
-    transactions: TransactionItem[];
-    categories: Category[];
-    accounts: Account[];
-    subscriptions?: SubscriptionItem[];
-  }) => void;
+  replaceAllData: (payload: FinanceDataSnapshot) => void;
 }
 
 const defaultCategories: Category[] = [
@@ -370,10 +377,12 @@ function normalizeAccountOrder(accounts: Account[]): Account[] {
 
 function sanitizeCategoriesAndTransactions(
   categories: Category[],
-  transactions: TransactionItem[]
+  transactions: TransactionItem[],
+  extraTransactions: TransactionItem[] = []
 ): {
   categories: Category[];
   transactions: TransactionItem[];
+  extraTransactions: TransactionItem[];
 } {
   const mergedCategories: Category[] = [];
   const canonicalByKey = new Map<string, Category>();
@@ -397,26 +406,80 @@ function sanitizeCategoriesAndTransactions(
 
   const fallbackCategoryId = mergedCategories[0]?.id;
   const categoryNameById = new Map(mergedCategories.map((item) => [item.id, item.name]));
-  const nextTransactions = transactions.map((tx) => {
-    const remappedCategoryId = categoryIdAlias.get(tx.categoryId);
-    const resolvedCategoryId =
-      remappedCategoryId ||
-      (tx.categoryId && mergedCategories.some((category) => category.id === tx.categoryId)
-        ? tx.categoryId
-        : fallbackCategoryId || tx.categoryId);
+  const normalizeTransactionList = (rows: TransactionItem[]) =>
+    rows.map((tx) => {
+      const remappedCategoryId = categoryIdAlias.get(tx.categoryId);
+      const resolvedCategoryId =
+        remappedCategoryId ||
+        (tx.categoryId && mergedCategories.some((category) => category.id === tx.categoryId)
+          ? tx.categoryId
+          : fallbackCategoryId || tx.categoryId);
 
-    const categoryName = categoryNameById.get(resolvedCategoryId) || '';
+      const categoryName = categoryNameById.get(resolvedCategoryId) || '';
 
-    return normalizeTransactionSemantic(
-      { ...tx, categoryId: resolvedCategoryId },
-      categoryName,
-      fallbackCategoryId
-    );
-  });
+      return normalizeTransactionSemantic(
+        { ...tx, categoryId: resolvedCategoryId },
+        categoryName,
+        fallbackCategoryId
+      );
+    });
+
+  const nextTransactions = normalizeTransactionList(transactions);
+  const nextExtraTransactions = normalizeTransactionList(extraTransactions);
 
   return {
     categories: mergedCategories,
-    transactions: nextTransactions
+    transactions: nextTransactions,
+    extraTransactions: nextExtraTransactions
+  };
+}
+
+export function normalizeImportedFinanceSnapshot(payload: FinanceDataSnapshot) {
+  const incomingCategories = Array.isArray(payload.categories) ? payload.categories : [];
+  const incomingTransactions = Array.isArray(payload.transactions) ? payload.transactions : [];
+  const incomingTrashedTransactions = Array.isArray(payload.trashedTransactions)
+    ? payload.trashedTransactions
+    : [];
+  const incomingAccounts = Array.isArray(payload.accounts) ? payload.accounts : [];
+  const incomingBalanceEntries = Array.isArray(payload.balanceChangeEntries)
+    ? payload.balanceChangeEntries
+    : [];
+  const incomingSubscriptions = Array.isArray(payload.subscriptions)
+    ? payload.subscriptions.map((item) => ({
+        ...item,
+        status: normalizeSubscriptionStatus(item)
+      }))
+    : [];
+  const incomingTrashedSubscriptions = Array.isArray(payload.trashedSubscriptions)
+    ? ensureUniqueById(
+        payload.trashedSubscriptions.map((item) => ({
+          ...item,
+          status: normalizeSubscriptionStatus(item)
+        }))
+      )
+    : [];
+
+  const compacted = sanitizeCategoriesAndTransactions(
+    incomingCategories,
+    incomingTransactions,
+    incomingTrashedTransactions
+  );
+  const rebuilt = rebuildStateSlices(incomingAccounts, compacted.transactions, incomingBalanceEntries);
+
+  return {
+    categories: compacted.categories,
+    transactions: compacted.transactions,
+    accounts: rebuilt.accounts,
+    balanceChangeEntries: rebuilt.balanceChangeEntries,
+    subscriptions: incomingSubscriptions,
+    trashedTransactions: ensureUniqueById(compacted.extraTransactions),
+    trashedCategories: Array.isArray(payload.trashedCategories)
+      ? ensureUniqueById(payload.trashedCategories)
+      : [],
+    trashedAccounts: Array.isArray(payload.trashedAccounts)
+      ? ensureUniqueById(payload.trashedAccounts)
+      : [],
+    trashedSubscriptions: incomingTrashedSubscriptions
   };
 }
 
@@ -1221,32 +1284,9 @@ export const useFinanceStore = create<FinanceState>()(
         });
       },
       replaceAllData: (payload) => {
-        const incomingCategories = Array.isArray(payload.categories) ? payload.categories : [];
-        const incomingTransactions = Array.isArray(payload.transactions)
-          ? payload.transactions
-          : [];
-        const incomingAccounts = Array.isArray(payload.accounts) ? payload.accounts : [];
-        const incomingSubscriptions = Array.isArray(payload.subscriptions)
-          ? payload.subscriptions.map((item) => ({
-              ...item,
-              status: normalizeSubscriptionStatus(item)
-            }))
-          : [];
-        const compacted = sanitizeCategoriesAndTransactions(
-          incomingCategories,
-          incomingTransactions
-        );
-        const rebuilt = rebuildStateSlices(incomingAccounts, compacted.transactions, []);
+        const normalized = normalizeImportedFinanceSnapshot(payload);
         set(() => ({
-          categories: compacted.categories,
-          transactions: compacted.transactions,
-          accounts: rebuilt.accounts,
-          balanceChangeEntries: rebuilt.balanceChangeEntries,
-          subscriptions: incomingSubscriptions,
-          trashedSubscriptions: [],
-          trashedTransactions: [],
-          trashedCategories: [],
-          trashedAccounts: []
+          ...normalized
         }));
       }
     }),
@@ -1258,56 +1298,35 @@ export const useFinanceStore = create<FinanceState>()(
       },
       merge: (persistedState, currentState) => {
         const incoming = (persistedState as Partial<FinanceState>) || {};
-        const categories = Array.isArray(incoming.categories)
-          ? incoming.categories
-          : currentState.categories;
-        const transactions = Array.isArray(incoming.transactions)
-          ? incoming.transactions
-          : currentState.transactions;
-        const compacted = sanitizeCategoriesAndTransactions(categories, transactions);
-        const incomingAccounts = Array.isArray(incoming.accounts) ? incoming.accounts : currentState.accounts;
-        const normalizedAccounts = normalizeAccountOrder(incomingAccounts);
-        const incomingBalanceEntries = Array.isArray((incoming as Partial<FinanceState>).balanceChangeEntries)
-          ? ((incoming as Partial<FinanceState>).balanceChangeEntries || [])
-          : [];
-        const rebuilt = rebuildStateSlices(normalizedAccounts, compacted.transactions, incomingBalanceEntries);
-        const trashedTransactions = Array.isArray((incoming as Partial<FinanceState>).trashedTransactions)
-          ? ensureUniqueById((incoming as Partial<FinanceState>).trashedTransactions || [])
-          : [];
-        const trashedCategories = Array.isArray((incoming as Partial<FinanceState>).trashedCategories)
-          ? ensureUniqueById((incoming as Partial<FinanceState>).trashedCategories || [])
-          : [];
-        const trashedAccounts = Array.isArray((incoming as Partial<FinanceState>).trashedAccounts)
-          ? ensureUniqueById((incoming as Partial<FinanceState>).trashedAccounts || [])
-          : [];
-        const subscriptions = Array.isArray((incoming as Partial<FinanceState>).subscriptions)
-          ? ((incoming as Partial<FinanceState>).subscriptions || []).map((item) => ({
-              ...item,
-              status: normalizeSubscriptionStatus(item)
-            }))
-          : [];
-        const trashedSubscriptions = Array.isArray((incoming as Partial<FinanceState>).trashedSubscriptions)
-          ? ensureUniqueById(
-              ((incoming as Partial<FinanceState>).trashedSubscriptions || []).map((item) => ({
-                ...item,
-                status: normalizeSubscriptionStatus(item)
-              }))
-            )
-          : [];
+        const normalized = normalizeImportedFinanceSnapshot({
+          transactions: Array.isArray(incoming.transactions) ? incoming.transactions : currentState.transactions,
+          categories: Array.isArray(incoming.categories) ? incoming.categories : currentState.categories,
+          accounts: Array.isArray(incoming.accounts) ? incoming.accounts : currentState.accounts,
+          subscriptions: Array.isArray(incoming.subscriptions)
+            ? incoming.subscriptions
+            : currentState.subscriptions,
+          trashedTransactions: Array.isArray(incoming.trashedTransactions)
+            ? incoming.trashedTransactions
+            : currentState.trashedTransactions,
+          trashedCategories: Array.isArray(incoming.trashedCategories)
+            ? incoming.trashedCategories
+            : currentState.trashedCategories,
+          trashedAccounts: Array.isArray(incoming.trashedAccounts)
+            ? incoming.trashedAccounts
+            : currentState.trashedAccounts,
+          balanceChangeEntries: Array.isArray(incoming.balanceChangeEntries)
+            ? incoming.balanceChangeEntries
+            : currentState.balanceChangeEntries,
+          trashedSubscriptions: Array.isArray(incoming.trashedSubscriptions)
+            ? incoming.trashedSubscriptions
+            : currentState.trashedSubscriptions
+        });
 
         return {
           ...currentState,
           ...incoming,
           hasHydrated: true,
-          categories: compacted.categories,
-          transactions: compacted.transactions,
-          accounts: rebuilt.accounts,
-          trashedTransactions,
-          trashedCategories,
-          trashedAccounts,
-          balanceChangeEntries: rebuilt.balanceChangeEntries,
-          subscriptions,
-          trashedSubscriptions,
+          ...normalized,
           categoryLearningRules: Array.isArray(
             (incoming as Partial<FinanceState>).categoryLearningRules
           )
