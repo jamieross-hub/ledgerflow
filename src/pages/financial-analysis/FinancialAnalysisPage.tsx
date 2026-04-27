@@ -757,8 +757,10 @@ ${JSON.stringify(aiInput)}`
                 </span>
               ))}
             </div>
-            <div className="financial-analysis-actions">
+            <div className="financial-analysis-actions financial-analysis-profile-actions">
               <button
+                className="financial-analysis-profile-action"
+                aria-label="查看消费明细"
                 type="button"
                 onClick={() =>
                   navigate(
@@ -773,7 +775,12 @@ ${JSON.stringify(aiInput)}`
               >
                 鏌ョ湅娑堣垂鏄庣粏
               </button>
-              <button type="button" onClick={() => navigate('/assistant')}>
+              <button
+                className="financial-analysis-profile-action"
+                aria-label="去 AI 助手"
+                type="button"
+                onClick={() => navigate('/assistant')}
+              >
                 鍘?AI 鍔╂墜
               </button>
             </div>

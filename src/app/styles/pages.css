@@ -847,6 +847,22 @@
   display: none;
 }
 
+.financial-analysis-profile-actions .financial-analysis-profile-action {
+  font-size: 0;
+}
+
+.financial-analysis-profile-actions .financial-analysis-profile-action::after {
+  font-size: var(--font-base);
+}
+
+.financial-analysis-profile-actions .financial-analysis-profile-action[aria-label='查看消费明细']::after {
+  content: '查看消费明细';
+}
+
+.financial-analysis-profile-actions .financial-analysis-profile-action[aria-label='去 AI 助手']::after {
+  content: '去 AI 助手';
+}
+
 .financial-analysis-metrics-grid,
 .financial-analysis-stat-grid,
 .financial-analysis-ai-columns,
