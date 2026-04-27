@@ -2942,6 +2942,22 @@ export function AssistantPage() {
 
         <p className="chat-disclaimer">AI 生成内容仅供参考，请结合原始账单核对后再保存。</p>
 
+        {latestTransaction ? (
+          <div className="chat-input-meta">
+            <div
+              className={`chat-input-context ${wb.textInput.trim() ? 'is-collapsed' : ''}`}
+              aria-label="最近一笔账单"
+            >
+              <span>{latestContextLabel}</span>
+              <strong>
+                {latestTransaction.note || '未备注'} ·
+                {getTransactionDirection(latestTransaction) === 'inflow' ? ' +' : ' -'}¥
+                {latestTransaction.amount.toFixed(2)}
+              </strong>
+            </div>
+          </div>
+        ) : null}
+
         <form className="chat-input-form" onSubmit={onSubmit}>
           <button
             type="button"
@@ -2953,21 +2969,7 @@ export function AssistantPage() {
             ＋
           </button>
 
-          <div className={`chat-input-main ${latestTransaction ? 'has-context' : ''}`}>
-            {latestTransaction ? (
-              <div
-                className={`chat-input-context ${wb.textInput.trim() ? 'is-collapsed' : ''}`}
-                aria-label="最近一笔账单"
-              >
-                <span>{latestContextLabel}</span>
-                <strong>
-                  {latestTransaction.note || '未备注'} ·
-                  {getTransactionDirection(latestTransaction) === 'inflow' ? ' +' : ' -'}¥
-                  {latestTransaction.amount.toFixed(2)}
-                </strong>
-              </div>
-            ) : null}
-
+          <div className="chat-input-main">
             <textarea
               ref={wb.textareaRef}
               className="chat-input-textarea"
