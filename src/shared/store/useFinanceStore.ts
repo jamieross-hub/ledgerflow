@@ -105,8 +105,13 @@ interface FinanceState {
   removeAccount: (id: string) => void;
   restoreAccount: (id: string) => void;
   permanentlyDeleteAccount: (id: string) => void;
-  addSubscription: (payload: Omit<SubscriptionItem, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => string;
-  updateSubscription: (id: string, payload: Omit<SubscriptionItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  addSubscription: (
+    payload: Omit<SubscriptionItem, 'id' | 'createdAt' | 'updatedAt' | 'status'>
+  ) => string;
+  updateSubscription: (
+    id: string,
+    payload: Omit<SubscriptionItem, 'id' | 'createdAt' | 'updatedAt'>
+  ) => void;
   removeSubscription: (id: string) => void;
   restoreSubscription: (id: string) => void;
   permanentlyDeleteSubscription: (id: string) => void;
@@ -265,7 +270,9 @@ function roundCurrency(raw: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function normalizeSubscriptionStatus(item: Pick<SubscriptionItem, 'expireDate' | 'renewalDate' | 'status'>): SubscriptionItem['status'] {
+function normalizeSubscriptionStatus(
+  item: Pick<SubscriptionItem, 'expireDate' | 'renewalDate' | 'status'>
+): SubscriptionItem['status'] {
   if (item.status === 'paused') return 'paused';
   const now = new Date();
   const target = item.expireDate || item.renewalDate;
@@ -346,24 +353,28 @@ function categoryNameKey(raw: string): string {
 
 function normalizeAccountOrder(accounts: Account[]): Account[] {
   const uniqueIds = new Set<string>();
-  const ordered = [...accounts].map((item, index) => {
-    const safeId = String(item.id || '').trim();
-    if (!safeId || uniqueIds.has(safeId)) {
-      return null;
-    }
-    uniqueIds.add(safeId);
-    const sortOrder = Number(item.sortOrder);
-    return {
-      ...item,
-      initialBalance: roundCurrency(Number(item.initialBalance ?? 0)),
-      balance: roundCurrency(Number(item.balance ?? item.initialBalance ?? 0)),
-      sortOrder: Number.isFinite(sortOrder) && sortOrder > 0 ? sortOrder : index + 1
-    } as Account;
-  }).filter(Boolean) as Account[];
+  const ordered = [...accounts]
+    .map((item, index) => {
+      const safeId = String(item.id || '').trim();
+      if (!safeId || uniqueIds.has(safeId)) {
+        return null;
+      }
+      uniqueIds.add(safeId);
+      const sortOrder = Number(item.sortOrder);
+      return {
+        ...item,
+        initialBalance: roundCurrency(Number(item.initialBalance ?? 0)),
+        balance: roundCurrency(Number(item.balance ?? item.initialBalance ?? 0)),
+        sortOrder: Number.isFinite(sortOrder) && sortOrder > 0 ? sortOrder : index + 1
+      } as Account;
+    })
+    .filter(Boolean) as Account[];
 
   return ordered
     .sort((a, b) => {
-      const orderDiff = Number(a.sortOrder ?? Number.MAX_SAFE_INTEGER) - Number(b.sortOrder ?? Number.MAX_SAFE_INTEGER);
+      const orderDiff =
+        Number(a.sortOrder ?? Number.MAX_SAFE_INTEGER) -
+        Number(b.sortOrder ?? Number.MAX_SAFE_INTEGER);
       if (orderDiff !== 0) {
         return orderDiff;
       }
@@ -464,7 +475,11 @@ export function normalizeImportedFinanceSnapshot(payload: FinanceDataSnapshot) {
     incomingTransactions,
     incomingTrashedTransactions
   );
-  const rebuilt = rebuildStateSlices(incomingAccounts, compacted.transactions, incomingBalanceEntries);
+  const rebuilt = rebuildStateSlices(
+    incomingAccounts,
+    compacted.transactions,
+    incomingBalanceEntries
+  );
 
   return {
     categories: compacted.categories,
@@ -523,7 +538,10 @@ function buildTransactionBalanceChangeEntries(
   transactions: TransactionItem[]
 ): BalanceChangeEntry[] {
   const balanceMap = new Map<string, number>(
-    normalizeAccountOrder(accounts).map((item) => [item.id, roundCurrency(Number(item.initialBalance ?? 0))])
+    normalizeAccountOrder(accounts).map((item) => [
+      item.id,
+      roundCurrency(Number(item.initialBalance ?? 0))
+    ])
   );
 
   const sortedTransactions = [...transactions].sort((a, b) => {
@@ -579,7 +597,10 @@ function mergeBalanceChangeEntries(
     (item) => !TX_BALANCE_CHANGE_TYPES.has(item.type) && accountIds.has(item.accountId)
   );
 
-  return [...buildTransactionBalanceChangeEntries(accounts, transactions), ...preservedManualEntries]
+  return [
+    ...buildTransactionBalanceChangeEntries(accounts, transactions),
+    ...preservedManualEntries
+  ]
     .sort((a, b) => {
       const dateDiff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       if (dateDiff !== 0) {
@@ -795,7 +816,9 @@ export const useFinanceStore = create<FinanceState>()(
             return s;
           }
           if (refundAmount > remainingRefundableAmount) {
-            thrownError = new Error(`退款金额不能超过剩余可退金额 ${remainingRefundableAmount.toFixed(2)}。`);
+            thrownError = new Error(
+              `退款金额不能超过剩余可退金额 ${remainingRefundableAmount.toFixed(2)}。`
+            );
             return s;
           }
 
@@ -851,13 +874,20 @@ export const useFinanceStore = create<FinanceState>()(
         }
 
         const state = get();
-        const refundRow = state.transactions.find((item) => item.id === result?.refundTransactionId);
+        const refundRow = state.transactions.find(
+          (item) => item.id === result?.refundTransactionId
+        );
         const originalRow = state.transactions.find((item) => item.id === input.transactionId);
         if (refundRow) {
           void syncChangeIfNeeded({ entity: 'transactions', action: 'insert', row: refundRow });
         }
         if (originalRow) {
-          void syncChangeIfNeeded({ entity: 'transactions', action: 'update', row: originalRow, id: originalRow.id });
+          void syncChangeIfNeeded({
+            entity: 'transactions',
+            action: 'update',
+            row: originalRow,
+            id: originalRow.id
+          });
         }
 
         return result;
@@ -1025,8 +1055,8 @@ export const useFinanceStore = create<FinanceState>()(
           return {
             accounts: rebuilt.accounts,
             balanceChangeEntries: manualEntry
-              ? [...rebuilt.balanceChangeEntries, manualEntry].sort((a, b) =>
-                  new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+              ? [...rebuilt.balanceChangeEntries, manualEntry].sort(
+                  (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
                 )
               : rebuilt.balanceChangeEntries
           };
@@ -1144,7 +1174,10 @@ export const useFinanceStore = create<FinanceState>()(
           }
           return {
             subscriptions: s.subscriptions.filter((item) => item.id !== id),
-            trashedSubscriptions: ensureUniqueById([...s.trashedSubscriptions, markTrashedAt(target)])
+            trashedSubscriptions: ensureUniqueById([
+              ...s.trashedSubscriptions,
+              markTrashedAt(target)
+            ])
           };
         });
       },
@@ -1196,13 +1229,16 @@ export const useFinanceStore = create<FinanceState>()(
             return s;
           }
 
-          const currencyTag = subscription.currency && subscription.currency !== 'CNY'
-            ? [`币种:${subscription.currency}`]
-            : [];
+          const currencyTag =
+            subscription.currency && subscription.currency !== 'CNY'
+              ? [`币种:${subscription.currency}`]
+              : [];
           const noteParts = [
             `订阅支出：${subscription.name}`,
             subscription.provider ? `服务商:${subscription.provider}` : '',
-            subscription.currency && subscription.currency !== 'CNY' ? `原币种:${subscription.currency}` : '',
+            subscription.currency && subscription.currency !== 'CNY'
+              ? `原币种:${subscription.currency}`
+              : '',
             subscription.note || ''
           ].filter(Boolean);
 
@@ -1299,8 +1335,12 @@ export const useFinanceStore = create<FinanceState>()(
       merge: (persistedState, currentState) => {
         const incoming = (persistedState as Partial<FinanceState>) || {};
         const normalized = normalizeImportedFinanceSnapshot({
-          transactions: Array.isArray(incoming.transactions) ? incoming.transactions : currentState.transactions,
-          categories: Array.isArray(incoming.categories) ? incoming.categories : currentState.categories,
+          transactions: Array.isArray(incoming.transactions)
+            ? incoming.transactions
+            : currentState.transactions,
+          categories: Array.isArray(incoming.categories)
+            ? incoming.categories
+            : currentState.categories,
           accounts: Array.isArray(incoming.accounts) ? incoming.accounts : currentState.accounts,
           subscriptions: Array.isArray(incoming.subscriptions)
             ? incoming.subscriptions

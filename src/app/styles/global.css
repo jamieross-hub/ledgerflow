@@ -7095,8 +7095,27 @@ body.exchange-resizing {
 /* ============================================================
    Database Connection Form + Debug Log
    ============================================================ */
-.connection-form {
+.connection-config-manager {
+  display: grid;
+  gap: var(--space-3);
   margin-top: var(--space-3);
+}
+
+.connection-config-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.connection-form {
+  margin-top: var(--space-1);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.connection-form.is-embedded {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .connection-layout {
@@ -7113,12 +7132,18 @@ body.exchange-resizing {
 }
 
 .connection-actions {
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-subtle);
+  align-content: start;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   position: sticky;
   top: var(--space-3);
+}
+
+.connection-actions > button,
+.connection-actions .connection-test-wrap > button {
+  width: 100%;
 }
 
 .connection-section-header h3 {
@@ -7141,6 +7166,43 @@ body.exchange-resizing {
   flex: 1;
 }
 
+.connection-type-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.connection-type-select-field {
+  flex: 1 1 240px;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.connection-type-select-field select {
+  width: 100%;
+}
+
+.connection-inline-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.connection-inline-checkbox input {
+  margin: 0;
+}
+
 .connection-advanced {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -7160,6 +7222,11 @@ body.exchange-resizing {
 }
 
 .connection-test-wrap {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.connection-test-wrap > div {
   display: grid;
   gap: var(--space-2);
 }
@@ -7187,9 +7254,13 @@ body.exchange-resizing {
 
 .connection-test-log {
   margin: 0;
+  padding: var(--space-3);
   max-height: 180px;
   overflow: auto;
   font-size: var(--font-xs);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
 }
 
 .debug-log-fab-wrap {
@@ -8123,6 +8194,8 @@ body.categories-accounts-resizing {
 
   .connection-actions {
     position: static;
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-border-light);
   }
 }
 

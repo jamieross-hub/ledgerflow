@@ -45,6 +45,8 @@ export interface ApplyBillImportModeResult {
   shouldClearBeforeImport: boolean;
 }
 
+type ImportedTransactionDraft = Omit<TransactionItem, 'id'>;
+
 const DATE_KEYS = [
   '交易时间',
   '入账时间',
@@ -189,6 +191,50 @@ function buildBillIdentity(item: {
   return `content:${String(item.date || '').slice(0, 10)}|${amount}|${String(item.type || '')}|${String(item.note || '').trim()}`;
 }
 
+function mergeImportTags(existingTags: string[], incomingTags: string[]): string[] {
+  return Array.from(new Set([...(existingTags || []), ...(incomingTags || [])]));
+}
+
+function hasAllImportTags(existingTags: string[], incomingTags: string[]): boolean {
+  const existing = new Set(existingTags || []);
+  return (incomingTags || []).every((tag) => existing.has(tag));
+}
+
+function hasImportedFieldChanges(
+  existing: TransactionItem,
+  incoming: ImportedTransactionDraft
+): boolean {
+  return (
+    existing.type !== incoming.type ||
+    existing.amount !== incoming.amount ||
+    existing.date !== incoming.date ||
+    existing.note !== incoming.note ||
+    existing.source !== incoming.source ||
+    existing.orderNo !== incoming.orderNo ||
+    existing.merchantOrderNo !== incoming.merchantOrderNo ||
+    existing.status !== incoming.status ||
+    !hasAllImportTags(existing.tags || [], incoming.tags || [])
+  );
+}
+
+function buildImportedTransactionUpdatePayload(
+  existing: TransactionItem,
+  incoming: ImportedTransactionDraft
+): ImportedTransactionDraft {
+  return {
+    ...existing,
+    ...incoming,
+    categoryId: existing.categoryId || incoming.categoryId,
+    accountId: existing.accountId || incoming.accountId,
+    tags: mergeImportTags(existing.tags || [], incoming.tags || []),
+    attachments: existing.attachments,
+    adjustmentKind: existing.adjustmentKind,
+    refundOfTransactionId: existing.refundOfTransactionId,
+    updatedAt: existing.updatedAt,
+    trashedAt: existing.trashedAt
+  };
+}
+
 export function applyBillImportMode(input: ApplyBillImportModeInput): ApplyBillImportModeResult {
   const existingByIdentity = new Map<string, TransactionItem>();
   input.existing.forEach((item) => {
@@ -217,7 +263,18 @@ export function applyBillImportMode(input: ApplyBillImportModeInput): ApplyBillI
     }
 
     if (input.mode === 'merge') {
-      update.push({ id: existing.id, payload: item });
+      update.push({
+        id: existing.id,
+        payload: buildImportedTransactionUpdatePayload(existing, item)
+      });
+      return;
+    }
+
+    if (hasImportedFieldChanges(existing, item)) {
+      update.push({
+        id: existing.id,
+        payload: buildImportedTransactionUpdatePayload(existing, item)
+      });
       return;
     }
 

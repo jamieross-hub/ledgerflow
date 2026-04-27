@@ -164,7 +164,7 @@ describe('parseFinanceBackupPayload', () => {
       ]
     });
 
-    expect(payload.version).toBe(2);
+    expect(payload.version).toBe(3);
     expect(payload.data.subscriptions).toHaveLength(1);
     expect(payload.data.globalMemories).toHaveLength(1);
   });
@@ -221,6 +221,138 @@ describe('parseFinanceBackupPayload', () => {
     expect(payload.data.subscriptions[0].status).toBe('active');
     expect(payload.data.globalMemories[0].title).toBe('保守风险偏好');
     expect(payload.data.globalMemories[0].pinned).toBe(true);
+  });
+});
+
+describe('v3 backup round-trip', () => {
+  it('preserves transaction metadata, trash state, and manual balance entries', () => {
+    const created = createFinanceBackupPayload({
+      transactions: [
+        {
+          id: 'tx-1',
+          type: 'expense',
+          categoryId: 'cat-1',
+          accountId: 'acc-1',
+          amount: 88.8,
+          date: '2026-04-10',
+          note: 'Lunch',
+          tags: ['food'],
+          source: 'manual',
+          status: 'completed',
+          adjustmentKind: 'normal',
+          updatedAt: '2026-04-10T08:00:00.000Z',
+          attachments: [
+            {
+              id: 'att-1',
+              name: 'receipt.png',
+              remotePath: 'ledgerflow/attachments/tx-1/receipt.png',
+              uploadedAt: '2026-04-10T08:30:00.000Z',
+              mimeType: 'image/png',
+              size: 2048
+            }
+          ]
+        }
+      ],
+      categories: [
+        {
+          id: 'cat-1',
+          name: 'Food',
+          kind: 'expense',
+          sortOrder: 2,
+          trashedAt: '2026-04-01T00:00:00.000Z'
+        }
+      ],
+      accounts: [
+        {
+          id: 'acc-1',
+          name: 'Card',
+          type: 'debit',
+          initialBalance: 500,
+          balance: 411.2,
+          sortOrder: 3,
+          trashedAt: '2026-04-02T00:00:00.000Z'
+        }
+      ],
+      subscriptions: [],
+      trashedTransactions: [
+        {
+          id: 'tx-2',
+          type: 'expense',
+          categoryId: 'cat-1',
+          accountId: 'acc-1',
+          amount: 12.34,
+          date: '2026-04-09',
+          note: 'Refunded meal',
+          tags: ['food', 'refund'],
+          source: 'manual',
+          status: 'refunded',
+          adjustmentKind: 'refund',
+          refundOfTransactionId: 'tx-1',
+          updatedAt: '2026-04-10T09:00:00.000Z',
+          trashedAt: '2026-04-11T00:00:00.000Z'
+        }
+      ],
+      trashedCategories: [
+        {
+          id: 'cat-2',
+          name: 'Archived',
+          kind: 'expense',
+          sortOrder: 4,
+          trashedAt: '2026-04-11T00:00:00.000Z'
+        }
+      ],
+      trashedAccounts: [
+        {
+          id: 'acc-2',
+          name: 'Old Wallet',
+          type: 'cash',
+          initialBalance: 10,
+          balance: 10,
+          sortOrder: 4,
+          trashedAt: '2026-04-11T00:00:00.000Z'
+        }
+      ],
+      balanceChangeEntries: [
+        {
+          id: 'bal-1',
+          accountId: 'acc-1',
+          type: 'manual-adjustment',
+          amount: 15,
+          beforeBalance: 426.2,
+          afterBalance: 411.2,
+          createdAt: '2026-04-12T00:00:00.000Z',
+          note: 'Manual fix',
+          remark: 'Adjusted after audit'
+        }
+      ],
+      trashedSubscriptions: [
+        {
+          id: 'sub-1',
+          name: 'Old plan',
+          kind: 'digital',
+          amount: 20,
+          currency: 'CNY',
+          billingCycle: 'monthly',
+          status: 'paused',
+          trashedAt: '2026-04-15T00:00:00.000Z',
+          createdAt: '2026-04-01T00:00:00.000Z',
+          updatedAt: '2026-04-05T00:00:00.000Z'
+        }
+      ],
+      globalMemories: []
+    });
+
+    const parsed = parseFinanceBackupPayload(JSON.stringify(created));
+
+    expect(parsed.version).toBe(3);
+    expect(parsed.data.transactions[0].attachments?.[0].remotePath).toBe(
+      'ledgerflow/attachments/tx-1/receipt.png'
+    );
+    expect(parsed.data.trashedTransactions[0].refundOfTransactionId).toBe('tx-1');
+    expect(parsed.data.categories[0].trashedAt).toBe('2026-04-01T00:00:00.000Z');
+    expect(parsed.data.accounts[0].sortOrder).toBe(3);
+    expect(parsed.data.balanceChangeEntries[0].type).toBe('manual-adjustment');
+    expect(parsed.data.trashedSubscriptions[0].trashedAt).toBe('2026-04-15T00:00:00.000Z');
   });
 });
 

@@ -12,13 +12,12 @@ import { ConnectionFormValues } from '../model/connectionFormSchema';
 export function ConnectionConfigManager() {
   const [, setRefreshTick] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [adding, setAdding] = useState(true);
+  const [adding, setAdding] = useState(false);
 
-  // 通过刷新 tick 强制重渲染，从而读取最新连接配置。
   const rows = listConnections();
 
   function refresh() {
-    setRefreshTick((v) => v + 1);
+    setRefreshTick((value) => value + 1);
   }
 
   function handleSave(values: ConnectionFormValues) {
@@ -29,7 +28,7 @@ export function ConnectionConfigManager() {
   }
 
   return (
-    <section id="connection-config-manager" className="panel">
+    <section id="connection-config-manager" className="connection-config-manager">
       <div
         className="row"
         style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}
@@ -43,19 +42,18 @@ export function ConnectionConfigManager() {
               fontSize: 'var(--font-sm)'
             }}
           >
-            支持直接填写 MySQL / Redis 的地址、端口、用户名、密码、连接串及 TLS
-            参数。敏感字段会在浏览器本地做混淆存储，勿视为强加密。
+            常用默认已预填：localhost、默认端口，以及 MySQL 库名 ledgerflow / Redis DB 0。只在需要时再改。
           </p>
         </div>
-        <button className="primary" onClick={() => setAdding((x) => !x)}>
-          {adding ? '收起新增表单' : '展开新增表单'}
+        <button className="primary" onClick={() => setAdding((value) => !value)}>
+          {adding ? '收起新增' : '新增连接'}
         </button>
       </div>
 
-      {adding && <ConnectionConfigForm onSubmit={handleSave} onCancel={() => setAdding(false)} />}
+      {adding ? <ConnectionConfigForm onSubmit={handleSave} onCancel={() => setAdding(false)} /> : null}
 
-      <div>
-        {rows.length === 0 && <p>暂无连接配置，请新增一条。</p>}
+      <div className="connection-config-list">
+        {rows.length === 0 && !adding ? <p>暂无连接配置，需要时点“新增连接”即可。</p> : null}
         {rows.map((item) => (
           <ConnectionConfigCard
             key={item.id}

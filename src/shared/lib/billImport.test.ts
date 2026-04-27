@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { parseBillCsvToTransactions, parseBillCsvToTransactionsAsync } from './billImport';
+import {
+  applyBillImportMode,
+  parseBillCsvToTransactions,
+  parseBillCsvToTransactionsAsync
+} from './billImport';
+import type { TransactionItem } from '../../entities/transaction/types';
 
 describe('parseBillCsvToTransactions', () => {
   it('应支持支付宝带说明头的账单并自动识别表头', () => {
@@ -129,4 +134,168 @@ describe('parseBillCsvToTransactions', () => {
     expect(asyncRows).toHaveLength(1200);
     expect(asyncRows).toEqual(syncRows);
   }, 15000);
+});
+
+describe('applyBillImportMode', () => {
+  it('updates changed duplicate bills in incremental mode and preserves local enrichments', () => {
+    const existing: TransactionItem[] = [
+      {
+        id: 'tx-1',
+        type: 'expense',
+        categoryId: 'cat-custom',
+        accountId: 'acc-custom',
+        amount: 88.8,
+        date: '2026-04-10T08:00:00.000Z',
+        note: 'Old note',
+        tags: ['支付宝导入', '手工标签'],
+        source: 'alipay' as const,
+        orderNo: 'trade-1',
+        merchantOrderNo: 'merchant-1',
+        status: 'pending' as const,
+        attachments: [
+          {
+            id: 'att-1',
+            name: 'receipt.png',
+            remotePath: 'ledgerflow/attachments/tx-1/receipt.png',
+            uploadedAt: '2026-04-10T08:30:00.000Z'
+          }
+        ]
+      }
+    ];
+
+    const incoming = [
+      {
+        type: 'expense' as const,
+        categoryId: 'cat-default',
+        accountId: 'acc-default',
+        amount: 88.8,
+        date: '2026-04-10T08:00:00.000Z',
+        note: 'New note',
+        tags: ['支付宝导入'],
+        source: 'alipay' as const,
+        orderNo: 'trade-1',
+        merchantOrderNo: 'merchant-1',
+        status: 'completed' as const
+      }
+    ];
+
+    const result = applyBillImportMode({
+      mode: 'incremental',
+      existing,
+      incoming
+    });
+
+    expect(result.append).toEqual([]);
+    expect(result.skipped).toBe(0);
+    expect(result.update).toHaveLength(1);
+    expect(result.update[0].id).toBe('tx-1');
+    expect(result.update[0].payload.status).toBe('completed');
+    expect(result.update[0].payload.note).toBe('New note');
+    expect(result.update[0].payload.categoryId).toBe('cat-custom');
+    expect(result.update[0].payload.accountId).toBe('acc-custom');
+    expect(result.update[0].payload.attachments).toEqual(existing[0].attachments);
+    expect(result.update[0].payload.tags).toEqual(['支付宝导入', '手工标签']);
+  });
+
+  it('skips unchanged duplicate bills in incremental mode', () => {
+    const existing: TransactionItem[] = [
+      {
+        id: 'tx-1',
+        type: 'expense',
+        categoryId: 'cat-custom',
+        accountId: 'acc-custom',
+        amount: 88.8,
+        date: '2026-04-10T08:00:00.000Z',
+        note: 'Lunch',
+        tags: ['支付宝导入', '手工标签'],
+        source: 'alipay' as const,
+        orderNo: 'trade-1',
+        merchantOrderNo: 'merchant-1',
+        status: 'completed' as const
+      }
+    ];
+
+    const incoming = [
+      {
+        type: 'expense' as const,
+        categoryId: 'cat-default',
+        accountId: 'acc-default',
+        amount: 88.8,
+        date: '2026-04-10T08:00:00.000Z',
+        note: 'Lunch',
+        tags: ['支付宝导入'],
+        source: 'alipay' as const,
+        orderNo: 'trade-1',
+        merchantOrderNo: 'merchant-1',
+        status: 'completed' as const
+      }
+    ];
+
+    const result = applyBillImportMode({
+      mode: 'incremental',
+      existing,
+      incoming
+    });
+
+    expect(result.update).toEqual([]);
+    expect(result.append).toEqual([]);
+    expect(result.skipped).toBe(1);
+  });
+
+  it('preserves local enrichments in merge mode while refreshing imported fields', () => {
+    const existing: TransactionItem[] = [
+      {
+        id: 'tx-1',
+        type: 'expense',
+        categoryId: 'cat-custom',
+        accountId: 'acc-custom',
+        amount: 88.8,
+        date: '2026-04-10T08:00:00.000Z',
+        note: 'Lunch',
+        tags: ['支付宝导入', '手工标签'],
+        source: 'alipay' as const,
+        orderNo: 'trade-1',
+        merchantOrderNo: 'merchant-1',
+        status: 'pending' as const,
+        attachments: [
+          {
+            id: 'att-1',
+            name: 'receipt.png',
+            remotePath: 'ledgerflow/attachments/tx-1/receipt.png',
+            uploadedAt: '2026-04-10T08:30:00.000Z'
+          }
+        ]
+      }
+    ];
+
+    const incoming = [
+      {
+        type: 'expense' as const,
+        categoryId: 'cat-default',
+        accountId: 'acc-default',
+        amount: 99.9,
+        date: '2026-04-10T08:00:00.000Z',
+        note: 'Updated lunch',
+        tags: ['支付宝导入'],
+        source: 'alipay' as const,
+        orderNo: 'trade-1',
+        merchantOrderNo: 'merchant-1',
+        status: 'completed' as const
+      }
+    ];
+
+    const result = applyBillImportMode({
+      mode: 'merge',
+      existing,
+      incoming
+    });
+
+    expect(result.update).toHaveLength(1);
+    expect(result.update[0].payload.amount).toBe(99.9);
+    expect(result.update[0].payload.status).toBe('completed');
+    expect(result.update[0].payload.categoryId).toBe('cat-custom');
+    expect(result.update[0].payload.accountId).toBe('acc-custom');
+    expect(result.update[0].payload.attachments).toEqual(existing[0].attachments);
+    expect(result.update[0].payload.tags).toEqual(['支付宝导入', '手工标签']);
+  });
 });

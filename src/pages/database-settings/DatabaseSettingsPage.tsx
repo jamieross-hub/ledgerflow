@@ -69,6 +69,11 @@ export function DatabaseSettingsPage() {
   const categories = useFinanceStore((s) => s.categories);
   const accounts = useFinanceStore((s) => s.accounts);
   const subscriptions = useFinanceStore((s) => s.subscriptions);
+  const trashedTransactions = useFinanceStore((s) => s.trashedTransactions);
+  const trashedCategories = useFinanceStore((s) => s.trashedCategories);
+  const trashedAccounts = useFinanceStore((s) => s.trashedAccounts);
+  const balanceChangeEntries = useFinanceStore((s) => s.balanceChangeEntries);
+  const trashedSubscriptions = useFinanceStore((s) => s.trashedSubscriptions);
   const addTransaction = useFinanceStore((s) => s.addTransaction);
   const updateTransaction = useFinanceStore((s) => s.updateTransaction);
   const addCategory = useFinanceStore((s) => s.addCategory);
@@ -138,6 +143,11 @@ export function DatabaseSettingsPage() {
       categories,
       accounts,
       subscriptions,
+      trashedTransactions,
+      trashedCategories,
+      trashedAccounts,
+      balanceChangeEntries,
+      trashedSubscriptions,
       globalMemories
     });
     downloadBackupJson(payload);
@@ -266,6 +276,11 @@ export function DatabaseSettingsPage() {
         categories,
         accounts,
         subscriptions,
+        trashedTransactions,
+        trashedCategories,
+        trashedAccounts,
+        balanceChangeEntries,
+        trashedSubscriptions,
         globalMemories
       });
       await webdavUploadBackup(webdav, payload, (stage) => {
@@ -332,7 +347,9 @@ export function DatabaseSettingsPage() {
     <div>
       <section className="panel">
         <h2>备份设置</h2>
-        <p style={{ margin: 0 }}>集中处理本地备份、账单导入和 WebDAV 远程备份；远程数据库连接放在高级区域。</p>
+        <p style={{ margin: 0 }}>
+          集中处理本地备份、账单导入和 WebDAV 远程备份；远程数据库连接放在高级区域。
+        </p>
       </section>
 
       <section className="panel database-data-hub" style={{ marginTop: 12 }}>
@@ -379,7 +396,9 @@ export function DatabaseSettingsPage() {
               <span className="database-data-hub-label">账单导入</span>
               <h4>把微信 / 支付宝账单补进来</h4>
             </div>
-            <p className="sync-tip">支持微信、支付宝官方账单 CSV / TXT（含制表符），以及微信 XLSX。</p>
+            <p className="sync-tip">
+              支持微信、支付宝官方账单 CSV / TXT（含制表符），以及微信 XLSX。
+            </p>
             <div className="database-import-actions">
               <label className="field database-import-mode-field" style={{ marginBottom: 0 }}>
                 遇到重复账单时
@@ -388,8 +407,8 @@ export function DatabaseSettingsPage() {
                   value={importMode}
                   onChange={(e) => setImportMode(e.target.value as BillImportMode)}
                 >
-                  <option value="incremental">保留旧账单，跳过重复</option>
-                  <option value="merge">用新账单覆盖重复项</option>
+                  <option value="incremental">保留旧账单，重复但有变更时更新为最新</option>
+                  <option value="merge">用新账单覆盖重复账单的导入字段</option>
                   <option value="overwrite">清空现有交易后重新导入</option>
                 </select>
               </label>
@@ -436,7 +455,15 @@ export function DatabaseSettingsPage() {
       </section>
 
       <section className="panel" style={{ marginTop: 12 }}>
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <div
+          className="row"
+          style={{
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 12,
+            flexWrap: 'wrap'
+          }}
+        >
           <div>
             <h3 style={{ margin: 0 }}>WebDAV 备份</h3>
             <p className="sync-tip" style={{ margin: '6px 0 0' }}>
@@ -501,7 +528,9 @@ export function DatabaseSettingsPage() {
                 <input
                   type="checkbox"
                   checked={webdav.proxyEnabled}
-                  onChange={(e) => setWebdav((prev) => ({ ...prev, proxyEnabled: e.target.checked }))}
+                  onChange={(e) =>
+                    setWebdav((prev) => ({ ...prev, proxyEnabled: e.target.checked }))
+                  }
                 />
                 启用同源代理
               </label>
@@ -556,22 +585,34 @@ export function DatabaseSettingsPage() {
       </section>
 
       <section className="panel" style={{ marginTop: 12 }}>
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <div
+          className="row"
+          style={{
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 12,
+            flexWrap: 'wrap'
+          }}
+        >
           <div>
             <h3 style={{ marginTop: 0, marginBottom: 0 }}>远程数据库连接（高级）</h3>
             <p className="sync-tip" style={{ margin: '6px 0 0' }}>
-              仅保存和测试连接参数，不会替代本地存储，也不会覆盖 WebDAV 备份。
+              可选保存 MySQL / Redis 连接参数，不影响本地账本，也不会覆盖 WebDAV 备份。
             </p>
           </div>
           <button type="button" onClick={() => setRemoteConnectionOpen((prev) => !prev)}>
-            {remoteConnectionOpen ? '收起' : '展开'}
+            {remoteConnectionOpen ? '收起连接配置' : '展开连接配置'}
           </button>
         </div>
         {remoteConnectionOpen ? <ConnectionConfigManager /> : null}
       </section>
 
       {webdavRestoreDialogOpen ? (
-        <div className="dialog-overlay" role="presentation" onClick={() => setWebdavRestoreDialogOpen(false)}>
+        <div
+          className="dialog-overlay"
+          role="presentation"
+          onClick={() => setWebdavRestoreDialogOpen(false)}
+        >
           <section
             className="dialog"
             role="dialog"

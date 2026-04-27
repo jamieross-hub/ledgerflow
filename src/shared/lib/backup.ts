@@ -11,10 +11,7 @@ import {
   TransactionAttachmentItem,
   TransactionItem
 } from '../../entities/transaction/types';
-import {
-  GlobalMemoryItem,
-  sanitizePersistedGlobalMemoryItem
-} from '../store/globalMemory';
+import { GlobalMemoryItem, sanitizePersistedGlobalMemoryItem } from '../store/globalMemory';
 import type { FinanceDataSnapshot } from '../store/useFinanceStore';
 
 const BACKUP_KEY = 'ledgerflow-backup-webdav-v1';
@@ -147,12 +144,14 @@ export function sanitizeWebdavConfig(config: BackupWebdavConfig): BackupWebdavCo
   };
 }
 
+export type FinanceBackupData = Required<FinanceDataSnapshot> & {
+  globalMemories: GlobalMemoryItem[];
+};
+
 export interface FinanceBackupPayload {
   version: number;
   exportedAt: string;
-  data: FinanceDataSnapshot & {
-    globalMemories: GlobalMemoryItem[];
-  };
+  data: FinanceBackupData;
 }
 
 const TRANSACTION_TYPES = new Set<TransactionItem['type']>([
@@ -198,7 +197,12 @@ const SUBSCRIPTION_BILLING_CYCLES = new Set<SubscriptionBillingCycle>([
   'yearly',
   'custom'
 ]);
-const SUBSCRIPTION_STATUS = new Set<SubscriptionStatus>(['active', 'due-soon', 'expired', 'paused']);
+const SUBSCRIPTION_STATUS = new Set<SubscriptionStatus>([
+  'active',
+  'due-soon',
+  'expired',
+  'paused'
+]);
 const BALANCE_CHANGE_TYPES = new Set<BalanceChangeEntry['type']>([
   'transaction-income',
   'transaction-expense',
@@ -258,6 +262,55 @@ function assertStringArray(value: unknown, path: string): asserts value is strin
   }
 }
 
+function validateTransactionAttachmentItem(
+  item: unknown,
+  transactionIndex: number,
+  attachmentIndex: number
+): TransactionAttachmentItem {
+  if (!isObjectRecord(item)) {
+    throw new Error(
+      `澶囦唤鏂囦欢瀛楁鏃犳晥锛歞ata.transactions[${transactionIndex}].attachments[${attachmentIndex}] 搴斾负瀵硅薄`
+    );
+  }
+
+  assertString(
+    item.id,
+    `data.transactions[${transactionIndex}].attachments[${attachmentIndex}].id`
+  );
+  assertString(
+    item.name,
+    `data.transactions[${transactionIndex}].attachments[${attachmentIndex}].name`
+  );
+  assertString(
+    item.remotePath,
+    `data.transactions[${transactionIndex}].attachments[${attachmentIndex}].remotePath`
+  );
+  assertDateString(
+    item.uploadedAt,
+    `data.transactions[${transactionIndex}].attachments[${attachmentIndex}].uploadedAt`
+  );
+  assertString(
+    item.mimeType,
+    `data.transactions[${transactionIndex}].attachments[${attachmentIndex}].mimeType`,
+    { required: false }
+  );
+  if (item.size !== undefined) {
+    assertNumber(
+      item.size,
+      `data.transactions[${transactionIndex}].attachments[${attachmentIndex}].size`
+    );
+  }
+
+  return {
+    id: asSafeString(item.id),
+    name: asSafeString(item.name),
+    remotePath: asSafeString(item.remotePath),
+    uploadedAt: asSafeString(item.uploadedAt),
+    mimeType: asSafeString(item.mimeType) || undefined,
+    size: typeof item.size === 'number' ? Number(item.size) : undefined
+  };
+}
+
 function validateTransactionItem(item: unknown, index: number): TransactionItem {
   if (!isObjectRecord(item)) {
     throw new Error(`备份文件字段无效：data.transactions[${index}] 应为对象`);
@@ -298,6 +351,30 @@ function validateTransactionItem(item: unknown, index: number): TransactionItem 
   assertString(item.merchantOrderNo, `data.transactions[${index}].merchantOrderNo`, {
     required: false
   });
+  assertString(item.refundOfTransactionId, `data.transactions[${index}].refundOfTransactionId`, {
+    required: false
+  });
+  assertDateString(item.updatedAt, `data.transactions[${index}].updatedAt`, { required: false });
+  assertDateString(item.trashedAt, `data.transactions[${index}].trashedAt`, { required: false });
+
+  if (
+    item.adjustmentKind !== undefined &&
+    (typeof item.adjustmentKind !== 'string' ||
+      !TRANSACTION_ADJUSTMENT_KINDS.has(
+        item.adjustmentKind as NonNullable<TransactionItem['adjustmentKind']>
+      ))
+  ) {
+    throw new Error(
+      `澶囦唤鏂囦欢瀛楁鏃犳晥锛歞ata.transactions[${index}].adjustmentKind 鏋氫妇鍊间笉鍚堟硶`
+    );
+  }
+
+  const attachments = item.attachments;
+  if (attachments !== undefined && !Array.isArray(attachments)) {
+    throw new Error(
+      `澶囦唤鏂囦欢瀛楁鏃犳晥锛歞ata.transactions[${index}].attachments 搴斾负鏁扮粍`
+    );
+  }
 
   return {
     id: asSafeString(item.id),
@@ -311,7 +388,16 @@ function validateTransactionItem(item: unknown, index: number): TransactionItem 
     source: item.source as TransactionItem['source'] | undefined,
     orderNo: asSafeString(item.orderNo) || undefined,
     merchantOrderNo: asSafeString(item.merchantOrderNo) || undefined,
-    status: item.status as TransactionItem['status'] | undefined
+    status: item.status as TransactionItem['status'] | undefined,
+    adjustmentKind: item.adjustmentKind as TransactionItem['adjustmentKind'] | undefined,
+    refundOfTransactionId: asSafeString(item.refundOfTransactionId) || undefined,
+    attachments: Array.isArray(attachments)
+      ? attachments.map((entry, attachmentIndex) =>
+          validateTransactionAttachmentItem(entry, index, attachmentIndex)
+        )
+      : undefined,
+    updatedAt: asSafeString(item.updatedAt) || undefined,
+    trashedAt: asSafeString(item.trashedAt) || undefined
   };
 }
 
@@ -328,6 +414,7 @@ function validateCategoryItem(item: unknown, index: number): Category {
   if (item.sortOrder !== undefined) {
     assertNumber(item.sortOrder, `data.categories[${index}].sortOrder`);
   }
+  assertDateString(item.trashedAt, `data.categories[${index}].trashedAt`, { required: false });
 
   if (
     item.kind !== undefined &&
@@ -343,7 +430,8 @@ function validateCategoryItem(item: unknown, index: number): Category {
     kind: item.kind as Category['kind'] | undefined,
     color: asSafeString(item.color) || undefined,
     icon: asSafeString(item.icon) || undefined,
-    sortOrder: typeof item.sortOrder === 'number' ? Number(item.sortOrder) : undefined
+    sortOrder: typeof item.sortOrder === 'number' ? Number(item.sortOrder) : undefined,
+    trashedAt: asSafeString(item.trashedAt) || undefined
   };
 }
 
@@ -361,6 +449,10 @@ function validateAccountItem(item: unknown, index: number): Account {
   if (item.balance !== undefined) {
     assertNumber(item.balance, `data.accounts[${index}].balance`);
   }
+  if (item.sortOrder !== undefined) {
+    assertNumber(item.sortOrder, `data.accounts[${index}].sortOrder`);
+  }
+  assertDateString(item.trashedAt, `data.accounts[${index}].trashedAt`, { required: false });
 
   if (
     item.type !== undefined &&
@@ -375,7 +467,55 @@ function validateAccountItem(item: unknown, index: number): Account {
     type: item.type as Account['type'] | undefined,
     initialBalance:
       typeof item.initialBalance === 'number' ? Number(item.initialBalance) : undefined,
-    balance: typeof item.balance === 'number' ? Number(item.balance) : undefined
+    balance: typeof item.balance === 'number' ? Number(item.balance) : undefined,
+    sortOrder: typeof item.sortOrder === 'number' ? Number(item.sortOrder) : undefined,
+    trashedAt: asSafeString(item.trashedAt) || undefined
+  };
+}
+
+function validateBalanceChangeEntry(item: unknown, index: number): BalanceChangeEntry {
+  if (!isObjectRecord(item)) {
+    throw new Error(`澶囦唤鏂囦欢瀛楁鏃犳晥锛歞ata.balanceChangeEntries[${index}] 搴斾负瀵硅薄`);
+  }
+
+  assertString(item.id, `data.balanceChangeEntries[${index}].id`);
+  assertString(item.accountId, `data.balanceChangeEntries[${index}].accountId`);
+  assertNumber(item.amount, `data.balanceChangeEntries[${index}].amount`);
+  assertNumber(item.beforeBalance, `data.balanceChangeEntries[${index}].beforeBalance`);
+  assertNumber(item.afterBalance, `data.balanceChangeEntries[${index}].afterBalance`);
+  assertDateString(item.createdAt, `data.balanceChangeEntries[${index}].createdAt`);
+  assertString(item.transactionId, `data.balanceChangeEntries[${index}].transactionId`, {
+    required: false
+  });
+  assertString(
+    item.relatedTransactionId,
+    `data.balanceChangeEntries[${index}].relatedTransactionId`,
+    { required: false }
+  );
+  assertString(item.note, `data.balanceChangeEntries[${index}].note`, { required: false });
+  assertString(item.remark, `data.balanceChangeEntries[${index}].remark`, { required: false });
+
+  if (
+    typeof item.type !== 'string' ||
+    !BALANCE_CHANGE_TYPES.has(item.type as BalanceChangeEntry['type'])
+  ) {
+    throw new Error(
+      `澶囦唤鏂囦欢瀛楁鏃犳晥锛歞ata.balanceChangeEntries[${index}].type 鏋氫妇鍊间笉鍚堟硶`
+    );
+  }
+
+  return {
+    id: asSafeString(item.id),
+    accountId: asSafeString(item.accountId),
+    transactionId: asSafeString(item.transactionId) || undefined,
+    relatedTransactionId: asSafeString(item.relatedTransactionId) || undefined,
+    type: item.type as BalanceChangeEntry['type'],
+    amount: Number(item.amount),
+    beforeBalance: Number(item.beforeBalance),
+    afterBalance: Number(item.afterBalance),
+    createdAt: asSafeString(item.createdAt),
+    note: asSafeString(item.note) || undefined,
+    remark: asSafeString(item.remark) || undefined
   };
 }
 
@@ -393,20 +533,23 @@ function validateSubscriptionItem(item: unknown, index: number): SubscriptionIte
   assertString(item.accountId, `data.subscriptions[${index}].accountId`, { required: false });
   assertString(item.provider, `data.subscriptions[${index}].provider`, { required: false });
   assertString(item.note, `data.subscriptions[${index}].note`, { required: false });
-  assertDateString(item.renewalDate, `data.subscriptions[${index}].renewalDate`, { required: false });
+  assertDateString(item.renewalDate, `data.subscriptions[${index}].renewalDate`, {
+    required: false
+  });
   assertDateString(item.expireDate, `data.subscriptions[${index}].expireDate`, { required: false });
   assertDateString(item.lastGeneratedAt, `data.subscriptions[${index}].lastGeneratedAt`, {
     required: false
   });
-  assertString(item.lastGeneratedTransactionId, `data.subscriptions[${index}].lastGeneratedTransactionId`, {
-    required: false
-  });
+  assertString(
+    item.lastGeneratedTransactionId,
+    `data.subscriptions[${index}].lastGeneratedTransactionId`,
+    {
+      required: false
+    }
+  );
   assertDateString(item.trashedAt, `data.subscriptions[${index}].trashedAt`, { required: false });
 
-  if (
-    typeof item.kind !== 'string' ||
-    !SUBSCRIPTION_KINDS.has(item.kind as SubscriptionKind)
-  ) {
+  if (typeof item.kind !== 'string' || !SUBSCRIPTION_KINDS.has(item.kind as SubscriptionKind)) {
     throw new Error(`备份文件字段无效：data.subscriptions[${index}].kind 枚举值不合法`);
   }
 
@@ -456,21 +599,30 @@ function validateSubscriptionItem(item: unknown, index: number): SubscriptionIte
   };
 }
 
-export function createFinanceBackupPayload(input: {
-  transactions: TransactionItem[];
-  categories: Category[];
-  accounts: Account[];
-  subscriptions?: SubscriptionItem[];
-  globalMemories?: GlobalMemoryItem[];
-}): FinanceBackupPayload {
+export function createFinanceBackupPayload(
+  input: FinanceDataSnapshot & {
+    globalMemories?: GlobalMemoryItem[];
+  }
+): FinanceBackupPayload {
   return {
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
     data: {
       transactions: input.transactions,
       categories: input.categories,
       accounts: input.accounts,
       subscriptions: Array.isArray(input.subscriptions) ? input.subscriptions : [],
+      trashedTransactions: Array.isArray(input.trashedTransactions)
+        ? input.trashedTransactions
+        : [],
+      trashedCategories: Array.isArray(input.trashedCategories) ? input.trashedCategories : [],
+      trashedAccounts: Array.isArray(input.trashedAccounts) ? input.trashedAccounts : [],
+      balanceChangeEntries: Array.isArray(input.balanceChangeEntries)
+        ? input.balanceChangeEntries
+        : [],
+      trashedSubscriptions: Array.isArray(input.trashedSubscriptions)
+        ? input.trashedSubscriptions
+        : [],
       globalMemories: Array.isArray(input.globalMemories) ? input.globalMemories : []
     }
   };
@@ -507,6 +659,26 @@ export function parseFinanceBackupPayload(raw: string): FinanceBackupPayload {
     throw new Error('备份文件字段无效：data.subscriptions 应为数组');
   }
 
+  if (data.trashedTransactions !== undefined && !Array.isArray(data.trashedTransactions)) {
+    throw new Error('澶囦唤鏂囦欢瀛楁鏃犳晥锛歞ata.trashedTransactions 搴斾负鏁扮粍');
+  }
+
+  if (data.trashedCategories !== undefined && !Array.isArray(data.trashedCategories)) {
+    throw new Error('澶囦唤鏂囦欢瀛楁鏃犳晥锛歞ata.trashedCategories 搴斾负鏁扮粍');
+  }
+
+  if (data.trashedAccounts !== undefined && !Array.isArray(data.trashedAccounts)) {
+    throw new Error('澶囦唤鏂囦欢瀛楁鏃犳晥锛歞ata.trashedAccounts 搴斾负鏁扮粍');
+  }
+
+  if (data.balanceChangeEntries !== undefined && !Array.isArray(data.balanceChangeEntries)) {
+    throw new Error('澶囦唤鏂囦欢瀛楁鏃犳晥锛歞ata.balanceChangeEntries 搴斾负鏁扮粍');
+  }
+
+  if (data.trashedSubscriptions !== undefined && !Array.isArray(data.trashedSubscriptions)) {
+    throw new Error('澶囦唤鏂囦欢瀛楁鏃犳晥锛歞ata.trashedSubscriptions 搴斾负鏁扮粍');
+  }
+
   if (data.globalMemories !== undefined && !Array.isArray(data.globalMemories)) {
     throw new Error('备份文件字段无效：data.globalMemories 应为数组');
   }
@@ -514,9 +686,24 @@ export function parseFinanceBackupPayload(raw: string): FinanceBackupPayload {
   const transactions = data.transactions.map((item, index) => validateTransactionItem(item, index));
   const categories = data.categories.map((item, index) => validateCategoryItem(item, index));
   const accounts = data.accounts.map((item, index) => validateAccountItem(item, index));
-  const subscriptions = (Array.isArray(data.subscriptions) ? data.subscriptions : []).map((item, index) =>
-    validateSubscriptionItem(item, index)
+  const subscriptions = (Array.isArray(data.subscriptions) ? data.subscriptions : []).map(
+    (item, index) => validateSubscriptionItem(item, index)
   );
+  const trashedTransactions = (
+    Array.isArray(data.trashedTransactions) ? data.trashedTransactions : []
+  ).map((item, index) => validateTransactionItem(item, index));
+  const trashedCategories = (
+    Array.isArray(data.trashedCategories) ? data.trashedCategories : []
+  ).map((item, index) => validateCategoryItem(item, index));
+  const trashedAccounts = (Array.isArray(data.trashedAccounts) ? data.trashedAccounts : []).map(
+    (item, index) => validateAccountItem(item, index)
+  );
+  const balanceChangeEntries = (
+    Array.isArray(data.balanceChangeEntries) ? data.balanceChangeEntries : []
+  ).map((item, index) => validateBalanceChangeEntry(item, index));
+  const trashedSubscriptions = (
+    Array.isArray(data.trashedSubscriptions) ? data.trashedSubscriptions : []
+  ).map((item, index) => validateSubscriptionItem(item, index));
   const globalMemories = (Array.isArray(data.globalMemories) ? data.globalMemories : [])
     .map((item, index) => sanitizePersistedGlobalMemoryItem(item, index))
     .filter((item): item is GlobalMemoryItem => Boolean(item));
@@ -531,6 +718,11 @@ export function parseFinanceBackupPayload(raw: string): FinanceBackupPayload {
       categories,
       accounts,
       subscriptions,
+      trashedTransactions,
+      trashedCategories,
+      trashedAccounts,
+      balanceChangeEntries,
+      trashedSubscriptions,
       globalMemories
     }
   };
@@ -711,7 +903,10 @@ function splitRemoteDirAndFile(remoteFilePath: string): { dir: string; file: str
   return { dir: parts.join('/'), file };
 }
 
-function buildBackupFileMatchers(remoteFilePath: string): { targetFile: string; versionedPattern: RegExp } {
+function buildBackupFileMatchers(remoteFilePath: string): {
+  targetFile: string;
+  versionedPattern: RegExp;
+} {
   const { file: targetFile } = splitRemoteDirAndFile(remoteFilePath);
   const dotIndex = targetFile.lastIndexOf('.');
   const baseName = dotIndex > 0 ? targetFile.slice(0, dotIndex) : targetFile;
@@ -759,11 +954,7 @@ function extractHrefText(value: string): string {
   return value.replace(/&amp;/g, '&').trim();
 }
 
-function resolveRemotePathFromHref(
-  href: string,
-  endpoint: string,
-  remoteFilePath: string
-): string {
+function resolveRemotePathFromHref(href: string, endpoint: string, remoteFilePath: string): string {
   const parsed = new URL(href, endpoint);
   const endpointUrl = new URL(endpoint);
   const decodedPath = decodeURIComponent(parsed.pathname);
@@ -782,7 +973,9 @@ function resolveRemotePathFromHref(
     return normalizeRemoteFilePath(pathSegments.slice(startIndex).join('/'));
   }
 
-  return normalizeRemoteFilePath(pathSegments.slice(-((dir ? dirSegments.length : 0) + 1)).join('/'));
+  return normalizeRemoteFilePath(
+    pathSegments.slice(-((dir ? dirSegments.length : 0) + 1)).join('/')
+  );
 }
 
 function extractVersionedBackupPathsFromXml(text: string, remoteFilePath: string): string[] {
@@ -808,7 +1001,10 @@ function extractVersionedBackupPathsFromXml(text: string, remoteFilePath: string
   return Array.from(new Set(matched));
 }
 
-async function listWebdavRemoteFiles(config: BackupWebdavConfig, remoteFilePath: string): Promise<string[]> {
+async function listWebdavRemoteFiles(
+  config: BackupWebdavConfig,
+  remoteFilePath: string
+): Promise<string[]> {
   const sanitized = sanitizeWebdavConfig(config);
   const { dir } = splitRemoteDirAndFile(remoteFilePath);
   const listTarget = dir || remoteFilePath;
@@ -884,7 +1080,10 @@ function buildWebdavBackupVersionLabel(remotePath: string, baseRemoteFilePath: s
   return `${matched[1]}-${matched[2]}-${matched[3]} ${matched[4]}:${matched[5]}:${matched[6]}`;
 }
 
-function extractWebdavBackupVersionTimeLabel(remotePath: string, baseRemoteFilePath: string): string | null {
+function extractWebdavBackupVersionTimeLabel(
+  remotePath: string,
+  baseRemoteFilePath: string
+): string | null {
   const normalized = normalizeRemoteFilePath(remotePath);
   const { file: targetFile } = splitRemoteDirAndFile(baseRemoteFilePath);
   const fileName = normalized.split('/').pop() || normalized;
@@ -921,7 +1120,9 @@ export async function listWebdavBackupVersions(
       ];
     }
 
-    const latestVersioned = matched.find((item) => isVersionedBackupMatch(item, sanitized.remoteFilePath));
+    const latestVersioned = matched.find((item) =>
+      isVersionedBackupMatch(item, sanitized.remoteFilePath)
+    );
     const latestVersionedLabel = latestVersioned
       ? extractWebdavBackupVersionTimeLabel(latestVersioned, sanitized.remoteFilePath)
       : null;
@@ -986,7 +1187,10 @@ export async function webdavUploadBackup(
   try {
     const sanitized = sanitizeWebdavConfig(config);
     onProgress?.('准备 WebDAV 备份...');
-    const versionedRemotePath = buildVersionedBackupPath(sanitized.remoteFilePath, payload.exportedAt);
+    const versionedRemotePath = buildVersionedBackupPath(
+      sanitized.remoteFilePath,
+      payload.exportedAt
+    );
     const latestRemotePath = sanitized.remoteFilePath;
     await ensureWebdavDirectoriesByPath(sanitized, versionedRemotePath);
     const body = JSON.stringify(payload, null, 2);
