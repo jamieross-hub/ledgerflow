@@ -2348,6 +2348,8 @@
 
 .chat-input-meta {
   display: flex;
+  min-width: 0;
+  overflow: hidden;
   padding: 0 var(--space-2) var(--space-2);
 }
 
@@ -2366,6 +2368,13 @@
 .chat-input-context {
   display: inline-flex;
   align-items: center;
+  position: static;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+  z-index: auto;
+  pointer-events: auto;
   gap: var(--space-1);
   padding: 4px 8px;
   border-radius: var(--radius-md);
@@ -2376,6 +2385,7 @@
   align-self: flex-start;
   max-width: 100%;
   overflow: hidden;
+  box-shadow: none;
 }
 
 .chat-input-context strong {
