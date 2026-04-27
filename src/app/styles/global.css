@@ -12233,6 +12233,40 @@ body.categories-accounts-resizing {
   margin-bottom: 12px;
 }
 
+.finance-debt-manager-panel .finance-collapsible-body {
+  display: grid;
+  gap: 14px;
+}
+
+.finance-debt-manager-panel .finance-ledger-header {
+  margin-bottom: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border-light) 88%, transparent);
+}
+
+.finance-debt-manager-panel .finance-debt-form-grid {
+  gap: 14px;
+}
+
+.finance-primary-panel .finance-collapsible-summary {
+  padding-block: 16px 14px;
+}
+
+.finance-primary-panel .finance-collapsible-summary-text {
+  gap: 5px;
+}
+
+.finance-primary-panel .finance-collapsible-summary-side {
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.finance-primary-panel .finance-collapsible-side-label {
+  min-height: 24px;
+  padding-inline: 9px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
 .finance-ledger-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -12452,7 +12486,6 @@ body.categories-accounts-resizing {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .finance-collapsible-summary,
   .finance-debt-entry-header,
   .finance-ledger-header,
   .finance-debt-item {
@@ -12460,13 +12493,40 @@ body.categories-accounts-resizing {
     align-items: flex-start;
   }
 
+  .finance-mobile-collapsible-section > .finance-collapsible-summary {
+    align-items: flex-start;
+  }
+
+  .finance-mobile-collapsible-section > .finance-collapsible-summary .finance-collapsible-summary-text {
+    flex: 1;
+  }
+
   .finance-collapsible-summary-side {
-    width: 100%;
-    justify-content: space-between;
+    width: auto;
+    min-width: max-content;
+    justify-content: flex-end;
+    align-self: flex-start;
   }
 
   .finance-collapsible-body {
     padding: 0 14px 14px;
+  }
+
+  .finance-debt-manager-panel .finance-collapsible-body {
+    gap: 12px;
+  }
+
+  .finance-debt-manager-panel .finance-ledger-header .finance-debt-entry-icon {
+    display: none;
+  }
+
+  .finance-primary-panel .finance-collapsible-summary {
+    padding-block: 14px 12px;
+  }
+
+  .finance-primary-panel .finance-collapsible-summary-side {
+    gap: 5px;
+    padding-top: 1px;
   }
 
   .finance-income-inline-action,
