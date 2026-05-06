@@ -9,7 +9,7 @@
     <td><img src="docs/images/screenshot-1.png" alt="LedgerFlow screenshot 1" /></td>
     <td><img src="docs/images/screenshot-2.png" alt="LedgerFlow screenshot 2" /></td>
   </tr>
-  <tr>
+  <tr> 
     <td><img src="docs/images/screenshot-3.png" alt="LedgerFlow screenshot 3" /></td>
     <td><img src="docs/images/screenshot-4.png" alt="LedgerFlow screenshot 4" /></td>
   </tr>
